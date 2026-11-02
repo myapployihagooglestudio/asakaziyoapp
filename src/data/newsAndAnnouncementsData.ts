@@ -1,0 +1,71 @@
+import { AnnouncementItem, NewsItem } from '../types';
+
+export const COMMUNITY_NEWS: NewsItem[] = [
+  {
+    id: 'news-1',
+    title: 'Asaka markaziy jome masjidida yangi zamonaviy qiroat zali va kutubxona foydalanishga topshirildi',
+    publishedDate: '2-Noyabr, 2026',
+    category: 'Masjid hayoti',
+    summary: 'Asaka shahridagi markaziy jome masjidida yoshlar va qiroat ihlosmandlari uchun nodir qoʻlyozmalar va zamonaviy kitoblarga ega ziyo maskani ochildi.',
+    content: 'Asaka markaziy jome masjidi qoshida yangi taʼmirdan chiqqan kutubxona va tajvid xonasi oʻz ishini boshladi. Unda 3000 dan ziyod diniy va maʼrifiy adabiyotlar, fiqh, hadis, tafsir kitoblari jamlangan boʻlib, shahar aholisi uchun mutolaa qilish imkoniyati yaratildi.',
+    source: 'Asaka Ziyo axborot xizmati',
+    imageUrl: '/src/assets/images/islamic_scholarship_library_1793634659800.jpg',
+    isImportant: true,
+  },
+  {
+    id: 'news-2',
+    title: 'Andijon viloyati boʻyicha qorilar musobaqasining tuman bosqichlari boshlanmoqda',
+    publishedDate: '30-Oktyabr, 2026',
+    category: 'Musobaqa va anjuman',
+    summary: 'Yoshlar oʻrtasida Qurʼoni Karimni yod olish va chiroyli tilovat qilish boʻyicha viloyat koʻrik-tanlovining saralash bosqichlari eʼlon qilindi.',
+    content: 'Oʻzbekiston musulmonlari idorasi Andijon viloyat vakilligi tashabbusi bilan hududlarda anʼanaviy Qurʼon musobaqasi oʻtkazilishi belgilandi. Asaka tumani vakillari ham bir necha yoʻnalishda ishtirok etishi kutilmoqda.',
+    source: 'OʻMI Andijon vakilligi',
+    imageUrl: '/src/assets/images/asaka_islamic_architecture_1793634657962.jpg',
+  },
+  {
+    id: 'news-3',
+    title: 'Xayriya va saxovat tadbirlari: Asakada ehtiyojmand oilalarga oziq-ovqat va dori-darmon koʻmagi yetkazildi',
+    publishedDate: '27-Oktyabr, 2026',
+    category: 'Ijtimoiy saxovat',
+    summary: 'Saxovatpesha hamyurtlarimiz hamkorligida shahar va qishloqlardagi keksa va bemor hamyurtlarimiz holidan xabar olindi.',
+    content: 'Islom dinining insonparvarlik tamoyillariga muvofiq, koʻngillilar va saxovatpesha insonlar yordamida oʻnlab oilalarga moddiy va maʼnaviy koʻmak taqdim etildi.',
+    source: 'Vaqf xayriya jamgʻarmasi',
+  },
+];
+
+export const COMMUNITY_ANNOUNCEMENTS: AnnouncementItem[] = [
+  {
+    id: 'ann-1',
+    title: 'Juma maʼruzasi: «Qoʻshnichilik odoblari va oʻzaro mehr-oqibat»',
+    type: 'juma',
+    typeLabelUz: 'Juma maʼruzasi',
+    date: '6-Noyabr, 2026 (Juma)',
+    time: '12:15',
+    location: 'Asaka Markaziy Jome Masjidi',
+    speaker: 'Bosh imom-xatib',
+    description: 'Ushbu haftadagi juma suhbatida islomda qoʻshnining haq-huquqlari, yoshlarga tarbiya va mahallada tinchlik-totuvlikni asrash mavzusi yoritiladi.',
+    isPinned: true,
+  },
+  {
+    id: 'ann-2',
+    title: 'Qurʼon savodxonligi va tajvid darslariga yangi guruhlar qabuli',
+    type: 'talim',
+    typeLabelUz: 'Ilmiy darslik',
+    date: '9-Noyabr, 2026',
+    time: 'Haftaning dushanba va payshanba kunlari, 16:00',
+    location: 'Masjid qoshidagi oʻquv zali',
+    speaker: 'Qori ustozlar',
+    description: 'Arab alifbosi, harflar maxraji va Qurʼonni tajvid qoidalari asosida toʻgʻri oʻqishni oʻrganish istagidagi shahar yoshlari taklif etiladi.',
+    contact: '+998 (74) 233-00-11',
+  },
+  {
+    id: 'ann-3',
+    title: 'Masjid hududini obodonlashtirish va koʻkalamzorlashtirish hashari',
+    type: 'masjid',
+    typeLabelUz: 'Hashar',
+    date: '7-Noyabr, 2026 (Shanba)',
+    time: '08:00',
+    location: 'Asaka jome masjidi hovlisi',
+    description: 'Masjid atrofini qishki mavsumga tayyorlash, manzarali daraxtlar ekish va tozalik ishlariga barcha ixlosmandlar taklif etiladi.',
+  },
+];

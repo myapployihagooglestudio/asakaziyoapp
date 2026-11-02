@@ -1,0 +1,6 @@
+{
+  "name": "ASAKA ZIYO — Premium Islamic Digital Ecosystem",
+  "description": "Asaka shahri va mintaqa ahli uchun mo'ljallangan ilmiy-ma'rifiy islomiy raqamli platforma. Qur'oni Karim, hadislar, zikrlar, Asaka namoz vaqtlari va ma'muriyat konsoli.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
