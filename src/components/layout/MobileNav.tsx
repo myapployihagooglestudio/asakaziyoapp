@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { Home, BookOpen, Clock, Sparkles, MoreHorizontal } from 'lucide-react';
 
@@ -13,11 +14,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   onSelectTab,
   onOpenMoreMenu,
 }) => {
-  const items: { id: NavigationTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'home', label: 'Bosh sahifa', icon: <Home className="w-5 h-5" /> },
-    { id: 'quran', label: 'Qurʼon', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'prayer', label: 'Namoz', icon: <Clock className="w-5 h-5" /> },
-    { id: 'dhikr', label: 'Zikrlar', icon: <Sparkles className="w-5 h-5" /> },
+  const { t } = useTranslation('navigation');
+
+  const items: { id: NavigationTab; labelKey: string; icon: React.ReactNode }[] = [
+    { id: 'home', labelKey: 'home', icon: <Home className="w-5 h-5" /> },
+    { id: 'quran', labelKey: 'quran', icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'prayer', labelKey: 'prayer', icon: <Clock className="w-5 h-5" /> },
+    { id: 'dhikr', labelKey: 'dhikr', icon: <Sparkles className="w-5 h-5" /> },
   ];
 
   return (
@@ -40,19 +43,23 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               }`}
             >
               <div className="mb-0.5">{item.icon}</div>
-              <span className="text-[10px] tracking-tight whitespace-nowrap">{item.label}</span>
+              <span className="text-[10px] tracking-tight whitespace-nowrap">
+                {t(item.labelKey)}
+              </span>
             </button>
           );
         })}
         <button
           onClick={onOpenMoreMenu}
           className="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 transition-colors cursor-pointer min-w-[56px]"
-          aria-label="Barcha boʻlimlar"
+          aria-label={t('allSections', 'Boʻlimlar')}
         >
           <div className="mb-0.5">
             <MoreHorizontal className="w-5 h-5" />
           </div>
-          <span className="text-[10px] tracking-tight whitespace-nowrap">Boʻlimlar</span>
+          <span className="text-[10px] tracking-tight whitespace-nowrap">
+            {t('allSections', 'Boʻlimlar')}
+          </span>
         </button>
       </div>
     </nav>

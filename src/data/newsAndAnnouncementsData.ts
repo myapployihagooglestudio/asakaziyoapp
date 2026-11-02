@@ -11,6 +11,26 @@ export const COMMUNITY_NEWS: NewsItem[] = [
     source: 'Asaka Ziyo axborot xizmati',
     imageUrl: '/src/assets/images/islamic_scholarship_library_1793634659800.jpg',
     isImportant: true,
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Асака марказий жоме масжидида янги замонавий қироат зали ва кутубхона фойдаланишга топширилди',
+        summary: 'Асака шаҳридаги марказий жоме масжидида ёшлар ва қироат ихлосмандлари учун нодир қўлёзмалар ва замонавий китобларга эга зиё маскани очилди.',
+        content: 'Асака марказий жоме масжиди қошида янги таъмирдан чиққан кутубхона ва тажвид хонаси ўз ишини бошлади.',
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'В центральной соборной мечети Асаки открылись новый современный зал для чтения Корана и библиотека',
+        summary: 'При соборной мечети города Асака начал функционировать духовный центр с редкими рукописями и современными книгами.',
+        content: 'В соборной мечети города Асака завершился ремонт библиотеки и класса таджвида. В фонде собрано свыше 3000 томов исламской литературы.',
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'New Quran Recitation Hall and Islamic Library Inaugurated at Asaka Central Mosque',
+        summary: 'A scholarly center housing rare manuscripts and contemporary references has opened for community youth and reciters in Asaka.',
+        content: 'A newly renovated library and tajweed learning studio have commenced activities at Asaka Central Juma Mosque, featuring over 3,000 volumes.',
+      },
+    },
   },
   {
     id: 'news-2',
@@ -21,15 +41,23 @@ export const COMMUNITY_NEWS: NewsItem[] = [
     content: 'Oʻzbekiston musulmonlari idorasi Andijon viloyat vakilligi tashabbusi bilan hududlarda anʼanaviy Qurʼon musobaqasi oʻtkazilishi belgilandi. Asaka tumani vakillari ham bir necha yoʻnalishda ishtirok etishi kutilmoqda.',
     source: 'OʻMI Andijon vakilligi',
     imageUrl: '/src/assets/images/asaka_islamic_architecture_1793634657962.jpg',
-  },
-  {
-    id: 'news-3',
-    title: 'Xayriya va saxovat tadbirlari: Asakada ehtiyojmand oilalarga oziq-ovqat va dori-darmon koʻmagi yetkazildi',
-    publishedDate: '27-Oktyabr, 2026',
-    category: 'Ijtimoiy saxovat',
-    summary: 'Saxovatpesha hamyurtlarimiz hamkorligida shahar va qishloqlardagi keksa va bemor hamyurtlarimiz holidan xabar olindi.',
-    content: 'Islom dinining insonparvarlik tamoyillariga muvofiq, koʻngillilar va saxovatpesha insonlar yordamida oʻnlab oilalarga moddiy va maʼnaviy koʻmak taqdim etildi.',
-    source: 'Vaqf xayriya jamgʻarmasi',
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Андижон вилояти бўйича қорилар мусобақасининг туман босқичлари бошланмоқда',
+        summary: 'Ёшлар ўртасида Қуръони Каримни ёд олиш ва чиройли тиловат қилиш бўйича вилоят кўрик-танловининг саралаш босқичлари эълон қилинди.',
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'В Андижанской области стартуют районные отборочные этапы конкурса чтецов Корана',
+        summary: 'Объявлены отборочные туры регионального конкурса среди молодежи по заучиванию и благозвучной декламации Священного Корана.',
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'District Qualifying Rounds of the Regional Quran Reciters Competition Begin in Andijan',
+        summary: 'Regional qualifying rounds for youth in memorization (hifz) and melodious recitation of the Holy Quran announced.',
+      },
+    },
   },
 ];
 
@@ -45,6 +73,23 @@ export const COMMUNITY_ANNOUNCEMENTS: AnnouncementItem[] = [
     speaker: 'Bosh imom-xatib',
     description: 'Ushbu haftadagi juma suhbatida islomda qoʻshnining haq-huquqlari, yoshlarga tarbiya va mahallada tinchlik-totuvlikni asrash mavzusi yoritiladi.',
     isPinned: true,
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Жума маърузаси: «Қўшничилик одоблари ва ўзаро меҳр-оқибат»',
+        description: 'Ушбу ҳафтадаги жума суҳбатида исломда қўшнининг ҳақ-ҳуқуқлари, ёшларга тарбия ва маҳаллада тинчлик-тотувликни асраш мавзуси ёритилади.',
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'Пятничная проповедь: «Этика добрососедства и взаимное милосердие»',
+        description: 'В эту пятницу проповедь будет посвящена правам соседей в Исламе, воспитанию подрастающего поколения и согласию в общине.',
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'Friday Khutbah: «Neighborly Etiquette and Mutual Benevolence»',
+        description: 'This Friday’s sermon addresses the sacred rights of neighbors in Islamic teachings, youth moral upbringing, and communal harmony.',
+      },
+    },
   },
   {
     id: 'ann-2',
@@ -57,15 +102,22 @@ export const COMMUNITY_ANNOUNCEMENTS: AnnouncementItem[] = [
     speaker: 'Qori ustozlar',
     description: 'Arab alifbosi, harflar maxraji va Qurʼonni tajvid qoidalari asosida toʻgʻri oʻqishni oʻrganish istagidagi shahar yoshlari taklif etiladi.',
     contact: '+998 (74) 233-00-11',
-  },
-  {
-    id: 'ann-3',
-    title: 'Masjid hududini obodonlashtirish va koʻkalamzorlashtirish hashari',
-    type: 'masjid',
-    typeLabelUz: 'Hashar',
-    date: '7-Noyabr, 2026 (Shanba)',
-    time: '08:00',
-    location: 'Asaka jome masjidi hovlisi',
-    description: 'Masjid atrofini qishki mavsumga tayyorlash, manzarali daraxtlar ekish va tozalik ishlariga barcha ixlosmandlar taklif etiladi.',
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Қуръон саводхонлиги ва тажвид дарсларига янги гуруҳлар қабули',
+        description: 'Араб алифбоси, ҳарфлар махражи ва Қуръонни тажвид қоидалари асосида тўғри ўқишни ўрганиш истагидаги ёшлар таклиф этилади.',
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'Набор новых групп на уроки грамоты чтения Корана и таджвида',
+        description: 'Приглашается молодежь города для изучения арабской графики, правильной артикуляции букв (махрадж) и правил таджвида.',
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'Enrollment Open for New Quranic Literacy and Tajweed Classes',
+        description: 'Youth are invited to master the Arabic alphabet, letter articulation points (makharij), and verified tajweed recitation.',
+      },
+    },
   },
 ];

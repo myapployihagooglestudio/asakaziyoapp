@@ -20,6 +20,39 @@ export const EDITORIAL_ARTICLES: Article[] = [
       'Imom Gʻazzoliy rahmatullohi alayh «Ihyou ulumid-din» asarida taʼkidlaydilar: «Qurʼon tilovat qiluvchi kishi oyatlardagi vaʼd va vaʼiyd, jannat va doʻzax sifatlaridan ibratlanishi lozim. Rahm oyatlarini oʻqiganda umidvor boʻlib duo qilishi, azob oyatlariga yetganda esa Allohdan panoh soʻrashi mustahabdir».',
       'Asaka ahli azaldan qiroat va ilmga oshno boʻlib kelgan. Xonadonlarimizda Qurʼon sadosining jaranglab turishi butun xonadonimiz va yurtimizga ilohiy baraka olib keladi.',
     ],
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Қуръон қироати ва тадаббур одоблари: Қалбни нурлантирувчи амаллар',
+        subtitle: 'Каломуллоҳни шунчаки тил билан эмас, бутун вужуд ва тафаккур билан ўқишнинг руҳий сирлари',
+        excerpt: 'Қуръони Карим — башарият учун ҳидоят, шифо ва нажот манбаидир. Уни ўқиш ва тадаббур қилиш орқали инсон қалби хотиржамлик топади.',
+        bodyParagraphs: [
+          'Аллоҳ таолонинг Каломи бўлмиш Қуръони Карим бандаларга нозил қилинган энг улуғ илоҳий дастурдир. Ҳар бир мўмин учун ушбу китобни тиловати ва унинг маъноларига чуқур назар солиш қалб хотиржамлигининг асосий сабабидир.',
+          'Уламоларимиз баён қилганларидек, Қуръон тиловат қилишнинг зоҳирий ва ботиний одоблари мавжуд.',
+          'Асака аҳли азалдан қироат ва илмга ошно бўлиб келган.',
+        ],
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'Этика чтения Корана и глубокого размышления: Озарение сердец',
+        subtitle: 'Духовные секреты чтения Слова Аллаха разумом и всем естеством',
+        excerpt: 'Священный Коран — источник верного руководства, исцеления и спасения для всего человечества.',
+        bodyParagraphs: [
+          'Священный Коран, являясь Словом Всевышнего Аллаха, представляет собой величайшее руководство для человечества. Чтение его аятов и глубокое размышление над их смыслами даруют сердцу верующего непоколебимый покой.',
+          'Исламские ученые подчеркивают, что чтение Корана имеет как внешние правила (чистота тела и одежды, обращение к Кибле), так и внутренние — искреннее благоговение и освобождение разума от мирской суеты.',
+        ],
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'Etiquette of Quran Recitation and Contemplation: Illuminating the Heart',
+        subtitle: 'Spiritual secrets of reciting the Divine Word with conscious mindfulness and profound reflection',
+        excerpt: 'The Holy Quran is the supreme source of guidance, healing, and salvation for all mankind.',
+        bodyParagraphs: [
+          'The Holy Quran, being the uncreated Word of Allah, is the grandest divine guidance revealed to humanity. For every believer, engaging with its recitation and reflecting on its profound meanings is the foundational wellspring of spiritual tranquility.',
+          'As our noble classical scholars have delineated, recitation encompasses both outward decencies—ritual purity, facing the Qibla, dignified composure—and inward disciplines of heart-presence and sincere receptivity.',
+        ],
+      },
+    },
   },
   {
     id: 'art-2',
@@ -38,6 +71,26 @@ export const EDITORIAL_ARTICLES: Article[] = [
       'Bugungi zamonaviy texnologiyalar asrida vaqtni behuda sarflash, ijtimoiy tarmoqlardagi foydasiz maʼlumotlar oqimiga gʻarq boʻlish katta maʼnaviy yoʻqotishlarga sabab boʻlmoqda. Moʻmin kishi oʻz vaqtini ilm, ibodat, halol kasb-kor va oila manfaati uchun toʻgʻri taqsimlay bilishi shart.',
       'Namoz vaqtlari ham aslida inson hayotini intizomga soluvchi ilohiy rejalashtirish vositasidir. Tongdan to tun qorongʻisigacha boʻlgan besh vaqt namoz kishini beparvolikdan uygʻotib turadi.',
     ],
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Исломда вақт ва умр неъматининг қадри',
+        subtitle: 'Бой берилган сонияларнинг ўрни тўлдирилмаслиги ва мувозанатли кун тартиби',
+        excerpt: 'Инсон ҳаёти унга берилган чекланган нафаслар йиғиндисидир. Ҳар бир ўтган кун инсоннинг бир бўлаги кетганини англатади.',
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'Ценность времени и благословения жизни в Исламе',
+        subtitle: 'Невосполнимость упущенных мгновений и сбалансированный распорядок дня верующего',
+        excerpt: 'Жизнь человека — это ограниченный сосчитанный запас вдохов. Каждый прошедший день уносит часть нашего земного бытия.',
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'The Value of Time and the Blessing of Life in Islam',
+        subtitle: 'The irreplaceability of lost moments and maintaining a balanced daily schedule',
+        excerpt: 'Human life is a sum of finite counted breaths. Every passing day signifies that a part of oneself has departed.',
+      },
+    },
   },
   {
     id: 'art-3',
@@ -56,5 +109,25 @@ export const EDITORIAL_ARTICLES: Article[] = [
       'Asaka va uning atrofidagi qishloqlarda ham madrasalar, boy qoʻlyozma fondlariga ega kutubxonalar faoliyat yuritgan. Ota-bobolarimiz nafaqat diniy ilmlar, balki tabobat, riyoziyot va falakiyot sohalarida ham yuksak natijalarga erishganlar.',
       'Ushbu merosni bugungi avlodga toʻgʻri yetkazish, Asaka Ziyo platformasi orqali raqamli muhitda ilmiy haqiqatlarni xolis taqdim etish bizning umumiy burchimizdir.',
     ],
+    translations: {
+      'uz-Cyrl': {
+        status: 'PUBLISHED',
+        title: 'Фарғона водийси ва Андижон алломалари: Илмий мерос ва анъана',
+        subtitle: 'Мовароуннаҳр заминида етишиб чиққан буюк фақиҳлар, муҳаддислар ва муфассирлар ҳаётидан лавҳалар',
+        excerpt: 'Андижон ва Асака замини азалдан илм-фан, фиқҳ ва ҳадис мактаблари гуллаб-яшнаган муқаддас масканлардан биридир.',
+      },
+      ru: {
+        status: 'PUBLISHED',
+        title: 'Ученые Ферганской долины и Андижана: Научное наследие и традиции',
+        subtitle: 'Страницы жизни великих правоведов, мухаддисов и толкователей Мавераннахра',
+        excerpt: 'Земля Андижана и Асаки издавна была благословенной колыбелью процветания исламского права и богословия.',
+      },
+      en: {
+        status: 'PUBLISHED',
+        title: 'Scholars of the Fergana Valley and Andijan: Intellectual Legacy and Tradition',
+        subtitle: 'Chronicles from the lives of prominent jurists, traditionists, and exegetes of Transoxiana',
+        excerpt: 'The fertile region of Andijan and Asaka has historically flourished as a venerable center of jurisprudence and Hadith.',
+      },
+    },
   },
 ];

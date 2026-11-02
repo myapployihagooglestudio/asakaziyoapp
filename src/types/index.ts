@@ -16,6 +16,23 @@ export type NavigationTab =
   | 'settings'
   | 'admin';
 
+export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
+
+export type TranslationStatus = 'PUBLISHED' | 'DRAFT' | 'MISSING';
+
+export interface LocalizedContentEntry {
+  title: string;
+  subtitle?: string;
+  excerpt?: string;
+  summary?: string;
+  description?: string;
+  bodyParagraphs?: string[];
+  content?: string;
+  status: TranslationStatus;
+  translator?: string;
+  lastUpdated?: string;
+}
+
 export interface PrayerTimeEntry {
   id: string;
   key: 'bomdod' | 'quyosh' | 'peshin' | 'asr' | 'shom' | 'xufton';
@@ -50,15 +67,25 @@ export interface Surah {
   pageNumber: number;
 }
 
+export interface AyahTranslationMetadata {
+  language: SupportedLocale;
+  translator: string;
+  source: string;
+  version: string;
+  text: string;
+  tafsir?: string;
+}
+
 export interface Ayah {
   id: string;
   number: number;
   numberInSurah: number;
   surahNumber: number;
   surahNameUz: string;
-  textAr: string;
+  textAr: string; // Arabic source text — NEVER modified during locale changes
   translationUz: string;
   transliterationUz: string;
+  translations?: Partial<Record<SupportedLocale, AyahTranslationMetadata>>;
   audioUrl?: string;
   tafsirSummaryUz?: string;
 }
@@ -111,6 +138,7 @@ export interface Article {
   bodyParagraphs: string[];
   keyQuote?: string;
   isFeatured?: boolean;
+  translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
 export interface NewsItem {
@@ -123,6 +151,7 @@ export interface NewsItem {
   source: string;
   imageUrl?: string;
   isImportant?: boolean;
+  translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
 export interface AnnouncementItem {
@@ -134,9 +163,12 @@ export interface AnnouncementItem {
   time?: string;
   location: string;
   speaker?: string;
+  organizer?: string;
   description: string;
   contact?: string;
+  contactPhone?: string;
   isPinned?: boolean;
+  translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
 export type UserRole =
@@ -172,6 +204,7 @@ export interface FavoriteItem {
   subtitle: string;
   snippet: string;
   timestamp: number;
+  savedAt?: string | number;
   routeTab: NavigationTab;
   routeId: string;
 }

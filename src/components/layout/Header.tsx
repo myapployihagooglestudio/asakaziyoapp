@@ -1,34 +1,39 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { IslamicStarEmblem } from '../ui/GeometricPattern';
-import { Menu, X, Shield, Bookmark, Settings as SettingsIcon } from 'lucide-react';
+import { LanguageSelector } from '../ui/LanguageSelector';
+import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   favoritesCount: number;
+  onOpenInstallModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onSelectTab,
   favoritesCount,
+  onOpenInstallModal,
 }) => {
+  const { t } = useTranslation(['navigation', 'common']);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Top Bar Contract: 4-5 core concise nav links in Zone 2
-  const primaryLinks: { id: NavigationTab; label: string }[] = [
-    { id: 'home', label: 'Bosh sahifa' },
-    { id: 'quran', label: 'Qurʼon' },
-    { id: 'hadith', label: 'Hadislar' },
-    { id: 'dhikr', label: 'Zikr va duolar' },
-    { id: 'prayer', label: 'Namoz vaqtlari' },
+  const primaryLinks: { id: NavigationTab; labelKey: string }[] = [
+    { id: 'home', labelKey: 'home' },
+    { id: 'quran', labelKey: 'quran' },
+    { id: 'hadith', labelKey: 'hadith' },
+    { id: 'dhikr', labelKey: 'dhikr' },
+    { id: 'prayer', labelKey: 'prayer' },
   ];
 
-  const secondaryLinks: { id: NavigationTab; label: string }[] = [
-    { id: 'articles', label: 'Maqolalar' },
-    { id: 'news', label: 'Yangiliklar' },
-    { id: 'announcements', label: 'Eʼlonlar' },
+  const secondaryLinks: { id: NavigationTab; labelKey: string }[] = [
+    { id: 'articles', labelKey: 'articles' },
+    { id: 'news', labelKey: 'news' },
+    { id: 'announcements', labelKey: 'announcements' },
   ];
 
   const handleNavClick = (tab: NavigationTab) => {
@@ -39,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-stone-200 dark:border-[#c5a869]/20 bg-white/95 dark:bg-[#071614]/95 backdrop-blur-md transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-8 h-18">
+        <div className="flex items-center justify-between gap-6 h-18">
           {/* Zone 1: Single element brand wordmark */}
           <button
             onClick={() => handleNavClick('home')}
@@ -49,14 +54,14 @@ export const Header: React.FC<HeaderProps> = ({
               <IslamicStarEmblem size={18} className="text-[#c5a869]" />
             </div>
             <span className="font-display text-xl font-bold tracking-wider text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-              ASAKA ZIYO
+              {t('common:appName', 'ASAKA ZIYO')}
             </span>
           </button>
 
           {/* Zone 2: 4-5 concise single-line nav links with subtle hover underlines */}
           <nav
-            className="hidden lg:flex items-center gap-7 text-sm font-medium text-stone-600 dark:text-stone-300"
-            aria-label="Asosiy menyu"
+            className="hidden lg:flex items-center gap-6 text-sm font-medium text-stone-600 dark:text-stone-300"
+            aria-label={t('navigation:navigationMenu', 'Asosiy menyu')}
           >
             {primaryLinks.map((link) => {
               const isActive = activeTab === link.id;
@@ -70,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
-                  {link.label}
+                  {t(`navigation:${link.labelKey}`)}
                   {isActive && (
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c5a869] rounded-full" />
                   )}
@@ -78,8 +83,8 @@ export const Header: React.FC<HeaderProps> = ({
               );
             })}
 
-            {/* Overflow dropdown or secondary links */}
-            <div className="flex items-center gap-5 text-stone-400 dark:text-stone-500 pl-2 border-l border-stone-200 dark:border-emerald-950">
+            {/* Overflow secondary links */}
+            <div className="flex items-center gap-4 text-stone-400 dark:text-stone-500 pl-2 border-l border-stone-200 dark:border-emerald-950">
               {secondaryLinks.map((link) => (
                 <button
                   key={link.id}
@@ -90,22 +95,38 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'hover:text-stone-700 dark:hover:text-stone-300'
                   }`}
                 >
-                  {link.label}
+                  {t(`navigation:${link.labelKey}`)}
                 </button>
               ))}
             </div>
           </nav>
 
-          {/* Zone 3: 1 primary action + utility links */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Zone 3: Language Selector + Actions */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* APK Version 1 / Install Action */}
+            {onOpenInstallModal && (
+              <button
+                onClick={onOpenInstallModal}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-[#c5a869] to-[#d8bd7e] text-[#071614] hover:brightness-105 transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                title="ASAKA ZIYO APK Version 1 yuklab olish"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">APK v1.0</span>
+                <span className="sm:hidden">APK</span>
+              </button>
+            )}
+
+            {/* 5-Language Selector */}
+            <LanguageSelector variant="compact" />
+
             {/* Favorites shortcut */}
             <button
               onClick={() => handleNavClick('favorites')}
               className={`relative p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
                 activeTab === 'favorites' ? 'text-[#c5a869]' : ''
               }`}
-              title="Sevimlilar"
-              aria-label="Sevimlilar"
+              title={t('navigation:favorites', 'Sevimlilar')}
+              aria-label={t('navigation:favorites', 'Sevimlilar')}
             >
               <Bookmark className="w-5 h-5" />
               {favoritesCount > 0 && (
@@ -121,13 +142,13 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
                 activeTab === 'settings' ? 'text-[#c5a869]' : ''
               }`}
-              title="Sozlamalar"
-              aria-label="Sozlamalar"
+              title={t('navigation:settings', 'Sozlamalar')}
+              aria-label={t('navigation:settings', 'Sozlamalar')}
             >
               <SettingsIcon className="w-5 h-5" />
             </button>
 
-            {/* Admin entry point - distinct institutional portal */}
+            {/* Admin entry point */}
             <button
               onClick={() => handleNavClick('admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
@@ -135,17 +156,17 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
                   : 'bg-emerald-950/20 text-emerald-800 dark:text-[#c5a869] border-emerald-800/30 dark:border-[#c5a869]/30 hover:border-[#c5a869]'
               }`}
-              title="Maʼmuriyat konsoli"
+              title={t('navigation:admin', 'Maʼmuriyat')}
             >
               <Shield className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Maʼmuriyat</span>
+              <span className="hidden sm:inline">{t('navigation:admin', 'Maʼmuriyat')}</span>
             </button>
 
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-              aria-label={mobileMenuOpen ? 'Menyuni yopish' : 'Menyuni ochish'}
+              aria-label={mobileMenuOpen ? t('common:close') : t('common:search')}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -155,7 +176,20 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-stone-200 dark:border-emerald-950 bg-stone-50/98 dark:bg-[#071614]/98 px-4 pt-3 pb-6">
+        <div className="lg:hidden border-b border-stone-200 dark:border-emerald-950 bg-stone-50/98 dark:bg-[#071614]/98 px-4 pt-3 pb-6 space-y-3">
+          {onOpenInstallModal && (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenInstallModal();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#c5a869] to-[#d8bd7e] text-[#071614] font-bold text-xs shadow-md cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>APK Version 1 Yuklab Olish / Oʻrnatish</span>
+            </button>
+          )}
+
           <div className="grid grid-cols-2 gap-2 text-sm font-medium">
             {[...primaryLinks, ...secondaryLinks].map((link) => {
               const isActive = activeTab === link.id;
@@ -169,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/50 dark:hover:bg-white/5'
                   }`}
                 >
-                  {link.label}
+                  {t(`navigation:${link.labelKey}`)}
                 </button>
               );
             })}

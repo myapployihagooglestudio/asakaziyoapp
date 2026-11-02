@@ -32,7 +32,10 @@ import {
   ExternalLink,
   Plus,
   RefreshCw,
+  Languages,
+  Copy,
 } from 'lucide-react';
+import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 
 interface AdminPortalProps {
   currentSchedule: PrayerSchedule;
@@ -44,6 +47,7 @@ type AdminTab =
   | 'dashboard'
   | 'prayer_schedule'
   | 'content'
+  | 'localization'
   | 'users'
   | 'roles'
   | 'telegram'
@@ -74,6 +78,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     'Asaka Jome Masjidi: Bugungi Peshin namozi vaqti 12:05 da kirdi. Jamoat iqomati: 12:25.'
   );
   const [telegramStatus, setTelegramStatus] = useState<string | null>(null);
+
+  // Localization converter test-bench state
+  const [converterInput, setConverterInput] = useState(
+    'Shoshilinch xabar: Chiroyli Asaka shahrida yangi oʻquv markazi va gʻalaba bogʻi ochildi.'
+  );
+  const [converterCopied, setConverterCopied] = useState(false);
 
   const activeRoleConfig =
     ADMIN_ROLES_CONFIG.find((r) => r.role === activeRole) || ADMIN_ROLES_CONFIG[0];
@@ -226,6 +236,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             { id: 'dashboard', label: 'Boshqaruv paneli', icon: <Sliders className="w-4 h-4" /> },
             { id: 'prayer_schedule', label: 'Namoz vaqtlari boshqaruvi', icon: <Clock className="w-4 h-4" /> },
             { id: 'content', label: 'Kontent boshqaruvi', icon: <FileText className="w-4 h-4" /> },
+            { id: 'localization', label: 'Tarjimalar va Yangi Alifbo', icon: <Languages className="w-4 h-4" /> },
             { id: 'users', label: 'Foydalanuvchilar va imomlar', icon: <Users className="w-4 h-4" /> },
             { id: 'roles', label: 'Rollar va huquqlar matritsasi', icon: <ShieldCheck className="w-4 h-4" /> },
             { id: 'telegram', label: 'Telegram integratsiyasi', icon: <Send className="w-4 h-4" /> },
@@ -492,6 +503,130 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 ))}
               </div>
             </Card>
+          )}
+
+          {/* TAB: LOCALIZATION & NEW UZBEK ALPHABET */}
+          {activeTab === 'localization' && (
+            <div className="space-y-6">
+              {/* 5-Locale System Status */}
+              <Card elevated className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                      5 Ta Rasmiy Til va Yozuv Tizimi Holati
+                    </h3>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                      Asaka Ziyo ekotizimida toʻliq qoʻllab-quvvatlanadigan lokallar va yozuv turlari.
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono-numbers px-2.5 py-1 rounded bg-[#c5a869]/10 text-[#c5a869] font-bold border border-[#c5a869]/30">
+                    5/5 Lokallar Faol
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                  {[
+                    { code: 'uz-Latn', name: 'O‘zbekcha (Lotin)', type: 'Asosiy manba', status: 'FAOL · 100%', badge: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' },
+                    { code: 'uz-Cyrl', name: 'Ўзбекча (Кирилл)', type: 'Kirill yozuvi', status: 'FAOL · 100%', badge: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' },
+                    { code: 'uz-Latn-new', name: 'Özbekcha (Yangi alifbo)', type: 'Isloh qilingan alifbo (ş, ç, ö, ğ)', status: 'AVTO-KONVERTSIYA · 100%', badge: 'bg-[#c5a869]/15 text-[#c5a869] border-[#c5a869]/40' },
+                    { code: 'ru', name: 'Русский', type: 'Xalqaro til', status: 'FAOL · 100%', badge: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' },
+                    { code: 'en', name: 'English', type: 'International', status: 'FAOL · 100%', badge: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' },
+                  ].map((loc) => (
+                    <div key={loc.code} className="p-3.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-stone-900 dark:text-stone-100">{loc.name}</span>
+                        <span className={`text-[10px] font-mono-numbers px-2 py-0.5 rounded border ${loc.badge}`}>{loc.status}</span>
+                      </div>
+                      <div className="text-[11px] text-stone-400 font-mono-numbers">{loc.code} · {loc.type}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Interactive New Uzbek Alphabet Live Converter Workbench */}
+              <Card elevated className="p-6 space-y-5 border-[#c5a869]/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                      <Languages className="w-5 h-5 text-[#c5a869]" />
+                      <span>Yangi Oʻzbek Alifbosi Jonli Konvertatsiya Dastgohi</span>
+                    </h3>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                      Standard Lotin matnini yangi alifboga (sh→ş, ch→ç, oʻ→ö, gʻ→ğ) qoidalar asosida bir zumda oʻgirish va tekshirish vositasi.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Input Source */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-stone-700 dark:text-stone-300 block">
+                      Manba matn (Standart Lotin - uz-Latn):
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={converterInput}
+                      onChange={(e) => setConverterInput(e.target.value)}
+                      placeholder="Masalan: Shoshilinch xabar, chiroyli shahar, oʻzbekiston, gʻalaba..."
+                      className="w-full p-3 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-[#c5a869] font-sans"
+                    />
+                  </div>
+
+                  {/* Transformed Output */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-[#c5a869] block">
+                        Yangi Alifbo Natijasi (uz-Latn-new):
+                      </label>
+                      <button
+                        onClick={() => {
+                          const converted = toNewUzbekAlphabet(converterInput);
+                          try {
+                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                              navigator.clipboard.writeText(converted).catch(() => {});
+                            }
+                          } catch (e) {}
+                          setConverterCopied(true);
+                          setTimeout(() => setConverterCopied(false), 2000);
+                        }}
+                        className="text-[11px] text-[#c5a869] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>{converterCopied ? 'Nusxa olindi!' : 'Nusxa olish'}</span>
+                      </button>
+                    </div>
+                    <div className="w-full p-3 h-[122px] overflow-y-auto text-xs sm:text-sm rounded-xl border border-[#c5a869]/40 bg-[#c5a869]/5 text-stone-900 dark:text-stone-100 font-sans whitespace-pre-wrap">
+                      {toNewUzbekAlphabet(converterInput)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Validation Guarantees checklist */}
+                <div className="p-4 rounded-xl bg-stone-50 dark:bg-[#071614] border border-stone-200/60 dark:border-emerald-950/60 space-y-2 text-xs">
+                  <div className="font-semibold text-stone-700 dark:text-stone-300">
+                    Himoyalangan Algoritm Kafolatlari:
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-stone-500 dark:text-stone-400 text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>Arabcha oyat va hadis matnlari 100% oʻzgarmay saqlanadi</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>URL manzillari va email pochtalari daxlsiz qoladi</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>Bosh harf/kichik harf muvofiqligi (Sh→Ş, Ch→Ç, Oʻ→Ö, Gʻ→Ğ)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>Takroriy konversiya xatosi (double transformation) yoʻq</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
           )}
 
           {/* TAB 4: USERS MANAGEMENT */}

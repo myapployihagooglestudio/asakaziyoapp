@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Ayah, HadithItem, NavigationTab, PrayerSchedule } from '../../../types';
+import { useTranslation } from 'react-i18next';
+import { Ayah, HadithItem, NavigationTab, PrayerSchedule, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { GeometricPattern } from '../../ui/GeometricPattern';
+import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
+import { getNextPrayerCalculation } from '../../../utils/prayerTimeUtils';
 import {
   Clock,
-  Compass,
   BookOpen,
   Sparkles,
   ArrowRight,
@@ -13,9 +15,8 @@ import {
   Volume2,
   Calendar,
   AlertCircle,
-  ShieldCheck,
   ChevronRight,
-  Share2,
+  Compass,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -43,6 +44,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onToggleFavorite,
   isFavorited,
 }) => {
+  const { t, i18n } = useTranslation(['home', 'common', 'prayer', 'quran', 'hadith']);
+  const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
+
   const [currentTime, setCurrentTime] = useState<string>('');
   const [playingAudio, setPlayingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
@@ -52,7 +56,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       try {
         const now = new Date();
         setCurrentTime(
-          now.toLocaleTimeString('uz-UZ', {
+          now.toLocaleTimeString(currentLocale === 'ru' ? 'ru-RU' : currentLocale === 'en' ? 'en-US' : 'uz-UZ', {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
@@ -66,7 +70,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentLocale]);
 
   const handlePlayAudio = (url?: string) => {
     if (!url) return;
@@ -94,30 +98,41 @@ export const HomeView: React.FC<HomeViewProps> = ({
     }
   };
 
+  // Get localized ayah translation text safely
+  const ayahTranslationText =
+    dailyAyah.translations?.[currentLocale]?.text ||
+    (currentLocale === 'uz-Latn-new'
+      ? toNewUzbekAlphabet(dailyAyah.translationUz)
+      : dailyAyah.translationUz);
+
+  const ayahTranslatorName =
+    dailyAyah.translations?.[currentLocale]?.translator ||
+    'Shayx Muhammad Sodiq Muhammad Yusuf';
+
+  // Get localized hadith translation safely
+  const hadithTranslationText =
+    currentLocale === 'uz-Latn-new'
+      ? toNewUzbekAlphabet(dailyHadith.translationUz)
+      : dailyHadith.translationUz;
+
   return (
     <div className="space-y-12 pb-16">
-      {/* 1. HERO SECTION: Refined Editorial Presence */}
+      {/* 1. HERO SECTION */}
       <section className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-stone-900 text-white min-h-[440px] flex items-center shadow-xl">
-        {/* Background Photography Asset */}
         <img
           src="/src/assets/images/asaka_islamic_architecture_1793634657962.jpg"
-          alt="Asaka Islomiy Meʼmoriyati va Madaniyat Maskani"
+          alt="Asaka Islamic Architecture"
           referrerPolicy="no-referrer"
           className="absolute inset-0 w-full h-full object-cover object-center brightness-75 transition-transform duration-1000"
         />
 
-        {/* Measured Contrast Scrim & Subtle Geometric Tessellation */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#031d17]/95 via-[#031d17]/85 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#031d17] via-transparent to-transparent opacity-90" />
         <GeometricPattern opacity={0.06} />
 
-        {/* Content Container */}
         <div className="relative z-10 max-w-4xl px-6 sm:px-10 lg:px-14 py-12 space-y-6">
-          {/* Unboxed Metadata Header per §1.A */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#c5a869] tracking-wider uppercase">
-            <span>Asaka shahri</span>
-            <span aria-hidden="true">·</span>
-            <span>Andijon viloyati</span>
+            <span>{t('common:location', 'Asaka shahri')}</span>
             <span aria-hidden="true">·</span>
             <span>{prayerSchedule.formattedDateUz}</span>
             <span aria-hidden="true">·</span>
@@ -125,11 +140,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-white leading-tight text-balance">
-            ASAKA ZIYO — Maʼrifat, Hikmat va Saxovat Maskani
+            {t('home:heroTitle')}
           </h1>
 
           <p className="text-sm sm:text-base text-stone-200 max-w-2xl leading-relaxed">
-            Qurʼoni Karim tilovati, moʻtabar hadislar toʻplami, Asaka shahri namoz vaqtlari jadvali hamda hududiy jamoat hayotini birlashtirgan zamonaviy raqamli platforma.
+            {t('home:heroSubtitle')}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -140,7 +155,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="gap-2"
             >
               <Clock className="w-4 h-4" />
-              <span>Namoz vaqtlarini koʻrish</span>
+              <span>{t('home:heroPrayerCta')}</span>
             </Button>
             <Button
               variant="outline"
@@ -149,24 +164,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="gap-2 bg-black/30 backdrop-blur-sm border-[#c5a869]/50 text-stone-100 hover:text-white"
             >
               <BookOpen className="w-4 h-4" />
-              <span>Qurʼoni Karimni ochish</span>
+              <span>{t('home:heroQuranCta')}</span>
             </Button>
           </div>
         </div>
       </section>
 
-      {/* 2. PRAYER TIMES AREA: Administrator-Managed Schedule & Compliance */}
+      {/* 2. PRAYER TIMES AREA */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs text-[#c5a869] uppercase tracking-wider font-semibold mb-1">
               <Clock className="w-3.5 h-3.5" />
-              <span>Namoz Vaqtlari</span>
+              <span>{t('navigation:prayer')}</span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono-numbers">{currentTime} (Asaka)</span>
+              <span className="font-mono-numbers">{currentTime} ({t('common:tashkentTime')})</span>
             </div>
             <h2 className="text-2xl font-display font-bold text-stone-900 dark:text-stone-100">
-              Bugungi Ibodat Vaqtlari
+              {t('home:todayPrayers')}
             </h2>
           </div>
 
@@ -177,39 +192,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => onNavigate('prayer')}
               className="text-[#c5a869] hover:text-[#d4af37]"
             >
-              <span>Toʻliq jadval va Qibla</span>
+              <span>{t('home:fullScheduleAndQibla')}</span>
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
         </div>
 
-        {/* Administrator Verification Disclaimer per Strict Requirement */}
+        {/* Preview disclaimer */}
         <div className="flex items-start gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs leading-relaxed">
           <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
           <div>
-            <span className="font-semibold">Meʼmoriy namuna maʼlumotlari: </span>
+            <span className="font-semibold">{t('prayer:previewNoticeTitle')}: </span>
             {prayerSchedule.disclaimer}
           </div>
         </div>
 
         {/* Prayer Time Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {prayerSchedule.times.map((p, idx) => {
-            const isHighlight = p.key === 'peshin'; // Sample highlighting
-            return (
-              <Card
-                key={p.id}
-                elevated={isHighlight}
-                interactive
-                onClick={() => onNavigate('prayer')}
-                className={`p-4 transition-all ${
-                  isHighlight
-                    ? 'border-[#c5a869] bg-gradient-to-b from-[#c5a869]/10 to-transparent dark:from-[#c5a869]/15'
-                    : ''
-                }`}
-              >
+        {(() => {
+          const nextPrayerInfo = getNextPrayerCalculation(prayerSchedule.times);
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {prayerSchedule.times.map((p) => {
+                const isHighlight = nextPrayerInfo.nextPrayer?.key === p.key;
+                const translatedName = t(`prayer:${p.key}`, p.nameUz);
+
+                return (
+                  <Card
+                    key={p.id}
+                    elevated={isHighlight}
+                    interactive
+                    onClick={() => onNavigate('prayer')}
+                    className={`p-4 transition-all ${
+                      isHighlight
+                        ? 'border-[#c5a869] ring-2 ring-[#c5a869]/40 bg-gradient-to-b from-[#c5a869]/15 to-transparent'
+                        : ''
+                    }`}
+                  >
                 <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
-                  <span>{p.nameUz}</span>
+                  <span>{translatedName}</span>
                   <span className="font-arabic text-sm text-[#c5a869]">{p.nameAr}</span>
                 </div>
                 <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100 tracking-tight my-1">
@@ -217,20 +237,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </div>
                 {p.iqamahTime ? (
                   <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                    Jamoat: <span className="font-mono-numbers text-stone-700 dark:text-stone-300 font-medium">{p.iqamahTime}</span>
+                    {t('prayer:iqamahTime')}: <span className="font-mono-numbers text-stone-700 dark:text-stone-300 font-medium">{p.iqamahTime}</span>
                   </div>
                 ) : (
                   <div className="text-[11px] text-stone-400 dark:text-stone-500 italic">
-                    Chiqish vaqti
+                    {t('prayer:entryTime')}
                   </div>
                 )}
               </Card>
             );
           })}
         </div>
+          );
+        })()}
       </section>
 
-      {/* 3. DAILY ISLAMIC CONTENT FEATURE: Ayat al-Kursi & Featured Hadith */}
+      {/* 3. DAILY ISLAMIC CONTENT FEATURE */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Quran Ayah */}
         <Card elevated className="p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
@@ -238,11 +260,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="space-y-4 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                <span className="font-semibold text-[#c5a869]">Kun Oyati</span>
+                <span className="font-semibold text-[#c5a869]">{t('home:dailyAyahKicker')}</span>
                 <span aria-hidden="true">·</span>
-                <span>{dailyAyah.surahNameUz} surasi</span>
+                <span>{dailyAyah.surahNameUz}</span>
                 <span aria-hidden="true">·</span>
-                <span className="font-mono-numbers">{dailyAyah.numberInSurah}-oyat</span>
+                <span className="font-mono-numbers">{dailyAyah.numberInSurah}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -252,7 +274,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
                       : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
                   }`}
-                  title="Tilovatni tinglash"
+                  title={t('quran:listenAudio')}
                 >
                   <Volume2 className="w-4 h-4" />
                 </button>
@@ -261,9 +283,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     onToggleFavorite({
                       id: dailyAyah.id,
                       type: 'ayah',
-                      title: `${dailyAyah.surahNameUz} surasi, ${dailyAyah.numberInSurah}-oyat`,
-                      subtitle: 'Oyatul Kursiy',
-                      snippet: dailyAyah.translationUz,
+                      title: `${dailyAyah.surahNameUz}, ${dailyAyah.numberInSurah}`,
+                      subtitle: 'Ayat al-Kursi',
+                      snippet: ayahTranslationText,
                       routeTab: 'quran',
                       routeId: dailyAyah.id,
                     })
@@ -273,14 +295,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
                       : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
                   }`}
-                  title="Sevimlilarga qoʻshish"
+                  title={t('quran:addToFavorites')}
                 >
                   <Bookmark className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Arabic Calligraphy Typography */}
+            {/* Arabic Calligraphy (Untouched) */}
             <p
               dir="rtl"
               className="font-arabic text-2xl sm:text-3xl text-stone-900 dark:text-amber-100/95 leading-loose text-right pt-2"
@@ -290,15 +312,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
             {/* Translation */}
             <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed font-editorial italic pt-2">
-              «{dailyAyah.translationUz}»
+              «{ayahTranslationText}»
             </p>
 
-            {dailyAyah.tafsirSummaryUz && (
-              <p className="text-xs text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-emerald-950/60 pt-3">
-                <span className="font-semibold text-stone-700 dark:text-stone-300">Tafsir izohi: </span>
-                {dailyAyah.tafsirSummaryUz}
-              </p>
-            )}
+            <div className="text-xs text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-emerald-950/60 pt-3">
+              {ayahTranslatorName}
+            </div>
           </div>
 
           <div className="pt-6 relative z-10">
@@ -308,7 +327,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => onNavigate('quran')}
               className="w-full sm:w-auto"
             >
-              <span>Qurʼon boʻlimiga oʻtish</span>
+              <span>{t('home:heroQuranCta')}</span>
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
@@ -320,7 +339,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="space-y-4 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                <span className="font-semibold text-[#c5a869]">Kun Hadisi</span>
+                <span className="font-semibold text-[#c5a869]">{t('home:dailyHadithKicker')}</span>
                 <span aria-hidden="true">·</span>
                 <span>{dailyHadith.collectionNameUz}</span>
                 <span aria-hidden="true">·</span>
@@ -335,7 +354,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     type: 'hadith',
                     title: `${dailyHadith.collectionNameUz}, №${dailyHadith.number}`,
                     subtitle: dailyHadith.narratorUz,
-                    snippet: dailyHadith.translationUz,
+                    snippet: hadithTranslationText,
                     routeTab: 'hadith',
                     routeId: dailyHadith.id,
                   })
@@ -345,17 +364,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
                     : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
                 }`}
-                title="Sevimlilarga qoʻshish"
+                title={t('common:save')}
               >
                 <Bookmark className="w-4 h-4" />
               </button>
             </div>
 
             <div className="text-xs text-stone-500 dark:text-stone-400">
-              Roviy: <span className="font-medium text-stone-800 dark:text-stone-200">{dailyHadith.narratorUz}</span>
+              {t('hadith:narratorLabel')}: <span className="font-medium text-stone-800 dark:text-stone-200">{dailyHadith.narratorUz}</span>
             </div>
 
-            {/* Arabic Hadith */}
+            {/* Arabic Hadith (Untouched) */}
             <p
               dir="rtl"
               className="font-arabic text-xl sm:text-2xl text-stone-900 dark:text-amber-100/95 leading-relaxed text-right pt-2"
@@ -363,13 +382,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {dailyHadith.textAr}
             </p>
 
-            {/* Uzbek translation */}
             <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed font-editorial italic pt-2">
-              {dailyHadith.translationUz}
+              «{hadithTranslationText}»
             </p>
 
             <div className="text-xs text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-emerald-950/60 pt-3">
-              Manba: {dailyHadith.reference}
+              {t('hadith:referenceLabel')}: {dailyHadith.reference}
             </div>
           </div>
 
@@ -380,17 +398,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => onNavigate('hadith')}
               className="w-full sm:w-auto"
             >
-              <span>Barcha hadislarni oʻqish</span>
+              <span>{t('hadith:allCollections')}</span>
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
         </Card>
       </section>
 
-      {/* 4. QUICK-ACCESS SHORTCUTS: Thoughtful Islamic Tools */}
+      {/* 4. QUICK-ACCESS SHORTCUTS */}
       <section className="space-y-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-          Tezkor Maʼrifiy Xizmatlar
+          {t('home:quickServices')}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card
@@ -403,10 +421,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                Elektron Tasbeh
+                {t('home:tasbihTitle')}
               </h4>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                33 va 99 martalik zikrlar hisoblagichi va duolar
+                {t('home:tasbihSubtitle')}
               </p>
             </div>
           </Card>
@@ -421,10 +439,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                Asaka Qiblasi
+                {t('home:qiblaTitle')}
               </h4>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                241° Gʻarb-Janubi-Gʻarb aniq kompas koʻrsatkichi
+                {t('home:qiblaSubtitle')}
               </p>
             </div>
           </Card>
@@ -439,10 +457,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                Ilmiy Maqolalar
+                {t('home:articlesTitle')}
               </h4>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                Aqoid, fiqh, axloq va vodiy allomalari merosi
+                {t('home:articlesSubtitle')}
               </p>
             </div>
           </Card>
@@ -457,34 +475,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                Jamoat Eʼlonlari
+                {t('home:announcementsTitle')}
               </h4>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                Juma suhbatlari, tajvid kurslari va xayriya
+                {t('home:announcementsSubtitle')}
               </p>
             </div>
           </Card>
         </div>
       </section>
 
-      {/* 5. EDITORIAL SHOWCASE: Asaka & Knowledge Legacy */}
+      {/* 5. EDITORIAL SHOWCASE */}
       <section className="relative rounded-2xl overflow-hidden border border-stone-200 dark:border-emerald-950 bg-stone-100/50 dark:bg-[#0c1f1c] p-6 sm:p-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
           <div className="md:col-span-2 space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-              <span>Ilm va Maʼrifat Buloqlari</span>
-              <span aria-hidden="true">·</span>
-              <span>Kutubxona</span>
+              <span>{t('home:libraryKicker')}</span>
             </div>
             <h3 className="text-2xl sm:text-3xl font-display font-bold text-stone-900 dark:text-stone-100 leading-snug">
-              Movarounnahr va Fargʻona Vodiysi Allomalari Merosi
+              {t('home:libraryTitle')}
             </h3>
             <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-              Asaka zamini qadimdan fiqh, tafsir va hadis ilmlarining markazlaridan biri boʻlib kelgan. Bizning vazifamiz — ajdodlarimizning boy maʼnaviy boyligini zamonaviy raqamli texnologiyalar vositasida xalqimizga yetkazishdir.
+              {t('home:libraryDescription')}
             </p>
             <div className="pt-2">
               <Button variant="primary" size="sm" onClick={() => onNavigate('articles')}>
-                <span>Maqolalar bilan tanishish</span>
+                <span>{t('home:libraryCta')}</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -492,7 +508,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="rounded-xl overflow-hidden border border-[#c5a869]/30 aspect-[4/3] shadow-md">
             <img
               src="/src/assets/images/islamic_scholarship_library_1793634659800.jpg"
-              alt="Islomiy kutubxona va qadimiy qoʻlyozmalar"
+              alt="Islamic Library"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
             />

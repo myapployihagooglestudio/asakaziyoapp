@@ -85,3 +85,21 @@ Platforma quyidagi xizmatlar bilan oson integratsiya qilinishi uchun tayyorlanga
 - **VIEWER**: Hisobotlar va audit jurnallarini oʻqish.
 
 > **Muhim**: Frontendda rol oʻzgartirish koʻrgazmali simulyatsiya hisoblanadi. Haqiqiy xavfsizlik faqat server tarafida (Server-side validation) taʼminlanadi.
+
+---
+
+## 5. Koʻp Tillilik Arxitekturasi (5-Locale Multilingual Architecture)
+
+Loyiha toʻliq ajratilgan 5 ta lokal va yozuv tizimini qoʻllab-quvvatlaydi:
+1. `uz-Latn`: Standart Oʻzbek Lotin yozuvi (asosiy boshqaruv bazasi).
+2. `uz-Cyrl`: Oʻzbek Kirill yozuvi.
+3. `uz-Latn-new`: Yangi isloh qilingan Oʻzbek alifbosi (`ş`, `ç`, `ö`, `ğ`).
+4. `ru`: Rus tili.
+5. `en`: Ingliz tili.
+
+### Yangi Oʻzbek Alifbosi Xususiyatlari:
+- `toNewUzbekAlphabet` moduli matndagi `sh` → `ş`, `ch` → `ç`, `oʻ` → `ö`, `gʻ` → `ğ` oʻzgarishlarini barcha bosh/kichik harflar va apostrof turlari (ʻ, ', ‘, ’, `, ʹ, ʼ) boʻyicha hisobga oladi.
+- Arabcha manbalar (oyat va hadislar), URL, email va HTML teglari konversiyadan himoyalangan (daxlsiz).
+- Takroriy konversiya xatosi boʻlmaydi.
+- Fallback zanjiri: `requestedLocale` → `uz-Latn-new (auto-transform)` → `uz-Latn (source)`.
+

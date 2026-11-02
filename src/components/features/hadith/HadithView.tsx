@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { HadithItem, NavigationTab } from '../../../types';
+import { useTranslation } from 'react-i18next';
+import { HadithItem, NavigationTab, SupportedLocale } from '../../../types';
 import { AUTHENTIC_HADITHS } from '../../../data/hadithData';
 import { Card } from '../../ui/Card';
-import { Button } from '../../ui/Button';
 import { GeometricPattern } from '../../ui/GeometricPattern';
-import { Search, Bookmark, Check, Share2, BookMarked, Filter } from 'lucide-react';
+import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
+import { Search, Bookmark, Check, Share2, BookMarked } from 'lucide-react';
 
 interface HadithViewProps {
   onToggleFavorite: (item: {
@@ -23,16 +24,26 @@ export const HadithView: React.FC<HadithViewProps> = ({
   onToggleFavorite,
   isFavorited,
 }) => {
+  const { t, i18n } = useTranslation();
+  const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
+
   const [activeCollection, setActiveCollection] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const collections = [
-    { id: 'all', label: 'Barcha hadislar' },
-    { id: 'bukhari', label: 'Sahihi Buxoriy' },
-    { id: 'muslim', label: 'Sahihi Muslim' },
-    { id: 'nawawi', label: 'Navaviy (Arbaʼin)' },
+    { id: 'all', label: t('hadith:allHadiths') },
+    { id: 'bukhari', label: t('hadith:sahihBukhari') },
+    { id: 'muslim', label: t('hadith:sahihMuslim') },
+    { id: 'nawawi', label: t('hadith:nawawi40') },
   ];
+
+  const getLocalizedText = (text: string) => {
+    if (currentLocale === 'uz-Latn-new') {
+      return toNewUzbekAlphabet(text);
+    }
+    return text;
+  };
 
   const filteredHadiths = AUTHENTIC_HADITHS.filter((hadith) => {
     const matchesCollection =
@@ -46,7 +57,10 @@ export const HadithView: React.FC<HadithViewProps> = ({
   });
 
   const handleCopyHadith = (hadith: HadithItem) => {
-    const text = `${hadith.textAr}\n\n«${hadith.translationUz}»\n(${hadith.collectionNameUz}, ${hadith.narratorUz} rivoyati, ${hadith.reference})`;
+    const locTranslation = getLocalizedText(hadith.translationUz);
+    const locCollection = getLocalizedText(hadith.collectionNameUz);
+    const locNarrator = getLocalizedText(hadith.narratorUz);
+    const text = `${hadith.textAr}\n\n«${locTranslation}»\n(${locCollection}, ${locNarrator} ${t('hadith:narratedBy')}, ${hadith.reference})`;
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
         navigator.clipboard.writeText(text).catch(() => {});
@@ -66,47 +80,45 @@ export const HadithView: React.FC<HadithViewProps> = ({
         <div className="relative z-10 max-w-2xl space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
             <BookMarked className="w-3.5 h-3.5" />
-            <span>Sunnati Nabaviya</span>
+            <span>{t('hadith:sunnah')}</span>
             <span aria-hidden="true">·</span>
-            <span>Moʻtabar Manbalar</span>
+            <span>{t('hadith:sources')}</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
-            Hadislar Toʻplami
+            {t('hadith:title')}
           </h1>
           <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-            Rasululloh sollallohu alayhi vasallamning muborak hadisi shariflari. Barcha rivoyatlar asl arabiy matni, isnodi va manbasi bilan keltirilgan.
+            {t('hadith:subtitle')}
           </p>
         </div>
       </div>
 
-      {/* Filter and Search Bar per §1.A (Segmented functional buttons) */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        {/* Collection Filter Buttons */}
-        <div className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-[#091a18] rounded-xl border border-stone-200 dark:border-emerald-950 overflow-x-auto">
-          {collections.map((col) => {
-            const isActive = activeCollection === col.id;
+      {/* Collection filter tabs + Search */}
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          {collections.map((c) => {
+            const isSelected = activeCollection === c.id;
             return (
               <button
-                key={col.id}
-                onClick={() => setActiveCollection(col.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'bg-white dark:bg-[#0d211e] text-[#c5a869] shadow-sm font-semibold border border-[#c5a869]/30'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                key={c.id}
+                onClick={() => setActiveCollection(c.id)}
+                className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border transition-all cursor-pointer ${
+                  isSelected
+                    ? 'border-[#c5a869] bg-[#c5a869] text-[#071614] font-semibold shadow-sm'
+                    : 'border-stone-200/80 dark:border-emerald-950 bg-white dark:bg-[#0d211e]/70 text-stone-700 dark:text-stone-300 hover:border-[#c5a869]/40'
                 }`}
               >
-                {col.label}
+                {c.label}
               </button>
             );
           })}
         </div>
 
-        {/* Search input */}
-        <div className="relative w-full md:w-80">
+        <div className="relative min-w-[260px]">
           <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Hadis matni, roviy yoki mavzu..."
+            placeholder={t('hadith:searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#c5a869]"
@@ -114,36 +126,38 @@ export const HadithView: React.FC<HadithViewProps> = ({
         </div>
       </div>
 
-      {/* Hadiths list */}
+      {/* Hadith list */}
       <div className="space-y-6">
         {filteredHadiths.map((hadith) => {
           const isSaved = isFavorited(hadith.id);
+          const locTranslation = getLocalizedText(hadith.translationUz);
+          const locCollection = getLocalizedText(hadith.collectionNameUz);
+          const locNarrator = getLocalizedText(hadith.narratorUz);
+          const locChapter = getLocalizedText(hadith.chapterUz);
 
           return (
-            <Card key={hadith.id} elevated className="p-6 sm:p-8 space-y-4">
-              {/* Unboxed Metadata row per §1.A */}
+            <Card key={hadith.id} className="p-6 sm:p-8 space-y-5">
+              {/* Top metadata row */}
               <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 border-b border-stone-100 dark:border-emerald-950/60 pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-stone-900 dark:text-stone-200">
-                    {hadith.collectionNameUz}
+                  <span className="font-semibold text-[#c5a869]">{locCollection}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono-numbers">#{hadith.number}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
+                    {hadith.grade}
                   </span>
-                  <span aria-hidden="true">·</span>
-                  <span className="font-mono-numbers">№{hadith.number}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{hadith.chapterUz}</span>
-                  <span aria-hidden="true">·</span>
-                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{hadith.grade}</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() =>
                       onToggleFavorite({
                         id: hadith.id,
                         type: 'hadith',
-                        title: `${hadith.collectionNameUz}, №${hadith.number}`,
-                        subtitle: hadith.narratorUz,
-                        snippet: hadith.translationUz,
+                        title: `${locCollection}, #${hadith.number}`,
+                        subtitle: `${locNarrator} ${t('hadith:narratedBy')}`,
+                        snippet: locTranslation,
                         routeTab: 'hadith',
                         routeId: hadith.id,
                       })
@@ -153,7 +167,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
                         ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
                         : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
                     }`}
-                    title="Sevimlilarga qoʻshish"
+                    title={t('common:save')}
                   >
                     <Bookmark className="w-4 h-4" />
                   </button>
@@ -161,7 +175,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
                   <button
                     onClick={() => handleCopyHadith(hadith)}
                     className="p-1.5 rounded-lg border border-stone-200 dark:border-emerald-950 text-stone-500 hover:text-[#c5a869] transition-colors cursor-pointer"
-                    title="Nusxa olish"
+                    title={t('common:copy')}
                   >
                     {copiedId === hadith.id ? (
                       <Check className="w-4 h-4 text-emerald-500" />
@@ -172,33 +186,31 @@ export const HadithView: React.FC<HadithViewProps> = ({
                 </div>
               </div>
 
-              {/* Narrator */}
-              <div className="text-xs text-stone-500 dark:text-stone-400">
-                Roviy: <span className="font-medium text-stone-800 dark:text-stone-200">{hadith.narratorUz}</span>
-              </div>
-
-              {/* Arabic Hadith */}
+              {/* Arabic text (Authentic source, strictly never changed by translation) */}
               <p
                 dir="rtl"
-                className="font-arabic text-xl sm:text-2xl text-stone-900 dark:text-amber-100/95 leading-relaxed text-right pt-2"
+                className="font-arabic text-stone-900 dark:text-amber-100/95 text-right text-xl sm:text-2xl leading-loose"
               >
                 {hadith.textAr}
               </p>
 
               {/* Translation */}
-              <p className="text-sm sm:text-base text-stone-800 dark:text-stone-200 font-editorial leading-relaxed pt-2">
-                {hadith.translationUz}
-              </p>
-
-              {/* Reference */}
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-emerald-950/40 pt-3">
-                <span>Manba: {hadith.reference}</span>
-                <div className="flex items-center gap-1.5">
-                  {hadith.keywords.map((k) => (
-                    <span key={k} className="text-stone-500 dark:text-stone-400">
-                      #{k}
-                    </span>
-                  ))}
+              <div className="space-y-2 pt-1 border-t border-stone-100/60 dark:border-emerald-950/40">
+                <p className="text-sm sm:text-base text-stone-800 dark:text-stone-200 font-editorial leading-relaxed">
+                  «{locTranslation}»
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400 pt-1">
+                  <span>
+                    <strong>{t('hadith:narrator')}:</strong> {locNarrator}
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    <strong>{t('hadith:chapter')}:</strong> {locChapter}
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono-numbers">
+                    <strong>{t('hadith:reference')}:</strong> {hadith.reference}
+                  </span>
                 </div>
               </div>
             </Card>

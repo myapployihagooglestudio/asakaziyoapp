@@ -1,13 +1,16 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { IslamicStarEmblem } from '../ui/GeometricPattern';
-import { MapPin, BookOpen, Compass, Shield, Heart } from 'lucide-react';
+import { MapPin, Shield } from 'lucide-react';
 
 interface FooterProps {
   onSelectTab: (tab: NavigationTab) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
+  const { t } = useTranslation(['navigation', 'common', 'home']);
+
   return (
     <footer className="w-full border-t border-stone-200 dark:border-emerald-950/80 bg-stone-100/60 dark:bg-[#05110f] text-stone-600 dark:text-stone-400 py-12 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -19,22 +22,22 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                 <IslamicStarEmblem size={16} className="text-[#c5a869]" />
               </div>
               <span className="font-display text-lg font-bold text-stone-900 dark:text-stone-100 tracking-wider">
-                ASAKA ZIYO
+                {t('common:appName', 'ASAKA ZIYO')}
               </span>
             </div>
             <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-              Asaka shahri va Fargʻona vodiysi ahli uchun moʻljallangan ilmiy-maʼrifiy, islomiy raqamli platforma.
+              {t('home:heroSubtitle', 'Asaka shahri va Fargʻona vodiysi ahli uchun moʻljallangan ilmiy-maʼrifiy, islomiy raqamli platforma.')}
             </p>
             <div className="flex items-center gap-1.5 text-xs text-[#c5a869]">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span>Asaka shahri, Andijon viloyati</span>
+              <span>{t('common:location', 'Asaka shahri, Andijon viloyati')}</span>
             </div>
           </div>
 
-          {/* Col 2: Asosiy bo'limlar */}
+          {/* Col 2: Spiritual Sources */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-900 dark:text-stone-200 mb-3">
-              Ilmiy-diniy manbalar
+              {t('home:libraryKicker', 'Ilmiy-diniy manbalar')}
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
@@ -42,7 +45,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('quran')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Qurʼoni Karim (Tilovat va tarjima)
+                  {t('navigation:quran', 'Qurʼoni Karim')}
                 </button>
               </li>
               <li>
@@ -50,7 +53,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('hadith')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Sahihi Buxoriy va Hadislar toʻplami
+                  {t('navigation:hadith', 'Hadislar toʻplami')}
                 </button>
               </li>
               <li>
@@ -58,7 +61,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('dhikr')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Zikr va duolar (Hisnul Muslim)
+                  {t('navigation:dhikr', 'Zikr va duolar')}
                 </button>
               </li>
               <li>
@@ -66,16 +69,16 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('articles')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Tahririy maqolalar va hikmatlar
+                  {t('navigation:articles', 'Ilmiy maqolalar')}
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Col 3: Shahar va jamoat */}
+          {/* Col 3: Community & Mosque */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-900 dark:text-stone-200 mb-3">
-              Shahar va Jamoat
+              {t('home:announcementsTitle', 'Shahar va Jamoat')}
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
@@ -83,7 +86,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('prayer')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Asaka namoz vaqtlari jadvali
+                  {t('navigation:prayer', 'Namoz vaqtlari jadvali')}
                 </button>
               </li>
               <li>
@@ -91,7 +94,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('announcements')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Masjid eʼlonlari va juma maʼruzalari
+                  {t('navigation:announcements', 'Eʼlonlar')}
                 </button>
               </li>
               <li>
@@ -99,7 +102,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('news')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Diniy-maʼrifiy yangiliklar
+                  {t('navigation:news', 'Yangiliklar')}
                 </button>
               </li>
               <li>
@@ -107,16 +110,16 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('favorites')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Saqlangan oyat va duolar
+                  {t('navigation:favorites', 'Sevimlilar')}
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Col 4: Tizim me'moriyati */}
+          {/* Col 4: System and Admin */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-900 dark:text-stone-200 mb-3">
-              Tizim va Maʼmuriyat
+              {t('navigation:admin', 'Tizim va Maʼmuriyat')}
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
@@ -125,7 +128,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   className="hover:text-[#c5a869] transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Maʼmuriyat konsoli (Kirish)</span>
+                  <span>{t('navigation:admin', 'Maʼmuriyat konsoli')}</span>
                 </button>
               </li>
               <li>
@@ -133,29 +136,27 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   onClick={() => onSelectTab('settings')}
                   className="hover:text-[#c5a869] transition-colors cursor-pointer"
                 >
-                  Tizim sozlamalari va shriftlar
+                  {t('navigation:settings', 'Sozlamalar')}
                 </button>
               </li>
               <li className="pt-2">
-                <span className="text-[11px] text-stone-400 dark:text-stone-500 block">
-                  Vaqt mintaqasi: Asia/Tashkent (UTC+5)
+                <span className="text-[11px] text-stone-400 dark:text-stone-500 block font-mono-numbers">
+                  UTC+5 · Asia/Tashkent
                 </span>
-                <span className="text-[11px] text-stone-400 dark:text-stone-500 block">
-                  Qibla yoʻnalishi: 241° (Gʻarb-Janubi-Gʻarb)
+                <span className="text-[11px] text-stone-400 dark:text-stone-500 block font-mono-numbers">
+                  Qibla: 241° (WSW)
                 </span>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Quiet copyright & attribution */}
-        <div className="pt-8 border-t border-stone-200 dark:border-emerald-950/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500 dark:text-stone-500">
-          <p>© {new Date().getFullYear()} ASAKA ZIYO. Barcha huquqlar himoyalangan.</p>
-          <div className="flex items-center gap-4">
-            <span className="text-stone-400 dark:text-stone-600">·</span>
-            <span>Islomiy qadriyatlar va ilmiy meros uygʻunligi</span>
-            <span className="text-stone-400 dark:text-stone-600">·</span>
-            <span className="text-[#c5a869]/80">Phase 1 Foundation</span>
+        {/* Quiet copyright */}
+        <div className="pt-8 border-t border-stone-200 dark:border-emerald-950/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
+          <p>© {new Date().getFullYear()} ASAKA ZIYO. All rights reserved.</p>
+          <div className="flex items-center gap-3">
+            <span>{t('common:appTagline')}</span>
+            <span className="text-[#c5a869]/80 font-mono-numbers">Phase 1.5 Multilingual</span>
           </div>
         </div>
       </div>

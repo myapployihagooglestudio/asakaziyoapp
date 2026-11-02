@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { PrayerSchedule, PrayerTimeEntry } from '../../../types';
+import { useTranslation } from 'react-i18next';
+import { PrayerSchedule, PrayerTimeEntry, SupportedLocale } from '../../../types';
 import { MONTHLY_CALENDAR_PREVIEW } from '../../../data/prayerTimesData';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { GeometricPattern } from '../../ui/GeometricPattern';
+import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
+import { getNextPrayerCalculation, NextPrayerInfo } from '../../../utils/prayerTimeUtils';
 import {
   Clock,
   Compass,
@@ -24,23 +27,34 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
   schedule,
   onOpenAdmin,
 }) => {
-  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'qibla'>('daily');
-  const [countdownText, setCountdownText] = useState<string>('02:44:18');
+  const { t, i18n } = useTranslation();
+  const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
-  // Realistic countdown calculation simulation for next prayer
+  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'qibla'>('daily');
+  const [prayerCalculation, setPrayerCalculation] = useState<NextPrayerInfo>(() =>
+    getNextPrayerCalculation(schedule.times)
+  );
+
+  // Live dynamic countdown calculation for the actual next prayer
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const secondsLeft = 3600 * 2 + 60 * 44 - (now.getSeconds() % 60);
-      const h = Math.floor(secondsLeft / 3600);
-      const m = Math.floor((secondsLeft % 3600) / 60);
-      const s = secondsLeft % 60;
-      setCountdownText(
-        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-      );
-    }, 1000);
+    const updateCountdown = () => {
+      setPrayerCalculation(getNextPrayerCalculation(schedule.times));
+    };
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [schedule.times]);
+
+  const getLocalizedPrayerName = (key: string, defaultName: string) => {
+    return t(`prayer:${key}`, { defaultValue: defaultName });
+  };
+
+  const getLocalizedText = (text: string) => {
+    if (currentLocale === 'uz-Latn-new') {
+      return toNewUzbekAlphabet(text);
+    }
+    return text;
+  };
 
   return (
     <div className="space-y-8 pb-16">
@@ -50,245 +64,271 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
         <div className="relative z-10 max-w-3xl space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
             <Clock className="w-3.5 h-3.5" />
-            <span>Asaka Shahri</span>
+            <span>{t('prayer:regionCity')}</span>
             <span aria-hidden="true">·</span>
-            <span>Andijon Viloyati</span>
+            <span>{t('prayer:regionProvince')}</span>
             <span aria-hidden="true">·</span>
             <span>Asia/Tashkent (UTC+5)</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
-            Namoz Vaqtlari Jadvali
+            {t('prayer:title')}
           </h1>
           <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-            Asaka shahri koordinatalari (40.6415° N, 72.2387° E) boʻyicha kunlik besh vaqt namoz, quyosh chiqishi va jamoat iqomat vaqtlari.
+            {t('prayer:subtitle')}
           </p>
         </div>
       </div>
 
-      {/* Strict Compliance Disclaimer */}
-      <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs sm:text-sm space-y-2 leading-relaxed">
-        <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>Muhim eslatma: Maʼmuriyat tomonidan tasdiqlanish tartibi</span>
+      {/* Verification Status Banner */}
+      <div
+        className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+          schedule.isAdministratorPublished
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200'
+            : 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          {schedule.isAdministratorPublished ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+          ) : (
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+          )}
+          <div className="text-xs sm:text-sm">
+            <div className="font-semibold">
+              {schedule.isAdministratorPublished
+                ? t('prayer:statusVerified')
+                : t('prayer:statusPending')}
+            </div>
+            <div className="opacity-80 text-[11px] font-mono-numbers">
+              {schedule.isAdministratorPublished
+                ? `${t('prayer:verifiedByLabel')}: ${schedule.publishedBy} · ${schedule.verifiedAt}`
+                : t('prayer:pendingDisclaimer')}
+            </div>
+          </div>
         </div>
-        <p className="text-stone-700 dark:text-amber-100/90 text-xs">
-          {schedule.disclaimer}
-        </p>
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-amber-500/20 text-xs">
-          <span>
-            Holat: <strong className="text-amber-700 dark:text-amber-400">Koʻrgazmali qoralama (Preview)</strong>
-          </span>
-          <button
-            onClick={onOpenAdmin}
-            className="text-[#c5a869] hover:underline font-semibold cursor-pointer"
-          >
-            Maʼmuriyat konsolida jadvalni boshqarish →
-          </button>
-        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onOpenAdmin}
+          className="text-xs shrink-0 self-end sm:self-center"
+        >
+          {t('prayer:verifyButton')}
+        </Button>
       </div>
 
-      {/* Segmented Mode Tabs per §1.A */}
-      <div className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-[#091a18] rounded-xl border border-stone-200 dark:border-emerald-950 w-fit">
+      {/* Tabs */}
+      <div className="flex border-b border-stone-200 dark:border-emerald-950/80 gap-2">
         <button
           onClick={() => setActiveTab('daily')}
-          className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
             activeTab === 'daily'
-              ? 'bg-white dark:bg-[#0d211e] text-[#c5a869] shadow-sm font-semibold border border-[#c5a869]/30'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              ? 'border-[#c5a869] text-[#c5a869]'
+              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
           }`}
         >
-          Bugungi jadval
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <span>{t('prayer:tabDaily')}</span>
+          </div>
         </button>
+
         <button
           onClick={() => setActiveTab('monthly')}
-          className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
             activeTab === 'monthly'
-              ? 'bg-white dark:bg-[#0d211e] text-[#c5a869] shadow-sm font-semibold border border-[#c5a869]/30'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              ? 'border-[#c5a869] text-[#c5a869]'
+              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
           }`}
         >
-          Oylik taqvim (Noyabr)
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            <span>{t('prayer:tabMonthly')}</span>
+          </div>
         </button>
+
         <button
           onClick={() => setActiveTab('qibla')}
-          className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+          className={`pb-3 px-4 text-xs sm:text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
             activeTab === 'qibla'
-              ? 'bg-white dark:bg-[#0d211e] text-[#c5a869] shadow-sm font-semibold border border-[#c5a869]/30'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              ? 'border-[#c5a869] text-[#c5a869]'
+              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
           }`}
         >
-          Asaka Qiblasi (241°)
+          <div className="flex items-center gap-2">
+            <Compass className="w-4 h-4" />
+            <span>{t('prayer:tabQibla')}</span>
+          </div>
         </button>
       </div>
 
-      {/* Tab 1: Daily Schedule View */}
+      {/* TAB 1: DAILY */}
       {activeTab === 'daily' && (
         <div className="space-y-6">
-          {/* Next Prayer Countdown Card */}
-          <Card elevated className="p-6 sm:p-8 relative overflow-hidden border-[#c5a869]/30 bg-gradient-to-r from-stone-900 to-[#071614] text-white">
-            <GeometricPattern opacity={0.04} />
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <span className="text-xs uppercase tracking-widest text-[#c5a869] font-medium">
-                  Navbatdagi namoz
-                </span>
-                <h3 className="text-2xl sm:text-3xl font-display font-bold text-white">
-                  Peshin namozi
-                </h3>
-                <p className="text-xs text-stone-300">
-                  Kirish vaqti: <span className="font-mono-numbers font-semibold">12:05</span> · Jamoat iqomati: <span className="font-mono-numbers font-semibold">12:25</span>
-                </p>
+          {/* Active Countdown Card */}
+          <Card elevated className="p-6 text-center bg-gradient-to-br from-[#051d18] to-[#082620] text-white border-[#c5a869]/40 relative overflow-hidden">
+            <GeometricPattern opacity={0.05} />
+            <div className="relative z-10 space-y-2">
+              <span className="text-xs font-semibold text-[#c5a869] uppercase tracking-widest">
+                {t('prayer:nextPrayer')}:{' '}
+                {prayerCalculation.nextPrayer
+                  ? getLocalizedPrayerName(
+                      prayerCalculation.nextPrayer.key,
+                      prayerCalculation.nextPrayer.nameUz
+                    )
+                  : t('prayer:peshin')}{' '}
+                {prayerCalculation.isTomorrow && `(${getLocalizedText('Ertangi')})`}
+              </span>
+              <div className="text-4xl sm:text-5xl font-mono-numbers font-bold text-white tracking-wider">
+                {prayerCalculation.countdownText}
               </div>
-
-              <div className="sm:text-right">
-                <span className="text-xs text-stone-400 block mb-1">Kirishiga qoldi:</span>
-                <div className="text-3xl sm:text-4xl font-mono-numbers font-bold text-[#c5a869] tracking-tight">
-                  {countdownText}
-                </div>
-              </div>
+              <p className="text-xs text-stone-300">
+                {t('prayer:countdownSubtext')}
+              </p>
             </div>
           </Card>
 
-          {/* Daily Table of Times */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {schedule.times.map((p) => {
-              const isPeshin = p.key === 'peshin';
+          {/* Today's 6 Prayer Times Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {schedule.times.map((item) => {
+              const isNext = prayerCalculation.nextPrayer?.key === item.key;
+              const localizedName = getLocalizedPrayerName(item.key, item.nameUz);
+
               return (
                 <Card
-                  key={p.id}
-                  elevated={isPeshin}
-                  className={`p-5 sm:p-6 space-y-3 ${
-                    isPeshin
-                      ? 'border-[#c5a869] ring-1 ring-[#c5a869]/40 bg-[#c5a869]/5'
+                  key={item.key}
+                  elevated={isNext}
+                  className={`p-4 text-center space-y-2 transition-all ${
+                    isNext
+                      ? 'border-[#c5a869] ring-2 ring-[#c5a869]/40 bg-gradient-to-b from-[#c5a869]/15 to-transparent'
                       : ''
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-stone-900 dark:text-stone-100">
-                        {p.nameUz}
-                      </h4>
-                      <p className="text-xs text-stone-400 dark:text-stone-500">{p.descriptionUz}</p>
-                    </div>
-                    <span className="font-arabic text-2xl text-[#c5a869]">{p.nameAr}</span>
-                  </div>
-
-                  <div className="pt-2 border-t border-stone-100 dark:border-emerald-950/60 flex items-baseline justify-between">
-                    <div>
-                      <span className="text-xs text-stone-400 block">Kirish vaqti:</span>
-                      <span className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100">
-                        {p.time}
-                      </span>
-                    </div>
-
-                    {p.iqamahTime && (
-                      <div className="text-right">
-                        <span className="text-xs text-stone-400 block">Jamoat iqomati:</span>
-                        <span className="text-lg font-semibold font-mono-numbers text-[#c5a869]">
-                          {p.iqamahTime}
-                        </span>
-                      </div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-stone-400">
+                    <span>{localizedName}</span>
+                    {isNext && (
+                      <span className="w-2 h-2 rounded-full bg-[#c5a869] animate-pulse" />
                     )}
                   </div>
+                  <div className="font-arabic text-lg text-[#c5a869]">{item.nameAr}</div>
+                  <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100">
+                    {item.time}
+                  </div>
+                  {item.iqamahTime && (
+                    <div className="text-[11px] text-stone-400 border-t border-stone-100 dark:border-emerald-950/60 pt-1.5">
+                      {t('prayer:iqamah')}: <span className="font-mono-numbers font-semibold text-stone-600 dark:text-stone-300">{item.iqamahTime}</span>
+                    </div>
+                  )}
                 </Card>
               );
             })}
           </div>
+
+          {/* Regional Verification Disclaimer Card */}
+          <Card className="p-4 bg-stone-100/60 dark:bg-[#071614]/60 text-xs text-stone-600 dark:text-stone-400 flex items-start gap-3">
+            <Info className="w-4 h-4 text-[#c5a869] shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              {getLocalizedText(schedule.disclaimer)}
+            </p>
+          </Card>
         </div>
       )}
 
-      {/* Tab 2: Monthly Calendar Preview */}
+      {/* TAB 2: MONTHLY CALENDAR PREVIEW */}
       {activeTab === 'monthly' && (
-        <Card elevated className="p-6 overflow-x-auto">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-              Noyabr 2026 — Asaka Namoz Taqvim Namunasi
+        <Card elevated className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+              {t('prayer:monthlyTitle')}
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              Haftalik va oylik davrlar boʻyicha oʻzgarish grafigi. Maʼmuriyat tasdiqlashi bilan yangilanadi.
-            </p>
+            <span className="text-xs text-[#c5a869] font-mono-numbers">
+              {t('prayer:monthlyHijri')}
+            </span>
           </div>
 
-          <table className="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-stone-200 dark:border-emerald-950 text-stone-500 dark:text-stone-400 uppercase tracking-wider text-[11px]">
-                <th className="py-2.5 px-3">Kun</th>
-                <th className="py-2.5 px-3">Bomdod</th>
-                <th className="py-2.5 px-3">Quyosh</th>
-                <th className="py-2.5 px-3">Peshin</th>
-                <th className="py-2.5 px-3">Asr</th>
-                <th className="py-2.5 px-3">Shom</th>
-                <th className="py-2.5 px-3">Xufton</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-emerald-950/60 font-mono-numbers text-stone-700 dark:text-stone-300">
-              {MONTHLY_CALENDAR_PREVIEW.map((row) => (
-                <tr
-                  key={row.day}
-                  className={`hover:bg-stone-50 dark:hover:bg-emerald-950/30 ${
-                    row.day === 2 ? 'bg-[#c5a869]/10 font-semibold text-stone-900 dark:text-white' : ''
-                  }`}
-                >
-                  <td className="py-2.5 px-3">
-                    {row.day}-noyabr {row.day === 2 && <span className="text-[#c5a869] text-xs ml-1">(Bugun)</span>}
-                  </td>
-                  <td className="py-2.5 px-3">{row.bomdod}</td>
-                  <td className="py-2.5 px-3">{row.quyosh}</td>
-                  <td className="py-2.5 px-3">{row.peshin}</td>
-                  <td className="py-2.5 px-3">{row.asr}</td>
-                  <td className="py-2.5 px-3">{row.shom}</td>
-                  <td className="py-2.5 px-3">{row.xufton}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 dark:border-emerald-950 text-stone-400 text-xs uppercase tracking-wider">
+                  <th className="py-2.5 px-3">{t('prayer:tableDay')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:tableDate')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:bomdod')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:quyosh')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:peshin')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:asr')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:shom')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:xufton')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-stone-100 dark:divide-emerald-950/60 font-mono-numbers">
+                {MONTHLY_CALENDAR_PREVIEW.map((row) => (
+                  <tr
+                    key={row.day}
+                    className="hover:bg-[#c5a869]/5 transition-colors text-stone-700 dark:text-stone-300"
+                  >
+                    <td className="py-2.5 px-3 font-semibold text-[#c5a869]">{row.day}</td>
+                    <td className="py-2.5 px-3 text-stone-500 font-mono-numbers">2026-11-{String(row.day).padStart(2, '0')}</td>
+                    <td className="py-2.5 px-3">{row.bomdod}</td>
+                    <td className="py-2.5 px-3 text-stone-400">{row.quyosh}</td>
+                    <td className="py-2.5 px-3 font-semibold">{row.peshin}</td>
+                    <td className="py-2.5 px-3">{row.asr}</td>
+                    <td className="py-2.5 px-3 font-semibold">{row.shom}</td>
+                    <td className="py-2.5 px-3">{row.xufton}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
-      {/* Tab 3: Qibla Compass for Asaka */}
+      {/* TAB 3: QIBLA COMPASS */}
       {activeTab === 'qibla' && (
-        <Card elevated className="p-8 max-w-xl mx-auto text-center space-y-6">
+        <Card elevated className="p-8 text-center max-w-lg mx-auto space-y-6">
           <div className="space-y-1">
-            <span className="text-xs uppercase tracking-widest text-[#c5a869] font-medium">
-              Kaʼba yoʻnalishi
+            <span className="text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
+              {t('prayer:qiblaDirectionTitle')}
             </span>
             <h3 className="text-2xl font-display font-bold text-stone-900 dark:text-stone-100">
-              Asaka Shahridan Qibla Azimuti
+              {t('prayer:qiblaFromAsaka')}
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 max-w-md mx-auto">
-              Asaka shahri (Andijon) markazidan Kaʼbai Muazzamagacha boʻlgan yoʻnalish <strong>241°</strong> (Gʻarb-Janubi-Gʻarb) burchagida joylashgan.
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              {t('prayer:qiblaCoordinates')}
             </p>
           </div>
 
-          {/* Compass Dial Graphic */}
-          <div className="relative w-64 h-64 mx-auto my-4 flex items-center justify-center">
-            {/* Outer Dial Ring */}
-            <div className="absolute inset-0 rounded-full border-2 border-[#c5a869]/30 bg-stone-100 dark:bg-[#071614] shadow-inner" />
+          {/* Compass Visual Instrument */}
+          <div className="relative w-64 h-64 mx-auto rounded-full border-4 border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] flex items-center justify-center shadow-inner">
+            <div className="absolute inset-2 rounded-full border border-dashed border-[#c5a869]/40" />
 
-            {/* Compass Cardinal Points */}
-            <span className="absolute top-2 font-bold text-xs text-stone-500">N (Shimol)</span>
-            <span className="absolute bottom-2 font-bold text-xs text-stone-500">S (Janub)</span>
-            <span className="absolute right-3 font-bold text-xs text-stone-500">E (Sharq)</span>
-            <span className="absolute left-3 font-bold text-xs text-stone-500">W (Gʻarb)</span>
+            {/* Cardinal marks */}
+            <span className="absolute top-2 text-xs font-bold text-stone-400">N (0°)</span>
+            <span className="absolute right-2 text-xs font-bold text-stone-400">E (90°)</span>
+            <span className="absolute bottom-2 text-xs font-bold text-stone-400">S (180°)</span>
+            <span className="absolute left-2 text-xs font-bold text-stone-400">W (270°)</span>
 
-            {/* Qibla Needle at 241 degrees */}
+            {/* Qibla Needle pointing at 241 degrees */}
             <div
-              className="absolute w-full h-full flex items-center justify-center pointer-events-none transition-transform duration-700"
-              style={{ transform: `rotate(${schedule.qiblaAngleDeg}deg)` }}
+              className="absolute w-1 h-32 origin-bottom transition-transform"
+              style={{ transform: 'rotate(241deg)' }}
             >
-              <div className="w-1.5 h-28 bg-gradient-to-t from-transparent via-[#c5a869] to-[#d4af37] rounded-full relative">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-x-6 border-x-transparent border-b-10 border-b-[#d4af37]" />
-              </div>
+              <div className="w-0 h-0 border-l-6 border-l-transparent border-r-6 border-r-transparent border-b-14 border-b-[#c5a869] mx-auto" />
+              <div className="w-1 h-20 bg-gradient-to-t from-stone-400 to-[#c5a869] mx-auto rounded-full" />
             </div>
 
-            {/* Center Pivot */}
-            <div className="relative z-10 w-8 h-8 rounded-full bg-[#071614] border-2 border-[#c5a869] flex items-center justify-center shadow-md">
-              <div className="w-2 h-2 rounded-full bg-[#c5a869]" />
+            {/* Center Dial */}
+            <div className="w-8 h-8 rounded-full bg-[#c5a869] text-[#071614] flex items-center justify-center font-bold text-xs shadow-md z-10">
+              <Compass className="w-4 h-4" />
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-stone-100 dark:bg-emerald-950/40 text-xs text-stone-600 dark:text-stone-300">
-            Masofa: taxminan <strong className="font-mono-numbers">3,920 km</strong> · Koordinatalar: <span className="font-mono-numbers">40°38′ N, 72°14′ E</span>
+          <div className="space-y-2">
+            <div className="text-3xl font-bold font-mono-numbers text-[#c5a869]">
+              241° WSW
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              {t('prayer:qiblaCompassTip')}
+            </p>
           </div>
         </Card>
       )}

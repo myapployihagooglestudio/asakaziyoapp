@@ -8,6 +8,7 @@ interface ModalProps {
   subtitle?: string;
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -16,8 +17,10 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   subtitle,
   children,
-  maxWidth = 'lg',
+  maxWidth,
+  size,
 }) => {
+  const effectiveSize = size || maxWidth || 'lg';
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -50,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
         aria-hidden="true"
       />
       <div
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-white dark:bg-[#0d211e] border border-stone-200 dark:border-[#c5a869]/30 rounded-2xl shadow-2xl z-10 overflow-hidden my-auto`}
+        className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-white dark:bg-[#0d211e] border border-stone-200 dark:border-[#c5a869]/30 rounded-2xl shadow-2xl z-10 overflow-hidden my-auto`}
         role="dialog"
         aria-modal="true"
       >

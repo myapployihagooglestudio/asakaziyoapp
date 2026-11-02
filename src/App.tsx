@@ -22,6 +22,8 @@ import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { MobileNav } from './components/layout/MobileNav';
 import { Modal } from './components/ui/Modal';
+import { AppInstallModal } from './components/features/install/AppInstallModal';
+import { AppInstallBanner } from './components/features/install/AppInstallBanner';
 
 // Feature Views
 import { HomeView } from './components/features/home/HomeView';
@@ -49,6 +51,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // Prayer schedule with local updates support and schema validation
   const [prayerSchedule, setPrayerSchedule] = useState<PrayerSchedule>(() => {
@@ -183,6 +186,7 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={handleNavigate}
         favoritesCount={favorites.length}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -254,6 +258,7 @@ export default function App() {
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
             onOpenAdmin={() => handleNavigate('admin')}
+            onOpenInstallModal={() => setIsInstallModalOpen(true)}
           />
         )}
 
@@ -284,34 +289,61 @@ export default function App() {
         subtitle="Asaka Ziyo ekotizim navigatsiyasi"
         maxWidth="sm"
       >
-        <div className="grid grid-cols-2 gap-2.5 text-xs font-semibold">
-          {[
-            { id: 'home', label: 'Bosh sahifa' },
-            { id: 'quran', label: 'Qurʼoni Karim' },
-            { id: 'hadith', label: 'Hadislar toʻplami' },
-            { id: 'dhikr', label: 'Zikr va duolar' },
-            { id: 'prayer', label: 'Namoz vaqtlari' },
-            { id: 'articles', label: 'Ilmiy maqolalar' },
-            { id: 'news', label: 'Yangiliklar' },
-            { id: 'announcements', label: 'Eʼlonlar' },
-            { id: 'favorites', label: 'Sevimlilar' },
-            { id: 'settings', label: 'Sozlamalar' },
-            { id: 'admin', label: 'Maʼmuriyat konsoli' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavigate(item.id as NavigationTab)}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                activeTab === item.id
-                  ? 'border-[#c5a869] bg-[#c5a869]/15 text-[#c5a869]'
-                  : 'border-stone-200 dark:border-emerald-950 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              setIsInstallModalOpen(true);
+            }}
+            className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-[#c5a869] to-[#d8bd7e] text-[#071614] font-bold text-xs shadow-md cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded bg-[#071614]/10">📥</span>
+              <span>APK v1.0 Yuklab Olish / Oʻrnatish</span>
+            </div>
+            <span className="text-[10px] bg-[#071614] text-[#c5a869] px-2 py-0.5 rounded">
+              v1.0.0
+            </span>
+          </button>
+
+          <div className="grid grid-cols-2 gap-2.5 text-xs font-semibold">
+            {[
+              { id: 'home', label: 'Bosh sahifa' },
+              { id: 'quran', label: 'Qurʼoni Karim' },
+              { id: 'hadith', label: 'Hadislar toʻplami' },
+              { id: 'dhikr', label: 'Zikr va duolar' },
+              { id: 'prayer', label: 'Namoz vaqtlari' },
+              { id: 'articles', label: 'Ilmiy maqolalar' },
+              { id: 'news', label: 'Yangiliklar' },
+              { id: 'announcements', label: 'Eʼlonlar' },
+              { id: 'favorites', label: 'Sevimlilar' },
+              { id: 'settings', label: 'Sozlamalar' },
+              { id: 'admin', label: 'Maʼmuriyat konsoli' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavigate(item.id as NavigationTab)}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  activeTab === item.id
+                    ? 'border-[#c5a869] bg-[#c5a869]/15 text-[#c5a869]'
+                    : 'border-stone-200 dark:border-emerald-950 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </Modal>
+
+      {/* Floating Smart App Installation Banner */}
+      <AppInstallBanner onOpenInstallModal={() => setIsInstallModalOpen(true)} />
+
+      {/* App Installation & APK v1.0 Download Modal */}
+      <AppInstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
     </div>
   );
 }

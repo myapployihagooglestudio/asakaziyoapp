@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#052f26" />
+      <stop offset="100%" stop-color="#071614" />
+    </radialGradient>
+    <linearGradient id="goldLinear" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e9d8a6" />
+      <stop offset="50%" stop-color="#c5a869" />
+      <stop offset="100%" stop-color="#9b7e3a" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bgGlow)" rx="128" />
+  
+  <!-- Outer Gold Ring -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="url(#goldLinear)" stroke-width="4" stroke-dasharray="8 6" opacity="0.6" />
+  <circle cx="256" cy="256" r="198" fill="none" stroke="url(#goldLinear)" stroke-width="2" opacity="0.8" />
+  
+  <!-- Islamic Eight-Pointed Star (Rub el Hizb) Outer -->
+  <g transform="translate(256 256)" stroke="url(#goldLinear)" stroke-width="6" fill="none">
+    <rect x="-110" y="-110" width="220" height="220" rx="16" />
+    <rect x="-110" y="-110" width="220" height="220" rx="16" transform="rotate(45)" />
+  </g>
+
+  <!-- Inner Star Layer -->
+  <g transform="translate(256 256)" stroke="url(#goldLinear)" stroke-width="2" fill="#031d17" opacity="0.95">
+    <rect x="-75" y="-75" width="150" height="150" rx="10" />
+    <rect x="-75" y="-75" width="150" height="150" rx="10" transform="rotate(45)" />
+  </g>
+
+  <!-- Central Crescent & Star / Calligraphic Emblem -->
+  <g transform="translate(256 256)">
+    <!-- Central Jewel Circle -->
+    <circle cx="0" cy="0" r="38" fill="url(#goldLinear)" opacity="0.15" />
+    <circle cx="0" cy="0" r="28" fill="url(#goldLinear)" />
+    <circle cx="0" cy="0" r="18" fill="#071614" />
+    
+    <!-- Four cardinal gold dots -->
+    <circle cx="0" cy="-56" r="4" fill="url(#goldLinear)" />
+    <circle cx="0" cy="56" r="4" fill="url(#goldLinear)" />
+    <circle cx="-56" cy="0" r="4" fill="url(#goldLinear)" />
+    <circle cx="56" cy="0" r="4" fill="url(#goldLinear)" />
+  </g>
+</svg>
