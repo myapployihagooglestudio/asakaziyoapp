@@ -160,9 +160,14 @@ export const HadithView: React.FC<HadithViewProps> = ({
                   <span aria-hidden="true">·</span>
                   <span className="font-mono-numbers">#{hadith.number}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
-                    {hadith.grade}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
+                      {hadith.grade}
+                    </span>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Oflayn
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">

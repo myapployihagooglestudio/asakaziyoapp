@@ -481,7 +481,12 @@ export const QuranView: React.FC<QuranViewProps> = ({
                         </div>
                       </div>
                     </div>
-                    <span className="font-arabic text-lg text-[#c5a869]">{surah.nameAr}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="font-arabic text-lg text-[#c5a869]">{surah.nameAr}</span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Oflayn
+                      </span>
+                    </div>
                   </button>
                 );
               })}

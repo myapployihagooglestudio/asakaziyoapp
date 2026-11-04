@@ -15,24 +15,36 @@
     --color-surface-dark-elevated: #132b27;
   }
 
+  html, body, #root {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  *, *::before, *::after {
+    box-sizing: inherit;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    overflow-x: hidden;
-    width: 100%;
-    max-width: 100vw;
     background-color: var(--color-canvas-dark);
   }
 
-  html {
-    overflow-x: hidden;
-    width: 100%;
-    max-width: 100vw;
+  img, video, canvas, svg {
+    max-width: 100%;
+    height: auto;
   }
 
-  #root {
-    overflow-x: hidden;
+  table {
     width: 100%;
-    max-width: 100%;
+    table-layout: auto;
+  }
+
+  button, input, select, textarea {
+    touch-action: manipulation;
   }
 }
 
@@ -150,14 +162,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(3, 29, 23, 0.5);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(197, 168, 105, 0.25);
-  border-radius: 9999px;
+  background: rgba(197, 168, 105, 0.3);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(197, 168, 105, 0.5);
+  background: rgba(197, 168, 105, 0.6);
 }
