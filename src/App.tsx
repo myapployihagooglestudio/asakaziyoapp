@@ -52,6 +52,8 @@ import { SettingsView } from './components/features/settings/SettingsView';
 import { AdminPortal } from './components/features/admin/AdminPortal';
 import { NotificationsView } from './components/features/notifications/NotificationsView';
 import { DailyArchiveView } from './components/features/daily/DailyArchiveView';
+import { QuizView } from './components/features/quiz/QuizView';
+import { CalendarView } from './components/features/calendar/CalendarView';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -316,6 +318,10 @@ export default function App() {
         {activeTab === 'news' && <NewsView />}
 
         {activeTab === 'announcements' && <AnnouncementsView />}
+
+        {activeTab === 'quiz' && <QuizView />}
+
+        {activeTab === 'calendar' && <CalendarView />}
 
         {activeTab === 'favorites' && (
           <FavoritesView

@@ -43,6 +43,8 @@ export const uzLatn = {
     articles: 'Maqolalar',
     news: 'Yangiliklar',
     announcements: 'Eʼlonlar',
+    quiz: 'Viktorina',
+    calendar: 'Taqvim',
     favorites: 'Sevimlilar',
     settings: 'Sozlamalar',
     admin: 'Maʼmuriyat',

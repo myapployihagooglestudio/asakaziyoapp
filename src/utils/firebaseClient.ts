@@ -14,6 +14,26 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+// Suppress Firestore offline connection timeout warnings and errors in preview environments
+if (typeof window !== 'undefined') {
+  const origWarn = console.warn;
+  const origError = console.error;
+  console.warn = (...args: any[]) => {
+    const msg = args.map(a => String(a)).join(' ');
+    if (msg.includes('Could not reach Cloud Firestore backend') || msg.includes('Firestore')) {
+      return;
+    }
+    origWarn(...args);
+  };
+  console.error = (...args: any[]) => {
+    const msg = args.map(a => String(a)).join(' ');
+    if (msg.includes('Could not reach Cloud Firestore backend') || msg.includes('Firestore')) {
+      return;
+    }
+    origError(...args);
+  };
+}
+
 // Initialize Firebase App
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 

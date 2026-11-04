@@ -38,6 +38,8 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'articles', labelKey: 'articles' },
     { id: 'news', labelKey: 'news' },
     { id: 'announcements', labelKey: 'announcements' },
+    { id: 'quiz', labelKey: 'quiz' },
+    { id: 'calendar', labelKey: 'calendar' },
   ];
 
   const handleNavClick = (tab: NavigationTab) => {

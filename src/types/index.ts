@@ -16,7 +16,9 @@ export type NavigationTab =
   | 'settings'
   | 'admin'
   | 'notifications'
-  | 'daily_archive';
+  | 'daily_archive'
+  | 'quiz'
+  | 'calendar';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 
