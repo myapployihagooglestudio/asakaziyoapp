@@ -18,7 +18,8 @@ export type NavigationTab =
   | 'notifications'
   | 'daily_archive'
   | 'quiz'
-  | 'calendar';
+  | 'calendar'
+  | 'reminder_dashboard';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 
@@ -275,6 +276,7 @@ export interface AppSettings {
   hapticFeedback: boolean;
   tasbihSound: boolean;
   prayerAlertsEnabled: boolean;
+  prayerReminders?: Record<string, { triggerMinutesBefore: number; soundProfile: 'chime' | 'azan' | 'silent'; enabled: boolean }>;
 }
 
 export interface TelegramDraftItem {

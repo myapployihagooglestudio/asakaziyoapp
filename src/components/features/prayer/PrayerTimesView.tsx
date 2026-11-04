@@ -34,11 +34,13 @@ import {
   VolumeX,
   BellOff,
   Check,
+  Sliders,
 } from 'lucide-react';
 
 interface PrayerTimesViewProps {
   schedule: PrayerSchedule;
   onOpenAdmin: () => void;
+  onOpenReminderDashboard: () => void;
 }
 
 export type AzonAlertMode = 'sound' | 'silent' | 'off';
@@ -46,6 +48,7 @@ export type AzonAlertMode = 'sound' | 'silent' | 'off';
 export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
   schedule,
   onOpenAdmin,
+  onOpenReminderDashboard,
 }) => {
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
@@ -177,15 +180,26 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
               <span className="font-mono-numbers text-emerald-400">Asia/Tashkent (UTC+5)</span>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAzanModal(true)}
-              className="gap-2 bg-black/50 backdrop-blur-md border-[#c5a869]/60 text-[#c5a869] hover:bg-[#c5a869]/20 text-xs shadow-md"
-            >
-              <Bell className="w-4 h-4 text-[#c5a869]" />
-              <span>Azon Bildirishnomalari</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenReminderDashboard}
+                className="gap-2 bg-black/50 backdrop-blur-md border-[#c5a869]/60 text-[#c5a869] hover:bg-[#c5a869]/20 text-xs shadow-md"
+              >
+                <Sliders className="w-4 h-4 text-[#c5a869]" />
+                <span>Eslatma Dashboardi</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAzanModal(true)}
+                className="gap-2 bg-black/50 backdrop-blur-md border-[#c5a869]/60 text-[#c5a869] hover:bg-[#c5a869]/20 text-xs shadow-md"
+              >
+                <Bell className="w-4 h-4 text-[#c5a869]" />
+                <span>Azon Bildirishnomalari</span>
+              </Button>
+            </div>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-white leading-tight">

@@ -84,6 +84,41 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const unreadNotifs = notifications.filter((n) => !n.read);
   const featuredArticle = articles.find((a) => a.isFeatured) || articles[0];
 
+  const [completedPrayers, setCompletedPrayers] = useState<Record<string, boolean>>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('asaka_ziyo_completed_prayers_date');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.prayers || {};
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return { bomdod: false, peshin: false, asr: false, shom: false, xufton: false };
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(
+          'asaka_ziyo_completed_prayers_date',
+          JSON.stringify({ prayers: completedPrayers })
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }, [completedPrayers]);
+
+  const togglePrayerCompleted = (key: string) => {
+    setCompletedPrayers((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const completedCount = Object.values(completedPrayers).filter(Boolean).length;
+  const completionPercent = Math.round((completedCount / 5) * 100);
+
   // Dynamic Date & Clock ticker ensuring daily rollover in Asia/Tashkent
   useEffect(() => {
     const updateClockAndDate = () => {
@@ -280,6 +315,55 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* 2.5. DAILY PRAYER COMPLETION PROGRESS BAR WIDGET */}
+      <Card elevated className="p-6 bg-stone-900/70 backdrop-blur-md border-[#c5a869]/40 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#c5a869] uppercase tracking-wider">
+            <CheckCircle className="w-4 h-4 text-[#c5a869]" />
+            <span>Bugungi Namozlar Bajarilishi (Kunduzgi Hisoblagich)</span>
+          </div>
+          <span className="text-xs font-mono-numbers text-emerald-400 font-bold">
+            {completedCount} / 5 bajarildi ({completionPercent}%)
+          </span>
+        </div>
+
+        {/* Progress Bar with Shimmer-Gold Animation */}
+        <div className="w-full h-3 rounded-full bg-stone-800 overflow-hidden p-0.5 border border-white/10">
+          <div
+            className="h-full rounded-full shimmer-gold transition-all duration-700 ease-out"
+            style={{ width: `${completionPercent}%` }}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+          {[
+            { key: 'bomdod', label: 'Bomdod' },
+            { key: 'peshin', label: 'Peshin' },
+            { key: 'asr', label: 'Asr' },
+            { key: 'shom', label: 'Shom' },
+            { key: 'xufton', label: 'Xufton' },
+          ].map((item) => {
+            const isDone = completedPrayers[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => togglePrayerCompleted(item.key)}
+                className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                  isDone
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200 shadow'
+                    : 'bg-black/30 border-white/10 text-stone-400 hover:text-white hover:border-[#c5a869]/50'
+                }`}
+              >
+                <span>{item.label}</span>
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isDone ? 'bg-emerald-500 text-black font-extrabold' : 'border border-stone-500'}`}>
+                  {isDone ? '✓' : ''}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
 
       {/* 3. FEATURED TOP CONTENT (PINNED / YANGI BLOCK) */}
       {featuredArticle && (

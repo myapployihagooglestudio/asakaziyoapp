@@ -37,6 +37,7 @@ import {
   Sparkles,
   Info,
   CheckCircle,
+  Download,
 } from 'lucide-react';
 
 interface QuranViewProps {
@@ -269,6 +270,29 @@ export const QuranView: React.FC<QuranViewProps> = ({
     if (surahAudioRef.current) {
       surahAudioRef.current.playbackRate = speed;
     }
+  };
+
+  const handleDownloadAudio = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      a.remove();
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleDownloadSurahAudio = () => {
+    const audioUrl = getReciterSurahAudioUrl(selectedReciterId, selectedSurahNumber);
+    const filename = `${selectedSurah.number}_${selectedSurah.nameUz}_${activeReciter.id}.mp3`;
+    handleDownloadAudio(audioUrl, filename);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -550,6 +574,15 @@ export const QuranView: React.FC<QuranViewProps> = ({
                     </button>
                   </div>
 
+                  <button
+                    onClick={handleDownloadSurahAudio}
+                    className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                    title="Butun surani MP3 formatida yuklab olish (Offline)"
+                  >
+                    <Download className="w-4 h-4 text-[#c5a869]" />
+                    <span>Yuklab olish</span>
+                  </button>
+
                   {/* Speed Controls: 0.75x, 1x, 1.25x, 1.5x */}
                   <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
                     {[0.75, 1, 1.25, 1.5].map((sp) => (
@@ -620,17 +653,26 @@ export const QuranView: React.FC<QuranViewProps> = ({
 
                         <div className="flex items-center gap-1.5">
                           {ayah.audioUrl && (
-                            <button
-                              onClick={() => handlePlayAyah(ayah)}
-                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                                isPlayingThisAyah
-                                  ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
-                                  : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
-                              }`}
-                              title="Oyatni tinglash"
-                            >
-                              <Volume2 className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handlePlayAyah(ayah)}
+                                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                  isPlayingThisAyah
+                                    ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
+                                    : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
+                                }`}
+                                title="Oyatni tinglash"
+                              >
+                                <Volume2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDownloadAudio(ayah.audioUrl!, `${selectedSurah.nameUz}_${ayah.numberInSurah}.mp3`)}
+                                className="p-1.5 rounded-lg border border-stone-200 dark:border-emerald-950 text-stone-500 hover:text-[#c5a869] transition-colors cursor-pointer"
+                                title="Oyatni oflayn yuklab olish"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
 
                           <button

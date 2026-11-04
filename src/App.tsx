@@ -54,6 +54,7 @@ import { NotificationsView } from './components/features/notifications/Notificat
 import { DailyArchiveView } from './components/features/daily/DailyArchiveView';
 import { QuizView } from './components/features/quiz/QuizView';
 import { CalendarView } from './components/features/calendar/CalendarView';
+import { ReminderDashboard } from './components/features/prayer/ReminderDashboard';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -292,6 +293,7 @@ export default function App() {
           <PrayerTimesView
             schedule={prayerSchedule}
             onOpenAdmin={() => handleNavigate('admin')}
+            onOpenReminderDashboard={() => handleNavigate('reminder_dashboard')}
           />
         )}
 
@@ -322,6 +324,15 @@ export default function App() {
         {activeTab === 'quiz' && <QuizView />}
 
         {activeTab === 'calendar' && <CalendarView />}
+
+        {activeTab === 'reminder_dashboard' && (
+          <ReminderDashboard
+            schedule={prayerSchedule}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            onBack={() => handleNavigate('prayer')}
+          />
+        )}
 
         {activeTab === 'favorites' && (
           <FavoritesView

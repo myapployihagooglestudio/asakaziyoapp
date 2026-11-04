@@ -1,7 +1,9 @@
 /**
  * ASAKA ZIYO — Notification and Prayer Alert Service
- * Handles Web Notifications API, Web Audio Azan chime, and in-app push broadcasts
+ * Handles Web Notifications API, Web Audio Azan chime, and Shayx Mishary Rashid Alafasy Adhan audio streams.
  */
+
+import { getStoredAdhanTracks, AdhanTrack } from '../data/adhanTracksData';
 
 export interface AppNotification {
   id: string;
@@ -18,9 +20,12 @@ const PRAYER_SETTINGS_KEY = 'asaka_ziyo_prayer_alert_settings';
 
 export interface PrayerAlertSettings {
   enabled: boolean;
-  minutesBefore: number; // 5, 10, 15, 20
+  minutesBefore: number;
   soundEnabled: boolean;
   notifyOnExactTime: boolean;
+  defaultAdhanTrackId: string;
+  bomdodAdhanTrackId: string;
+  perPrayerTracks?: Record<string, string>; // prayerKey -> trackId
 }
 
 export const DEFAULT_PRAYER_ALERT_SETTINGS: PrayerAlertSettings = {
@@ -28,6 +33,9 @@ export const DEFAULT_PRAYER_ALERT_SETTINGS: PrayerAlertSettings = {
   minutesBefore: 15,
   soundEnabled: true,
   notifyOnExactTime: true,
+  defaultAdhanTrackId: 'track-mishary-short',
+  bomdodAdhanTrackId: 'track-mishary-bomdod',
+  perPrayerTracks: {},
 };
 
 export const getPrayerAlertSettings = (): PrayerAlertSettings => {
@@ -71,14 +79,6 @@ export const getStoredNotifications = (): AppNotification[] => {
       read: false,
       priority: 'high',
     },
-    {
-      id: 'notif-pwa',
-      title: 'Ilovani telefonga oʻrnatish',
-      message: 'Tezkor kirish uchun "Bosh ekranga qoʻshish" yoki "APK v1.0" orqali ilovani smartfoningizga oʻrnating.',
-      timestamp: new Date().toLocaleDateString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
-      category: 'announcement',
-      read: false,
-    },
   ];
 };
 
@@ -100,13 +100,6 @@ export const saveNotification = (notification: Omit<AppNotification, 'id' | 'tim
   } catch (e) {
     // ignore
   }
-
-  // Persist permanently on central server database
-  fetch('/api/database/notifications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'save', notification: newNotif }),
-  }).catch(() => {});
 
   // Trigger browser push notification if permitted
   triggerBrowserNotification(newNotif.title, newNotif.message);
@@ -138,7 +131,6 @@ export const playGentleChime = (): void => {
     const ctx = new AudioContextClass();
     const now = ctx.currentTime;
 
-    // Harmonic frequencies for gentle meditative Islamic bell
     const freqs = [528, 660, 792, 1056];
     freqs.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
@@ -158,7 +150,64 @@ export const playGentleChime = (): void => {
       osc.stop(now + idx * 0.15 + 2.0);
     });
   } catch (e) {
-    // audio context might be locked or unsupported
+    // ignore
+  }
+};
+
+/**
+ * Play specific Adhan track by ID
+ */
+export const playAdhanTrackById = (trackId: string): void => {
+  const tracks = getStoredAdhanTracks();
+  const track = tracks.find((t) => t.id === trackId);
+  if (!track || !track.url) {
+    playGentleChime();
+    return;
+  }
+  try {
+    const audio = new Audio(track.url);
+    audio.play().catch(() => playGentleChime());
+  } catch (e) {
+    playGentleChime();
+  }
+};
+
+/**
+ * Play Adhan for specific prayer key (supports Bomdod special track)
+ */
+export const playPrayerAdhanSound = (prayerKey: string): void => {
+  const settings = getPrayerAlertSettings();
+  if (!settings.soundEnabled) return;
+
+  let trackId = settings.defaultAdhanTrackId;
+  if (prayerKey === 'bomdod' || prayerKey === 'subh') {
+    trackId = settings.bomdodAdhanTrackId || trackId;
+  }
+  if (settings.perPrayerTracks && settings.perPrayerTracks[prayerKey]) {
+    trackId = settings.perPrayerTracks[prayerKey];
+  }
+
+  playAdhanTrackById(trackId);
+};
+
+/**
+ * Offline download helper for adhan audio tracks
+ */
+export const downloadAdhanTrackFile = async (track: AdhanTrack): Promise<void> => {
+  if (!track.url) return;
+  try {
+    const res = await fetch(track.url);
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `${track.id}_${track.muazzin}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(blobUrl);
+    a.remove();
+  } catch {
+    window.open(track.url, '_blank');
   }
 };
 
@@ -185,7 +234,7 @@ export const requestPushPermission = async (): Promise<boolean> => {
 /**
  * Trigger native browser notification
  */
-export const triggerBrowserNotification = (title: string, body: string): void => {
+export const triggerBrowserNotification = (title: string, body: string, prayerKey: string = 'peshin'): void => {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
 
   if (Notification.permission === 'granted') {
@@ -195,7 +244,7 @@ export const triggerBrowserNotification = (title: string, body: string): void =>
         icon: '/favicon.ico',
         badge: '/favicon.ico',
       });
-      playGentleChime();
+      playPrayerAdhanSound(prayerKey);
     } catch (e) {
       // ignore
     }
