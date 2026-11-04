@@ -14,6 +14,22 @@ export const INITIAL_ASAKA_PRAYER_SCHEDULE: PrayerSchedule = {
     'DIQQAT: Ushbu jadval Phase 1 bosqichidagi koʻrgazmali namuna (preview) hisoblanadi. Namoz vaqtlari Oʻzbekiston musulmonlari idorasi va Asaka masjidi masʼul maʼmurlari tomonidan tasdiqlanib kiritiladi. Fiqhiy hisob-kitoblar OʻMI meʼyorlariga muvofiq kiritilishi rejalashtirilgan.',
   times: [
     {
+      id: 'p-0',
+      key: 'tahajjud',
+      nameUz: 'Tahajjud',
+      nameAr: 'التَّهَجُّد',
+      time: '03:45',
+      descriptionUz: 'Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi',
+    },
+    {
+      id: 'p-01',
+      key: 'subh',
+      nameUz: 'Subh (Saharlik)',
+      nameAr: 'الصُّبْح',
+      time: '04:40',
+      descriptionUz: 'Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti',
+    },
+    {
       id: 'p-1',
       key: 'bomdod',
       nameUz: 'Bomdod',
@@ -71,11 +87,11 @@ export const INITIAL_ASAKA_PRAYER_SCHEDULE: PrayerSchedule = {
 
 // Monthly sample calendar days for preview/admin management
 export const MONTHLY_CALENDAR_PREVIEW = [
-  { day: 1, bomdod: '05:20', quyosh: '06:44', peshin: '12:05', asr: '15:11', shom: '17:23', xufton: '18:43' },
-  { day: 2, bomdod: '05:22', quyosh: '06:46', peshin: '12:05', asr: '15:10', shom: '17:21', xufton: '18:42' },
-  { day: 3, bomdod: '05:23', quyosh: '06:47', peshin: '12:05', asr: '15:09', shom: '17:20', xufton: '18:40' },
-  { day: 4, bomdod: '05:24', quyosh: '06:48', peshin: '12:05', asr: '15:07', shom: '17:19', xufton: '18:39' },
-  { day: 5, bomdod: '05:25', quyosh: '06:49', peshin: '12:05', asr: '15:06', shom: '17:18', xufton: '18:38' },
-  { day: 6, bomdod: '05:26', quyosh: '06:51', peshin: '12:05', asr: '15:05', shom: '17:16', xufton: '18:37' },
-  { day: 7, bomdod: '05:27', quyosh: '06:52', peshin: '12:05', asr: '15:04', shom: '17:15', xufton: '18:36' },
+  { day: 1, tahajjud: '03:45', subh: '04:38', bomdod: '05:20', quyosh: '06:44', peshin: '12:05', asr: '15:11', shom: '17:23', xufton: '18:43' },
+  { day: 2, tahajjud: '03:45', subh: '04:40', bomdod: '05:22', quyosh: '06:46', peshin: '12:05', asr: '15:10', shom: '17:21', xufton: '18:42' },
+  { day: 3, tahajjud: '03:46', subh: '04:41', bomdod: '05:23', quyosh: '06:47', peshin: '12:05', asr: '15:09', shom: '17:20', xufton: '18:40' },
+  { day: 4, tahajjud: '03:47', subh: '04:42', bomdod: '05:24', quyosh: '06:48', peshin: '12:05', asr: '15:07', shom: '17:19', xufton: '18:39' },
+  { day: 5, tahajjud: '03:48', subh: '04:43', bomdod: '05:25', quyosh: '06:49', peshin: '12:05', asr: '15:06', shom: '17:18', xufton: '18:38' },
+  { day: 6, tahajjud: '03:49', subh: '04:44', bomdod: '05:26', quyosh: '06:51', peshin: '12:05', asr: '15:05', shom: '17:16', xufton: '18:37' },
+  { day: 7, tahajjud: '03:50', subh: '04:45', bomdod: '05:27', quyosh: '06:52', peshin: '12:05', asr: '15:04', shom: '17:15', xufton: '18:36' },
 ];

@@ -188,8 +188,8 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
             </div>
           </Card>
 
-          {/* Today's 6 Prayer Times Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Today's 8 Prayer Times Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
             {schedule.times.map((item) => {
               const isNext = prayerCalculation.nextPrayer?.key === item.key;
               const localizedName = getLocalizedPrayerName(item.key, item.nameUz);
@@ -198,20 +198,20 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                 <Card
                   key={item.key}
                   elevated={isNext}
-                  className={`p-4 text-center space-y-2 transition-all ${
+                  className={`p-3 sm:p-4 text-center space-y-2 transition-all ${
                     isNext
                       ? 'border-[#c5a869] ring-2 ring-[#c5a869]/40 bg-gradient-to-b from-[#c5a869]/15 to-transparent'
                       : ''
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-stone-400">
-                    <span>{localizedName}</span>
+                    <span className="truncate">{localizedName}</span>
                     {isNext && (
-                      <span className="w-2 h-2 rounded-full bg-[#c5a869] animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-[#c5a869] animate-pulse shrink-0 ml-1" />
                     )}
                   </div>
-                  <div className="font-arabic text-lg text-[#c5a869]">{item.nameAr}</div>
-                  <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100">
+                  <div className="font-arabic text-base sm:text-lg text-[#c5a869]">{item.nameAr}</div>
+                  <div className="text-xl sm:text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100">
                     {item.time}
                   </div>
                   {item.iqamahTime && (
@@ -252,6 +252,8 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                 <tr className="border-b border-stone-200 dark:border-emerald-950 text-stone-400 text-xs uppercase tracking-wider">
                   <th className="py-2.5 px-3">{t('prayer:tableDay')}</th>
                   <th className="py-2.5 px-3">{t('prayer:tableDate')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:tahajjud')}</th>
+                  <th className="py-2.5 px-3">{t('prayer:subh')}</th>
                   <th className="py-2.5 px-3">{t('prayer:bomdod')}</th>
                   <th className="py-2.5 px-3">{t('prayer:quyosh')}</th>
                   <th className="py-2.5 px-3">{t('prayer:peshin')}</th>
@@ -268,6 +270,8 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                   >
                     <td className="py-2.5 px-3 font-semibold text-[#c5a869]">{row.day}</td>
                     <td className="py-2.5 px-3 text-stone-500 font-mono-numbers">2026-11-{String(row.day).padStart(2, '0')}</td>
+                    <td className="py-2.5 px-3 text-emerald-500">{row.tahajjud}</td>
+                    <td className="py-2.5 px-3 text-teal-500">{row.subh}</td>
                     <td className="py-2.5 px-3">{row.bomdod}</td>
                     <td className="py-2.5 px-3 text-stone-400">{row.quyosh}</td>
                     <td className="py-2.5 px-3 font-semibold">{row.peshin}</td>

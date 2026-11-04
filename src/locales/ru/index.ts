@@ -142,6 +142,8 @@ export const ru = {
     entryTime: 'Время наступления',
     iqamahTime: 'Время икамата',
     timeLeft: 'До наступления осталось',
+    tahajjud: 'Тахаджуд',
+    subh: 'Субх (Сахур)',
     bomdod: 'Фаджр (Бомдод)',
     quyosh: 'Восход солнца',
     peshin: 'Зухр (Пешин)',

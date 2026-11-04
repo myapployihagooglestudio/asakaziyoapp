@@ -142,6 +142,8 @@ export const uzLatn = {
     entryTime: 'Kirish vaqti',
     iqamahTime: 'Jamoat iqomati',
     timeLeft: 'Kirishiga qoldi',
+    tahajjud: 'Tahajjud',
+    subh: 'Subh (Saharlik)',
     bomdod: 'Bomdod',
     quyosh: 'Quyosh',
     peshin: 'Peshin',

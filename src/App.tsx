@@ -16,6 +16,17 @@ import {
 import { INITIAL_ASAKA_PRAYER_SCHEDULE } from './data/prayerTimesData';
 import { DAILY_FEATURED_AYAH } from './data/quranData';
 import { FEATURED_DAILY_HADITH } from './data/hadithData';
+import { getNextPrayerCalculation } from './utils/prayerTimeUtils';
+import {
+  getPrayerAlertSettings,
+  triggerBrowserNotification,
+  playGentleChime,
+} from './utils/notificationService';
+import {
+  getStoredPrayerSchedule,
+  saveStoredPrayerSchedule,
+  subscribeToDatabase,
+} from './utils/databaseService';
 
 // Layout components
 import { Header } from './components/layout/Header';
@@ -24,6 +35,7 @@ import { MobileNav } from './components/layout/MobileNav';
 import { Modal } from './components/ui/Modal';
 import { AppInstallModal } from './components/features/install/AppInstallModal';
 import { AppInstallBanner } from './components/features/install/AppInstallBanner';
+import { SupportChatModal } from './components/features/chat/SupportChatModal';
 
 // Feature Views
 import { HomeView } from './components/features/home/HomeView';
@@ -52,24 +64,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
-  // Prayer schedule with local updates support and schema validation
-  const [prayerSchedule, setPrayerSchedule] = useState<PrayerSchedule>(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = localStorage.getItem('asaka_ziyo_prayer_schedule');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && Array.isArray(parsed.times) && parsed.times.length > 0) {
-            return parsed;
-          }
-        }
+  // Prayer schedule with central database service
+  const [prayerSchedule, setPrayerSchedule] = useState<PrayerSchedule>(() =>
+    getStoredPrayerSchedule()
+  );
+
+  // Reactive cross-tab and cross-session synchronization
+  useEffect(() => {
+    const unsubscribe = subscribeToDatabase((event) => {
+      if (event.type === 'PRAYER_UPDATED') {
+        setPrayerSchedule(getStoredPrayerSchedule());
       }
-    } catch (e) {
-      // Storage access or parse error fallback
-    }
-    return INITIAL_ASAKA_PRAYER_SCHEDULE;
-  });
+    });
+    return unsubscribe;
+  }, []);
 
   // Favorites state with array validation
   const [favorites, setFavorites] = useState<FavoriteItem[]>(() => {
@@ -131,11 +141,7 @@ export default function App() {
 
   const handleUpdateSchedule = (newSchedule: PrayerSchedule) => {
     setPrayerSchedule(newSchedule);
-    try {
-      localStorage.setItem('asaka_ziyo_prayer_schedule', JSON.stringify(newSchedule));
-    } catch (e) {
-      // Storage policy
-    }
+    saveStoredPrayerSchedule(newSchedule, true);
   };
 
   const handleToggleFavorite = (item: {
@@ -179,14 +185,53 @@ export default function App() {
     setIsMobileMenuOpen(false);
   };
 
+  // Background prayer time alert scheduler
+  useEffect(() => {
+    const checkPrayerAlert = () => {
+      try {
+        const alertSettings = getPrayerAlertSettings();
+        if (!alertSettings.enabled) return;
+
+        const nextInfo = getNextPrayerCalculation(prayerSchedule.times);
+        if (!nextInfo.nextPrayer) return;
+
+        const minutesRemaining = Math.floor(nextInfo.secondsRemaining / 60);
+
+        if (minutesRemaining <= alertSettings.minutesBefore && minutesRemaining >= 0) {
+          const today = new Date().toISOString().slice(0, 10);
+          const alertKey = `alert_${today}_${nextInfo.nextPrayer.key}_${alertSettings.minutesBefore}`;
+          const alreadyAlerted = sessionStorage.getItem(alertKey);
+
+          if (!alreadyAlerted) {
+            sessionStorage.setItem(alertKey, 'true');
+            if (alertSettings.soundEnabled) {
+              playGentleChime();
+            }
+            triggerBrowserNotification(
+              `Namoz vaqti yaqinlashmoqda (${nextInfo.nextPrayer.nameUz})`,
+              `Asaka shahrida ${nextInfo.nextPrayer.nameUz} namoziga ${minutesRemaining} daqiqa qoldi. Vaqti: ${nextInfo.nextPrayer.time}`
+            );
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    checkPrayerAlert();
+    const interval = setInterval(checkPrayerAlert, 30000);
+    return () => clearInterval(interval);
+  }, [prayerSchedule.times]);
+
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-[#071614] text-stone-900 dark:text-stone-100 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-[#071614] text-stone-900 dark:text-stone-100 transition-colors duration-200 overflow-x-hidden max-w-full">
       {/* Top Header conforming to Top Bar Contract */}
       <Header
         activeTab={activeTab}
         onSelectTab={handleNavigate}
         favoritesCount={favorites.length}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
+        onOpenChatModal={() => setIsChatModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -199,6 +244,7 @@ export default function App() {
             onNavigate={handleNavigate}
             onToggleFavorite={handleToggleFavorite}
             isFavorited={isFavorited}
+            onOpenInstallModal={() => setIsInstallModalOpen(true)}
           />
         )}
 
@@ -332,6 +378,21 @@ export default function App() {
                 {item.label}
               </button>
             ))}
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsChatModalOpen(true);
+              }}
+              className="col-span-2 w-full flex items-center justify-between p-3.5 rounded-xl bg-emerald-950/40 border border-[#c5a869]/40 text-[#c5a869] font-bold text-xs shadow-md cursor-pointer hover:bg-emerald-950/60 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded bg-[#c5a869]/10">💬</span>
+                <span>Maʼmuriyat bilan Muloqot & Chat</span>
+              </div>
+              <span className="text-[10px] bg-[#c5a869] text-[#071614] px-2 py-0.5 rounded">
+                Yozish
+              </span>
+            </button>
           </div>
         </div>
       </Modal>
@@ -343,6 +404,12 @@ export default function App() {
       <AppInstallModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
+      />
+
+      {/* Support Inquiry & Chat Modal */}
+      <SupportChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
       />
     </div>
   );

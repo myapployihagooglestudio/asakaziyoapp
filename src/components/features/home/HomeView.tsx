@@ -17,6 +17,8 @@ import {
   AlertCircle,
   ChevronRight,
   Compass,
+  Smartphone,
+  Download,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -34,6 +36,7 @@ interface HomeViewProps {
     routeId: string;
   }) => void;
   isFavorited: (id: string) => boolean;
+  onOpenInstallModal?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -43,6 +46,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onToggleFavorite,
   isFavorited,
+  onOpenInstallModal,
 }) => {
   const { t, i18n } = useTranslation(['home', 'common', 'prayer', 'quran', 'hadith']);
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
@@ -120,7 +124,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* 1. HERO SECTION */}
       <section className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-stone-900 text-white min-h-[440px] flex items-center shadow-xl">
         <img
-          src="/src/assets/images/asaka_islamic_architecture_1793634657962.jpg"
+          src="/images/asaka_islamic_architecture_1793634657962.jpg"
           alt="Asaka Islamic Architecture"
           referrerPolicy="no-referrer"
           className="absolute inset-0 w-full h-full object-cover object-center brightness-75 transition-transform duration-1000"
@@ -211,7 +215,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         {(() => {
           const nextPrayerInfo = getNextPrayerCalculation(prayerSchedule.times);
           return (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
               {prayerSchedule.times.map((p) => {
                 const isHighlight = nextPrayerInfo.nextPrayer?.key === p.key;
                 const translatedName = t(`prayer:${p.key}`, p.nameUz);
@@ -250,6 +254,43 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
           );
         })()}
+      </section>
+
+      {/* QUICK SMARTPHONE INSTALL & APK CARD */}
+      <section className="relative rounded-2xl overflow-hidden border border-[#c5a869]/40 bg-gradient-to-r from-[#031d17] via-[#091a18] to-[#071614] text-white p-5 sm:p-6 shadow-lg">
+        <GeometricPattern opacity={0.06} />
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-[#c5a869]/20 border border-[#c5a869]/40 flex items-center justify-center text-[#c5a869] shrink-0">
+              <Smartphone className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm sm:text-base font-bold text-white">
+                  ASAKA ZIYO Ilovasini Telefonga Oʻrnatish
+                </span>
+                <span className="text-[10px] font-mono-numbers bg-[#c5a869] text-[#071614] px-2 py-0.5 rounded font-bold">
+                  v1.0.0
+                </span>
+              </div>
+              <p className="text-xs text-stone-300 mt-0.5">
+                Namoz vaqtlari, azon eslatmalari va 114 surani telefoningiz bosh ekranidan bir zumda oching.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onOpenInstallModal}
+              className="flex-1 md:flex-none justify-center"
+            >
+              <Download className="w-4 h-4 mr-1.5" />
+              <span>Oʻrnatish / APK Yuklab Olish</span>
+            </Button>
+          </div>
+        </div>
       </section>
 
       {/* 3. DAILY ISLAMIC CONTENT FEATURE */}
@@ -507,7 +548,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <div className="rounded-xl overflow-hidden border border-[#c5a869]/30 aspect-[4/3] shadow-md">
             <img
-              src="/src/assets/images/islamic_scholarship_library_1793634659800.jpg"
+              src="/images/islamic_scholarship_library_1793634659800.jpg"
               alt="Islamic Library"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"

@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { IslamicStarEmblem } from '../ui/GeometricPattern';
 import { LanguageSelector } from '../ui/LanguageSelector';
-import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download } from 'lucide-react';
+import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download, MessageSquare } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   favoritesCount: number;
   onOpenInstallModal?: () => void;
+  onOpenChatModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   favoritesCount,
   onOpenInstallModal,
+  onOpenChatModal,
 }) => {
   const { t } = useTranslation(['navigation', 'common']);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -102,12 +104,12 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Zone 3: Language Selector + Actions */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* APK Version 1 / Install Action */}
             {onOpenInstallModal && (
               <button
                 onClick={onOpenInstallModal}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-[#c5a869] to-[#d8bd7e] text-[#071614] hover:brightness-105 transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-gradient-to-r from-[#c5a869] to-[#d8bd7e] text-[#071614] hover:brightness-105 transition-all shadow-sm cursor-pointer whitespace-nowrap"
                 title="ASAKA ZIYO APK Version 1 yuklab olish"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -119,10 +121,23 @@ export const Header: React.FC<HeaderProps> = ({
             {/* 5-Language Selector */}
             <LanguageSelector variant="compact" />
 
-            {/* Favorites shortcut */}
+            {/* Murojaat / Support Chat */}
+            {onOpenChatModal && (
+              <button
+                onClick={onOpenChatModal}
+                className="flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 text-xs font-semibold rounded-lg border border-[#c5a869]/40 text-[#c5a869] hover:bg-[#c5a869]/10 transition-colors cursor-pointer"
+                title="Maʼmuriyat bilan muloqot va savol-javob"
+                aria-label="Savol va Chat"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Savol / Chat</span>
+              </button>
+            )}
+
+            {/* Favorites shortcut (hidden on mobile, accessible via bottom nav/drawer) */}
             <button
               onClick={() => handleNavClick('favorites')}
-              className={`relative p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
+              className={`hidden sm:flex relative p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
                 activeTab === 'favorites' ? 'text-[#c5a869]' : ''
               }`}
               title={t('navigation:favorites', 'Sevimlilar')}
@@ -136,10 +151,10 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Settings shortcut */}
+            {/* Settings shortcut (hidden on mobile) */}
             <button
               onClick={() => handleNavClick('settings')}
-              className={`p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
+              className={`hidden sm:flex p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
                 activeTab === 'settings' ? 'text-[#c5a869]' : ''
               }`}
               title={t('navigation:settings', 'Sozlamalar')}
@@ -148,10 +163,10 @@ export const Header: React.FC<HeaderProps> = ({
               <SettingsIcon className="w-5 h-5" />
             </button>
 
-            {/* Admin entry point */}
+            {/* Admin entry point (desktop/tablet) */}
             <button
               onClick={() => handleNavClick('admin')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                 activeTab === 'admin'
                   ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
                   : 'bg-emerald-950/20 text-emerald-800 dark:text-[#c5a869] border-emerald-800/30 dark:border-[#c5a869]/30 hover:border-[#c5a869]'
@@ -159,16 +174,16 @@ export const Header: React.FC<HeaderProps> = ({
               title={t('navigation:admin', 'Maʼmuriyat')}
             >
               <Shield className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t('navigation:admin', 'Maʼmuriyat')}</span>
+              <span>{t('navigation:admin', 'Maʼmuriyat')}</span>
             </button>
 
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+              className="lg:hidden p-1.5 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
               aria-label={mobileMenuOpen ? t('common:close') : t('common:search')}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>

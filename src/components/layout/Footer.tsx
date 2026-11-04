@@ -32,6 +32,31 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
               <MapPin className="w-3.5 h-3.5 shrink-0" />
               <span>{t('common:location', 'Asaka shahri, Andijon viloyati')}</span>
             </div>
+
+            {/* Official Telegram Channels */}
+            <div className="pt-2 space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 block">
+                Rasmiy Telegram Kanallar:
+              </span>
+              <div className="flex flex-col gap-1 text-xs">
+                <a
+                  href="https://t.me/Asaka_Ziyo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  <span>📢 @Asaka_Ziyo</span>
+                </a>
+                <a
+                  href="https://t.me/muhiddinsahhofuz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[#c5a869] hover:text-[#d8bd7e] transition-colors"
+                >
+                  <span>📢 @muhiddinsahhofuz</span>
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* Col 2: Spiritual Sources */}

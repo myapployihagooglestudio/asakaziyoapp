@@ -10,7 +10,7 @@ export const EDITORIAL_ARTICLES: Article[] = [
     authorRole: 'Islomshunos, Imom-xatib',
     publishedDate: '1-Noyabr, 2026',
     readTimeMinutes: 6,
-    featuredImage: '/src/assets/images/quran_illumination_art_1793634658336.jpg',
+    featuredImage: '/images/quran_illumination_art_1793634658336.jpg',
     isFeatured: true,
     excerpt: 'Qurʼoni Karim — bashariyat uchun hidoyat, shifo va najot manbaidir. Uni oʻqish va tadabbur qilish orqali inson qalbi xotirjamlik topadi.',
     keyQuote: '«Qurʼonni tartil bilan, dona-dona va tushunib oʻqing. Zero, qalb undan quvvat oladi».',
@@ -63,7 +63,7 @@ export const EDITORIAL_ARTICLES: Article[] = [
     authorRole: 'Mudarris, tadqiqotchi',
     publishedDate: '28-Oktyabr, 2026',
     readTimeMinutes: 5,
-    featuredImage: '/src/assets/images/islamic_scholarship_library_1793634659800.jpg',
+    featuredImage: '/images/islamic_scholarship_library_1793634659800.jpg',
     excerpt: 'Inson hayoti unga berilgan cheklangan nafaslar yigʻindisidir. Har bir oʻtgan kun insonning bir boʻlagi ketganini anglatadi.',
     keyQuote: 'Hasan Basriy: «Ey Odam bolasi! Sen kunlardan iboratsan. Bir kuning ketsa, bir qisming ketdi demakdir».',
     bodyParagraphs: [
@@ -101,7 +101,7 @@ export const EDITORIAL_ARTICLES: Article[] = [
     authorRole: 'Tarixchi-sharqshunos',
     publishedDate: '24-Oktyabr, 2026',
     readTimeMinutes: 8,
-    featuredImage: '/src/assets/images/asaka_islamic_architecture_1793634657962.jpg',
+    featuredImage: '/images/asaka_islamic_architecture_1793634657962.jpg',
     excerpt: 'Andijon va Asaka zamini azaldan ilm-fan, fiqh va hadis maktablari gullab-yashnagan muqaddas maskanlardan biridir.',
     keyQuote: '«Ilm oʻrganing, chunki u qorongʻulikda mayoq, kimsasizlikda doʻstdir».',
     bodyParagraphs: [

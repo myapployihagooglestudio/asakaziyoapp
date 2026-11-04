@@ -142,6 +142,8 @@ export const en = {
     entryTime: 'Adhan Time',
     iqamahTime: 'Congregation Iqamah',
     timeLeft: 'Time Remaining',
+    tahajjud: 'Tahajjud',
+    subh: 'Subh (Suhoor)',
     bomdod: 'Fajr (Bomdod)',
     quyosh: 'Sunrise (Quyosh)',
     peshin: 'Dhuhr (Peshin)',

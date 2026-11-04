@@ -317,28 +317,62 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                 </ol>
               </div>
             ) : (
-              <div className="p-4 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 space-y-3">
-                <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-[#c5a869]" />
-                  {getLocalized("Android & Kompyuter brauzerida oʻrnatish")}
-                </h4>
-                <ol className="text-xs text-stone-600 dark:text-stone-300 space-y-2 pl-4 list-decimal">
-                  <li>
-                    {getLocalized(
-                      "Brauzer (Chrome / Edge / Samsung Internet) yuqori oʻng burchagidagi uch nuqta (⋮) menyuni bosing."
-                    )}
-                  </li>
-                  <li>
-                    {getLocalized(
-                      "\"Ilovani oʻrnatish\" yoki \"Bosh ekranga qoʻshish\" (Install app / Add to Home screen) bandini tanlang."
-                    )}
-                  </li>
-                  <li>
-                    {getLocalized(
-                      "Oʻrnatish tasdiqlangach, Asaka Ziyo mustaqil dastur sifatida ochiladi."
-                    )}
-                  </li>
-                </ol>
+              <div className="p-4 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Smartphone className="w-8 h-8 text-[#c5a869] shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">
+                      {getLocalized("Bosh ekranga oʻrnatish")}
+                    </h4>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                      {getLocalized("Ilovani brauzer orqali ekranga qoʻshing yoki toʻgʻridan-toʻgʻri APK Version 1 oʻrnating.")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={handlePromptInstall}
+                    className="w-full justify-center text-xs font-bold py-3"
+                  >
+                    <Smartphone className="w-4 h-4 mr-1.5" />
+                    {getLocalized("Ekranga qoʻshishni urinish")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={handleDownloadAPK}
+                    className="w-full justify-center text-xs font-bold py-3 border-[#c5a869] text-[#c5a869]"
+                  >
+                    <Download className="w-4 h-4 mr-1.5" />
+                    {getLocalized("APK v1.0 Yuklab olish (8.4MB)")}
+                  </Button>
+                </div>
+
+                <div className="pt-2 border-t border-stone-200 dark:border-white/10">
+                  <h5 className="font-semibold text-xs text-stone-700 dark:text-stone-300 mb-2">
+                    {getLocalized("Qoʻlda oʻrnatish boʻyicha yoʻriqnoma:")}
+                  </h5>
+                  <ol className="text-xs text-stone-600 dark:text-stone-400 space-y-1.5 pl-4 list-decimal">
+                    <li>
+                      {getLocalized(
+                        "Brauzeringiz (Chrome / Samsung / Edge) yuqori yoki pastki menyusidagi ⋮ (uch nuqta) tugmasini bosing."
+                      )}
+                    </li>
+                    <li>
+                      {getLocalized(
+                        "\"Ilovani oʻrnatish\" yoki \"Bosh ekranga qoʻshish\" (Install app / Add to Home screen) bandini tanlang."
+                      )}
+                    </li>
+                    <li>
+                      {getLocalized(
+                        "Tasdiqlangandan soʻng, Asaka Ziyo telefoningiz bosh ekranida mustaqil ilova boʻlib ishga tushadi."
+                      )}
+                    </li>
+                  </ol>
+                </div>
               </div>
             )}
 

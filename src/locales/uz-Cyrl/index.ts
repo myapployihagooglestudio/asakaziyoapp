@@ -142,6 +142,8 @@ export const uzCyrl = {
     entryTime: 'Кириш вақти',
     iqamahTime: 'Жамоат иқомати',
     timeLeft: 'Киришига қолди',
+    tahajjud: 'Таҳажжуд',
+    subh: 'Субҳ (Саҳарлик)',
     bomdod: 'Бомдод',
     quyosh: 'Қуёш',
     peshin: 'Пешин',

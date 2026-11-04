@@ -33,9 +33,19 @@ export interface LocalizedContentEntry {
   lastUpdated?: string;
 }
 
+export type PrayerKey =
+  | 'tahajjud'
+  | 'subh'
+  | 'bomdod'
+  | 'quyosh'
+  | 'peshin'
+  | 'asr'
+  | 'shom'
+  | 'xufton';
+
 export interface PrayerTimeEntry {
   id: string;
-  key: 'bomdod' | 'quyosh' | 'peshin' | 'asr' | 'shom' | 'xufton';
+  key: PrayerKey;
   nameUz: string;
   nameAr: string;
   time: string; // e.g. "05:14"
@@ -124,6 +134,46 @@ export interface DhikrItem {
   source: string;
 }
 
+export interface CommentItem {
+  id: string;
+  targetType: 'article' | 'post';
+  targetId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+  likesCount?: number;
+}
+
+export interface MediaPost {
+  id: string;
+  title: string;
+  type: 'reel' | 'video' | 'audio' | 'image';
+  mediaUrl: string;
+  thumbnail?: string;
+  caption: string;
+  author: string;
+  publishedDate: string;
+  category: string;
+  likesCount: number;
+  commentsCount: number;
+  comments?: CommentItem[];
+  isPublished: boolean;
+}
+
+export interface SupportInquiry {
+  id: string;
+  userName: string;
+  userPhone?: string;
+  userEmail?: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  status: 'new' | 'answered';
+  adminReply?: string;
+  repliedAt?: string;
+  repliedBy?: string;
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -138,6 +188,10 @@ export interface Article {
   bodyParagraphs: string[];
   keyQuote?: string;
   isFeatured?: boolean;
+  likesCount?: number;
+  rating?: number; // 1-5 stars
+  ratingsCount?: number;
+  comments?: CommentItem[];
   translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
@@ -217,4 +271,27 @@ export interface AppSettings {
   hapticFeedback: boolean;
   tasbihSound: boolean;
   prayerAlertsEnabled: boolean;
+}
+
+export interface TelegramDraftItem {
+  id: string;
+  sourceChannel: string; // '@Asaka_Ziyo' | '@muhiddinsahhofuz'
+  targetSection: 'prayer' | 'announcements' | 'news' | 'articles' | 'media';
+  title: string;
+  content: string;
+  prayerTimesDraft?: {
+    tahajjud?: string;
+    subh?: string;
+    bomdod?: string;
+    quyosh?: string;
+    peshin?: string;
+    asr?: string;
+    shom?: string;
+    xufton?: string;
+  };
+  mediaUrl?: string;
+  receivedAt: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedBy?: string;
+  reviewedAt?: string;
 }

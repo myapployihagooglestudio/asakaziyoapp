@@ -9,7 +9,7 @@ export const COMMUNITY_NEWS: NewsItem[] = [
     summary: 'Asaka shahridagi markaziy jome masjidida yoshlar va qiroat ihlosmandlari uchun nodir qoʻlyozmalar va zamonaviy kitoblarga ega ziyo maskani ochildi.',
     content: 'Asaka markaziy jome masjidi qoshida yangi taʼmirdan chiqqan kutubxona va tajvid xonasi oʻz ishini boshladi. Unda 3000 dan ziyod diniy va maʼrifiy adabiyotlar, fiqh, hadis, tafsir kitoblari jamlangan boʻlib, shahar aholisi uchun mutolaa qilish imkoniyati yaratildi.',
     source: 'Asaka Ziyo axborot xizmati',
-    imageUrl: '/src/assets/images/islamic_scholarship_library_1793634659800.jpg',
+    imageUrl: '/images/islamic_scholarship_library_1793634659800.jpg',
     isImportant: true,
     translations: {
       'uz-Cyrl': {
@@ -40,7 +40,7 @@ export const COMMUNITY_NEWS: NewsItem[] = [
     summary: 'Yoshlar oʻrtasida Qurʼoni Karimni yod olish va chiroyli tilovat qilish boʻyicha viloyat koʻrik-tanlovining saralash bosqichlari eʼlon qilindi.',
     content: 'Oʻzbekiston musulmonlari idorasi Andijon viloyat vakilligi tashabbusi bilan hududlarda anʼanaviy Qurʼon musobaqasi oʻtkazilishi belgilandi. Asaka tumani vakillari ham bir necha yoʻnalishda ishtirok etishi kutilmoqda.',
     source: 'OʻMI Andijon vakilligi',
-    imageUrl: '/src/assets/images/asaka_islamic_architecture_1793634657962.jpg',
+    imageUrl: '/images/asaka_islamic_architecture_1793634657962.jpg',
     translations: {
       'uz-Cyrl': {
         status: 'PUBLISHED',
