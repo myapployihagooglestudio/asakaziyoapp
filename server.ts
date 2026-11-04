@@ -437,12 +437,12 @@ function readDatabase(): any {
     needsSave = true;
   }
 
-  if (!Array.isArray(data.articles) || data.articles.length === 0) {
+  if (!Array.isArray(data.articles)) {
     data.articles = defaultData.articles;
     needsSave = true;
   }
 
-  if (!Array.isArray(data.mediaPosts) || data.mediaPosts.length === 0) {
+  if (!Array.isArray(data.mediaPosts)) {
     data.mediaPosts = defaultData.mediaPosts;
     needsSave = true;
   } else {
@@ -464,12 +464,12 @@ function readDatabase(): any {
     }));
   }
 
-  if (!Array.isArray(data.hadiths) || data.hadiths.length === 0) {
+  if (!Array.isArray(data.hadiths)) {
     data.hadiths = defaultData.hadiths;
     needsSave = true;
   }
 
-  if (!Array.isArray(data.dhikrs) || data.dhikrs.length === 0) {
+  if (!Array.isArray(data.dhikrs)) {
     data.dhikrs = defaultData.dhikrs;
     needsSave = true;
   }
@@ -484,7 +484,7 @@ function readDatabase(): any {
     needsSave = true;
   }
 
-  if (!Array.isArray(data.drafts) || data.drafts.length === 0) {
+  if (!Array.isArray(data.drafts)) {
     data.drafts = defaultData.drafts;
     needsSave = true;
   }

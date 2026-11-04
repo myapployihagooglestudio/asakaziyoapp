@@ -85,7 +85,13 @@ export const HadithView: React.FC<HadithViewProps> = ({
   return (
     <div className="space-y-8 pb-16">
       {/* Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white p-6 sm:p-10">
+      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white p-6 sm:p-10 shadow-xl">
+        <img
+          src="/images/islamic_scholarship_library_1793634659800.jpg"
+          alt="Islamic Scholarship Library"
+          className="absolute inset-0 w-full h-full object-cover object-center brightness-75"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#031d17]/95 via-[#031d17]/85 to-transparent" />
         <GeometricPattern opacity={0.05} />
         <div className="relative z-10 max-w-2xl space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
@@ -97,7 +103,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
           <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
             {t('hadith:title')}
           </h1>
-          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed">
             {t('hadith:subtitle')}
           </p>
         </div>

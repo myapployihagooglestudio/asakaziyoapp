@@ -9,6 +9,7 @@ import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { getNextPrayerCalculation } from '../../../utils/prayerTimeUtils';
 import {
   getActiveDailyBundle,
+  getDailyBundleForDate,
   getDailyArchiveBundles,
   DailyIslamicBundle,
 } from '../../../data/dailyContentData';
@@ -65,6 +66,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [currentDateStr, setCurrentDateStr] = useState<string>('');
+  const [clockHours, setClockHours] = useState('00');
+  const [clockMinutes, setClockMinutes] = useState('00');
+  const [clockSeconds, setClockSeconds] = useState('00');
   const [playingAudio, setPlayingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
@@ -79,25 +84,51 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const unreadNotifs = notifications.filter((n) => !n.read);
   const featuredArticle = articles.find((a) => a.isFeatured) || articles[0];
 
+  // Dynamic Date & Clock ticker ensuring daily rollover in Asia/Tashkent
   useEffect(() => {
-    const updateTime = () => {
+    const updateClockAndDate = () => {
       try {
         const now = new Date();
-        setCurrentTime(
-          now.toLocaleTimeString(
-            currentLocale === 'ru' ? 'ru-RU' : currentLocale === 'en' ? 'en-US' : 'uz-UZ',
-            { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Tashkent' }
-          )
-        );
-      } catch (e) {
+        const tashkentDateKey = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
+        
+        // If date rolled over, update daily bundle
+        if (tashkentDateKey !== currentDateStr) {
+          setCurrentDateStr(tashkentDateKey);
+          setDailyBundle(getDailyBundleForDate(tashkentDateKey));
+        }
+
+        const timeStr = now.toLocaleTimeString('uz-UZ', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'Asia/Tashkent',
+          hour12: false,
+        });
+        setCurrentTime(timeStr);
+
+        const parts = timeStr.split(':');
+        if (parts.length >= 3) {
+          setClockHours(parts[0]);
+          setClockMinutes(parts[1]);
+          setClockSeconds(parts[2]);
+        }
+      } catch {
         const now = new Date();
-        setCurrentTime(now.toTimeString().slice(0, 8));
+        const timeStr = now.toTimeString().slice(0, 8);
+        setCurrentTime(timeStr);
+        const parts = timeStr.split(':');
+        if (parts.length >= 3) {
+          setClockHours(parts[0]);
+          setClockMinutes(parts[1]);
+          setClockSeconds(parts[2]);
+        }
       }
     };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
+
+    updateClockAndDate();
+    const interval = setInterval(updateClockAndDate, 1000);
     return () => clearInterval(interval);
-  }, [currentLocale]);
+  }, [currentDateStr]);
 
   const handlePlayAudio = (url?: string) => {
     if (!url) return;
@@ -175,21 +206,49 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <GeometricPattern opacity={0.06} />
 
         <div className="relative z-10 max-w-4xl px-6 sm:px-10 lg:px-14 py-12 space-y-6">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#c5a869] tracking-wider uppercase">
-            <span>{t('common:location', 'Asaka shahri')}</span>
-            <span aria-hidden="true">·</span>
-            <span>{prayerSchedule.formattedDateUz}</span>
-            <span aria-hidden="true">·</span>
-            <span>{prayerSchedule.hijriDate}</span>
+          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#c5a869] tracking-wider uppercase bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-[#c5a869]/30 w-fit shadow-lg">
+            <span className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#c5a869]" />
+              <span>{dailyBundle.formattedDateUz}</span>
+            </span>
+            <span className="text-[#c5a869]/50" aria-hidden="true">|</span>
+            <span className="text-stone-300 font-mono-numbers">{dailyBundle.hijriDateUz}</span>
+            <span className="text-[#c5a869]/50" aria-hidden="true">|</span>
+            <span className="text-emerald-400 font-semibold">{t('common:location', 'Asaka')}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-white leading-tight text-balance">
-            {t('home:heroTitle')}
-          </h1>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-white leading-tight text-balance">
+                {t('home:heroTitle')}
+              </h1>
 
-          <p className="text-sm sm:text-base text-stone-200 max-w-2xl leading-relaxed">
-            {t('home:heroSubtitle')}
-          </p>
+              <p className="text-sm sm:text-base text-stone-200 leading-relaxed">
+                {t('home:heroSubtitle')}
+              </p>
+            </div>
+
+            {/* ANIMATED LIVE CLOCK WIDGET (Asia/Tashkent) */}
+            <div className="bg-gradient-to-br from-[#051d18]/90 via-[#071614]/95 to-black/90 p-4 sm:p-5 rounded-2xl border border-[#c5a869]/50 shadow-2xl backdrop-blur-md flex items-center gap-3 shrink-0 mx-auto md:mx-0 w-full sm:w-auto justify-center">
+              <div className="w-10 h-10 rounded-xl bg-[#c5a869]/20 flex items-center justify-center text-[#c5a869] shrink-0">
+                <Clock className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="text-center sm:text-left">
+                <div className="text-[10px] uppercase font-semibold text-[#c5a869] tracking-widest flex items-center justify-center sm:justify-start gap-1">
+                  <span>Oʻzbekiston vaqti</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-mono-numbers font-extrabold text-white tracking-wider flex items-center gap-1">
+                  <span className="px-1.5 py-0.5 rounded bg-black/40 border border-white/10">{clockHours}</span>
+                  <span className="text-[#c5a869] animate-pulse">:</span>
+                  <span className="px-1.5 py-0.5 rounded bg-black/40 border border-white/10">{clockMinutes}</span>
+                  <span className="text-[#c5a869] animate-pulse">:</span>
+                  <span className="px-1.5 py-0.5 rounded bg-black/40 border border-white/10 text-[#c5a869]">{clockSeconds}</span>
+                </div>
+                <div className="text-[10px] text-stone-400 mt-0.5">Asia/Tashkent (UTC+5)</div>
+              </div>
+            </div>
+          </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button

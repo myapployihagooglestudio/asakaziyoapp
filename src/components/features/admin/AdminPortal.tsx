@@ -12,6 +12,8 @@ import {
   DhikrItem,
   SupportInquiry,
   TelegramDraftItem,
+  AnnouncementItem,
+  NewsItem,
 } from '../../../types';
 import { ADMIN_ROLES_CONFIG, INITIAL_AUDIT_LOGS } from '../../../data/adminData';
 import { Card } from '../../ui/Card';
@@ -78,6 +80,12 @@ import {
   rejectDraft,
   deleteDraft,
   createDraft,
+  getStoredAnnouncements,
+  saveStoredAnnouncement,
+  deleteStoredAnnouncement,
+  getStoredNews,
+  saveStoredNews,
+  deleteStoredNews,
   subscribeToDatabase,
   syncAllToFirestore,
   runFirestoreDiagnostics,

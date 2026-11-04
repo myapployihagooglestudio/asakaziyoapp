@@ -5,26 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <script>
       (function() {
-        // Intercept Vite HMR WebSocket in AI Studio preview where HMR is disabled
+        // Intercept all Vite HMR WebSocket connections in AI Studio preview where HMR is disabled
         try {
           const OrigWebSocket = window.WebSocket;
           if (OrigWebSocket) {
             window.WebSocket = function(url, protocols) {
-              const isViteHmr = Array.isArray(protocols)
-                ? protocols.includes('vite-hmr')
-                : protocols === 'vite-hmr';
+              const isViteHmr = (typeof url === 'string' && (url.includes('vite') || url.includes('hmr') || url.includes('ws'))) ||
+                (Array.isArray(protocols) ? protocols.includes('vite-hmr') : protocols === 'vite-hmr');
+              
               if (isViteHmr) {
                 const target = new EventTarget();
                 target.url = url;
                 target.protocols = protocols;
-                target.readyState = 1;
+                target.readyState = 1; // OPEN
                 target.binaryType = 'blob';
                 target.send = function() {};
                 target.close = function() { target.readyState = 3; };
-                target.onopen = null;
-                target.onclose = null;
-                target.onerror = null;
-                target.onmessage = null;
+                target.addEventListener = function(type, listener) {
+                  target.target.addEventListener(type, listener);
+                };
+                target.removeEventListener = function(type, listener) {
+                  target.target.removeEventListener(type, listener);
+                };
+                target.target = document.createElement('div');
+                // Simulate open event on next tick
+                setTimeout(() => {
+                  try {
+                    if (typeof target.onopen === 'function') target.onopen(new Event('open'));
+                    target.dispatchEvent(new Event('open'));
+                  } catch (_) {}
+                }, 10);
                 return target;
               }
               return new OrigWebSocket(url, protocols);
@@ -44,6 +54,13 @@
             return true;
           }
         }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          if (e && e.reason && String(e.reason).includes('WebSocket')) {
+            e.preventDefault();
+            return true;
+          }
+        });
       })();
     </script>
     <title>ASAKA ZIYO — Premium Islamic Digital Ecosystem</title>

@@ -337,6 +337,12 @@ export const QuranView: React.FC<QuranViewProps> = ({
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
       {/* 1. Header Banner */}
       <div className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] p-6 sm:p-10 text-white shadow-xl">
+        <img
+          src="/images/quran_illumination_art_1793634658336.jpg"
+          alt="Quran Illumination Art"
+          className="absolute inset-0 w-full h-full object-cover object-center brightness-75"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#031d17]/95 via-[#031d17]/85 to-transparent" />
         <GeometricPattern opacity={0.06} />
         <div className="relative z-10 max-w-3xl space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
@@ -348,7 +354,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
           <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
             Qurʼoni Karim va Tafsir Maskani
           </h1>
-          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed max-w-2xl">
             114 ta suraning toʻliq arabcha matni, 8 ta mashhur qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
           </p>
         </div>

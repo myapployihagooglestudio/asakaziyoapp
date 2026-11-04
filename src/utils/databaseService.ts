@@ -13,11 +13,14 @@ import {
   CommentItem,
   SupportInquiry,
   TelegramDraftItem,
+  AnnouncementItem,
+  NewsItem,
 } from '../types';
 import { INITIAL_ASAKA_PRAYER_SCHEDULE } from '../data/prayerTimesData';
 import { EDITORIAL_ARTICLES } from '../data/articlesData';
 import { AUTHENTIC_HADITHS } from '../data/hadithData';
 import { AUTHENTIC_DHIKRS } from '../data/dhikrData';
+import { COMMUNITY_ANNOUNCEMENTS, COMMUNITY_NEWS } from '../data/newsAndAnnouncementsData';
 import { triggerBrowserNotification, AppNotification } from './notificationService';
 import {
   syncDocToFirestore,
@@ -44,6 +47,8 @@ const KEYS = {
   INQUIRIES: 'asaka_ziyo_db_inquiries_v2',
   DRAFTS: 'asaka_ziyo_db_drafts_v2',
   NOTIFICATIONS: 'asaka_ziyo_db_notifications_v2',
+  ANNOUNCEMENTS: 'asaka_ziyo_db_announcements_v2',
+  NEWS: 'asaka_ziyo_db_news_v2',
 };
 
 // Seed initial Media Posts & Reels for Asaka Ziyo
@@ -190,7 +195,9 @@ export type DBEventType =
   | 'DHIKRS_UPDATED'
   | 'INQUIRIES_UPDATED'
   | 'DRAFTS_UPDATED'
-  | 'NOTIFICATIONS_UPDATED';
+  | 'NOTIFICATIONS_UPDATED'
+  | 'ANNOUNCEMENTS_UPDATED'
+  | 'NEWS_UPDATED';
 
 export interface DBMessage {
   type: DBEventType;
@@ -275,6 +282,8 @@ if (typeof window !== 'undefined') {
       if (e.key === KEYS.INQUIRIES) broadcastEvent('INQUIRIES_UPDATED');
       if (e.key === KEYS.DRAFTS) broadcastEvent('DRAFTS_UPDATED');
       if (e.key === KEYS.NOTIFICATIONS) broadcastEvent('NOTIFICATIONS_UPDATED');
+      if (e.key === KEYS.ANNOUNCEMENTS) broadcastEvent('ANNOUNCEMENTS_UPDATED');
+      if (e.key === KEYS.NEWS) broadcastEvent('NEWS_UPDATED');
     }
   });
 }
@@ -1657,5 +1666,89 @@ export function getActiveDailyBundle(dateStr?: string): DailyIslamicBundle {
     // ignore
   }
   return fresh;
+}
+
+// --------------------------------------------------------------------------
+// 11. ANNOUNCEMENTS & NEWS CMS METHODS
+// --------------------------------------------------------------------------
+
+export function getStoredAnnouncements(): AnnouncementItem[] {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = localStorage.getItem(KEYS.ANNOUNCEMENTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+  } catch {}
+  return COMMUNITY_ANNOUNCEMENTS;
+}
+
+export async function saveStoredAnnouncement(announcement: AnnouncementItem): Promise<{ success: boolean; error?: string }> {
+  const list = getStoredAnnouncements();
+  const idx = list.findIndex((a) => a.id === announcement.id);
+  const updated = idx >= 0 ? list.map((a, i) => (i === idx ? announcement : a)) : [announcement, ...list];
+
+  const firestoreRes = await syncDocToFirestore('announcements', announcement.id, announcement);
+  if (auth.currentUser && !firestoreRes.success) {
+    return { success: false, error: firestoreRes.error };
+  }
+
+  try {
+    localStorage.setItem(KEYS.ANNOUNCEMENTS, JSON.stringify(updated));
+  } catch {}
+  broadcastEvent('ANNOUNCEMENTS_UPDATED', updated);
+  return { success: true };
+}
+
+export async function deleteStoredAnnouncement(id: string): Promise<{ success: boolean; error?: string }> {
+  const firestoreRes = await deleteDocFromFirestore('announcements', id);
+  const list = getStoredAnnouncements().filter((a) => a.id !== id);
+  try {
+    localStorage.setItem(KEYS.ANNOUNCEMENTS, JSON.stringify(list));
+  } catch {}
+  broadcastEvent('ANNOUNCEMENTS_UPDATED', list);
+  return { success: true };
+}
+
+export function getStoredNews(): NewsItem[] {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = localStorage.getItem(KEYS.NEWS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    }
+  } catch {}
+  return COMMUNITY_NEWS;
+}
+
+export async function saveStoredNews(newsItem: NewsItem): Promise<{ success: boolean; error?: string }> {
+  const list = getStoredNews();
+  const idx = list.findIndex((n) => n.id === newsItem.id);
+  const updated = idx >= 0 ? list.map((n, i) => (i === idx ? newsItem : n)) : [newsItem, ...list];
+
+  const firestoreRes = await syncDocToFirestore('news', newsItem.id, newsItem);
+  if (auth.currentUser && !firestoreRes.success) {
+    return { success: false, error: firestoreRes.error };
+  }
+
+  try {
+    localStorage.setItem(KEYS.NEWS, JSON.stringify(updated));
+  } catch {}
+  broadcastEvent('NEWS_UPDATED', updated);
+  return { success: true };
+}
+
+export async function deleteStoredNews(id: string): Promise<{ success: boolean; error?: string }> {
+  const firestoreRes = await deleteDocFromFirestore('news', id);
+  const list = getStoredNews().filter((n) => n.id !== id);
+  try {
+    localStorage.setItem(KEYS.NEWS, JSON.stringify(list));
+  } catch {}
+  broadcastEvent('NEWS_UPDATED', list);
+  return { success: true };
 }
 
