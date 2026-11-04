@@ -563,7 +563,7 @@ export function getStoredArticles(): Article[] {
       const saved = localStorage.getItem(KEYS.ARTICLES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -571,34 +571,7 @@ export function getStoredArticles(): Article[] {
   } catch {
     // ignore
   }
-
-  // Seed with default articles enriched with initial likes/ratings
-  const seeded = EDITORIAL_ARTICLES.map((art, idx) => ({
-    ...art,
-    likesCount: art.likesCount ?? (idx === 0 ? 84 : 45),
-    rating: art.rating ?? 4.9,
-    ratingsCount: art.ratingsCount ?? 28,
-    comments: art.comments ?? [
-      {
-        id: `c-art-${art.id}-1`,
-        targetType: 'article' as const,
-        targetId: art.id,
-        authorName: 'Ibrohim Asakiy',
-        text: 'Juda foydali va teran maqola boʻlibdi. Maʼrifiy tushunchalar sodda tilda yetkazilgan.',
-        createdAt: '1-Noyabr, 2026',
-        likesCount: 14,
-      },
-    ],
-  }));
-
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(KEYS.ARTICLES, JSON.stringify(seeded));
-    }
-  } catch {
-    // ignore
-  }
-  return seeded;
+  return [];
 }
 
 export async function saveStoredArticle(article: Article): Promise<{ success: boolean; article: Article; error?: string }> {
@@ -1678,11 +1651,11 @@ export function getStoredAnnouncements(): AnnouncementItem[] {
       const saved = localStorage.getItem(KEYS.ANNOUNCEMENTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     }
   } catch {}
-  return COMMUNITY_ANNOUNCEMENTS;
+  return [];
 }
 
 export async function saveStoredAnnouncement(announcement: AnnouncementItem): Promise<{ success: boolean; error?: string }> {
@@ -1718,11 +1691,11 @@ export function getStoredNews(): NewsItem[] {
       const saved = localStorage.getItem(KEYS.NEWS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     }
   } catch {}
-  return COMMUNITY_NEWS;
+  return [];
 }
 
 export async function saveStoredNews(newsItem: NewsItem): Promise<{ success: boolean; error?: string }> {

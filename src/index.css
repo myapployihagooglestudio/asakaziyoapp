@@ -20,6 +20,7 @@
     overflow-x: hidden;
     width: 100%;
     max-width: 100vw;
+    background-color: var(--color-canvas-dark);
   }
 
   html {
@@ -51,6 +52,65 @@
 .font-mono-numbers {
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* Luxury animations & effects */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(197, 168, 105, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(197, 168, 105, 0.45);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+.animate-float {
+  animation: floatSlow 5s infinite ease-in-out;
+}
+
+.glass-card {
+  background: rgba(7, 22, 20, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(197, 168, 105, 0.25);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(197, 168, 105, 0.6);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px -10px rgba(197, 168, 105, 0.25);
 }
 
 /* Subtle luxury scrollbar */
