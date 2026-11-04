@@ -968,14 +968,15 @@ export async function approveDraft(id: string, reviewer = 'Bosh Administrator'):
     const newPost: MediaPost = {
       id: `reel-${Date.now()}`,
       title: target.title,
-      description: target.content,
-      mediaUrl: target.mediaUrl || 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80',
-      mediaType: 'image',
+      type: 'image',
+      category: 'Ijtimoiy',
       author: target.sourceChannel,
       publishedDate: 'Bugun',
-      duration: 'Post',
+      mediaUrl: target.mediaUrl || 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80',
+      caption: target.content,
       likesCount: 10,
-      viewsCount: 120,
+      commentsCount: 0,
+      isPublished: true,
       comments: [],
     };
     saveStoredMediaPost(newPost);

@@ -1,0 +1,252 @@
+{
+  "prayerSchedule": {
+    "date": "2026-11-03",
+    "formattedDateUz": "3-Noyabr, Seshanba, 2026",
+    "hijriDate": "23 Jumodul avval, 1448",
+    "location": "Asaka shahri, Andijon viloyati",
+    "qiblaAngleDeg": 241,
+    "timezone": "Asia/Tashkent",
+    "isAdministratorPublished": true,
+    "publishedBy": "Asaka Jome Masjidi Maʼmuriyati",
+    "verifiedAt": "2026-11-03 05:00",
+    "disclaimer": "Asaka shahri va mintaqa uchun rasmiy tasdiqlangan namoz vaqtlari jadvali.",
+    "times": [
+      {
+        "id": "p-0",
+        "key": "tahajjud",
+        "nameUz": "Tahajjud",
+        "nameAr": "التَّهَجُّد",
+        "time": "03:45",
+        "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi"
+      },
+      {
+        "id": "p-01",
+        "key": "subh",
+        "nameUz": "Subh (Saharlik)",
+        "nameAr": "الصُّبْح",
+        "time": "04:40",
+        "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti"
+      },
+      {
+        "id": "p-1",
+        "key": "bomdod",
+        "nameUz": "Bomdod",
+        "nameAr": "الفَجْر",
+        "time": "05:22",
+        "iqamahTime": "05:50",
+        "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt"
+      },
+      {
+        "id": "p-2",
+        "key": "quyosh",
+        "nameUz": "Quyosh",
+        "nameAr": "الشُّرُوق",
+        "time": "06:46",
+        "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)"
+      },
+      {
+        "id": "p-3",
+        "key": "peshin",
+        "nameUz": "Peshin",
+        "nameAr": "الظُّهْر",
+        "time": "12:05",
+        "iqamahTime": "12:25",
+        "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt"
+      },
+      {
+        "id": "p-4",
+        "key": "asr",
+        "nameUz": "Asr",
+        "nameAr": "العَصْر",
+        "time": "15:10",
+        "iqamahTime": "15:30",
+        "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+      },
+      {
+        "id": "p-5",
+        "key": "shom",
+        "nameUz": "Shom",
+        "nameAr": "المَغْرِب",
+        "time": "17:21",
+        "iqamahTime": "17:26",
+        "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha"
+      },
+      {
+        "id": "p-6",
+        "key": "xufton",
+        "nameUz": "Xufton",
+        "nameAr": "العِشَاء",
+        "time": "18:42",
+        "iqamahTime": "19:05",
+        "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt"
+      }
+    ]
+  },
+  "articles": [
+    {
+      "id": "art-1",
+      "title": "Qurʼon qiroati va tadabbur odoblari: Qalbni nurlantiruvchi amallar",
+      "subtitle": "Kalomullohni shunchaki til bilan emas, butun vujud va tafakkur bilan oʻqishning ruhiy sirlari",
+      "category": "Axloq",
+      "author": "Abdulloh domla Oʻrinboyev",
+      "authorRole": "Islomshunos, Imom-xatib",
+      "publishedDate": "1-Noyabr, 2026",
+      "readTimeMinutes": 6,
+      "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+      "isFeatured": true,
+      "likesCount": 24,
+      "ratingsCount": 8,
+      "rating": 4.9,
+      "excerpt": "Qurʼoni Karim — bashariyat uchun hidoyat, shifo va najot manbaidir. Uni oʻqish va tadabbur qilish orqali inson qalbi xotirjamlik topadi.",
+      "keyQuote": "«Qurʼonni tartil bilan, dona-dona va tushunib oʻqing. Zero, qalb undan quvvat oladi».",
+      "bodyParagraphs": [
+        "Alloh taoloning Kalomi boʻlmish Qurʼoni Karim bandalarga nozil qilingan eng ulugʻ ilohiy dasturdir. Har bir moʻmin uchun ushbu kitobni tilovati va uning maʼnolariga chuqur nazar solish qalb xotirjamligining asosiy sababidir.",
+        "Ulamolarimiz bayon qilganlaridek, Qurʼon tilovat qilishning zohiriy va botiniy odoblari mavjud. Zohiriy odoblarga tahoratli boʻlish, pokiza kiyimda, qiblaga yuzlanib, xushuʼ ila oʻtirish kirsa; botiniy odoblarga qalbni dunyoviy gʻalvalardan forigʻ qilish va har bir oyat xitobini aynan oʻziga tegishli deb qabul qilish xosdir."
+      ],
+      "comments": [
+        {
+          "id": "c-1",
+          "authorName": "Ziyovuddin qori",
+          "text": "Mashalloh, juda manfaatli maqola boʻlibdi. Alloh rozi boʻlsin!",
+          "timestamp": "2026-11-02 14:20"
+        }
+      ]
+    },
+    {
+      "id": "art-2",
+      "title": "Islomda vaqt va umr neʼmatining qadri",
+      "subtitle": "Boy berilgan soniyalarning oʻrni toʻldirilmasligi va muvozanatli kun tartibi",
+      "category": "Hikmat",
+      "author": "Ustoz Muzaffarxon Qosimov",
+      "authorRole": "Mudarris, tadqiqotchi",
+      "publishedDate": "28-Oktyabr, 2026",
+      "readTimeMinutes": 5,
+      "featuredImage": "/images/islamic_scholarship_library_1793634659800.jpg",
+      "isFeatured": false,
+      "likesCount": 19,
+      "ratingsCount": 5,
+      "rating": 5,
+      "excerpt": "Inson hayoti unga berilgan cheklangan nafaslar yigʻindisidir. Har bir oʻtgan kun insonning bir boʻlagi ketganini anglatadi.",
+      "keyQuote": "Hasan Basriy: «Ey Odam bolasi! Sen kunlardan iboratsan. Bir kuning ketsa, bir qisming ketdi demakdir».",
+      "bodyParagraphs": [
+        "Alloh taolo bir necha suralarda vaqtga qasam ichadi: «Asrga qasamki...», «Tongga qasamki...», «Kechaga qasamki...». Zotining ulugʻligi bilan vaqtga qasam ichishi uning naqadar qimmatbaho ekanligiga dalolat qiladi."
+      ],
+      "comments": []
+    },
+    {
+      "id": "art-3",
+      "title": "Fargʻona vodiysi va Andijon allomalari: Ilmiy meros va anʼana",
+      "subtitle": "Movarounnahr zaminida yetishib chiqqan buyuk faqihlar, muhaddislar va mufassirlar hayotidan lavhalar",
+      "category": "Tarix",
+      "author": "Faxriddin domla Mamasaidov",
+      "authorRole": "Tarixchi-sharqshunos",
+      "publishedDate": "24-Oktyabr, 2026",
+      "readTimeMinutes": 8,
+      "featuredImage": "/images/asaka_islamic_architecture_1793634657962.jpg",
+      "isFeatured": false,
+      "likesCount": 31,
+      "ratingsCount": 9,
+      "rating": 4.8,
+      "excerpt": "Andijon va Asaka zamini azaldan ilm-fan, fiqh va hadis maktablari gullab-yashnagan muqaddas maskanlardan biridir.",
+      "keyQuote": "«Ilm oʻrganing, chunki u qorongʻulikda mayoq, kimsasizlikda doʻstdir».",
+      "bodyParagraphs": [
+        "Movarounnahr mintaqasi, xususan Fargʻona vodiysi asrlar davomida butun islom olamiga mayoq boʻlgan olimlar beshigi boʻlib kelgan. Imom Margʻinoniyning «Hidoya»si butun dunyoda fiqhning eng nufuzli manbasi sifatida oʻrganiladi."
+      ],
+      "comments": []
+    }
+  ],
+  "mediaPosts": [
+    {
+      "id": "reel-1",
+      "title": "Subh namozining fazilati va barakasi",
+      "description": "Tong paytidagi xushuʼ va bomdod namozining jamoat bilan oʻqilishining ajrlari haqida qisqa eslatma.",
+      "mediaUrl": "https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80",
+      "mediaType": "video",
+      "author": "Asaka Jome Masjidi Imomi",
+      "publishedDate": "Bugun",
+      "duration": "0:58",
+      "likesCount": 42,
+      "viewsCount": 380,
+      "comments": [
+        {
+          "id": "mc-1",
+          "authorName": "Hasanboy",
+          "text": "Alloh manfaatli qilsin!",
+          "timestamp": "2026-11-03 06:10"
+        }
+      ]
+    },
+    {
+      "id": "reel-2",
+      "title": "Zikr va qalb xotirjamligi",
+      "description": "«Albatta, Allohning zikri ila qalblar orom olur» (Raʼd surasi, 28-oyat)",
+      "mediaUrl": "https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=800&q=80",
+      "mediaType": "image",
+      "author": "Tahririyat Hayʼati",
+      "publishedDate": "Kecha",
+      "duration": "Rasm/Post",
+      "likesCount": 29,
+      "viewsCount": 215,
+      "comments": []
+    }
+  ],
+  "inquiries": [
+    {
+      "id": "inq-1",
+      "userName": "Rustamjon",
+      "userPhone": "+998 90 123 45 67",
+      "subject": "Tahajjud namozi vaqti haqida",
+      "message": "Assalomu alaykum. Asaka shahrida tahajjud namozini qaysi vaqtgacha oʻqisa afzal boʻladi?",
+      "createdAt": "2026-11-02 21:15",
+      "status": "answered",
+      "adminReply": "Va alaykum assalom. Tahajjud namozi kechaning oxirgi uchdan birida, Subh (bomdod kirmasidan oldin) oʻqilishi eng afzaldir. Asaka taqvimida koʻrsatilgan 03:45 vaqti ayni shunga muvofiq keladi.",
+      "repliedAt": "2026-11-03 05:40"
+    }
+  ],
+  "hadiths": [],
+  "dhikrs": [],
+  "telegramConfig": {
+    "botToken": "",
+    "channelId": "@Asaka_Ziyo",
+    "channel2": "@muhiddinsahhofuz",
+    "channelTitle": "ASAKA ZIYO Rasmiy Kanali"
+  },
+  "supabaseConfig": {
+    "url": "",
+    "anonKey": "",
+    "isEnabled": false,
+    "lastSync": null
+  },
+  "drafts": [
+    {
+      "id": "draft-1",
+      "sourceChannel": "@Asaka_Ziyo",
+      "targetSection": "prayer",
+      "title": "Haftalik Asaka namoz vaqtlari yangilanishi",
+      "content": "Hurmatli namozxonlar, Asaka jome masjidi uchun yangi haftalik taqvim: Bomdod 05:22, Peshin 12:05, Asr 15:10, Shom 17:21, Xufton 18:42, Tahajjud 03:45, Subh 04:40.",
+      "prayerTimesDraft": {
+        "tahajjud": "03:45",
+        "subh": "04:40",
+        "bomdod": "05:22",
+        "quyosh": "06:46",
+        "peshin": "12:05",
+        "asr": "15:10",
+        "shom": "17:21",
+        "xufton": "18:42"
+      },
+      "receivedAt": "2026-11-03 08:30",
+      "status": "pending"
+    },
+    {
+      "id": "draft-2",
+      "sourceChannel": "@muhiddinsahhofuz",
+      "targetSection": "articles",
+      "title": "Ilm va odob: Ustoz Muhiddin Sahhof maʼruzalari asosida",
+      "content": "Ilm talab qilish har bir musulmon erkak va ayolga farzdir. Ammo ilmdan oldin odob oʻrganilishi lozim...",
+      "mediaUrl": "https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=1200&q=80",
+      "receivedAt": "2026-11-03 09:15",
+      "status": "pending"
+    }
+  ],
+  "updatedAt": "2026-11-04T02:42:58.544Z"
+}
