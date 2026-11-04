@@ -16,6 +16,9 @@ import {
   ShieldAlert,
   Info,
   MapPin,
+  Navigation,
+  RotateCw,
+  Smartphone,
 } from 'lucide-react';
 
 interface PrayerTimesViewProps {

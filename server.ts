@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,6 +18,139 @@ app.use(express.json({ limit: '15mb' }));
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+
+// Authentic Hadiths seed for central persistence
+const AUTHENTIC_HADITHS_SEED = [
+  {
+    id: 'h-1',
+    collection: 'bukhari',
+    collectionNameUz: 'Sahihi Buxoriy',
+    number: 1,
+    chapterUz: 'Vahiyning boshlanishi va Niyat bobi',
+    narratorUz: 'Umar ibn Xattob roziyallohu anhu',
+    textAr: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى، فَمَنْ كَانَتْ هِجْرَتُهُ إِلَى دُنْيَا يُصِيبُهَا أَوْ إِلَى امْرَأَةٍ يَنْكِحُهَا، فَهِجْرَتُهُ إِلَى مَا هَاجَرَ إِلَيْهِ',
+    translationUz: '«Albatta, amallar niyatlarga bogʻliqdir. Har bir kishi uchun niyat qilgan narsasi boʻladi. Bas, kimning hijrati dunyo matohiga yetishish yoki ayolga uylanish uchun boʻlsa, uning hijrati oʻsha koʻzlangan narsasigadir».',
+    grade: 'Sahih',
+    reference: 'Sahih al-Buxoriy, 1-hadis',
+    keywords: ['niyat', 'amal', 'ixlos', 'hijrat']
+  },
+  {
+    id: 'h-2',
+    collection: 'bukhari',
+    collectionNameUz: 'Sahihi Buxoriy',
+    number: 13,
+    chapterUz: 'Iymon kitobi',
+    narratorUz: 'Anas ibn Molik roziyallohu anhu',
+    textAr: 'لاَ يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لِأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ',
+    translationUz: '«Sizlardan birortangiz oʻzi uchun yaxshi koʻrgan narsani birodari uchun ham ravo koʻrmaguncha haqiqiy moʻmin boʻla olmaydi».',
+    grade: 'Sahih',
+    reference: 'Sahih al-Buxoriy, 13-hadis; Sahih Muslim, 45-hadis',
+    keywords: ['iymon', 'birodarlik', 'mehr', 'saxovat']
+  },
+  {
+    id: 'h-3',
+    collection: 'muslim',
+    collectionNameUz: 'Sahihi Muslim',
+    number: 38,
+    chapterUz: 'Bir-biriga yordam berish va musibatni aritish',
+    narratorUz: 'Abu Hurayra roziyallohu anhu',
+    textAr: 'مَنْ نَفَّسَ عَنْ مُؤْمِنٍ كُرْبَةً مِنْ كُرَبِ الدُّنْيَا نَفَّسَ اللَّهُ عَنْهُ كُرْبَةً مِنْ كُرَبِ يَوْمِ الْقِيَامَةِ، وَمَنْ يَسَّرَ عَلَى مُعْسِرٍ يَسَّرَ اللَّهُ عَلَيْهِ فِي الدُّنْيَا وَالآخِرَةِ',
+    translationUz: '«Kim bir moʻminning dunyo gʻamlaridan birini aritsa, Alloh undan Qiyomat kunining gʻamlaridan birini aritadi. Kim qiyinchilikka uchragan kishiga yengillik tugʻdirsa, Alloh unga dunyo-yu oxiratda yengillik beradi».',
+    grade: 'Sahih',
+    reference: 'Sahih Muslim, 2699-hadis',
+    keywords: ['koʻmak', 'yengillik', 'muruvvat', 'ajr']
+  },
+  {
+    id: 'h-4',
+    collection: 'nawawi',
+    collectionNameUz: 'Arbaʼin (Navaviy 40 Hadis)',
+    number: 18,
+    chapterUz: 'Taqvo va goʻzal xulq',
+    narratorUz: 'Abu Zarr va Muoz ibn Jabal roziyallohu anhumo',
+    textAr: 'اتَّقِ اللَّهَ حَيْثُمَا كُنْتَ، وَأَتْبِعِ السَّيِّئَةَ الْحَسَنَةَ تَمْحُهَا، وَخَالِقِ النَّاسَ بِخُلُقٍ حَسَنٍ',
+    translationUz: '«Qayerda boʻlsang ham Allohga taqvo qil! Yomonlik ketidan yaxshilik qil, uni oʻchirib yuboradi. Odamlar bilan goʻzal xulq ila muomala qil!».',
+    grade: 'Hasan',
+    reference: 'Sunani Termiziy, 1987-hadis; Imom Navaviy toʻplami',
+    keywords: ['taqvo', 'tavba', 'goʻzal xulq', 'muomala']
+  },
+  {
+    id: 'h-5',
+    collection: 'bukhari',
+    collectionNameUz: 'Sahihi Buxoriy',
+    number: 6011,
+    chapterUz: 'Odob va silai rahm kitobi',
+    narratorUz: 'Abdulloh ibn Amr roziyallohu anhu',
+    textAr: 'الْمُسْلِمُ مَنْ سَلِمَ الْمُسْلِمُونَ مِنْ لِسَانِهِ وَيَدِهِ',
+    translationUz: '«Haqiqiy musulmon — tili va qoʻlidan boshqa musulmonlar omonda boʻlgan kishidir».',
+    grade: 'Sahih',
+    reference: 'Sahih al-Buxoriy, 6011-hadis',
+    keywords: ['odob', 'omonlik', 'salomatlik', 'tinchlik']
+  }
+];
+
+// Authentic Dhikrs seed for central persistence
+const AUTHENTIC_DHIKRS_SEED = [
+  {
+    id: 'd-1',
+    category: 'sayyidul_istigfor',
+    categoryTitleUz: 'Sayyidul Istigʻfor',
+    titleUz: 'Istigʻforlarning Sayyidi (eng ulugʻi)',
+    textAr: 'اللَّهُمَّ أَنْتَ رَبِّي لاَ إِلَهَ إِلاَّ أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لاَ يَغْفِرُ الذُّنُوبَ إِلاَّ أَنْتَ',
+    transliterationUz: 'Allohumma Anta Robbiy laa ilaha illa Anta, xolaqtaniy va ana ʻabduka, va ana ʻala ʻahdika va vaʼdika mastataʼtu, aʼuzu bika min sharri ma sonaʼtu, abuuʼu laka biniʼmatika ʻalayya va abuuʼu bizanbiy fagʻfir liy, fainnahu laa yagʻfiruz-zunuba illa Anta.',
+    translationUz: '«Yo Alloh! Sen mening Robbimsan, Sendan oʻzga iloh yoʻq. Meni Sen yaratding va men Sening qulingman. Men qurbim yetguncha Sening ahding va vaʼdangdaman. Qilgan ishlarim yomonligidan Sendan panoh soʻrayman. Menga bergan neʼmatingni eʼtirof qilaman va gunohlarimni tan olaman. Bas, meni magʻfirat qilgin, chunki gunohlarni faqat Sengina kechirasan».',
+    targetCount: 1,
+    virtueUz: 'Rasululloh ﷺ: «Kim bu duoni kunduzi sidqidildan aytsa va shu kuni kech kirgunicha vafot etsa, jannat ahlidan boʻladi. Kim uni kechasi sidqidildan aytib, tong otguncha vafot etsa, u ham jannat ahlidandir».',
+    source: 'Sahih al-Buxoriy, 6306-hadis'
+  },
+  {
+    id: 'd-2',
+    category: 'namozdan_keyin',
+    categoryTitleUz: 'Namozdan keyingi tasbeh',
+    titleUz: 'Subhanalloh (33 marta)',
+    textAr: 'سُبْحَانَ اللَّهِ',
+    transliterationUz: 'Subhanalloh',
+    translationUz: '«Alloh barcha ayb-nuqsonlardan pokdir».',
+    targetCount: 33,
+    virtueUz: 'Farz namozlardan soʻng aytiladigan mashhur tasbehning birinchi qismi.',
+    source: 'Sahih Muslim, 597-hadis'
+  },
+  {
+    id: 'd-3',
+    category: 'namozdan_keyin',
+    categoryTitleUz: 'Namozdan keyingi tasbeh',
+    titleUz: 'Alhamdulilloh (33 marta)',
+    textAr: 'الْحَمْدُ لِلَّهِ',
+    transliterationUz: 'Alhamdulilloh',
+    translationUz: '«Barcha hamd va shukronalar Allohga xosdir».',
+    targetCount: 33,
+    virtueUz: 'Qalbga shukr va xotirjamlik bagʻishlaydigan ulugʻ kalima.',
+    source: 'Sahih Muslim, 597-hadis'
+  },
+  {
+    id: 'd-4',
+    category: 'namozdan_keyin',
+    categoryTitleUz: 'Namozdan keyingi tasbeh',
+    titleUz: 'Allohu Akbar (33 marta)',
+    textAr: 'اللَّهُ أَكْبَرُ',
+    transliterationUz: 'Allohu Akbar',
+    translationUz: '«Alloh har narsadan Buyukdir».',
+    targetCount: 33,
+    virtueUz: '33 martadan takrorlanib, yuzinchisida tavhid kalimasi bilan yakunlanadi.',
+    source: 'Sahih Muslim, 597-hadis'
+  },
+  {
+    id: 'd-5',
+    category: 'tonggi',
+    categoryTitleUz: 'Tonggi zikrlar',
+    titleUz: 'Tonggi shukronalik va panoh duosi',
+    textAr: 'أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ',
+    transliterationUz: 'Asbahna va asbahal mulku lillah, valhamdu lillah, laa ilaha illallohu vahdahu laa shariyka lah, lahul mulku va lahul hamdu va huva ʻala kulli shayʼin qodiyr.',
+    translationUz: '«Biz ham tong ottirdik, butun mulk ham Allohnikiligicha tong ottirdi. Barcha hamd Allohga xosdir. Yagona Allohdan oʻzga iloh yoʻq, Uning sherigi ham yoʻqdir. Mulk ham, maqtov ham Unikidir va U har narsaga qodirdir».',
+    targetCount: 1,
+    virtueUz: 'Kunning xayr-barakasi va har qanday zarardan omonda boʻlish uchun moʻtabar tonggi duo.',
+    source: 'Sahih Muslim, 2723-hadis'
+  }
+];
 
 // Default initial database schema
 const getDefaultDatabase = () => ({
@@ -112,49 +246,125 @@ const getDefaultDatabase = () => ({
   ],
   mediaPosts: [
     {
-      id: 'reel-1',
-      title: 'Subh namozining fazilati va barakasi',
-      description: 'Tong paytidagi xushuʼ va bomdod namozining jamoat bilan oʻqilishining ajrlari haqida qisqa eslatma.',
-      mediaUrl: 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80',
-      mediaType: 'video',
+      id: 'post-1',
+      title: 'Asaka Jome Masjidi: Qalbni junbushga keltiruvchi xushovoz qiroat',
+      type: 'reel',
+      category: 'Qurʼon qiroati',
       author: 'Asaka Jome Masjidi Imomi',
-      publishedDate: 'Bugun',
-      duration: '0:58',
-      likesCount: 42,
-      viewsCount: 380,
+      publishedDate: 'Bugun, 14:30',
+      mediaUrl: 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=1200&q=80',
+      thumbnail: 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=600&q=80',
+      caption: '«Qurʼon oʻqilganda unga jim turib quloq soling, shoyad rahm qilinsangiz». Asaka shahrida juma namozi oldidan oʻqilgan goʻzal tilovat.',
+      likesCount: 142,
+      commentsCount: 2,
+      isPublished: true,
       comments: [
-        { id: 'mc-1', authorName: 'Hasanboy', text: 'Alloh manfaatli qilsin!', timestamp: '2026-11-03 06:10' }
+        {
+          id: 'c-1',
+          targetType: 'post',
+          targetId: 'post-1',
+          authorName: 'Muzaffarbek (Asaka)',
+          text: 'MashaAlloh, juda chiroyli qiroat boʻlibdi. Alloh rozi boʻlsin!',
+          createdAt: 'Bugun, 15:10',
+          likesCount: 12
+        },
+        {
+          id: 'c-2',
+          targetType: 'post',
+          targetId: 'post-1',
+          authorName: 'Hojiakbar',
+          text: 'Asaka masjidimiz yanada obod boʻlsin, qorilarimiz koʻpaysin.',
+          createdAt: 'Bugun, 15:45',
+          likesCount: 8
+        }
       ]
     },
     {
-      id: 'reel-2',
-      title: 'Zikr va qalb xotirjamligi',
-      description: '«Albatta, Allohning zikri ila qalblar orom olur» (Raʼd surasi, 28-oyat)',
-      mediaUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=800&q=80',
-      mediaType: 'image',
-      author: 'Tahririyat Hayʼati',
+      id: 'post-2',
+      title: 'Tahajjud namozining fazilati va duolar qabul boʻladigan palla',
+      type: 'video',
+      category: 'Nasihat',
+      author: 'Ustoz Maʼrufxon',
       publishedDate: 'Kecha',
-      duration: 'Rasm/Post',
-      likesCount: 29,
-      viewsCount: 215,
+      mediaUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=1200&q=80',
+      thumbnail: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=600&q=80',
+      caption: 'Kechasi odamlar uxlaganda oʻqilgan ikki rakaat namoz dunyo va undagi barcha narsalardan yaxshiroqdir. Tahajjud vaqti Asaka jadvalida aks etdi.',
+      likesCount: 98,
+      commentsCount: 1,
+      isPublished: true,
+      comments: [
+        {
+          id: 'c-3',
+          targetType: 'post',
+          targetId: 'post-2',
+          authorName: 'Dilshodbek',
+          text: 'Tahajjud va Subh vaqtini ilovaga qoʻshganingiz juda ajoyib boʻlibdi!',
+          createdAt: 'Kecha, 21:00',
+          likesCount: 5
+        }
+      ]
+    },
+    {
+      id: 'post-3',
+      title: 'Vodiy allomalari: Asakiy va Andijoniy ulamolar merosi haqida',
+      type: 'image',
+      category: 'Tarix',
+      author: 'Tahririyat Hayʼati',
+      publishedDate: '30-Oktabr',
+      mediaUrl: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?auto=format&fit=crop&w=1200&q=80',
+      thumbnail: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?auto=format&fit=crop&w=600&q=80',
+      caption: 'Movarounnahr faqihlari va Fargʻona vodiysi ulamolari butun dunyo islom ilmiga ulkan hissa qoʻshganlar.',
+      likesCount: 67,
+      commentsCount: 0,
+      isPublished: true,
       comments: []
     }
   ],
   inquiries: [
     {
       id: 'inq-1',
-      userName: 'Rustamjon',
-      userPhone: '+998 90 123 45 67',
-      subject: 'Tahajjud namozi vaqti haqida',
-      message: 'Assalomu alaykum. Asaka shahrida tahajjud namozini qaysi vaqtgacha oʻqisa afzal boʻladi?',
-      createdAt: '2026-11-02 21:15',
+      userName: 'Otabek Mirzayev',
+      userPhone: '+998 91 123 45 67',
+      subject: 'Asaka namoz vaqtlari boʻyicha savol',
+      message: 'Assalomu alaykum. Masjidimizda juma namozi iqomati soat nechada aytiladi? Yangi taqvim boʻyicha maʼlumot bersangiz.',
+      createdAt: 'Bugun, 09:30',
       status: 'answered',
-      adminReply: 'Va alaykum assalom. Tahajjud namozi kechaning oxirgi uchdan birida, Subh (bomdod kirmasidan oldin) oʻqilishi eng afzaldir. Asaka taqvimida koʻrsatilgan 03:45 vaqti ayni shunga muvofiq keladi.',
-      repliedAt: '2026-11-03 05:40'
+      adminReply: 'Va alaykum assalom. Juma namozi Asaka markaziy jome masjidida Peshin vaqti kirishi bilan boshlanadi. Maʼruza 12:20 da, farz namozi 12:45 da oʻqiladi.',
+      repliedAt: 'Bugun, 10:15',
+      repliedBy: 'Asaka Jome Masjidi Imom-xatibi'
+    },
+    {
+      id: 'inq-2',
+      userName: 'Sobirjon',
+      userPhone: '',
+      subject: 'Qiroat darslari va tajvid toʻgaragi',
+      message: 'Yoshlar uchun tajvid va Qurʼon qiroati darslari qaysi kunlari boʻladi?',
+      createdAt: 'Kecha, 16:40',
+      status: 'new'
     }
   ],
-  hadiths: [],
-  dhikrs: [],
+  hadiths: AUTHENTIC_HADITHS_SEED,
+  dhikrs: AUTHENTIC_DHIKRS_SEED,
+  notifications: [
+    {
+      id: 'notif-welcome',
+      title: 'Asaka Ziyo tizimiga xush kelibsiz!',
+      message: 'Asaka jome masjidi rasmiy mobil va veb portaliga xush kelibsiz. 8 namoz vaqtlari va Qurʼon qiroatlari yangilandi.',
+      category: 'system',
+      priority: 'high',
+      timestamp: 'Bugun, 06:00',
+      read: false
+    },
+    {
+      id: 'notif-pwa',
+      title: 'Ilovani smartfonga oʻrnatish',
+      message: 'Tezkor kirish uchun "Bosh ekranga qoʻshish" yoki "APK v1.0" orqali ilovani smartfoningizga oʻrnating.',
+      category: 'announcement',
+      priority: 'normal',
+      timestamp: 'Bugun, 08:00',
+      read: false
+    }
+  ],
   telegramConfig: {
     botToken: '',
     channelId: '@Asaka_Ziyo',
@@ -184,7 +394,7 @@ const getDefaultDatabase = () => ({
         shom: '17:21',
         xufton: '18:42'
       },
-      receivedAt: '2026-11-03 08:30',
+      receivedAt: 'Bugun, 08:30',
       status: 'pending'
     },
     {
@@ -192,28 +402,108 @@ const getDefaultDatabase = () => ({
       sourceChannel: '@muhiddinsahhofuz',
       targetSection: 'articles',
       title: 'Ilm va odob: Ustoz Muhiddin Sahhof maʼruzalari asosida',
-      content: 'Ilm talab qilish har bir musulmon erkak va ayolga farzdir. Ammo ilmdan oldin odob oʻrganilishi lozim...',
+      content: 'Ilm talab qilish har bir musulmon erkak va ayolga farzdir. Ammo ilmdan oldin odob oʻrganilishi lozim. Abu Hanifa rahmatullohi alayh oʻz shogirdlariga avvalo goʻzal xulqni oʻrgatganlar...',
       mediaUrl: 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=1200&q=80',
-      receivedAt: '2026-11-03 09:15',
+      receivedAt: 'Bugun, 09:15',
       status: 'pending'
     }
   ],
   updatedAt: new Date().toISOString()
 });
 
-// Load database from file or initialize
+// Load database from file or initialize & migrate
 function readDatabase(): any {
+  let data: any = null;
   try {
     if (fs.existsSync(DB_FILE)) {
       const content = fs.readFileSync(DB_FILE, 'utf-8');
-      return JSON.parse(content);
+      data = JSON.parse(content);
     }
   } catch (err) {
     console.error('Error reading database file, re-initializing:', err);
   }
+
   const defaultData = getDefaultDatabase();
-  writeDatabase(defaultData);
-  return defaultData;
+  if (!data) {
+    writeDatabase(defaultData);
+    return defaultData;
+  }
+
+  // Safe non-destructive normalization and migration
+  let needsSave = false;
+
+  if (!data.prayerSchedule || !Array.isArray(data.prayerSchedule.times)) {
+    data.prayerSchedule = defaultData.prayerSchedule;
+    needsSave = true;
+  }
+
+  if (!Array.isArray(data.articles) || data.articles.length === 0) {
+    data.articles = defaultData.articles;
+    needsSave = true;
+  }
+
+  if (!Array.isArray(data.mediaPosts) || data.mediaPosts.length === 0) {
+    data.mediaPosts = defaultData.mediaPosts;
+    needsSave = true;
+  } else {
+    // Normalize media post fields to canonical MediaPost interface
+    data.mediaPosts = data.mediaPosts.map((p: any) => ({
+      id: p.id || `post-${Date.now()}`,
+      title: p.title || 'Asaka Ziyo Media',
+      type: p.type || p.mediaType || 'reel',
+      mediaUrl: p.mediaUrl || '',
+      thumbnail: p.thumbnail || p.mediaUrl || '',
+      caption: p.caption || p.description || '',
+      author: p.author || 'Asaka Jome Masjidi Imomi',
+      publishedDate: p.publishedDate || 'Bugun',
+      category: p.category || 'Ijtimoiy',
+      likesCount: p.likesCount || 0,
+      commentsCount: p.commentsCount || (Array.isArray(p.comments) ? p.comments.length : 0),
+      isPublished: p.isPublished !== undefined ? p.isPublished : true,
+      comments: Array.isArray(p.comments) ? p.comments : []
+    }));
+  }
+
+  if (!Array.isArray(data.hadiths) || data.hadiths.length === 0) {
+    data.hadiths = defaultData.hadiths;
+    needsSave = true;
+  }
+
+  if (!Array.isArray(data.dhikrs) || data.dhikrs.length === 0) {
+    data.dhikrs = defaultData.dhikrs;
+    needsSave = true;
+  }
+
+  if (!Array.isArray(data.inquiries)) {
+    data.inquiries = defaultData.inquiries;
+    needsSave = true;
+  }
+
+  if (!Array.isArray(data.notifications)) {
+    data.notifications = defaultData.notifications;
+    needsSave = true;
+  }
+
+  if (!Array.isArray(data.drafts) || data.drafts.length === 0) {
+    data.drafts = defaultData.drafts;
+    needsSave = true;
+  }
+
+  if (!data.telegramConfig) {
+    data.telegramConfig = defaultData.telegramConfig;
+    needsSave = true;
+  }
+
+  if (!data.supabaseConfig) {
+    data.supabaseConfig = defaultData.supabaseConfig;
+    needsSave = true;
+  }
+
+  if (needsSave) {
+    writeDatabase(data);
+  }
+
+  return data;
 }
 
 // Write database atomically to disk
@@ -335,11 +625,27 @@ app.post('/api/database/media', (req: Request, res: Response) => {
       if (!post || !post.title) {
         return res.status(400).json({ success: false, error: 'Media post payload required' });
       }
-      const existingIdx = db.mediaPosts.findIndex((p: any) => p.id === post.id);
+      const canonicalPost = {
+        id: post.id || `post-${Date.now()}`,
+        title: post.title,
+        type: post.type || post.mediaType || 'reel',
+        mediaUrl: post.mediaUrl || '',
+        thumbnail: post.thumbnail || post.mediaUrl || '',
+        caption: post.caption || post.description || '',
+        author: post.author || 'Asaka Ziyo Studiyasi',
+        publishedDate: post.publishedDate || 'Bugun',
+        category: post.category || 'Qurʼon qiroati',
+        likesCount: post.likesCount || 0,
+        commentsCount: post.commentsCount || (Array.isArray(post.comments) ? post.comments.length : 0),
+        isPublished: post.isPublished !== undefined ? post.isPublished : true,
+        comments: Array.isArray(post.comments) ? post.comments : []
+      };
+
+      const existingIdx = db.mediaPosts.findIndex((p: any) => p.id === canonicalPost.id);
       if (existingIdx >= 0) {
-        db.mediaPosts[existingIdx] = { ...db.mediaPosts[existingIdx], ...post };
+        db.mediaPosts[existingIdx] = { ...db.mediaPosts[existingIdx], ...canonicalPost };
       } else {
-        db.mediaPosts.unshift(post);
+        db.mediaPosts.unshift(canonicalPost);
       }
       break;
     }
@@ -362,6 +668,7 @@ app.post('/api/database/media', (req: Request, res: Response) => {
           text: comment?.text || '',
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
         });
+        p.commentsCount = p.comments.length;
       }
       break;
     }
@@ -373,7 +680,113 @@ app.post('/api/database/media', (req: Request, res: Response) => {
   res.json({ success: true, mediaPosts: db.mediaPosts });
 });
 
-// 6. User Inquiries & Support Chat (User Submit, Admin Reply, Delete)
+// 6. Hadiths Management (CRUD)
+app.post('/api/database/hadiths', (req: Request, res: Response) => {
+  const { action, hadith, id } = req.body;
+  const db = readDatabase();
+  if (!Array.isArray(db.hadiths)) db.hadiths = [];
+
+  switch (action) {
+    case 'create':
+    case 'save': {
+      if (!hadith || !hadith.textAr) {
+        return res.status(400).json({ success: false, error: 'Hadith payload required' });
+      }
+      const existingIdx = db.hadiths.findIndex((h: any) => h.id === hadith.id);
+      if (existingIdx >= 0) {
+        db.hadiths[existingIdx] = { ...db.hadiths[existingIdx], ...hadith };
+      } else {
+        db.hadiths.unshift(hadith);
+      }
+      break;
+    }
+    case 'delete': {
+      db.hadiths = db.hadiths.filter((h: any) => h.id !== id);
+      break;
+    }
+    default:
+      return res.status(400).json({ success: false, error: 'Unknown hadith action' });
+  }
+
+  writeDatabase(db);
+  res.json({ success: true, hadiths: db.hadiths });
+});
+
+// 7. Dhikrs Management (CRUD)
+app.post('/api/database/dhikrs', (req: Request, res: Response) => {
+  const { action, dhikr, id } = req.body;
+  const db = readDatabase();
+  if (!Array.isArray(db.dhikrs)) db.dhikrs = [];
+
+  switch (action) {
+    case 'create':
+    case 'save': {
+      if (!dhikr || !dhikr.titleUz) {
+        return res.status(400).json({ success: false, error: 'Dhikr payload required' });
+      }
+      const existingIdx = db.dhikrs.findIndex((d: any) => d.id === dhikr.id);
+      if (existingIdx >= 0) {
+        db.dhikrs[existingIdx] = { ...db.dhikrs[existingIdx], ...dhikr };
+      } else {
+        db.dhikrs.unshift(dhikr);
+      }
+      break;
+    }
+    case 'delete': {
+      db.dhikrs = db.dhikrs.filter((d: any) => d.id !== id);
+      break;
+    }
+    default:
+      return res.status(400).json({ success: false, error: 'Unknown dhikr action' });
+  }
+
+  writeDatabase(db);
+  res.json({ success: true, dhikrs: db.dhikrs });
+});
+
+// 8. Notifications Broadcast & Management
+app.get('/api/database/notifications', (_req: Request, res: Response) => {
+  const db = readDatabase();
+  res.json({ success: true, notifications: db.notifications || [] });
+});
+
+app.post('/api/database/notifications', (req: Request, res: Response) => {
+  const { action, notification, id } = req.body;
+  const db = readDatabase();
+  if (!Array.isArray(db.notifications)) db.notifications = [];
+
+  switch (action) {
+    case 'create':
+    case 'save':
+    case 'broadcast': {
+      if (!notification || !notification.title) {
+        return res.status(400).json({ success: false, error: 'Notification payload required' });
+      }
+      const newNotif = {
+        id: notification.id || `notif-${Date.now()}`,
+        title: notification.title,
+        message: notification.message || '',
+        category: notification.category || 'announcement',
+        priority: notification.priority || 'high',
+        timestamp: notification.timestamp || new Date().toISOString().replace('T', ' ').slice(0, 16),
+        read: false
+      };
+      db.notifications.unshift(newNotif);
+      break;
+    }
+    case 'delete': {
+      db.notifications = db.notifications.filter((n: any) => n.id !== id);
+      break;
+    }
+    default:
+      return res.status(400).json({ success: false, error: 'Unknown notification action' });
+  }
+
+  writeDatabase(db);
+  res.json({ success: true, notifications: db.notifications });
+});
+
+// 9. User Inquiries & Support Chat (User Submit, Admin Reply, Delete)
 app.post('/api/database/inquiries', (req: Request, res: Response) => {
   const { action, inquiry, id, replyText } = req.body;
   const db = readDatabase();
@@ -417,7 +830,7 @@ app.post('/api/database/inquiries', (req: Request, res: Response) => {
   res.json({ success: true, inquiries: db.inquiries });
 });
 
-// 7. Telegram Configuration & Server-Side Broadcasting
+// 10. Telegram Configuration & Server-Side Broadcasting
 app.post('/api/database/telegram', (req: Request, res: Response) => {
   const { botToken, channelId, channel2 } = req.body;
   const db = readDatabase();
@@ -465,13 +878,13 @@ app.post('/api/telegram/broadcast', async (req: Request, res: Response) => {
       });
     }
 
-    res.json({ success: true, result: data.result });
+    res.json({ success: true, result: data.result, targetChannel });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message || 'Tarmoq xatosi' });
   }
 });
 
-// 8. Supabase Configuration & Status
+// 11. Supabase Configuration & Status
 app.post('/api/database/supabase', (req: Request, res: Response) => {
   const { url, anonKey, isEnabled } = req.body;
   const db = readDatabase();
@@ -485,7 +898,7 @@ app.post('/api/database/supabase', (req: Request, res: Response) => {
   res.json({ success: true, supabaseConfig: db.supabaseConfig });
 });
 
-// 9. Telegram Channel Drafts & Moderation Queue
+// 12. Telegram Channel Drafts & Moderation Queue
 app.get('/api/database/drafts', (_req: Request, res: Response) => {
   const db = readDatabase();
   res.json({ success: true, drafts: db.drafts || [] });
@@ -560,16 +973,18 @@ app.post('/api/database/drafts', (req: Request, res: Response) => {
       } else if (target.targetSection === 'media') {
         if (!Array.isArray(db.mediaPosts)) db.mediaPosts = [];
         db.mediaPosts.unshift({
-          id: `reel-${Date.now()}`,
+          id: `post-${Date.now()}`,
           title: target.title,
-          description: target.content,
-          mediaUrl: target.mediaUrl || 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80',
-          mediaType: 'image',
+          type: 'reel',
+          category: 'Ijtimoiy',
           author: target.sourceChannel,
           publishedDate: 'Bugun',
-          duration: 'Post',
+          mediaUrl: target.mediaUrl || 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80',
+          thumbnail: target.mediaUrl || 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=600&q=80',
+          caption: target.content,
           likesCount: 10,
-          viewsCount: 120,
+          commentsCount: 0,
+          isPublished: true,
           comments: []
         });
       }
@@ -605,12 +1020,17 @@ app.post('/api/database/drafts', (req: Request, res: Response) => {
 // ---------------- DEVELOPMENT & PRODUCTION VITE MOUNTING ----------------
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
+  const httpServer = http.createServer(app);
 
   if (!isProd) {
-    // In dev: mount Vite middlewares inside Express
+    // In dev: mount Vite middlewares inside Express and attach HMR to httpServer
     const { createServer } = await import('vite');
+    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createServer({
-      server: { middlewareMode: true }
+      server: {
+        middlewareMode: true,
+        hmr: isHmrDisabled ? false : { server: httpServer },
+      }
     });
     app.use(vite.middlewares);
   } else {
@@ -622,7 +1042,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[ASAKA ZIYO] Full-Stack Server running on http://0.0.0.0:${PORT}`);
   });
 }

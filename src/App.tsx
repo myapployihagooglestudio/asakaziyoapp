@@ -25,6 +25,7 @@ import {
 import {
   getStoredPrayerSchedule,
   saveStoredPrayerSchedule,
+  getStoredBroadcastNotifications,
   subscribeToDatabase,
 } from './utils/databaseService';
 
@@ -49,6 +50,8 @@ import { AnnouncementsView } from './components/features/announcements/Announcem
 import { FavoritesView } from './components/features/favorites/FavoritesView';
 import { SettingsView } from './components/features/settings/SettingsView';
 import { AdminPortal } from './components/features/admin/AdminPortal';
+import { NotificationsView } from './components/features/notifications/NotificationsView';
+import { DailyArchiveView } from './components/features/daily/DailyArchiveView';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -71,11 +74,19 @@ export default function App() {
     getStoredPrayerSchedule()
   );
 
+  // Notifications with central database service
+  const [notifications, setNotifications] = useState(() =>
+    getStoredBroadcastNotifications()
+  );
+
   // Reactive cross-tab and cross-session synchronization
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'PRAYER_UPDATED') {
         setPrayerSchedule(getStoredPrayerSchedule());
+      }
+      if (event.type === 'NOTIFICATIONS_UPDATED') {
+        setNotifications(getStoredBroadcastNotifications());
       }
     });
     return unsubscribe;
@@ -223,6 +234,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, [prayerSchedule.times]);
 
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-[#071614] text-stone-900 dark:text-stone-100 transition-colors duration-200 overflow-x-hidden max-w-full">
       {/* Top Header conforming to Top Bar Contract */}
@@ -230,6 +243,7 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={handleNavigate}
         favoritesCount={favorites.length}
+        unreadNotificationsCount={unreadNotificationsCount}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         onOpenChatModal={() => setIsChatModalOpen(true)}
       />
@@ -286,6 +300,19 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'notifications' && (
+          <NotificationsView onNavigate={handleNavigate} />
+        )}
+
+        {activeTab === 'daily_archive' && (
+          <DailyArchiveView
+            onBack={() => handleNavigate('home')}
+            onNavigate={handleNavigate}
+            onToggleFavorite={handleToggleFavorite}
+            isFavorited={isFavorited}
+          />
+        )}
+
         {activeTab === 'news' && <NewsView />}
 
         {activeTab === 'announcements' && <AnnouncementsView />}
@@ -325,6 +352,7 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={handleNavigate}
         onOpenMoreMenu={() => setIsMobileMenuOpen(true)}
+        unreadNotificationsCount={unreadNotificationsCount}
       />
 
       {/* Mobile More Sections Modal */}
@@ -355,11 +383,12 @@ export default function App() {
           <div className="grid grid-cols-2 gap-2.5 text-xs font-semibold">
             {[
               { id: 'home', label: 'Bosh sahifa' },
+              { id: 'prayer', label: 'Namoz vaqtlari' },
               { id: 'quran', label: 'Qurʼoni Karim' },
+              { id: 'articles', label: 'Maqolalar va Eʼlonlar' },
+              { id: 'notifications', label: 'Bildirishnomalar' },
               { id: 'hadith', label: 'Hadislar toʻplami' },
               { id: 'dhikr', label: 'Zikr va duolar' },
-              { id: 'prayer', label: 'Namoz vaqtlari' },
-              { id: 'articles', label: 'Ilmiy maqolalar' },
               { id: 'news', label: 'Yangiliklar' },
               { id: 'announcements', label: 'Eʼlonlar' },
               { id: 'favorites', label: 'Sevimlilar' },

@@ -101,6 +101,13 @@ export const saveNotification = (notification: Omit<AppNotification, 'id' | 'tim
     // ignore
   }
 
+  // Persist permanently on central server database
+  fetch('/api/database/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'save', notification: newNotif }),
+  }).catch(() => {});
+
   // Trigger browser push notification if permitted
   triggerBrowserNotification(newNotif.title, newNotif.message);
 

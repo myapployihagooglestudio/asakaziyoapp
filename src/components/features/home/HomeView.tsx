@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Ayah, HadithItem, NavigationTab, PrayerSchedule, SupportedLocale } from '../../../types';
+import { Ayah, HadithItem, NavigationTab, PrayerSchedule, SupportedLocale, Article } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { Modal } from '../../ui/Modal';
 import { GeometricPattern } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { getNextPrayerCalculation } from '../../../utils/prayerTimeUtils';
+import {
+  getActiveDailyBundle,
+  getDailyArchiveBundles,
+  DailyIslamicBundle,
+} from '../../../data/dailyContentData';
+import {
+  getStoredBroadcastNotifications,
+  getStoredArticles,
+} from '../../../utils/databaseService';
 import {
   Clock,
   BookOpen,
@@ -16,9 +26,14 @@ import {
   Calendar,
   AlertCircle,
   ChevronRight,
-  Compass,
   Smartphone,
   Download,
+  Bell,
+  Heart,
+  History,
+  CheckCircle,
+  ExternalLink,
+  Pin,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -41,8 +56,6 @@ interface HomeViewProps {
 
 export const HomeView: React.FC<HomeViewProps> = ({
   prayerSchedule,
-  dailyAyah,
-  dailyHadith,
   onNavigate,
   onToggleFavorite,
   isFavorited,
@@ -55,16 +68,26 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [playingAudio, setPlayingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
+  // Daily Islamic Bundle (Ayah, Hadith, Dhikr) deterministic for Tashkent date
+  const [dailyBundle, setDailyBundle] = useState<DailyIslamicBundle>(() => getActiveDailyBundle());
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+
+  // Latest notifications & featured content
+  const [notifications] = useState(() => getStoredBroadcastNotifications());
+  const [articles] = useState<Article[]>(() => getStoredArticles());
+
+  const unreadNotifs = notifications.filter((n) => !n.read);
+  const featuredArticle = articles.find((a) => a.isFeatured) || articles[0];
+
   useEffect(() => {
     const updateTime = () => {
       try {
         const now = new Date();
         setCurrentTime(
-          now.toLocaleTimeString(currentLocale === 'ru' ? 'ru-RU' : currentLocale === 'en' ? 'en-US' : 'uz-UZ', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })
+          now.toLocaleTimeString(
+            currentLocale === 'ru' ? 'ru-RU' : currentLocale === 'en' ? 'en-US' : 'uz-UZ',
+            { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Tashkent' }
+          )
         );
       } catch (e) {
         const now = new Date();
@@ -81,7 +104,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     if (playingAudio && audioElement) {
       try {
         audioElement.pause();
-      } catch (e) {
+      } catch {
         // ignore
       }
       setPlayingAudio(false);
@@ -91,38 +114,55 @@ export const HomeView: React.FC<HomeViewProps> = ({
       const audio = new Audio(url);
       audio.onended = () => setPlayingAudio(false);
       audio.onerror = () => setPlayingAudio(false);
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => setPlayingAudio(false));
-      }
+      audio.play().catch(() => setPlayingAudio(false));
       setAudioElement(audio);
       setPlayingAudio(true);
-    } catch (e) {
+    } catch {
       setPlayingAudio(false);
     }
   };
 
-  // Get localized ayah translation text safely
-  const ayahTranslationText =
-    dailyAyah.translations?.[currentLocale]?.text ||
+  const ayahTranslation =
+    dailyBundle.ayah.translations?.[currentLocale]?.text ||
     (currentLocale === 'uz-Latn-new'
-      ? toNewUzbekAlphabet(dailyAyah.translationUz)
-      : dailyAyah.translationUz);
+      ? toNewUzbekAlphabet(dailyBundle.ayah.translationUz)
+      : dailyBundle.ayah.translationUz);
 
-  const ayahTranslatorName =
-    dailyAyah.translations?.[currentLocale]?.translator ||
-    'Shayx Muhammad Sodiq Muhammad Yusuf';
-
-  // Get localized hadith translation safely
-  const hadithTranslationText =
+  const hadithTranslation =
     currentLocale === 'uz-Latn-new'
-      ? toNewUzbekAlphabet(dailyHadith.translationUz)
-      : dailyHadith.translationUz;
+      ? toNewUzbekAlphabet(dailyBundle.hadith.translationUz)
+      : dailyBundle.hadith.translationUz;
+
+  const dhikrTranslation =
+    currentLocale === 'uz-Latn-new'
+      ? toNewUzbekAlphabet(dailyBundle.dhikr.translationUz)
+      : dailyBundle.dhikr.translationUz;
 
   return (
-    <div className="space-y-12 pb-16">
-      {/* 1. HERO SECTION */}
-      <section className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-stone-900 text-white min-h-[440px] flex items-center shadow-xl">
+    <div className="space-y-10 pb-16 max-w-7xl mx-auto">
+      {/* 1. TOP NOTICE / UNREAD NOTIFICATIONS BAR */}
+      {unreadNotifs.length > 0 && (
+        <div
+          onClick={() => onNavigate('notifications')}
+          className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-[#071614] to-emerald-950/70 border border-[#c5a869]/40 text-white flex items-center justify-between gap-3 shadow-lg cursor-pointer hover:border-[#c5a869] transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-[#c5a869]/20 flex items-center justify-center text-[#c5a869] shrink-0">
+              <Bell className="w-4 h-4 animate-pulse" />
+            </div>
+            <div className="text-xs">
+              <span className="font-bold text-[#c5a869]">{unreadNotifs.length} ta yangi bildirishnoma: </span>
+              <span className="text-stone-200">{unreadNotifs[0].title}</span>
+            </div>
+          </div>
+          <span className="text-xs text-[#c5a869] font-bold group-hover:underline shrink-0">
+            Koʻrish →
+          </span>
+        </div>
+      )}
+
+      {/* 2. HERO SECTION */}
+      <section className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-stone-900 text-white min-h-[440px] flex items-center shadow-2xl">
         <img
           src="/images/asaka_islamic_architecture_1793634657962.jpg"
           alt="Asaka Islamic Architecture"
@@ -170,11 +210,84 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <BookOpen className="w-4 h-4" />
               <span>{t('home:heroQuranCta')}</span>
             </Button>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => onNavigate('articles')}
+              className="gap-2 bg-black/30 backdrop-blur-sm border-white/20 text-stone-200 hover:text-white"
+            >
+              <span>Maqolalar va Eʼlonlar</span>
+            </Button>
           </div>
         </div>
       </section>
 
-      {/* 2. PRAYER TIMES AREA */}
+      {/* 3. FEATURED TOP CONTENT (PINNED / YANGI BLOCK) */}
+      {featuredArticle && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#c5a869] uppercase tracking-wider">
+              <Sparkles className="w-4 h-4" />
+              <span>Yangi va Muhim Nashr</span>
+            </div>
+            <button
+              onClick={() => onNavigate('articles')}
+              className="text-xs text-[#c5a869] hover:underline font-semibold"
+            >
+              Barcha maqolalar ({articles.length}) →
+            </button>
+          </div>
+
+          <Card
+            elevated
+            onClick={() => onNavigate('articles')}
+            className="p-5 sm:p-6 bg-gradient-to-r from-stone-900 via-[#071614] to-stone-900 text-white border-[#c5a869]/40 hover:border-[#c5a869] transition-all cursor-pointer group shadow-xl relative overflow-hidden"
+          >
+            <GeometricPattern opacity={0.04} />
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                {featuredArticle.featuredImage && (
+                  <img
+                    src={featuredArticle.featuredImage}
+                    alt={featuredArticle.title}
+                    className="w-full sm:w-36 h-28 object-cover rounded-xl border border-white/10 shrink-0 group-hover:scale-105 transition-transform duration-300"
+                  />
+                )}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-wider">
+                      Yangi
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-[#c5a869]/20 text-[#c5a869] text-[10px] font-bold">
+                      {featuredArticle.category}
+                    </span>
+                    <span className="text-[11px] text-stone-400">
+                      {featuredArticle.publishedDate}
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-white group-hover:text-[#c5a869] transition-colors leading-snug">
+                    {featuredArticle.title}
+                  </h3>
+
+                  <p className="text-xs text-stone-300 line-clamp-2 max-w-2xl leading-relaxed">
+                    {featuredArticle.excerpt || featuredArticle.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
+                <Button variant="primary" size="sm" className="text-xs">
+                  <span>Toʻliq Oʻqish</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {/* 4. TODAY'S PRAYER TIMES */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
@@ -189,29 +302,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onNavigate('prayer')}
-              className="text-[#c5a869] hover:text-[#d4af37]"
-            >
-              <span>{t('home:fullScheduleAndQibla')}</span>
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onNavigate('prayer')}
+            className="text-[#c5a869] hover:text-[#d4af37]"
+          >
+            <span>{t('home:fullScheduleAndQibla')}</span>
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
         </div>
 
-        {/* Preview disclaimer */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs leading-relaxed">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-          <div>
-            <span className="font-semibold">{t('prayer:previewNoticeTitle')}: </span>
-            {prayerSchedule.disclaimer}
-          </div>
-        </div>
-
-        {/* Prayer Time Cards Grid */}
         {(() => {
           const nextPrayerInfo = getNextPrayerCalculation(prayerSchedule.times);
           return (
@@ -232,31 +333,186 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         : ''
                     }`}
                   >
-                <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
-                  <span>{translatedName}</span>
-                  <span className="font-arabic text-sm text-[#c5a869]">{p.nameAr}</span>
-                </div>
-                <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100 tracking-tight my-1">
-                  {p.time}
-                </div>
-                {p.iqamahTime ? (
-                  <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                    {t('prayer:iqamahTime')}: <span className="font-mono-numbers text-stone-700 dark:text-stone-300 font-medium">{p.iqamahTime}</span>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-stone-400 dark:text-stone-500 italic">
-                    {t('prayer:entryTime')}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+                    <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-1">
+                      <span>{translatedName}</span>
+                      <span className="font-arabic text-sm text-[#c5a869]">{p.nameAr}</span>
+                    </div>
+                    <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-stone-100 tracking-tight my-1">
+                      {p.time}
+                    </div>
+                    {p.iqamahTime ? (
+                      <div className="text-[11px] text-stone-500 dark:text-stone-400">
+                        {t('prayer:iqamahTime')}: <span className="font-mono-numbers text-stone-700 dark:text-stone-300 font-medium">{p.iqamahTime}</span>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-stone-400 dark:text-stone-500 italic">
+                        {t('prayer:entryTime')}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
           );
         })()}
       </section>
 
-      {/* QUICK SMARTPHONE INSTALL & APK CARD */}
+      {/* 5. HAR KUNLIK ISLOMIY MA'LUMOTLAR SUITE (KUN OYATI, KUN HADISI, KUN ZIKRI) */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-emerald-950 pb-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#c5a869] uppercase tracking-wider">
+              <Sparkles className="w-4 h-4" />
+              <span>Har Kunlik Islomiy Maʼrifat</span>
+              <span>·</span>
+              <span className="font-mono text-stone-400">{dailyBundle.formattedDateUz}</span>
+            </div>
+            <h2 className="text-2xl font-display font-bold text-stone-900 dark:text-stone-100">
+              Kun Oyati, Hadisi va Zikri
+            </h2>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('daily_archive')}
+            className="text-xs border-[#c5a869]/40 text-[#c5a869] hover:bg-[#c5a869]/10 self-start sm:self-auto cursor-pointer"
+          >
+            <History className="w-3.5 h-3.5 mr-1.5" />
+            <span>Kunlik Arxivni Ochish</span>
+          </Button>
+        </div>
+
+        {/* 3 Columns: Kun Oyati, Kun Hadisi, Kun Zikri */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card 1: Kun Oyati */}
+          <Card elevated className="p-6 flex flex-col justify-between relative overflow-hidden border-[#c5a869]/30 space-y-4 bg-stone-50/60 dark:bg-[#071614]/70">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#c5a869]/15 text-[#c5a869] text-[11px] font-bold border border-[#c5a869]/30">
+                  Kun Oyati ({dailyBundle.ayah.surahNameUz}, {dailyBundle.ayah.numberInSurah})
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handlePlayAudio(dailyBundle.ayah.audioUrl)}
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      playingAudio ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]' : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
+                    }`}
+                    title="Qiroatni tinglash"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      onToggleFavorite({
+                        id: dailyBundle.ayah.id,
+                        type: 'ayah',
+                        title: `${dailyBundle.ayah.surahNameUz}, ${dailyBundle.ayah.numberInSurah}`,
+                        subtitle: 'Kun Oyati',
+                        snippet: ayahTranslation,
+                        routeTab: 'quran',
+                        routeId: dailyBundle.ayah.id,
+                      })
+                    }
+                    className="p-1.5 rounded-lg border text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950 transition-colors"
+                  >
+                    <Bookmark className={`w-4 h-4 ${isFavorited(dailyBundle.ayah.id) ? 'fill-[#c5a869] text-[#c5a869]' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              <p dir="rtl" className="font-arabic text-xl sm:text-2xl text-stone-900 dark:text-amber-100 leading-loose text-right pt-1">
+                {dailyBundle.ayah.textAr}
+              </p>
+
+              <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed font-editorial italic">
+                «{ayahTranslation}»
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 dark:border-emerald-950/60 text-[11px] text-stone-400 flex items-center justify-between">
+              <span>Shayx Muhammad Sodiq Muhammad Yusuf</span>
+              <button onClick={() => onNavigate('quran')} className="text-[#c5a869] font-bold hover:underline">
+                Qurʼonga oʻtish →
+              </button>
+            </div>
+          </Card>
+
+          {/* Card 2: Kun Hadisi */}
+          <Card elevated className="p-6 flex flex-col justify-between relative overflow-hidden border-emerald-600/30 space-y-4 bg-stone-50/60 dark:bg-[#071614]/70">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold border border-emerald-500/30">
+                    Kun Hadisi ({dailyBundle.hadith.collectionNameUz})
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-[#c5a869]/15 text-[#c5a869] text-[10px] font-bold">
+                  {dailyBundle.hadith.grade}
+                </span>
+              </div>
+
+              <div className="text-[11px] text-stone-400">
+                Roviy: <span className="font-semibold text-stone-700 dark:text-stone-200">{dailyBundle.hadith.narratorUz}</span>
+              </div>
+
+              <p dir="rtl" className="font-arabic text-xl text-stone-900 dark:text-amber-100 leading-relaxed text-right">
+                {dailyBundle.hadith.textAr}
+              </p>
+
+              <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed italic">
+                «{hadithTranslation}»
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 dark:border-emerald-950/60 text-[11px] text-stone-400 flex items-center justify-between">
+              <span>{dailyBundle.hadith.reference}</span>
+              <button onClick={() => onNavigate('hadith')} className="text-[#c5a869] font-bold hover:underline">
+                Hadislarga oʻtish →
+              </button>
+            </div>
+          </Card>
+
+          {/* Card 3: Kun Zikri */}
+          <Card elevated className="p-6 flex flex-col justify-between relative overflow-hidden border-blue-600/30 space-y-4 bg-stone-50/60 dark:bg-[#071614]/70">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-bold border border-blue-500/30">
+                  Kun Zikri ({dailyBundle.dhikr.categoryTitleUz})
+                </span>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-mono font-bold">
+                  {dailyBundle.dhikr.targetCount} marta
+                </span>
+              </div>
+
+              <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                {dailyBundle.dhikr.titleUz}
+              </h4>
+
+              <p dir="rtl" className="font-arabic text-xl text-stone-900 dark:text-amber-100 leading-relaxed text-right">
+                {dailyBundle.dhikr.textAr}
+              </p>
+
+              <p className="text-xs text-stone-600 dark:text-stone-400 italic">
+                {dailyBundle.dhikr.transliterationUz}
+              </p>
+
+              <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+                «{dhikrTranslation}»
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 dark:border-emerald-950/60 text-[11px] text-stone-400 flex items-center justify-between">
+              <span className="truncate">{dailyBundle.dhikr.source}</span>
+              <button onClick={() => onNavigate('dhikr')} className="text-[#c5a869] font-bold hover:underline shrink-0">
+                Tasbehga oʻtish →
+              </button>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      {/* 6. SMARTPHONE INSTALL / APK PROMO */}
       <section className="relative rounded-2xl overflow-hidden border border-[#c5a869]/40 bg-gradient-to-r from-[#031d17] via-[#091a18] to-[#071614] text-white p-5 sm:p-6 shadow-lg">
         <GeometricPattern opacity={0.06} />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -267,14 +523,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm sm:text-base font-bold text-white">
-                  ASAKA ZIYO Ilovasini Telefonga Oʻrnatish
+                  ASAKA ZIYO Ilovasini Smartfonga Oʻrnatish
                 </span>
-                <span className="text-[10px] font-mono-numbers bg-[#c5a869] text-[#071614] px-2 py-0.5 rounded font-bold">
-                  v1.0.0
+                <span className="text-[10px] font-mono bg-[#c5a869] text-[#071614] px-2 py-0.5 rounded font-bold">
+                  APK v1.0.0
                 </span>
               </div>
               <p className="text-xs text-stone-300 mt-0.5">
-                Namoz vaqtlari, azon eslatmalari va 114 surani telefoningiz bosh ekranidan bir zumda oching.
+                Namoz vaqtlari, bildirishnomalar va 114 surani telefoningiz bosh ekranidan bir zumda oching.
               </p>
             </div>
           </div>
@@ -293,269 +549,63 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </section>
 
-      {/* 3. DAILY ISLAMIC CONTENT FEATURE */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Quran Ayah */}
-        <Card elevated className="p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
-          <GeometricPattern opacity={0.03} />
-          <div className="space-y-4 relative z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                <span className="font-semibold text-[#c5a869]">{t('home:dailyAyahKicker')}</span>
-                <span aria-hidden="true">·</span>
-                <span>{dailyAyah.surahNameUz}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono-numbers">{dailyAyah.numberInSurah}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => handlePlayAudio(dailyAyah.audioUrl)}
-                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                    playingAudio
-                      ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
-                      : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
+      {/* KUNLIK ARXIV MODAL */}
+      <Modal
+        isOpen={isArchiveModalOpen}
+        onClose={() => setIsArchiveModalOpen(false)}
+        title="Kunlik Islomiy Maʼlumotlar Arxivi"
+        subtitle="Oʻtgan va kelgusi kunlar oyat, hadis va zikrlari"
+        maxWidth="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-stone-500">
+            Kun tanlang. Maʼlumotlar har kuni Toshkent vaqti bilan soat 00:00 da avtomatik yangilanadi.
+          </p>
+
+          <div className="space-y-2.5 max-h-96 overflow-y-auto">
+            {getDailyArchiveBundles().map((bundle) => {
+              const isCurrent = bundle.dateKey === dailyBundle.dateKey;
+              return (
+                <div
+                  key={bundle.id}
+                  onClick={() => {
+                    setDailyBundle(bundle);
+                    setIsArchiveModalOpen(false);
+                  }}
+                  className={`p-4 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between ${
+                    isCurrent
+                      ? 'border-[#c5a869] bg-[#c5a869]/10'
+                      : 'border-stone-200 dark:border-emerald-950 hover:bg-stone-50 dark:hover:bg-white/5'
                   }`}
-                  title={t('quran:listenAudio')}
                 >
-                  <Volume2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() =>
-                    onToggleFavorite({
-                      id: dailyAyah.id,
-                      type: 'ayah',
-                      title: `${dailyAyah.surahNameUz}, ${dailyAyah.numberInSurah}`,
-                      subtitle: 'Ayat al-Kursi',
-                      snippet: ayahTranslationText,
-                      routeTab: 'quran',
-                      routeId: dailyAyah.id,
-                    })
-                  }
-                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                    isFavorited(dailyAyah.id)
-                      ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
-                      : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
-                  }`}
-                  title={t('quran:addToFavorites')}
-                >
-                  <Bookmark className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-stone-900 dark:text-white">
+                        {bundle.formattedDateUz}
+                      </span>
+                      <span className="text-[11px] text-[#c5a869] font-mono">
+                        ({bundle.hijriDateUz})
+                      </span>
+                      {isCurrent && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-black text-[9px] font-bold">
+                          Tanlangan kun
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-stone-500 space-x-2">
+                      <span>Oyat: {bundle.ayah.surahNameUz} ({bundle.ayah.numberInSurah})</span>
+                      <span>·</span>
+                      <span>Hadis: {bundle.hadith.collectionNameUz} (№{bundle.hadith.number})</span>
+                    </div>
+                  </div>
 
-            {/* Arabic Calligraphy (Untouched) */}
-            <p
-              dir="rtl"
-              className="font-arabic text-2xl sm:text-3xl text-stone-900 dark:text-amber-100/95 leading-loose text-right pt-2"
-            >
-              {dailyAyah.textAr}
-            </p>
-
-            {/* Translation */}
-            <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed font-editorial italic pt-2">
-              «{ayahTranslationText}»
-            </p>
-
-            <div className="text-xs text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-emerald-950/60 pt-3">
-              {ayahTranslatorName}
-            </div>
-          </div>
-
-          <div className="pt-6 relative z-10">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onNavigate('quran')}
-              className="w-full sm:w-auto"
-            >
-              <span>{t('home:heroQuranCta')}</span>
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </Card>
-
-        {/* Daily Hadith Feature */}
-        <Card elevated className="p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
-          <GeometricPattern opacity={0.03} />
-          <div className="space-y-4 relative z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                <span className="font-semibold text-[#c5a869]">{t('home:dailyHadithKicker')}</span>
-                <span aria-hidden="true">·</span>
-                <span>{dailyHadith.collectionNameUz}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono-numbers">№{dailyHadith.number}</span>
-                <span aria-hidden="true">·</span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{dailyHadith.grade}</span>
-              </div>
-              <button
-                onClick={() =>
-                  onToggleFavorite({
-                    id: dailyHadith.id,
-                    type: 'hadith',
-                    title: `${dailyHadith.collectionNameUz}, №${dailyHadith.number}`,
-                    subtitle: dailyHadith.narratorUz,
-                    snippet: hadithTranslationText,
-                    routeTab: 'hadith',
-                    routeId: dailyHadith.id,
-                  })
-                }
-                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                  isFavorited(dailyHadith.id)
-                    ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
-                    : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
-                }`}
-                title={t('common:save')}
-              >
-                <Bookmark className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="text-xs text-stone-500 dark:text-stone-400">
-              {t('hadith:narratorLabel')}: <span className="font-medium text-stone-800 dark:text-stone-200">{dailyHadith.narratorUz}</span>
-            </div>
-
-            {/* Arabic Hadith (Untouched) */}
-            <p
-              dir="rtl"
-              className="font-arabic text-xl sm:text-2xl text-stone-900 dark:text-amber-100/95 leading-relaxed text-right pt-2"
-            >
-              {dailyHadith.textAr}
-            </p>
-
-            <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed font-editorial italic pt-2">
-              «{hadithTranslationText}»
-            </p>
-
-            <div className="text-xs text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-emerald-950/60 pt-3">
-              {t('hadith:referenceLabel')}: {dailyHadith.reference}
-            </div>
-          </div>
-
-          <div className="pt-6 relative z-10">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onNavigate('hadith')}
-              className="w-full sm:w-auto"
-            >
-              <span>{t('hadith:allCollections')}</span>
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </Card>
-      </section>
-
-      {/* 4. QUICK-ACCESS SHORTCUTS */}
-      <section className="space-y-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-          {t('home:quickServices')}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card
-            interactive
-            onClick={() => onNavigate('dhikr')}
-            className="p-5 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-950/20 dark:bg-emerald-950/60 flex items-center justify-center text-[#c5a869] border border-[#c5a869]/20 group-hover:border-[#c5a869]">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                {t('home:tasbihTitle')}
-              </h4>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                {t('home:tasbihSubtitle')}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            interactive
-            onClick={() => onNavigate('prayer')}
-            className="p-5 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-950/20 dark:bg-emerald-950/60 flex items-center justify-center text-[#c5a869] border border-[#c5a869]/20 group-hover:border-[#c5a869]">
-              <Compass className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                {t('home:qiblaTitle')}
-              </h4>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                {t('home:qiblaSubtitle')}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            interactive
-            onClick={() => onNavigate('articles')}
-            className="p-5 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-950/20 dark:bg-emerald-950/60 flex items-center justify-center text-[#c5a869] border border-[#c5a869]/20 group-hover:border-[#c5a869]">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                {t('home:articlesTitle')}
-              </h4>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                {t('home:articlesSubtitle')}
-              </p>
-            </div>
-          </Card>
-
-          <Card
-            interactive
-            onClick={() => onNavigate('announcements')}
-            className="p-5 flex flex-col justify-between space-y-3 group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-950/20 dark:bg-emerald-950/60 flex items-center justify-center text-[#c5a869] border border-[#c5a869]/20 group-hover:border-[#c5a869]">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
-                {t('home:announcementsTitle')}
-              </h4>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                {t('home:announcementsSubtitle')}
-              </p>
-            </div>
-          </Card>
-        </div>
-      </section>
-
-      {/* 5. EDITORIAL SHOWCASE */}
-      <section className="relative rounded-2xl overflow-hidden border border-stone-200 dark:border-emerald-950 bg-stone-100/50 dark:bg-[#0c1f1c] p-6 sm:p-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-          <div className="md:col-span-2 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-              <span>{t('home:libraryKicker')}</span>
-            </div>
-            <h3 className="text-2xl sm:text-3xl font-display font-bold text-stone-900 dark:text-stone-100 leading-snug">
-              {t('home:libraryTitle')}
-            </h3>
-            <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-              {t('home:libraryDescription')}
-            </p>
-            <div className="pt-2">
-              <Button variant="primary" size="sm" onClick={() => onNavigate('articles')}>
-                <span>{t('home:libraryCta')}</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-xl overflow-hidden border border-[#c5a869]/30 aspect-[4/3] shadow-md">
-            <img
-              src="/images/islamic_scholarship_library_1793634659800.jpg"
-              alt="Islamic Library"
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-            />
+                  <span className="text-xs text-[#c5a869] font-bold">Tanlash →</span>
+                </div>
+              );
+            })}
           </div>
         </div>
-      </section>
+      </Modal>
     </div>
   );
 };

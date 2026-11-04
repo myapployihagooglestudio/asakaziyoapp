@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HadithItem, NavigationTab, SupportedLocale } from '../../../types';
-import { AUTHENTIC_HADITHS } from '../../../data/hadithData';
 import { Card } from '../../ui/Card';
 import { GeometricPattern } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
+import { getStoredHadiths, subscribeToDatabase } from '../../../utils/databaseService';
 import { Search, Bookmark, Check, Share2, BookMarked } from 'lucide-react';
 
 interface HadithViewProps {
@@ -27,9 +27,19 @@ export const HadithView: React.FC<HadithViewProps> = ({
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
+  const [hadiths, setHadiths] = useState<HadithItem[]>(() => getStoredHadiths());
   const [activeCollection, setActiveCollection] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToDatabase((event) => {
+      if (event.type === 'HADITHS_UPDATED') {
+        setHadiths(getStoredHadiths());
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const collections = [
     { id: 'all', label: t('hadith:allHadiths') },
@@ -45,7 +55,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
     return text;
   };
 
-  const filteredHadiths = AUTHENTIC_HADITHS.filter((hadith) => {
+  const filteredHadiths = hadiths.filter((hadith) => {
     const matchesCollection =
       activeCollection === 'all' || hadith.collection === activeCollection;
     const matchesSearch =

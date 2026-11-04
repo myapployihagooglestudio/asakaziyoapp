@@ -159,14 +159,16 @@
     {
       "id": "reel-1",
       "title": "Subh namozining fazilati va barakasi",
-      "description": "Tong paytidagi xushuʼ va bomdod namozining jamoat bilan oʻqilishining ajrlari haqida qisqa eslatma.",
+      "type": "video",
       "mediaUrl": "https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80",
-      "mediaType": "video",
+      "thumbnail": "https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=800&q=80",
+      "caption": "Tong paytidagi xushuʼ va bomdod namozining jamoat bilan oʻqilishining ajrlari haqida qisqa eslatma.",
       "author": "Asaka Jome Masjidi Imomi",
       "publishedDate": "Bugun",
-      "duration": "0:58",
+      "category": "Ijtimoiy",
       "likesCount": 42,
-      "viewsCount": 380,
+      "commentsCount": 1,
+      "isPublished": true,
       "comments": [
         {
           "id": "mc-1",
@@ -179,14 +181,16 @@
     {
       "id": "reel-2",
       "title": "Zikr va qalb xotirjamligi",
-      "description": "«Albatta, Allohning zikri ila qalblar orom olur» (Raʼd surasi, 28-oyat)",
+      "type": "image",
       "mediaUrl": "https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=800&q=80",
-      "mediaType": "image",
+      "thumbnail": "https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=800&q=80",
+      "caption": "«Albatta, Allohning zikri ila qalblar orom olur» (Raʼd surasi, 28-oyat)",
       "author": "Tahririyat Hayʼati",
       "publishedDate": "Kecha",
-      "duration": "Rasm/Post",
+      "category": "Ijtimoiy",
       "likesCount": 29,
-      "viewsCount": 215,
+      "commentsCount": 0,
+      "isPublished": true,
       "comments": []
     }
   ],
@@ -203,8 +207,160 @@
       "repliedAt": "2026-11-03 05:40"
     }
   ],
-  "hadiths": [],
-  "dhikrs": [],
+  "hadiths": [
+    {
+      "id": "h-1",
+      "collection": "bukhari",
+      "collectionNameUz": "Sahihi Buxoriy",
+      "number": 1,
+      "chapterUz": "Vahiyning boshlanishi va Niyat bobi",
+      "narratorUz": "Umar ibn Xattob roziyallohu anhu",
+      "textAr": "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى، فَمَنْ كَانَتْ هِجْرَتُهُ إِلَى دُنْيَا يُصِيبُهَا أَوْ إِلَى امْرَأَةٍ يَنْكِحُهَا، فَهِجْرَتُهُ إِلَى مَا هَاجَرَ إِلَيْهِ",
+      "translationUz": "«Albatta, amallar niyatlarga bogʻliqdir. Har bir kishi uchun niyat qilgan narsasi boʻladi. Bas, kimning hijrati dunyo matohiga yetishish yoki ayolga uylanish uchun boʻlsa, uning hijrati oʻsha koʻzlangan narsasigadir».",
+      "grade": "Sahih",
+      "reference": "Sahih al-Buxoriy, 1-hadis",
+      "keywords": [
+        "niyat",
+        "amal",
+        "ixlos",
+        "hijrat"
+      ]
+    },
+    {
+      "id": "h-2",
+      "collection": "bukhari",
+      "collectionNameUz": "Sahihi Buxoriy",
+      "number": 13,
+      "chapterUz": "Iymon kitobi",
+      "narratorUz": "Anas ibn Molik roziyallohu anhu",
+      "textAr": "لاَ يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لِأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ",
+      "translationUz": "«Sizlardan birortangiz oʻzi uchun yaxshi koʻrgan narsani birodari uchun ham ravo koʻrmaguncha haqiqiy moʻmin boʻla olmaydi».",
+      "grade": "Sahih",
+      "reference": "Sahih al-Buxoriy, 13-hadis; Sahih Muslim, 45-hadis",
+      "keywords": [
+        "iymon",
+        "birodarlik",
+        "mehr",
+        "saxovat"
+      ]
+    },
+    {
+      "id": "h-3",
+      "collection": "muslim",
+      "collectionNameUz": "Sahihi Muslim",
+      "number": 38,
+      "chapterUz": "Bir-biriga yordam berish va musibatni aritish",
+      "narratorUz": "Abu Hurayra roziyallohu anhu",
+      "textAr": "مَنْ نَفَّسَ عَنْ مُؤْمِنٍ كُرْبَةً مِنْ كُرَبِ الدُّنْيَا نَفَّسَ اللَّهُ عَنْهُ كُرْبَةً مِنْ كُرَبِ يَوْمِ الْقِيَامَةِ، وَمَنْ يَسَّرَ عَلَى مُعْسِرٍ يَسَّرَ اللَّهُ عَلَيْهِ فِي الدُّنْيَا وَالآخِرَةِ",
+      "translationUz": "«Kim bir moʻminning dunyo gʻamlaridan birini aritsa, Alloh undan Qiyomat kunining gʻamlaridan birini aritadi. Kim qiyinchilikka uchragan kishiga yengillik tugʻdirsa, Alloh unga dunyo-yu oxiratda yengillik beradi».",
+      "grade": "Sahih",
+      "reference": "Sahih Muslim, 2699-hadis",
+      "keywords": [
+        "koʻmak",
+        "yengillik",
+        "muruvvat",
+        "ajr"
+      ]
+    },
+    {
+      "id": "h-4",
+      "collection": "nawawi",
+      "collectionNameUz": "Arbaʼin (Navaviy 40 Hadis)",
+      "number": 18,
+      "chapterUz": "Taqvo va goʻzal xulq",
+      "narratorUz": "Abu Zarr va Muoz ibn Jabal roziyallohu anhumo",
+      "textAr": "اتَّقِ اللَّهَ حَيْثُمَا كُنْتَ، وَأَتْبِعِ السَّيِّئَةَ الْحَسَنَةَ تَمْحُهَا، وَخَالِقِ النَّاسَ بِخُلُقٍ حَسَنٍ",
+      "translationUz": "«Qayerda boʻlsang ham Allohga taqvo qil! Yomonlik ketidan yaxshilik qil, uni oʻchirib yuboradi. Odamlar bilan goʻzal xulq ila muomala qil!».",
+      "grade": "Hasan",
+      "reference": "Sunani Termiziy, 1987-hadis; Imom Navaviy toʻplami",
+      "keywords": [
+        "taqvo",
+        "tavba",
+        "goʻzal xulq",
+        "muomala"
+      ]
+    },
+    {
+      "id": "h-5",
+      "collection": "bukhari",
+      "collectionNameUz": "Sahihi Buxoriy",
+      "number": 6011,
+      "chapterUz": "Odob va silai rahm kitobi",
+      "narratorUz": "Abdulloh ibn Amr roziyallohu anhu",
+      "textAr": "الْمُسْلِمُ مَنْ سَلِمَ الْمُسْلِمُونَ مِنْ لِسَانِهِ وَيَدِهِ",
+      "translationUz": "«Haqiqiy musulmon — tili va qoʻlidan boshqa musulmonlar omonda boʻlgan kishidir».",
+      "grade": "Sahih",
+      "reference": "Sahih al-Buxoriy, 6011-hadis",
+      "keywords": [
+        "odob",
+        "omonlik",
+        "salomatlik",
+        "tinchlik"
+      ]
+    }
+  ],
+  "dhikrs": [
+    {
+      "id": "d-1",
+      "category": "sayyidul_istigfor",
+      "categoryTitleUz": "Sayyidul Istigʻfor",
+      "titleUz": "Istigʻforlarning Sayyidi (eng ulugʻi)",
+      "textAr": "اللَّهُمَّ أَنْتَ رَبِّي لاَ إِلَهَ إِلاَّ أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لاَ يَغْفِرُ الذُّنُوبَ إِلاَّ أَنْتَ",
+      "transliterationUz": "Allohumma Anta Robbiy laa ilaha illa Anta, xolaqtaniy va ana ʻabduka, va ana ʻala ʻahdika va vaʼdika mastataʼtu, aʼuzu bika min sharri ma sonaʼtu, abuuʼu laka biniʼmatika ʻalayya va abuuʼu bizanbiy fagʻfir liy, fainnahu laa yagʻfiruz-zunuba illa Anta.",
+      "translationUz": "«Yo Alloh! Sen mening Robbimsan, Sendan oʻzga iloh yoʻq. Meni Sen yaratding va men Sening qulingman. Men qurbim yetguncha Sening ahding va vaʼdangdaman. Qilgan ishlarim yomonligidan Sendan panoh soʻrayman. Menga bergan neʼmatingni eʼtirof qilaman va gunohlarimni tan olaman. Bas, meni magʻfirat qilgin, chunki gunohlarni faqat Sengina kechirasan».",
+      "targetCount": 1,
+      "virtueUz": "Rasululloh ﷺ: «Kim bu duoni kunduzi sidqidildan aytsa va shu kuni kech kirgunicha vafot etsa, jannat ahlidan boʻladi. Kim uni kechasi sidqidildan aytib, tong otguncha vafot etsa, u ham jannat ahlidandir».",
+      "source": "Sahih al-Buxoriy, 6306-hadis"
+    },
+    {
+      "id": "d-2",
+      "category": "namozdan_keyin",
+      "categoryTitleUz": "Namozdan keyingi tasbeh",
+      "titleUz": "Subhanalloh (33 marta)",
+      "textAr": "سُبْحَانَ اللَّهِ",
+      "transliterationUz": "Subhanalloh",
+      "translationUz": "«Alloh barcha ayb-nuqsonlardan pokdir».",
+      "targetCount": 33,
+      "virtueUz": "Farz namozlardan soʻng aytiladigan mashhur tasbehning birinchi qismi.",
+      "source": "Sahih Muslim, 597-hadis"
+    },
+    {
+      "id": "d-3",
+      "category": "namozdan_keyin",
+      "categoryTitleUz": "Namozdan keyingi tasbeh",
+      "titleUz": "Alhamdulilloh (33 marta)",
+      "textAr": "الْحَمْدُ لِلَّهِ",
+      "transliterationUz": "Alhamdulilloh",
+      "translationUz": "«Barcha hamd va shukronalar Allohga xosdir».",
+      "targetCount": 33,
+      "virtueUz": "Qalbga shukr va xotirjamlik bagʻishlaydigan ulugʻ kalima.",
+      "source": "Sahih Muslim, 597-hadis"
+    },
+    {
+      "id": "d-4",
+      "category": "namozdan_keyin",
+      "categoryTitleUz": "Namozdan keyingi tasbeh",
+      "titleUz": "Allohu Akbar (33 marta)",
+      "textAr": "اللَّهُ أَكْبَرُ",
+      "transliterationUz": "Allohu Akbar",
+      "translationUz": "«Alloh har narsadan Buyukdir».",
+      "targetCount": 33,
+      "virtueUz": "33 martadan takrorlanib, yuzinchisida tavhid kalimasi bilan yakunlanadi.",
+      "source": "Sahih Muslim, 597-hadis"
+    },
+    {
+      "id": "d-5",
+      "category": "tonggi",
+      "categoryTitleUz": "Tonggi zikrlar",
+      "titleUz": "Tonggi shukronalik va panoh duosi",
+      "textAr": "أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ",
+      "transliterationUz": "Asbahna va asbahal mulku lillah, valhamdu lillah, laa ilaha illallohu vahdahu laa shariyka lah, lahul mulku va lahul hamdu va huva ʻala kulli shayʼin qodiyr.",
+      "translationUz": "«Biz ham tong ottirdik, butun mulk ham Allohnikiligicha tong ottirdi. Barcha hamd Allohga xosdir. Yagona Allohdan oʻzga iloh yoʻq, Uning sherigi ham yoʻqdir. Mulk ham, maqtov ham Unikidir va U har narsaga qodirdir».",
+      "targetCount": 1,
+      "virtueUz": "Kunning xayr-barakasi va har qanday zarardan omonda boʻlish uchun moʻtabar tonggi duo.",
+      "source": "Sahih Muslim, 2723-hadis"
+    }
+  ],
   "telegramConfig": {
     "botToken": "",
     "channelId": "@Asaka_Ziyo",
@@ -248,5 +404,25 @@
       "status": "pending"
     }
   ],
-  "updatedAt": "2026-11-04T02:42:58.544Z"
+  "updatedAt": "2026-11-04T03:26:47.928Z",
+  "notifications": [
+    {
+      "id": "notif-welcome",
+      "title": "Asaka Ziyo tizimiga xush kelibsiz!",
+      "message": "Asaka jome masjidi rasmiy mobil va veb portaliga xush kelibsiz. 8 namoz vaqtlari va Qurʼon qiroatlari yangilandi.",
+      "category": "system",
+      "priority": "high",
+      "timestamp": "Bugun, 06:00",
+      "read": false
+    },
+    {
+      "id": "notif-pwa",
+      "title": "Ilovani smartfonga oʻrnatish",
+      "message": "Tezkor kirish uchun \"Bosh ekranga qoʻshish\" yoki \"APK v1.0\" orqali ilovani smartfoningizga oʻrnating.",
+      "category": "announcement",
+      "priority": "normal",
+      "timestamp": "Bugun, 08:00",
+      "read": false
+    }
+  ]
 }

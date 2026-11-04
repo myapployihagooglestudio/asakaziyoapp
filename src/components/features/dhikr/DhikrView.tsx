@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DhikrItem, NavigationTab, SupportedLocale } from '../../../types';
-import { AUTHENTIC_DHIKRS } from '../../../data/dhikrData';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { GeometricPattern } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
+import { getStoredDhikrs, subscribeToDatabase } from '../../../utils/databaseService';
 import {
   Sparkles,
   RotateCcw,
@@ -40,12 +40,29 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
+  const [dhikrs, setDhikrs] = useState<DhikrItem[]>(() => getStoredDhikrs());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [activeDhikr, setActiveDhikr] = useState<DhikrItem>(AUTHENTIC_DHIKRS[1]);
+  const [activeDhikr, setActiveDhikr] = useState<DhikrItem>(() => {
+    const list = getStoredDhikrs();
+    return list[1] || list[0];
+  });
   const [count, setCount] = useState<number>(0);
   const [totalCompletedRounds, setTotalCompletedRounds] = useState<number>(0);
   const [soundActive, setSoundActive] = useState<boolean>(soundEnabled);
   const [hapticActive, setHapticActive] = useState<boolean>(hapticEnabled);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToDatabase((event) => {
+      if (event.type === 'DHIKRS_UPDATED') {
+        const fresh = getStoredDhikrs();
+        setDhikrs(fresh);
+        if (!fresh.some((d) => d.id === activeDhikr.id) && fresh.length > 0) {
+          setActiveDhikr(fresh[0]);
+        }
+      }
+    });
+    return unsubscribe;
+  }, [activeDhikr.id]);
 
   const categories = [
     { id: 'all', label: t('dhikr:allDhikrs') },
@@ -62,7 +79,7 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
     return text;
   };
 
-  const filteredDhikrs = AUTHENTIC_DHIKRS.filter(
+  const filteredDhikrs = dhikrs.filter(
     (d) => selectedCategory === 'all' || d.category === selectedCategory
   );
 

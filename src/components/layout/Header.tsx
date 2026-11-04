@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { IslamicStarEmblem } from '../ui/GeometricPattern';
 import { LanguageSelector } from '../ui/LanguageSelector';
-import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download, MessageSquare } from 'lucide-react';
+import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download, MessageSquare, Bell } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   favoritesCount: number;
+  unreadNotificationsCount?: number;
   onOpenInstallModal?: () => void;
   onOpenChatModal?: () => void;
 }
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onSelectTab,
   favoritesCount,
+  unreadNotificationsCount = 0,
   onOpenInstallModal,
   onOpenChatModal,
 }) => {
@@ -133,6 +135,23 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline">Savol / Chat</span>
               </button>
             )}
+
+            {/* Notifications button */}
+            <button
+              onClick={() => handleNavClick('notifications')}
+              className={`relative p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
+                activeTab === 'notifications' ? 'text-[#c5a869]' : ''
+              }`}
+              title="Bildirishnomalar markazi"
+              aria-label="Bildirishnomalar markazi"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </button>
 
             {/* Favorites shortcut (hidden on mobile, accessible via bottom nav/drawer) */}
             <button

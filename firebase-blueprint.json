@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "PrayerSchedule": {
+      "title": "PrayerSchedule",
+      "description": "Daily 8 prayer times schedule for Asaka region",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "formattedDateUz": { "type": "string" },
+        "hijriDate": { "type": "string" },
+        "location": { "type": "string" },
+        "qiblaAngleDeg": { "type": "number" },
+        "timezone": { "type": "string" },
+        "times": { "type": "array" },
+        "isAdministratorPublished": { "type": "boolean" },
+        "publishedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["date", "formattedDateUz", "hijriDate", "location", "times"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "Islamic article and educational publication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 300 },
+        "subtitle": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string" },
+        "author": { "type": "string", "maxLength": 150 },
+        "authorRole": { "type": "string" },
+        "publishedDate": { "type": "string" },
+        "readTimeMinutes": { "type": "number" },
+        "featuredImage": { "type": "string" },
+        "excerpt": { "type": "string", "maxLength": 1000 },
+        "bodyParagraphs": { "type": "array" },
+        "likesCount": { "type": "number" },
+        "rating": { "type": "number" },
+        "ratingsCount": { "type": "number" },
+        "comments": { "type": "array" }
+      },
+      "required": ["id", "title", "category", "author", "excerpt"]
+    },
+    "MediaPost": {
+      "title": "MediaPost",
+      "description": "Islamic video, audio, or photo reel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 300 },
+        "type": { "type": "string", "enum": ["video", "audio", "photo"] },
+        "category": { "type": "string" },
+        "author": { "type": "string" },
+        "publishedDate": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "caption": { "type": "string", "maxLength": 1500 },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "comments": { "type": "array" }
+      },
+      "required": ["id", "title", "type", "mediaUrl"]
+    },
+    "HadithItem": {
+      "title": "HadithItem",
+      "description": "Authentic Hadith narration with Arabic text and Uzbek translation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "collection": { "type": "string" },
+        "collectionNameUz": { "type": "string" },
+        "number": { "type": "number" },
+        "chapterUz": { "type": "string" },
+        "narratorUz": { "type": "string" },
+        "textAr": { "type": "string" },
+        "translationUz": { "type": "string" },
+        "grade": { "type": "string" },
+        "reference": { "type": "string" },
+        "keywords": { "type": "array" }
+      },
+      "required": ["id", "collection", "textAr", "translationUz"]
+    },
+    "DhikrItem": {
+      "title": "DhikrItem",
+      "description": "Dhikr, tasbeh, and daily prayer supplication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titleUz": { "type": "string" },
+        "category": { "type": "string" },
+        "categoryTitleUz": { "type": "string" },
+        "textAr": { "type": "string" },
+        "transliterationUz": { "type": "string" },
+        "translationUz": { "type": "string" },
+        "targetCount": { "type": "number" },
+        "virtueUz": { "type": "string" },
+        "source": { "type": "string" }
+      },
+      "required": ["id", "titleUz", "textAr", "translationUz", "targetCount"]
+    },
+    "UserInquiry": {
+      "title": "UserInquiry",
+      "description": "User question or inquiry directed to the mosque imam and administration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userName": { "type": "string", "maxLength": 150 },
+        "userPhone": { "type": "string", "maxLength": 30 },
+        "subject": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "answered"] },
+        "adminReply": { "type": "string" },
+        "repliedAt": { "type": "string" },
+        "repliedBy": { "type": "string" }
+      },
+      "required": ["id", "userName", "message", "createdAt", "status"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "System or admin push notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "link": { "type": "string" }
+      },
+      "required": ["id", "title", "body", "type", "timestamp"]
+    },
+    "ContentDraft": {
+      "title": "ContentDraft",
+      "description": "Moderation draft received from Telegram channels @Asaka_Ziyo and @muhiddinsahhofuz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sourceChannel": { "type": "string" },
+        "sourceMessageId": { "type": "number" },
+        "postDate": { "type": "string" },
+        "contentType": { "type": "string", "enum": ["prayer_time", "article", "media", "announcement"] },
+        "title": { "type": "string" },
+        "rawContent": { "type": "string" },
+        "extractedData": { "type": "object" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "moderatorNotes": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sourceChannel", "contentType", "title", "rawContent", "status"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Registered administrator document for role verification",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "superadmin"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/schedules/{scheduleId}": {
+      "schema": "PrayerSchedule",
+      "description": "Daily and monthly prayer times schedules for Asaka region"
+    },
+    "/articles/{articleId}": {
+      "schema": "Article",
+      "description": "Islamic educational articles and guides"
+    },
+    "/mediaPosts/{mediaId}": {
+      "schema": "MediaPost",
+      "description": "Short video reels, sermons, and audio qiroat"
+    },
+    "/hadiths/{hadithId}": {
+      "schema": "HadithItem",
+      "description": "Authentic Hadith collection from Bukhari, Muslim, and Tirmidhi"
+    },
+    "/dhikrs/{dhikrId}": {
+      "schema": "DhikrItem",
+      "description": "Daily morning, evening, and prayer dhikrs"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "UserInquiry",
+      "description": "User questions and imam responses"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationItem",
+      "description": "Push announcements and azan alerts"
+    },
+    "/drafts/{draftId}": {
+      "schema": "ContentDraft",
+      "description": "Incoming Telegram post drafts for moderation"
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminUser",
+      "description": "Trusted administrator profiles"
+    },
+    "/dailyContent/{bundleId}": {
+      "schema": "DailyIslamicBundle",
+      "description": "Daily verified Ayah, Hadith, and Dhikr bundles"
+    }
+  }
+}

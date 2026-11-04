@@ -5,8 +5,8 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-// Auto-register service worker for PWA offline capabilities
-if ('serviceWorker' in navigator) {
+// Auto-register service worker for PWA offline capabilities in production
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   registerSW({
     immediate: true,
     onOfflineReady() {

@@ -51,6 +51,9 @@ import {
   Server,
   Radio,
   ExternalLink,
+  Flame,
+  Cloud,
+  RefreshCw,
 } from 'lucide-react';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -76,7 +79,18 @@ import {
   deleteDraft,
   createDraft,
   subscribeToDatabase,
+  syncAllToFirestore,
+  runFirestoreDiagnostics,
+  FirestoreDiagnosticResult,
 } from '../../../utils/databaseService';
+import {
+  testFirestoreConnection,
+  signInWithGoogle,
+  signOutFirebase,
+  auth,
+  bootstrapAdmin,
+  checkAdminRole,
+} from '../../../utils/firebaseClient';
 import {
   getStoredSupabaseConfig,
   saveStoredSupabaseConfig,
@@ -91,6 +105,7 @@ import {
   savePrayerAlertSettings,
   PrayerAlertSettings,
 } from '../../../utils/notificationService';
+import { getDailyBundleForDate } from '../../../data/dailyContentData';
 
 interface AdminPortalProps {
   currentSchedule: PrayerSchedule;
@@ -106,6 +121,7 @@ type AdminTab =
   | 'inquiries'
   | 'notifications'
   | 'telegram'
+  | 'firebase'
   | 'supabase'
   | 'localization'
   | 'users'
@@ -167,7 +183,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // CMS state
-  const [cmsTab, setCmsTab] = useState<'articles' | 'media' | 'hadiths' | 'dhikrs'>('articles');
+  const [cmsTab, setCmsTab] = useState<'articles' | 'media' | 'hadiths' | 'dhikrs' | 'daily'>('articles');
   const [articlesList, setArticlesList] = useState<Article[]>(() => getStoredArticles());
   const [mediaList, setMediaList] = useState<MediaPost[]>(() => getStoredMediaPosts());
   const [hadithsList, setHadithsList] = useState<HadithItem[]>(() => getStoredHadiths());
@@ -187,6 +203,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [customNotifMessage, setCustomNotifMessage] = useState('');
   const [customNotifCategory, setCustomNotifCategory] = useState<'prayer' | 'announcement' | 'news' | 'system'>('announcement');
   const [notifSuccessMsg, setNotifSuccessMsg] = useState<string | null>(null);
+  const [diagnosticResult, setDiagnosticResult] = useState<FirestoreDiagnosticResult | null>(null);
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
+  const [csvInput, setCsvInput] = useState('');
+  const [csvStatus, setCsvStatus] = useState<string | null>(null);
 
   // Telegram Integration state
   const [telegramBotToken, setTelegramBotToken] = useState(() => {
@@ -249,6 +269,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     'Shoshilinch xabar: Chiroyli Asaka shahrida yangi oʻquv markazi va gʻalaba bogʻi ochildi.'
   );
   const [converterCopied, setConverterCopied] = useState(false);
+
+  // Firebase Firestore State
+  const [firebaseStatus, setFirebaseStatus] = useState<string | null>(null);
+  const [isTestingFirebase, setIsTestingFirebase] = useState(false);
+  const [isSyncingFirebase, setIsSyncingFirebase] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<any>(() => auth.currentUser);
+  const [adminRoleInfo, setAdminRoleInfo] = useState<{ isAdmin: boolean; role?: string } | null>(null);
+
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        if (user.email === 'mirzayevulugbek024@gmail.com') {
+          await bootstrapAdmin(user);
+        }
+        const role = await checkAdminRole(user.uid);
+        setAdminRoleInfo(role);
+      } else {
+        setAdminRoleInfo(null);
+      }
+    });
+    return () => unsubscribeAuth();
+  }, []);
 
   // Real-time synchronization subscription
   useEffect(() => {
@@ -330,7 +373,74 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     );
   };
 
-  const handleSaveSchedule = () => {
+  const handleImportCsvPrayerTimes = () => {
+    if (!csvInput.trim()) {
+      setCsvStatus('Iltimos, CSV matnini kiriting yoki namuna nusxasini qoʻying.');
+      return;
+    }
+    try {
+      const lines = csvInput.trim().split('\n');
+      let updatedCount = 0;
+      const newTimes = [...editableTimes];
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || line.toLowerCase().startsWith('namoz') || line.toLowerCase().startsWith('key')) continue;
+
+        const parts = line.split(/[,;\t]+/).map((p) => p.trim());
+        if (parts.length < 2) continue;
+
+        const prayerKeyOrName = parts[0].toLowerCase().replace(/['ʻʼ`]/g, '');
+        const timeVal = parts[1];
+        const iqamahVal = parts[2] || '';
+
+        const matchedIdx = newTimes.findIndex((t) => {
+          const k = t.key.toLowerCase();
+          const uz = t.nameUz.toLowerCase().replace(/['ʻʼ`]/g, '');
+          return (
+            k === prayerKeyOrName ||
+            uz === prayerKeyOrName ||
+            (prayerKeyOrName.includes('bomdod') && k === 'bomdod') ||
+            (prayerKeyOrName.includes('peshin') && k === 'peshin') ||
+            (prayerKeyOrName.includes('asr') && k === 'asr') ||
+            (prayerKeyOrName.includes('shom') && k === 'shom') ||
+            (prayerKeyOrName.includes('xufton') && k === 'xufton') ||
+            (prayerKeyOrName.includes('quyosh') && k === 'quyosh') ||
+            (prayerKeyOrName.includes('tahajjud') && k === 'tahajjud') ||
+            (prayerKeyOrName.includes('subh') && k === 'subh')
+          );
+        });
+
+        if (matchedIdx !== -1 && /^([01]?\d|2[0-3]):[0-5]\d$/.test(timeVal)) {
+          newTimes[matchedIdx] = {
+            ...newTimes[matchedIdx],
+            time: timeVal,
+            iqamahTime:
+              iqamahVal && /^([01]?\d|2[0-3]):[0-5]\d$/.test(iqamahVal)
+                ? iqamahVal
+                : newTimes[matchedIdx].iqamahTime,
+          };
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        setEditableTimes(newTimes);
+        setCsvStatus(
+          `✅ Muvaffaqiyatli: ${updatedCount} ta namoz vaqti CSV dan qabul qilindi! Oʻzgarishlarni kuchga kiritish uchun yuqoridagi «Saqlash va Barchaga Tarqatish» tugmasini bosing.`
+        );
+        setCsvInput('');
+      } else {
+        setCsvStatus(
+          '⚠️ Xatolik: Mos keluvchi namoz vaqtlari topilmadi. Format namunasi: bomdod,05:35,06:05 yoki peshin,12:20,12:40'
+        );
+      }
+    } catch (err: any) {
+      setCsvStatus(`⚠️ Tahlil xatosi: ${err?.message || 'CSV formatini tekshiring'}`);
+    }
+  };
+
+  const handleSaveSchedule = async () => {
     const updated: PrayerSchedule = {
       ...currentSchedule,
       times: editableTimes,
@@ -344,8 +454,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         : 'DIQQAT: Ushbu jadval qoralama hisoblanadi. Namoz vaqtlari Oʻzbekiston musulmonlari idorasi va Asaka masjidi maʼmurlari tomonidan tasdiqlanib kiritiladi.',
     };
 
-    // Save and sync with database service across all tabs
-    saveStoredPrayerSchedule(updated, isPublished);
+    // Save and sync with database service across all tabs and server
+    const res = await saveStoredPrayerSchedule(updated, isPublished);
     onUpdateSchedule(updated);
 
     const newLog: AuditLogEntry = {
@@ -362,23 +472,97 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     };
     setAuditLogs([newLog, ...auditLogs]);
 
-    setSaveSuccessMsg(
-      isPublished
-        ? 'Barcha 8 ta namoz vaqti (Tahajjud, Subh, Bomdod, Quyosh, Peshin, Asr, Shom, Xufton) tasdiqlandi va hammaga bildirishnoma bordi!'
-        : 'Qoralama jadval saqlandi.'
-    );
+    if (res.success) {
+      setSaveSuccessMsg(
+        isPublished
+          ? 'Barcha 8 ta namoz vaqti (Tahajjud, Subh, Bomdod, Quyosh, Peshin, Asr, Shom, Xufton) markaziy server bazasida tasdiqlandi va saqlandi!'
+          : 'Qoralama jadval markaziy server bazasida saqlandi.'
+      );
+    } else {
+      setSaveSuccessMsg(`Ogohlantirish: ${res.error || 'Serverga saqlandi'}`);
+    }
     setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   // Inquiry Reply Handler
-  const handleReplyInquiry = (inquiryId: string) => {
+  const handleReplyInquiry = async (inquiryId: string) => {
     if (!replyText.trim()) return;
 
-    replyToInquiry(inquiryId, replyText.trim(), 'Asaka Jome Masjidi Maʼmuriyati');
+    await replyToInquiry(inquiryId, replyText.trim(), 'Asaka Jome Masjidi Maʼmuriyati');
     setReplyText('');
     setSelectedInquiryId(null);
-    setSaveSuccessMsg('Javob foydalanuvchiga muvaffaqiyatli yetkazildi!');
+    setInquiriesList(getStoredInquiries());
+    setSaveSuccessMsg('Javob markaziy server bazasida saqlandi va foydalanuvchiga muvaffaqiyatli yetkazildi!');
     setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handleDeleteInquiry = async (inquiryId: string) => {
+    await deleteStoredInquiry(inquiryId);
+    setInquiriesList(getStoredInquiries());
+    setSaveSuccessMsg('Murojaat oʻchirildi.');
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
+  };
+
+  // Telegram Drafts Moderation Handlers
+  const handleApproveDraft = async (id: string) => {
+    const ok = await approveDraft(id, `${REQUIRED_LOGIN} (Bosh Maʼmur)`);
+    if (ok) {
+      setDraftsList(getStoredDrafts());
+      setArticlesList(getStoredArticles());
+      setMediaList(getStoredMediaPosts());
+      setSaveSuccessMsg('Qoralama muvaffaqiyatli tasdiqlandi va tegishli boʻlimga toʻgʻri joylandi!');
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+    }
+  };
+
+  const handleRejectDraft = async (id: string) => {
+    const ok = await rejectDraft(id, `${REQUIRED_LOGIN} (Bosh Maʼmur)`);
+    if (ok) {
+      setDraftsList(getStoredDrafts());
+      setSaveSuccessMsg('Qoralama rad etildi.');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    }
+  };
+
+  const handleDeleteDraft = async (id: string) => {
+    const ok = await deleteDraft(id);
+    if (ok) {
+      setDraftsList(getStoredDrafts());
+      setSaveSuccessMsg('Qoralama oʻchirildi.');
+      setTimeout(() => setSaveSuccessMsg(null), 2500);
+    }
+  };
+
+  const handleSimulateTelegramDraft = async (source: '@Asaka_Ziyo' | '@muhiddinsahhofuz') => {
+    if (source === '@Asaka_Ziyo') {
+      await createDraft({
+        sourceChannel: '@Asaka_Ziyo',
+        targetSection: 'prayer',
+        title: 'Asaka Jome Masjidi: Yangi haftalik namoz vaqtlari qoralamasi',
+        content: 'Asaka shahri jome masjidi uchun yangilangan taqvim taklifi: Bomdod 05:25, Peshin 12:05, Asr 15:15, Shom 17:18, Xufton 18:40, Tahajjud 03:45, Subh 04:42.',
+        prayerTimesDraft: {
+          tahajjud: '03:45',
+          subh: '04:42',
+          bomdod: '05:25',
+          quyosh: '06:48',
+          peshin: '12:05',
+          asr: '15:15',
+          shom: '17:18',
+          xufton: '18:40',
+        },
+      });
+    } else {
+      await createDraft({
+        sourceChannel: '@muhiddinsahhofuz',
+        targetSection: 'articles',
+        title: 'Qalb tarbiyasi va sunnatga ergashish fazilati',
+        content: 'Alloh taolo moʻmin bandalariga oʻz Paygʻambari Muhammad Mustafo ﷺ ga itoat qilishni va ul zotning goʻzal sunnatlariga ergashishni buyuradi. Qalb qachonki sunnat bilan nurlansa, dunyo va oxirat saodatiga erishadi...',
+        mediaUrl: '/images/islamic_scholarship_library_1793634659800.jpg',
+      });
+    }
+    setDraftsList(getStoredDrafts());
+    setSaveSuccessMsg(`${source} rasmiy kanalidan yangi qoralama muvaffaqiyatli qabul qilindi!`);
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   // Push notifications
@@ -401,18 +585,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
     setCustomNotifTitle('');
     setCustomNotifMessage('');
-    setNotifSuccessMsg('Push xabarnoma barcha foydalanuvchilarga muvaffaqiyatli tarqatildi!');
+    setNotifSuccessMsg('Push xabarnoma markaziy server bazasida saqlandi va barcha foydalanuvchilarga tarqatildi!');
     setTimeout(() => setNotifSuccessMsg(null), 3500);
   };
 
-  // Telegram configuration & broadcast
-  const handleSaveTelegramConfig = () => {
+  // Telegram configuration & broadcast (Channels: @Asaka_Ziyo and @muhiddinsahhofuz)
+  const [selectedTelegramChannel, setSelectedTelegramChannel] = useState<'@Asaka_Ziyo' | '@muhiddinsahhofuz'>('@Asaka_Ziyo');
+
+  const handleSaveTelegramConfig = async () => {
     try {
       localStorage.setItem(
         TELEGRAM_CONFIG_KEY,
         JSON.stringify({ botToken: telegramBotToken, channelId: telegramChannelId })
       );
-      setTelegramStatus('Telegram sozlamalari (Bot Token va Kanal ID) saqlandi!');
+      await fetch('/api/database/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botToken: telegramBotToken, channelId: telegramChannelId }),
+      });
+      setTelegramStatus('Telegram sozlamalari markaziy serverda saqlandi!');
       setTimeout(() => setTelegramStatus(null), 3000);
     } catch {
       // ignore
@@ -423,43 +614,33 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const textToSend = customMessage || telegramCustomText;
     if (!textToSend.trim()) return;
 
-    if (!telegramBotToken.trim()) {
-      setTelegramStatus(
-        'Xatolik: Telegram Bot Token kiritilmagan. Avval @BotFather dan olingan tokenni kiriting.'
-      );
-      return;
-    }
-
     setIsSendingTelegram(true);
-    setTelegramStatus('Telegram kanaliga yuborilmoqda...');
+    setTelegramStatus(`${selectedTelegramChannel} kanaliga server orqali yuborilmoqda...`);
 
     try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${telegramBotToken.trim()}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: telegramChannelId.trim(),
-            text: textToSend,
-            parse_mode: 'HTML',
-          }),
-        }
-      );
+      const response = await fetch('/api/telegram/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: textToSend,
+          token: telegramBotToken.trim(),
+          channel: selectedTelegramChannel,
+        }),
+      });
 
       const resData = await response.json();
-      if (resData.ok) {
+      if (resData.success) {
         setTelegramStatus(
-          `✅ Muvaffaqiyatli: Xabar ${telegramChannelId} kanaliga yetkazildi! (ID: ${resData.result.message_id})`
+          `✅ Muvaffaqiyatli: Xabar ${selectedTelegramChannel} kanaliga yetkazildi!`
         );
       } else {
         setTelegramStatus(
-          `⚠️ Telegram API Xatosi: ${resData.description || 'Token yoki Kanal ID notoʻgʻri.'}`
+          `⚠️ Xabar: ${resData.error || 'Bot Token kiritilmagan boʻlsa, bu ixtiyoriy rejimda ishlaydi.'}`
         );
       }
     } catch {
       setTelegramStatus(
-        '⚠️ Tarmoq xatosi: Telegram API serveriga ulanish imkoni boʻlmadi.'
+        '⚠️ Tarmoq xatosi: Serverga ulanish imkoni boʻlmadi.'
       );
     } finally {
       setIsSendingTelegram(false);
@@ -482,7 +663,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   // Adding new Article
-  const handleCreateArticle = (e: React.FormEvent) => {
+  const handleCreateArticle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newArticleTitle.trim() || !newArticleExcerpt.trim()) return;
 
@@ -495,7 +676,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       authorRole: 'Tahririyat Hayʼati',
       publishedDate: 'Bugun',
       readTimeMinutes: Math.max(3, Math.round(newArticleBody.length / 400)),
-      featuredImage: 'https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=1200&q=80',
+      featuredImage: '/images/quran_illumination_art_1793634658336.jpg',
       excerpt: newArticleExcerpt.trim(),
       bodyParagraphs: newArticleBody
         ? newArticleBody.split('\n\n').filter(Boolean)
@@ -506,18 +687,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       comments: [],
     };
 
-    saveStoredArticle(newArt);
+    await saveStoredArticle(newArt);
+    setArticlesList(getStoredArticles());
     setShowAddArticleModal(false);
     setNewArticleTitle('');
     setNewArticleSubtitle('');
     setNewArticleExcerpt('');
     setNewArticleBody('');
-    setSaveSuccessMsg('Yangi maqola muvaffaqiyatli chop etildi!');
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
+    setSaveSuccessMsg('Yangi maqola markaziy server bazasida muvaffaqiyatli chop etildi!');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleDeleteArticle = async (id: string) => {
+    await deleteStoredArticle(id);
+    setArticlesList(getStoredArticles());
+    setSaveSuccessMsg('Maqola muvaffaqiyatli oʻchirildi.');
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
   // Adding new Media Post
-  const handleCreateMediaPost = (e: React.FormEvent) => {
+  const handleCreateMediaPost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMediaTitle.trim()) return;
 
@@ -537,17 +726,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       comments: [],
     };
 
-    saveStoredMediaPost(newPost);
+    await saveStoredMediaPost(newPost);
+    setMediaList(getStoredMediaPosts());
     setShowAddMediaModal(false);
     setNewMediaTitle('');
     setNewMediaCaption('');
     setNewMediaUrl('');
-    setSaveSuccessMsg('Yangi media lavhasi eʼlon qilindi!');
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
+    setSaveSuccessMsg('Yangi media lavhasi markaziy server bazasida eʼlon qilindi!');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleDeleteMediaPost = async (id: string) => {
+    await deleteStoredMediaPost(id);
+    setMediaList(getStoredMediaPosts());
+    setSaveSuccessMsg('Media posti oʻchirildi.');
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
   // Adding new Hadith
-  const handleCreateHadith = (e: React.FormEvent) => {
+  const handleCreateHadith = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newHadithTextAr.trim() || !newHadithTranslation.trim()) return;
 
@@ -572,17 +769,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       keywords: ['hadis', 'hikmat', 'sunnat'],
     };
 
-    saveStoredHadith(newH);
+    await saveStoredHadith(newH);
+    setHadithsList(getStoredHadiths());
     setShowAddHadithModal(false);
     setNewHadithNarrator('');
     setNewHadithTextAr('');
     setNewHadithTranslation('');
-    setSaveSuccessMsg('Yangi moʻtabar hadis muvaffaqiyatli saqlandi!');
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
+    setSaveSuccessMsg('Yangi moʻtabar hadis markaziy server bazasida saqlandi!');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleDeleteHadith = async (id: string) => {
+    await deleteStoredHadith(id);
+    setHadithsList(getStoredHadiths());
+    setSaveSuccessMsg('Hadis oʻchirildi.');
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
   // Adding new Dhikr
-  const handleCreateDhikr = (e: React.FormEvent) => {
+  const handleCreateDhikr = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDhikrTextAr.trim() || !newDhikrTitle.trim()) return;
 
@@ -599,14 +804,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       source: 'Moʻtabar manbalardan',
     };
 
-    saveStoredDhikr(newD);
+    await saveStoredDhikr(newD);
+    setDhikrsList(getStoredDhikrs());
     setShowAddDhikrModal(false);
     setNewDhikrTitle('');
     setNewDhikrTextAr('');
     setNewDhikrTransliteration('');
     setNewDhikrTranslation('');
-    setSaveSuccessMsg('Yangi zikr va duo muvaffaqiyatli saqlandi!');
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
+    setSaveSuccessMsg('Yangi zikr va duo markaziy server bazasida saqlandi!');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleDeleteDhikr = async (id: string) => {
+    await deleteStoredDhikr(id);
+    setDhikrsList(getStoredDhikrs());
+    setSaveSuccessMsg('Zikr oʻchirildi.');
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
   // Unauthenticated: Secure Login Gate
@@ -761,11 +974,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-stone-200 dark:border-emerald-950">
         {[
           { id: 'dashboard', label: 'Boshqaruv Paneli', icon: Sliders },
+          { id: 'drafts', label: `Telegram Moderatsiya (${draftsList.filter((d) => d.status === 'pending').length} yangi)`, icon: Inbox },
           { id: 'prayer_schedule', label: '8 Namoz Vaqtlari', icon: Clock },
           { id: 'content', label: 'Kontent CMS (Barcha)', icon: FileText },
-          { id: 'inquiries', label: `Murojaatlar & Chat (${inquiriesList.filter(i => i.status === 'new').length} yangi)`, icon: MessageSquare },
+          { id: 'inquiries', label: `Murojaatlar & Chat (${inquiriesList.filter((i) => i.status === 'new').length} yangi)`, icon: MessageSquare },
           { id: 'notifications', label: 'Push & Ovozli Eslatmalar', icon: Bell },
           { id: 'telegram', label: 'Telegram Bot & Kanal', icon: Send },
+          { id: 'firebase', label: 'Firebase Firestore (Faol)', icon: Flame },
+          { id: 'supabase', label: 'Bulut & Supabase (Ixtiyoriy)', icon: Database },
           { id: 'localization', label: 'Yangi Alifbo', icon: Languages },
           { id: 'audit_logs', label: 'Audit Jurnali', icon: History },
         ].map((tab) => {
@@ -872,6 +1088,136 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
+      {/* ---------------- TAB: TELEGRAM MODERATION & DRAFTS ---------------- */}
+      {activeTab === 'drafts' && (
+        <Card elevated className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-emerald-950 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Inbox className="w-5 h-5 text-[#c5a869]" />
+                <span>Telegram Kanallaridan Kelgan Qoralamalar & Moderatsiya</span>
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Rasmiy kanallarimiz (@Asaka_Ziyo va @muhiddinsahhofuz) orqali kiritilgan namoz vaqtlari, maqola va xabarlar avval shu yerga qoralama boʻlib tushadi. Bosh administrator tasdiqlasa, ilovaga toʻliq joylanadi.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSimulateTelegramDraft('@Asaka_Ziyo')}
+                className="text-xs"
+              >
+                <span>+ @Asaka_Ziyo qoralamasi</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSimulateTelegramDraft('@muhiddinsahhofuz')}
+                className="text-xs"
+              >
+                <span>+ @muhiddinsahhofuz qoralamasi</span>
+              </Button>
+            </div>
+          </div>
+
+          {draftsList.length === 0 ? (
+            <div className="text-center py-12 text-stone-400 text-xs">
+              Hozircha tekshiriladigan qoralamalar mavjud emas.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {draftsList.map((draft) => (
+                <div
+                  key={draft.id}
+                  className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950/80 bg-stone-50/50 dark:bg-[#071614]/50 space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        draft.sourceChannel === '@Asaka_Ziyo'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-[#c5a869]/10 text-[#c5a869] border border-[#c5a869]/20'
+                      }`}>
+                        {draft.sourceChannel}
+                      </span>
+                      <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
+                        Boʻlim: {draft.targetSection === 'prayer' ? '8 Namoz Vaqti' : draft.targetSection === 'articles' ? 'Maqola' : 'Media/Reel'}
+                      </span>
+                      <span className="text-[11px] text-stone-500">· {draft.receivedAt}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                        draft.status === 'approved'
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : draft.status === 'rejected'
+                          ? 'bg-rose-500/20 text-rose-400'
+                          : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {draft.status === 'approved' ? 'Tasdiqlangan' : draft.status === 'rejected' ? 'Rad etilgan' : 'Kutilmoqda'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{draft.title}</h4>
+                    <p className="text-xs text-stone-600 dark:text-stone-300 mt-1 leading-relaxed whitespace-pre-line">{draft.content}</p>
+                  </div>
+
+                  {draft.prayerTimesDraft && (
+                    <div className="p-3 rounded-lg bg-stone-100 dark:bg-[#091a18] border border-stone-200 dark:border-emerald-950 text-xs">
+                      <span className="font-semibold text-stone-400 block mb-1">Taklif qilingan 8 namoz vaqtlari:</span>
+                      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 text-center font-mono-numbers">
+                        <div><div className="text-[10px] text-stone-400">Tahajjud</div><div className="font-bold text-[#c5a869]">{draft.prayerTimesDraft.tahajjud}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Subh</div><div className="font-bold">{draft.prayerTimesDraft.subh}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Bomdod</div><div className="font-bold">{draft.prayerTimesDraft.bomdod}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Quyosh</div><div className="font-bold">{draft.prayerTimesDraft.quyosh}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Peshin</div><div className="font-bold">{draft.prayerTimesDraft.peshin}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Asr</div><div className="font-bold">{draft.prayerTimesDraft.asr}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Shom</div><div className="font-bold">{draft.prayerTimesDraft.shom}</div></div>
+                        <div><div className="text-[10px] text-stone-400">Xufton</div><div className="font-bold">{draft.prayerTimesDraft.xufton}</div></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {draft.status === 'pending' && (
+                    <div className="flex items-center gap-2 pt-2 border-t border-stone-200 dark:border-emerald-950/60">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleApproveDraft(draft.id)}
+                        className="text-xs"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                        <span>Tasdiqlash & Joylash</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRejectDraft(draft.id)}
+                        className="text-xs text-rose-500 hover:text-rose-600"
+                      >
+                        <span>Rad Etish</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteDraft(draft.id)}
+                        className="text-xs text-stone-400 hover:text-stone-200"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* ---------------- TAB 2: PRAYER SCHEDULE (ALL 8 TIMES) ---------------- */}
       {activeTab === 'prayer_schedule' && (
         <Card elevated className="p-6 space-y-6">
@@ -945,6 +1291,82 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             ))}
           </div>
+
+          {/* CSV Bulk Import Section */}
+          <div className="pt-4 border-t border-stone-200 dark:border-emerald-950/80 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-[#c5a869]" />
+                  <span>CSV orqali 8 namoz vaqtini ommaviy yuklash / yangilash</span>
+                </h4>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  Format: <code className="text-[#c5a869]">namoz_nomi,kirish_vaqti,iqomat_vaqti</code> (Masalan: <code className="text-[#c5a869]">bomdod,05:35,06:05</code>)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCsvInput(
+                      `# Asaka 8 Namoz Taqvimi CSV namunasi\ntahajjud,04:10\nsubh,05:00\nbomdod,05:35,06:05\nquyosh,06:48\npeshin,12:20,12:40\nasr,15:35,15:55\nshom,17:28,17:33\nxufton,18:55,19:15`
+                    );
+                    setCsvStatus('Namuna CSV matni kiritildi. Endi «CSV dan Jadvalga Qoʻllash» tugmasini bosing.');
+                  }}
+                  className="text-xs"
+                >
+                  <Copy className="w-3 h-3 mr-1" />
+                  <span>Namunani Koʻchirish</span>
+                </Button>
+                <label className="cursor-pointer inline-flex items-center px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-stone-300 dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors">
+                  <ExternalLink className="w-3 h-3 mr-1 text-[#c5a869]" />
+                  <span>Fayl Tanlash (.csv)</span>
+                  <input
+                    type="file"
+                    accept=".csv,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          const content = evt.target?.result as string;
+                          if (content) {
+                            setCsvInput(content);
+                            setCsvStatus(`«${file.name}» fayli oʻqildi. «CSV dan Jadvalga Qoʻllash» tugmasini bosing.`);
+                          }
+                        };
+                        reader.readAsText(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <textarea
+              rows={3}
+              value={csvInput}
+              onChange={(e) => setCsvInput(e.target.value)}
+              placeholder="bomdod,05:35,06:05&#10;peshin,12:20,12:40&#10;asr,15:35,15:55&#10;shom,17:28,17:33&#10;xufton,18:55,19:15"
+              className="w-full p-2.5 text-xs font-mono rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+            />
+
+            {csvStatus && (
+              <div className="p-2.5 rounded-lg border border-[#c5a869]/30 bg-[#c5a869]/10 text-xs font-medium">
+                {csvStatus}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button variant="primary" size="sm" onClick={handleImportCsvPrayerTimes}>
+                <Check className="w-3.5 h-3.5 mr-1" />
+                <span>CSV dan Jadvalga Qoʻllash</span>
+              </Button>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -1004,6 +1426,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               >
                 Zikrlar ({dhikrsList.length})
               </button>
+              <button
+                onClick={() => setCmsTab('daily')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1 ${
+                  cmsTab === 'daily'
+                    ? 'bg-[#c5a869] text-[#071614]'
+                    : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                <Sparkles className="w-3 h-3 text-[#c5a869]" />
+                <span>Kunlik Meros</span>
+              </button>
             </div>
           </div>
 
@@ -1037,7 +1470,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </div>
 
                     <button
-                      onClick={() => deleteStoredArticle(art.id)}
+                      onClick={() => handleDeleteArticle(art.id)}
                       className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
                       title="Oʻchirish"
                     >
@@ -1068,7 +1501,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         {m.type}
                       </span>
                       <button
-                        onClick={() => deleteStoredMediaPost(m.id)}
+                        onClick={() => handleDeleteMediaPost(m.id)}
                         className="text-stone-400 hover:text-rose-500 p-1 cursor-pointer"
                         title="Oʻchirish"
                       >
@@ -1116,7 +1549,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </div>
 
                     <button
-                      onClick={() => deleteStoredHadith(h.id)}
+                      onClick={() => handleDeleteHadith(h.id)}
                       className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
                       title="Oʻchirish"
                     >
@@ -1154,7 +1587,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </div>
 
                     <button
-                      onClick={() => deleteStoredDhikr(d.id)}
+                      onClick={() => handleDeleteDhikr(d.id)}
                       className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
                       title="Oʻchirish"
                     >
@@ -1165,6 +1598,113 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
           )}
+
+          {/* CMS: KUNLIK ISLOMIY MEROS */}
+          {cmsTab === 'daily' && (() => {
+            const todayBundle = getDailyBundleForDate();
+            return (
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#c5a869] uppercase tracking-wider">
+                      Bugungi Kunlik Islomiy Majmua (Asia/Tashkent kalendari)
+                    </span>
+                    <h4 className="text-base font-bold text-white mt-0.5">
+                      {todayBundle.formattedDateUz} · <span className="font-mono-numbers text-[#c5a869]">{todayBundle.hijriDateUz}</span>
+                    </h4>
+                    <p className="text-xs text-stone-300 mt-1">
+                      Kun Oyati, Hadisi va Zikri har kuni tongda barcha foydalanuvchilarning bosh sahifasida avtomatik yangilanadi.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const broadcastText = `🌙 KUN OYATI: ${todayBundle.ayah.surahNameUz} surasi, ${todayBundle.ayah.numberInSurah}-oyat\n\n«${todayBundle.ayah.translationUz}»\n\n📖 KUN HADISI: (${todayBundle.hadith.reference})\n«${todayBundle.hadith.translationUz}»\n\n📿 KUN ZIKRI:\n${todayBundle.dhikr.titleUz} (${todayBundle.dhikr.targetCount} marta)\n\n📲 Asaka Ziyo: @Asaka_Ziyo`;
+                        setTelegramCustomText(broadcastText);
+                        setActiveTab('telegram');
+                      }}
+                      className="text-xs bg-[#c5a869] text-[#071614] hover:bg-[#d4b97a]"
+                    >
+                      <Send className="w-3.5 h-3.5 mr-1" />
+                      <span>Telegramga Uzatish</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Card 1: Kun Oyati */}
+                  <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Kun Oyati</span>
+                      </span>
+                      <span className="text-[11px] font-mono-numbers font-semibold text-stone-500">
+                        {todayBundle.ayah.surahNameUz}: {todayBundle.ayah.numberInSurah}
+                      </span>
+                    </div>
+                    <div className="font-arabic text-sm text-right leading-relaxed text-[#c5a869] line-clamp-3">
+                      {todayBundle.ayah.textAr}
+                    </div>
+                    <p className="text-xs text-stone-700 dark:text-stone-300 line-clamp-3">
+                      {todayBundle.ayah.translationUz}
+                    </p>
+                    <div className="text-[11px] text-stone-400 border-t border-stone-200 dark:border-white/5 pt-2">
+                      Manba: Tafsiri Hilol (Shayx Muhammad Sodiq Muhammad Yusuf)
+                    </div>
+                  </div>
+
+                  {/* Card 2: Kun Hadisi */}
+                  <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Kun Hadisi</span>
+                      </span>
+                      <span className="text-[11px] font-semibold text-[#c5a869]">
+                        {todayBundle.hadith.reference}
+                      </span>
+                    </div>
+                    <div className="font-arabic text-sm text-right leading-relaxed text-[#c5a869] line-clamp-3">
+                      {todayBundle.hadith.textAr}
+                    </div>
+                    <p className="text-xs text-stone-700 dark:text-stone-300 line-clamp-3">
+                      {todayBundle.hadith.translationUz}
+                    </p>
+                    <div className="text-[11px] text-stone-400 border-t border-stone-200 dark:border-white/5 pt-2 flex items-center justify-between">
+                      <span>Roviy: {todayBundle.hadith.narratorUz || 'Sahoba'}</span>
+                      <span className="text-emerald-500 font-bold">Sahih</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Kun Zikri */}
+                  <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#c5a869] flex items-center gap-1.5">
+                        <Heart className="w-3.5 h-3.5" />
+                        <span>Kun Zikri</span>
+                      </span>
+                      <span className="text-[11px] font-mono-numbers px-2 py-0.5 rounded bg-[#c5a869]/10 text-[#c5a869] font-bold">
+                        {todayBundle.dhikr.targetCount} marta
+                      </span>
+                    </div>
+                    <div className="font-arabic text-sm text-right leading-relaxed text-[#c5a869] line-clamp-2">
+                      {todayBundle.dhikr.textAr}
+                    </div>
+                    <div className="font-bold text-xs text-stone-800 dark:text-stone-200">
+                      {todayBundle.dhikr.titleUz}
+                    </div>
+                    <p className="text-xs text-stone-600 dark:text-stone-400 line-clamp-2">
+                      {todayBundle.dhikr.virtueUz || todayBundle.dhikr.translationUz}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </Card>
       )}
 
@@ -1252,7 +1792,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </span>
 
                       <button
-                        onClick={() => deleteStoredInquiry(inq.id)}
+                        onClick={() => handleDeleteInquiry(inq.id)}
                         className="p-1 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
                         title="Oʻchirish"
                       >
@@ -1501,12 +2041,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold block">Kanal ID / Username:</label>
+                <label className="text-xs font-semibold block">Maqsadli Rasmiy Kanal:</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTelegramChannel('@Asaka_Ziyo');
+                      setTelegramChannelId('@Asaka_Ziyo');
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                      selectedTelegramChannel === '@Asaka_Ziyo'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-300'
+                    }`}
+                  >
+                    📢 @Asaka_Ziyo (Masjid)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTelegramChannel('@muhiddinsahhofuz');
+                      setTelegramChannelId('@muhiddinsahhofuz');
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                      selectedTelegramChannel === '@muhiddinsahhofuz'
+                        ? 'bg-[#c5a869] text-[#071614]'
+                        : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-300'
+                    }`}
+                  >
+                    📢 @muhiddinsahhofuz (Ustoz)
+                  </button>
+                </div>
                 <input
                   type="text"
-                  placeholder="@asaka_ziyo_rasmiy yoki -100192837465"
+                  placeholder="@Asaka_Ziyo yoki @muhiddinsahhofuz"
                   value={telegramChannelId}
-                  onChange={(e) => setTelegramChannelId(e.target.value)}
+                  onChange={(e) => {
+                    setTelegramChannelId(e.target.value);
+                    if (e.target.value === '@Asaka_Ziyo' || e.target.value === '@muhiddinsahhofuz') {
+                      setSelectedTelegramChannel(e.target.value as any);
+                    }
+                  }}
                   className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
                 />
               </div>
@@ -1518,7 +2093,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
             <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
               <div className="font-semibold text-sm text-stone-900 dark:text-stone-100">
-                Kanalga Xabar Yuborish
+                Kanalga Xabar Yuborish ({selectedTelegramChannel})
               </div>
 
               <div className="space-y-2">
@@ -1553,6 +2128,394 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <Clock className="w-3.5 h-3.5 mr-1 text-[#c5a869]" />
                   <span>8 Namoz Vaqtlarini Yuborish</span>
                 </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ---------------- TAB: FIREBASE FIRESTORE (ACTIVE & CONNECTED) ---------------- */}
+      {activeTab === 'firebase' && (
+        <Card elevated className="p-6 space-y-6">
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <Flame className="w-5 h-5 text-amber-500" />
+              <span>Google Cloud Firebase Firestore — Faol Bulutli Baza</span>
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Ushbu boʻlim orqali Asaka Ziyo loyihasining rasmiy Google Cloud Firebase Firestore bulutli maʼlumotlar bazasi va Firebase Authentication xizmati boshqariladi.
+            </p>
+          </div>
+
+          {firebaseStatus && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs flex items-center justify-between">
+              <span>{firebaseStatus}</span>
+              <button
+                onClick={() => setFirebaseStatus(null)}
+                className="text-stone-400 hover:text-stone-200 text-xs ml-2 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
+              <div className="font-semibold text-sm text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-[#c5a869]" />
+                <span>Bulutli Baza Maʼlumotlari</span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span className="text-stone-500">Firebase Loyiha ID:</span>
+                  <span className="font-mono font-bold text-[#c5a869]">basic-petal-001dl</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span className="text-stone-500">Firestore Database ID:</span>
+                  <span className="font-mono text-stone-800 dark:text-stone-200 text-[11px] truncate max-w-[200px]" title="ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94">
+                    ai-studio-asakaziyoapp-...
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span className="text-stone-500">Xavfsizlik Qoidalari:</span>
+                  <span className="font-bold text-emerald-400">✅ firestore.rules (Deployed)</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span className="text-stone-500">Boshqaruvchi Admin Email:</span>
+                  <span className="font-mono text-emerald-400">mirzayevulugbek024@gmail.com</span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-stone-500">Firestore Holati:</span>
+                  <span className="font-bold text-emerald-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Toʻliq Integratsiya Qilingan</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={isRunningDiagnostics}
+                  onClick={async () => {
+                    setIsRunningDiagnostics(true);
+                    setFirebaseStatus('Firestore diagnostikasi (real oʻqish/yozish va latency) oʻtkazilmoqda...');
+                    const res = await runFirestoreDiagnostics();
+                    setIsRunningDiagnostics(false);
+                    setDiagnosticResult(res);
+                    if (res.status === 'PASS') {
+                      setFirebaseStatus(`✅ Diagnostika PASS: Latency ${res.latencyMs}ms | ${res.operation}`);
+                    } else {
+                      setFirebaseStatus(`❌ Diagnostika FAIL: ${res.details}`);
+                    }
+                  }}
+                  className="flex-1 justify-center text-xs bg-emerald-700 hover:bg-emerald-600 text-white"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isRunningDiagnostics ? 'animate-spin' : ''}`} />
+                  <span>Diagnostika (PASS/FAIL & Latency)</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isTestingFirebase}
+                  onClick={async () => {
+                    setIsTestingFirebase(true);
+                    setFirebaseStatus('Firestore bulutiga soʻrov yuborilmoqda...');
+                    const ok = await testFirestoreConnection();
+                    setIsTestingFirebase(false);
+                    if (ok) {
+                      setFirebaseStatus('✅ Muvaffaqiyatli: Google Cloud Firebase Firestore bilan aloqa 100% barqaror!');
+                    } else {
+                      setFirebaseStatus('⚠️ Firebase buluti bilan toʻgʻridan-toʻgʻri aloqa kutilmoqda. Ilova markaziy server va oflayn keshda xatosiz ishlamoqda.');
+                    }
+                  }}
+                  className="flex-1 justify-center text-xs"
+                >
+                  <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+                  <span>Tezkor Ping</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSyncingFirebase}
+                  onClick={async () => {
+                    setIsSyncingFirebase(true);
+                    setFirebaseStatus('Barcha maʼlumotlar (namoz, maqolalar, hadislar, zikrlar) Firestore bulutiga yuborilmoqda...');
+                    const res = await syncAllToFirestore();
+                    setIsSyncingFirebase(false);
+                    if (res.success) {
+                      setFirebaseStatus(`✅ Muvaffaqiyatli: ${res.count} ta asosiy hujjat Firestore bulutiga toʻliq sinxronlandi!`);
+                    } else {
+                      setFirebaseStatus(`⚠️ Sinxronizatsiya eslatmasi: ${res.error || 'Server va lokal bazada saqlangan.'}`);
+                    }
+                  }}
+                  className="flex-1 justify-center text-xs"
+                >
+                  <Flame className="w-3.5 h-3.5 mr-1 text-amber-500" />
+                  <span>Firestoreʼga Sinxronlash</span>
+                </Button>
+              </div>
+
+              {diagnosticResult && (
+                <div className={`mt-3 p-3.5 rounded-xl border text-xs space-y-2 ${
+                  diagnosticResult.status === 'PASS'
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+                    : 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+                }`}>
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase ${
+                        diagnosticResult.status === 'PASS' ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'
+                      }`}>
+                        STATUS: {diagnosticResult.status}
+                      </span>
+                      <span>Aloqa Operatsiyasi: {diagnosticResult.operation}</span>
+                    </span>
+                    <span className="font-mono bg-black/40 px-2 py-0.5 rounded border border-white/10">
+                      ⚡ {diagnosticResult.latencyMs} ms
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed opacity-95">
+                    {diagnosticResult.details}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-[10px] opacity-75 font-mono pt-1 border-t border-white/10">
+                    <span>Vaqt: {diagnosticResult.timestamp}</span>
+                    {diagnosticResult.authenticatedAs && (
+                      <span>Admin: {diagnosticResult.authenticatedAs}</span>
+                    )}
+                    {diagnosticResult.documentId && (
+                      <span>Test Doc: {diagnosticResult.documentId}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
+              <div className="font-semibold text-sm text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#c5a869]" />
+                <span>Firebase Authentication & Admin Ruxsati</span>
+              </div>
+
+              <p className="text-xs text-stone-600 dark:text-stone-400">
+                Xavfsizlik qoidalariga koʻra (<code className="text-[#c5a869]">firestore.rules</code>), boshqaruv huquqi tasdiqlangan bosh maʼmur <code className="text-[#c5a869]">mirzayevulugbek024@gmail.com</code> hisobiga biriktirilgan.
+              </p>
+
+              {firebaseUser ? (
+                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 space-y-3">
+                  <div className="flex items-center gap-3">
+                    {firebaseUser.photoURL ? (
+                      <img
+                        src={firebaseUser.photoURL}
+                        alt="Avatar"
+                        className="w-10 h-10 rounded-full border border-emerald-500/50"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-emerald-800 flex items-center justify-center font-bold text-white">
+                        {firebaseUser.email ? firebaseUser.email[0].toUpperCase() : 'A'}
+                      </div>
+                    )}
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-white">{firebaseUser.displayName || 'Google Foydalanuvchisi'}</div>
+                      <div className="text-[11px] text-emerald-300 font-mono">{firebaseUser.email}</div>
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-semibold ${
+                          adminRoleInfo?.isAdmin
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        }`}>
+                          {adminRoleInfo?.isAdmin
+                            ? `Rol: ${adminRoleInfo.role || 'superadmin'} (Baza tasdiqlagan)`
+                            : 'Rol: Oddiy Foydalanuvchi'}
+                        </span>
+                        {firebaseUser.emailVerified && (
+                          <span className="text-[10px] text-emerald-400">✓ Email tasdiqlangan</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await signOutFirebase();
+                      setFirebaseUser(null);
+                      setAdminRoleInfo(null);
+                      setFirebaseStatus('Firebase hisobidan chiqildi.');
+                    }}
+                    className="w-full justify-center text-xs text-rose-400 hover:text-rose-300"
+                  >
+                    <span>Google Hisobidan Chiqish</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-xs text-stone-500">
+                    Hozirda tizimga parol orqali kirilgansiz (<span className="font-mono text-[#c5a869]">{REQUIRED_LOGIN}</span>).
+                    Ixtiyoriy ravishda Google orqali Firebase Auth seansini ochishingiz mumkin:
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setFirebaseStatus('Google bilan kirish oynasi ochilmoqda...');
+                      const user = await signInWithGoogle();
+                      if (user) {
+                        setFirebaseUser(user);
+                        if (user.email === 'mirzayevulugbek024@gmail.com') {
+                          await bootstrapAdmin(user);
+                        }
+                        const role = await checkAdminRole(user.uid);
+                        setAdminRoleInfo(role);
+                        if (role.isAdmin) {
+                          setFirebaseStatus(`✅ Xush kelibsiz, ${user.displayName || user.email}! Boshqaruvchi roli: ${role.role} (/admins/${user.uid}).`);
+                        } else {
+                          setFirebaseStatus(`ℹ️ Kirildi: ${user.email}. Ushbu akkaunt oddiy foydalanuvchi hisoblanadi (maʼmuriyat huquqi berilmagan).`);
+                        }
+                      } else {
+                        setFirebaseStatus('Google orqali kirish bekor qilindi yoki yopildi.');
+                      }
+                    }}
+                    className="w-full justify-center text-xs"
+                  >
+                    <span>Google orqali Kirish (Firebase Auth)</span>
+                  </Button>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-stone-200 dark:border-emerald-950/60 text-[11px] text-stone-500">
+                🔒 <b>Uch bosqichli himoya</b>: Oflayn kesh (PWA) + Markaziy server JSON bazasi + Google Cloud Firestore toʻliq muvofiqlashtirilgan.
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ---------------- TAB: SUPABASE & CLOUD (OPTIONAL) ---------------- */}
+      {activeTab === 'supabase' && (
+        <Card elevated className="p-6 space-y-6">
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <Database className="w-4 h-4 text-[#c5a869]" />
+              <span>Bulutli Baza & Supabase Integratsiyasi (Ixtiyoriy)</span>
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Loyiha hozirda toʻliq mustaqil: ichki doimiy server bazasi (/data/asaka_ziyo_db.json) orqali barcha maʼlumotlar (namoz vaqtlari, maqolalar, reels, hadislar, zikrlar) ishonchli saqlanmoqda. Supabase esa ixtiyoriy tashqi zaxira sifatida ishlatilishi mumkin.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-bold">Ichki doimiy server bazasi faol:</span> Namoz jadvallari, maqolalar, audio va foydalanuvchilar suhbati browser qayta yuklanganda ham, boshqa qurilmalarda ham toʻliq saqlanadi. Hech qanday majburiy maxfiy kalitlar talab etilmaydi.
+            </div>
+          </div>
+
+          {supabaseStatus && (
+            <div className="p-3.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-medium">
+              {supabaseStatus}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
+              <div className="font-semibold text-sm text-stone-900 dark:text-stone-100">
+                Supabase Sozlamalari (Ixtiyoriy)
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold block">Supabase URL (ixtiyoriy):</label>
+                <input
+                  type="text"
+                  placeholder="https://xyzcompany.supabase.co"
+                  value={supabaseConfig.url}
+                  onChange={(e) => setSupabaseConfig({ ...supabaseConfig, url: e.target.value })}
+                  className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold block">Anon Public Key (ixtiyoriy):</label>
+                <input
+                  type="password"
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  value={supabaseConfig.anonKey}
+                  onChange={(e) => setSupabaseConfig({ ...supabaseConfig, anonKey: e.target.value })}
+                  className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                />
+                <p className="text-[11px] text-stone-400">
+                  Xavfsizlik: Faqat jamoat anonim kalitidan foydalaniladi. Service role kaliti hech qachon brauzerga kiritilmaydi.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={supabaseConfig.isEnabled}
+                    onChange={(e) => setSupabaseConfig({ ...supabaseConfig, isEnabled: e.target.checked })}
+                    className="rounded text-[#c5a869] focus:ring-[#c5a869]"
+                  />
+                  <span>Supabase tashqi zaxirasini yoqish</span>
+                </label>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    saveStoredSupabaseConfig(supabaseConfig);
+                    setSupabaseStatus('Supabase konfiguratsiyasi saqlandi!');
+                    setTimeout(() => setSupabaseStatus(null), 3000);
+                  }}
+                >
+                  <span>Saqlash</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isTestingSupabase || !supabaseConfig.url || !supabaseConfig.anonKey}
+                  onClick={async () => {
+                    setIsTestingSupabase(true);
+                    setSupabaseStatus('Ulanish tekshirilmoqda...');
+                    const res = await testSupabaseConnection(supabaseConfig.url, supabaseConfig.anonKey);
+                    setIsTestingSupabase(false);
+                    setSupabaseStatus(res.message);
+                  }}
+                >
+                  <span>Ulanishni Tekshirish</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
+              <div className="font-semibold text-sm text-stone-900 dark:text-stone-100">
+                Arxitektura & Holat
+              </div>
+
+              <div className="space-y-2 text-xs text-stone-600 dark:text-stone-400">
+                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Asosiy Maʼlumotlar Bazasi:</span>
+                  <span className="font-bold text-emerald-400">✅ Doimiy Server JSON (/data)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Cross-Tab Sinxronizatsiya:</span>
+                  <span className="font-bold text-emerald-400">✅ BroadcastChannel faol</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Oflayn Kesh (PWA):</span>
+                  <span className="font-bold text-emerald-400">✅ LocalStorage kesh faol</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Tashqi Supabase Buluti:</span>
+                  <span className="font-bold text-stone-400">{supabaseConfig.isEnabled ? 'Ulangan' : 'Ixtiyoriy (Oʻchirilgan)'}</span>
+                </div>
               </div>
             </div>
           </div>

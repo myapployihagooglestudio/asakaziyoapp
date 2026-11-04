@@ -1,5 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * ASAKA ZIYO — Optional Cloud Database & Supabase Adapter
+ *
+ * SECURITY & STANDALONE ARCHITECTURE GUARANTEES:
+ * 1. Zero Mandatory Env Vars: Neither VITE_SUPABASE_URL nor VITE_SUPABASE_ANON_KEY are required to run the app.
+ * 2. Standalone Mode: If credentials are not configured or isEnabled is false, the application safely operates
+ *    using the internal persistent database (/data/asaka_ziyo_db.json) without any runtime error or degradation.
+ * 3. SUPABASE_SERVICE_ROLE_KEY is strictly FORBIDDEN in frontend code. Only the public anonKey is ever accepted.
+ */
+
 export interface SupabaseSettings {
   url: string;
   anonKey: string;
@@ -54,7 +64,7 @@ export function getSupabaseClient(): SupabaseClient | null {
     try {
       cachedClient = createClient(config.url, config.anonKey);
     } catch (e) {
-      console.warn('Failed to initialize Supabase client:', e);
+      console.warn('Failed to initialize optional Supabase client:', e);
       return null;
     }
   }
@@ -64,11 +74,10 @@ export function getSupabaseClient(): SupabaseClient | null {
 export async function testSupabaseConnection(url: string, key: string): Promise<{ success: boolean; message: string }> {
   try {
     if (!url || !key) {
-      return { success: false, message: 'Supabase URL va Anon Key toʻliq kiritilishi shart.' };
+      return { success: false, message: 'Supabase URL va Anon Key toʻliq kiritilishi shart (Ixtiyoriy xizmat).' };
     }
     const testClient = createClient(url, key);
     const { error } = await testClient.from('asaka_ziyo_test').select('*').limit(1);
-    // Even if table doesn't exist yet, if auth/network succeeds, error code will be PGRST204 or 42P01 (relation does not exist)
     if (error && error.code !== 'PGRST204' && error.code !== '42P01' && error.message.includes('API key')) {
       return { success: false, message: `Ulanish xatosi: ${error.message}` };
     }

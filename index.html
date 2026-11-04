@@ -3,6 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <script>
+      (function() {
+        // Intercept Vite HMR WebSocket in AI Studio preview where HMR is disabled
+        try {
+          const OrigWebSocket = window.WebSocket;
+          if (OrigWebSocket) {
+            window.WebSocket = function(url, protocols) {
+              const isViteHmr = Array.isArray(protocols)
+                ? protocols.includes('vite-hmr')
+                : protocols === 'vite-hmr';
+              if (isViteHmr) {
+                const target = new EventTarget();
+                target.url = url;
+                target.protocols = protocols;
+                target.readyState = 1;
+                target.binaryType = 'blob';
+                target.send = function() {};
+                target.close = function() { target.readyState = 3; };
+                target.onopen = null;
+                target.onclose = null;
+                target.onerror = null;
+                target.onmessage = null;
+                return target;
+              }
+              return new OrigWebSocket(url, protocols);
+            };
+            window.WebSocket.prototype = OrigWebSocket.prototype;
+            window.WebSocket.CONNECTING = 0;
+            window.WebSocket.OPEN = 1;
+            window.WebSocket.CLOSING = 2;
+            window.WebSocket.CLOSED = 3;
+          }
+        } catch (_) {}
+
+        window.addEventListener('error', function(e) {
+          if (e && (e.message?.includes('WebSocket') || e.filename?.includes('@vite/client'))) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
     <title>ASAKA ZIYO — Premium Islamic Digital Ecosystem</title>
     <meta name="description" content="Asaka shahri va mintaqa ahli uchun mo'ljallangan ilmiy-ma'rifiy islomiy raqamli platforma. Qur'oni Karim, hadislar, zikrlar, Asaka namoz vaqtlari va ma'muriyat konsoli." />
     <meta property="og:title" content="ASAKA ZIYO — Premium Islamic Digital Ecosystem" />

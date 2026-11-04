@@ -1,26 +1,29 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
-import { Home, BookOpen, Clock, Sparkles, MoreHorizontal } from 'lucide-react';
+import { Home, BookOpen, Clock, FileText, Bell, MoreHorizontal } from 'lucide-react';
 
 interface MobileNavProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   onOpenMoreMenu: () => void;
+  unreadNotificationsCount?: number;
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({
   activeTab,
   onSelectTab,
   onOpenMoreMenu,
+  unreadNotificationsCount = 0,
 }) => {
   const { t } = useTranslation('navigation');
 
-  const items: { id: NavigationTab; labelKey: string; icon: React.ReactNode }[] = [
+  const items: { id: NavigationTab; labelKey: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'home', labelKey: 'home', icon: <Home className="w-5 h-5" /> },
-    { id: 'quran', labelKey: 'quran', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'prayer', labelKey: 'prayer', icon: <Clock className="w-5 h-5" /> },
-    { id: 'dhikr', labelKey: 'dhikr', icon: <Sparkles className="w-5 h-5" /> },
+    { id: 'quran', labelKey: 'quran', icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'articles', labelKey: 'articles', icon: <FileText className="w-5 h-5" /> },
+    { id: 'notifications', labelKey: 'notifications', icon: <Bell className="w-5 h-5" />, badge: unreadNotificationsCount },
   ];
 
   return (
@@ -42,9 +45,16 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                   : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
-              <div className="mb-0.5">{item.icon}</div>
+              <div className="mb-0.5 relative">
+                {item.icon}
+                {!!item.badge && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] tracking-tight whitespace-nowrap">
-                {t(item.labelKey)}
+                {t(item.labelKey, item.id === 'notifications' ? 'Xabarlar' : item.id === 'articles' ? 'Maqolalar' : item.labelKey)}
               </span>
             </button>
           );

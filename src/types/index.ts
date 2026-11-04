@@ -14,7 +14,9 @@ export type NavigationTab =
   | 'announcements'
   | 'favorites'
   | 'settings'
-  | 'admin';
+  | 'admin'
+  | 'notifications'
+  | 'daily_archive';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 

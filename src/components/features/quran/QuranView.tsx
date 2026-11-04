@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Ayah, NavigationTab, Surah, SupportedLocale } from '../../../types';
 import {
   SURAHS_LIST,
   VERIFIED_AYAHS,
   QURAN_RECITERS,
-  getSurahAudioUrl,
+  getReciterSurahAudioUrl,
   getAyahAudioUrl,
 } from '../../../data/quranData';
+import {
+  TAFSIRI_HILOL_ENTRIES,
+  TafsirSurahEntry,
+  searchTafsirHilol,
+  getTafsirEntryForSurah,
+} from '../../../data/tafsirHilolData';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { GeometricPattern } from '../../ui/GeometricPattern';
@@ -20,11 +26,17 @@ import {
   Bookmark,
   Share2,
   Check,
-  Languages,
-  Download,
   Play,
   Pause,
-  Loader2,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  FastForward,
+  Headphones,
+  ExternalLink,
+  Sparkles,
+  Info,
+  CheckCircle,
 } from 'lucide-react';
 
 interface QuranViewProps {
@@ -49,53 +61,102 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
-  const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(1);
+  // Sub-tabs: 1. Mushaf & Recitation (114 Surahs), 2. Shayx Muhammad Sodiq Muhammad Yusuf Tafsiri Hilol
+  const [activeQuranTab, setActiveQuranTab] = useState<'mushaf' | 'tafsir_hilol'>('mushaf');
+
+  // Selected Surah with localStorage memory
+  const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('asaka_ziyo_last_surah');
+        if (saved) {
+          const num = parseInt(saved, 10);
+          if (num >= 1 && num <= 114) return num;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return 1;
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [playingAyahId, setPlayingAyahId] = useState<string | null>(null);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [tafsirSearchQuery, setTafsirSearchQuery] = useState('');
 
-  // Full Surah audio player state
+  // 8 Canonical Reciters
+  const [selectedReciterId, setSelectedReciterId] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('asaka_ziyo_reciter');
+        if (saved && QURAN_RECITERS.some((r) => r.id === saved)) return saved;
+      }
+    } catch {
+      // fallback
+    }
+    return 'mishary';
+  });
+
+  // Audio Playback State
   const [isSurahAudioPlaying, setIsSurahAudioPlaying] = useState(false);
-  const [surahAudioElement, setSurahAudioElement] = useState<HTMLAudioElement | null>(null);
   const [surahAudioProgress, setSurahAudioProgress] = useState(0);
+  const [currentTimeSec, setCurrentTimeSec] = useState(0);
+  const [durationSec, setDurationSec] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [isLooping, setIsLooping] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
-  // Dynamic remote ayahs for surahs not in static VERIFIED_AYAHS
+  // Single Ayah playback
+  const [playingAyahId, setPlayingAyahId] = useState<string | null>(null);
+  const ayahAudioRef = useRef<HTMLAudioElement | null>(null);
+  const surahAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Tafsir Audio lecture playback
+  const [playingTafsirLesson, setPlayingTafsirLesson] = useState<number | null>(null);
+  const tafsirAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [fetchedAyahs, setFetchedAyahs] = useState<Ayah[] | null>(null);
   const [isLoadingAyahs, setIsLoadingAyahs] = useState(false);
 
   const selectedSurah =
     SURAHS_LIST.find((s) => s.number === selectedSurahNumber) || SURAHS_LIST[0];
 
-  // Stop audio on surah change
+  const activeReciter =
+    QURAN_RECITERS.find((r) => r.id === selectedReciterId) || QURAN_RECITERS[0];
+
+  // Remember last surah in localStorage
   useEffect(() => {
-    if (audioElement) {
-      try {
-        audioElement.pause();
-      } catch (e) {
-        // ignore
-      }
-      setPlayingAyahId(null);
+    try {
+      localStorage.setItem('asaka_ziyo_last_surah', String(selectedSurahNumber));
+    } catch {
+      // ignore
     }
-    if (surahAudioElement) {
-      try {
-        surahAudioElement.pause();
-      } catch (e) {
-        // ignore
-      }
+  }, [selectedSurahNumber]);
+
+  // Clean audio on surah switch
+  useEffect(() => {
+    if (surahAudioRef.current) {
+      surahAudioRef.current.pause();
+      surahAudioRef.current = null;
       setIsSurahAudioPlaying(false);
       setSurahAudioProgress(0);
+      setCurrentTimeSec(0);
+      setDurationSec(0);
     }
+    if (ayahAudioRef.current) {
+      ayahAudioRef.current.pause();
+      ayahAudioRef.current = null;
+      setPlayingAyahId(null);
+    }
+    setAudioError(null);
 
-    // Check if we need to fetch remote ayahs for surahs not in VERIFIED_AYAHS
     if (!VERIFIED_AYAHS[selectedSurahNumber]) {
       fetchSurahAyahs(selectedSurahNumber);
     } else {
       setFetchedAyahs(null);
       setIsLoadingAyahs(false);
     }
-  }, [selectedSurahNumber]);
+  }, [selectedSurahNumber, selectedReciterId]);
 
   const fetchSurahAyahs = async (surahNum: number) => {
     setIsLoadingAyahs(true);
@@ -109,85 +170,153 @@ export const QuranView: React.FC<QuranViewProps> = ({
         const arEdition = data.data[0];
         const uzEdition = data.data[1];
 
-        const mapped: Ayah[] = arEdition.ayahs.map((arAyah: { number: number; numberInSurah: number; text: string }, idx: number) => {
-          const uzText = uzEdition.ayahs[idx]?.text || '';
-          return {
-            id: `${surahNum}-${arAyah.numberInSurah}`,
-            number: arAyah.number,
-            numberInSurah: arAyah.numberInSurah,
-            surahNumber: surahNum,
-            surahNameUz: selectedSurah.nameUz,
-            textAr: arAyah.text,
-            translationUz: uzText,
-            transliterationUz: `${selectedSurah.nameUz} surasi, ${arAyah.numberInSurah}-oyat`,
-            audioUrl: getAyahAudioUrl(surahNum, arAyah.numberInSurah),
-            tafsirSummaryUz: '',
-            translations: {
-              'uz-Latn': {
-                language: 'uz-Latn',
-                translator: 'Shayx Muhammad Sodiq Muhammad Yusuf',
-                source: 'Tafsiri Hilol',
-                version: '2021',
-                text: uzText,
+        const mapped: Ayah[] = arEdition.ayahs.map(
+          (arAyah: { number: number; numberInSurah: number; text: string }, idx: number) => {
+            const uzText = uzEdition.ayahs[idx]?.text || '';
+            return {
+              id: `${surahNum}-${arAyah.numberInSurah}`,
+              number: arAyah.number,
+              numberInSurah: arAyah.numberInSurah,
+              surahNumber: surahNum,
+              surahNameUz: selectedSurah.nameUz,
+              textAr: arAyah.text,
+              translationUz: uzText,
+              transliterationUz: `${selectedSurah.nameUz} surasi, ${arAyah.numberInSurah}-oyat`,
+              audioUrl: getAyahAudioUrl(surahNum, arAyah.numberInSurah),
+              tafsirSummaryUz: '',
+              translations: {
+                'uz-Latn': {
+                  language: 'uz-Latn',
+                  translator: 'Shayx Muhammad Sodiq Muhammad Yusuf',
+                  source: 'Tafsiri Hilol',
+                  version: '2021',
+                  text: uzText,
+                },
+                'uz-Latn-new': {
+                  language: 'uz-Latn-new',
+                  translator: 'Şayx Muhammad Sodiq Muhammad Yusuf',
+                  source: 'Tafsiri Hilol',
+                  version: '2021',
+                  text: toNewUzbekAlphabet(uzText),
+                },
               },
-              'uz-Latn-new': {
-                language: 'uz-Latn-new',
-                translator: 'Şayx Muhammad Sodiq Muhammad Yusuf',
-                source: 'Tafsiri Hilol',
-                version: '2021',
-                text: toNewUzbekAlphabet(uzText),
-              },
-            },
-          };
-        });
+            };
+          }
+        );
         setFetchedAyahs(mapped);
       } else {
         setFetchedAyahs(null);
       }
-    } catch (e) {
+    } catch {
       setFetchedAyahs(null);
     } finally {
       setIsLoadingAyahs(false);
     }
   };
 
+  const handleToggleSurahAudio = () => {
+    setAudioError(null);
+    if (isSurahAudioPlaying && surahAudioRef.current) {
+      surahAudioRef.current.pause();
+      setIsSurahAudioPlaying(false);
+      return;
+    }
+
+    if (!surahAudioRef.current) {
+      const audioUrl = getReciterSurahAudioUrl(selectedReciterId, selectedSurahNumber);
+      const audio = new Audio(audioUrl);
+      audio.playbackRate = playbackSpeed;
+      audio.loop = isLooping;
+
+      audio.ontimeupdate = () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+          setSurahAudioProgress((audio.currentTime / audio.duration) * 100);
+          setCurrentTimeSec(Math.round(audio.currentTime));
+          setDurationSec(Math.round(audio.duration));
+        }
+      };
+
+      audio.onended = () => {
+        if (!isLooping) {
+          setIsSurahAudioPlaying(false);
+          setSurahAudioProgress(0);
+          // auto play next surah if available
+          if (selectedSurahNumber < 114) {
+            setSelectedSurahNumber((prev) => prev + 1);
+          }
+        }
+      };
+
+      audio.onerror = () => {
+        setAudioError(`${activeReciter.name} qiroatini yuklashda tarmoq xatoligi yuz berdi. Boshqa qorini tanlab koʻrishingiz mumkin.`);
+        setIsSurahAudioPlaying(false);
+      };
+
+      surahAudioRef.current = audio;
+    }
+
+    surahAudioRef.current
+      .play()
+      .then(() => setIsSurahAudioPlaying(true))
+      .catch((err) => {
+        setAudioError('Audio ijrosini boshlashda xatolik yuz berdi.');
+        setIsSurahAudioPlaying(false);
+      });
+  };
+
+  const handleChangeSpeed = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (surahAudioRef.current) {
+      surahAudioRef.current.playbackRate = speed;
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setSurahAudioProgress(val);
+    if (surahAudioRef.current && surahAudioRef.current.duration) {
+      surahAudioRef.current.currentTime = (val / 100) * surahAudioRef.current.duration;
+    }
+  };
+
+  const handlePlayAyah = (ayah: Ayah) => {
+    if (playingAyahId === ayah.id && ayahAudioRef.current) {
+      ayahAudioRef.current.pause();
+      setPlayingAyahId(null);
+      return;
+    }
+
+    if (ayahAudioRef.current) {
+      ayahAudioRef.current.pause();
+    }
+
+    if (ayah.audioUrl) {
+      const audio = new Audio(ayah.audioUrl);
+      audio.playbackRate = playbackSpeed;
+      audio.onended = () => setPlayingAyahId(null);
+      audio.onerror = () => setPlayingAyahId(null);
+      audio.play().then(() => setPlayingAyahId(ayah.id)).catch(() => setPlayingAyahId(null));
+      ayahAudioRef.current = audio;
+    }
+  };
+
+  const formatSeconds = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   const currentAyahs: Ayah[] =
     VERIFIED_AYAHS[selectedSurahNumber] || fetchedAyahs || [];
 
-  // Localized surah name helper
   const getLocalizedSurahName = (surah: Surah) => {
-    if (currentLocale === 'uz-Latn-new') {
-      return toNewUzbekAlphabet(surah.nameUz);
-    }
+    if (currentLocale === 'uz-Latn-new') return toNewUzbekAlphabet(surah.nameUz);
     return surah.nameUz;
   };
 
   const getLocalizedSurahMeaning = (surah: Surah) => {
-    if (currentLocale === 'uz-Latn-new') {
-      return toNewUzbekAlphabet(surah.meaningUz);
-    }
+    if (currentLocale === 'uz-Latn-new') return toNewUzbekAlphabet(surah.meaningUz);
     return surah.meaningUz;
-  };
-
-  // Localized Ayah translation resolution with fallback chain
-  const getAyahTranslation = (ayah: Ayah): { text: string; translator: string } => {
-    const localizedMeta = ayah.translations?.[currentLocale];
-    if (localizedMeta && localizedMeta.text) {
-      return { text: localizedMeta.text, translator: localizedMeta.translator };
-    }
-
-    if (currentLocale === 'uz-Latn-new') {
-      const baseUz = ayah.translations?.['uz-Latn']?.text || ayah.translationUz;
-      return {
-        text: toNewUzbekAlphabet(baseUz),
-        translator: toNewUzbekAlphabet('Shayx Muhammad Sodiq Muhammad Yusuf'),
-      };
-    }
-
-    return {
-      text: ayah.translationUz,
-      translator: 'Shayx Muhammad Sodiq Muhammad Yusuf',
-    };
   };
 
   const filteredSurahs = SURAHS_LIST.filter((s) => {
@@ -201,467 +330,462 @@ export const QuranView: React.FC<QuranViewProps> = ({
     );
   });
 
-  const handlePlayAyahAudio = (ayah: Ayah) => {
-    if (playingAyahId === ayah.id && audioElement) {
-      try {
-        audioElement.pause();
-      } catch (e) {
-        // ignore
-      }
-      setPlayingAyahId(null);
-      return;
-    }
-
-    if (audioElement) {
-      try {
-        audioElement.pause();
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    if (surahAudioElement && isSurahAudioPlaying) {
-      surahAudioElement.pause();
-      setIsSurahAudioPlaying(false);
-    }
-
-    const audioUrl = ayah.audioUrl || getAyahAudioUrl(selectedSurahNumber, ayah.numberInSurah);
-    try {
-      const audio = new Audio(audioUrl);
-      audio.onended = () => setPlayingAyahId(null);
-      audio.onerror = () => setPlayingAyahId(null);
-      const p = audio.play();
-      if (p !== undefined) {
-        p.catch(() => setPlayingAyahId(null));
-      }
-      setAudioElement(audio);
-      setPlayingAyahId(ayah.id);
-    } catch (e) {
-      setPlayingAyahId(null);
-    }
-  };
-
-  // Full surah audio playback
-  const handleToggleSurahAudio = () => {
-    const surahUrl = getSurahAudioUrl(selectedSurahNumber);
-
-    if (isSurahAudioPlaying && surahAudioElement) {
-      surahAudioElement.pause();
-      setIsSurahAudioPlaying(false);
-      return;
-    }
-
-    if (audioElement && playingAyahId) {
-      audioElement.pause();
-      setPlayingAyahId(null);
-    }
-
-    try {
-      let audio = surahAudioElement;
-      if (!audio || audio.src !== surahUrl) {
-        audio = new Audio(surahUrl);
-        audio.ontimeupdate = () => {
-          if (audio && audio.duration) {
-            setSurahAudioProgress((audio.currentTime / audio.duration) * 100);
-          }
-        };
-        audio.onended = () => {
-          setIsSurahAudioPlaying(false);
-          setSurahAudioProgress(0);
-        };
-        audio.onerror = () => {
-          setIsSurahAudioPlaying(false);
-        };
-        setSurahAudioElement(audio);
-      }
-
-      const p = audio.play();
-      if (p !== undefined) {
-        p.catch(() => setIsSurahAudioPlaying(false));
-      }
-      setIsSurahAudioPlaying(true);
-    } catch (e) {
-      setIsSurahAudioPlaying(false);
-    }
-  };
-
-  // Generic audio download trigger
-  const handleDownloadAudio = async (url: string, fileName: string, id: string) => {
-    setDownloadingId(id);
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      // Fallback direct link
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } finally {
-      setTimeout(() => setDownloadingId(null), 1000);
-    }
-  };
-
-  const handleCopyAyah = (ayah: Ayah) => {
-    const translation = getAyahTranslation(ayah);
-    const surahName = getLocalizedSurahName(selectedSurah);
-    const text = `${ayah.textAr}\n\n«${translation.text}»\n(${surahName} ${t('quran:surahSuffix')}, ${ayah.numberInSurah}-${t('quran:ayahSuffix')})\n[${translation.translator}]`;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(text).catch(() => {});
-      }
-    } catch (e) {
-      // ignore
-    }
-    setCopiedId(ayah.id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const fontSizeClass = {
-    standard: 'text-2xl sm:text-3xl leading-loose',
-    large: 'text-3xl sm:text-4xl leading-loose',
-    huge: 'text-4xl sm:text-5xl leading-loose',
-  }[arabicFontSize];
+  const activeTafsirEntry = getTafsirEntryForSurah(selectedSurahNumber);
+  const filteredTafsirList = searchTafsirHilol(tafsirSearchQuery);
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* Header Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white p-6 sm:p-10">
-        <GeometricPattern opacity={0.05} />
-        <div className="relative z-10 max-w-2xl space-y-2">
+    <div className="space-y-8 pb-16 max-w-7xl mx-auto">
+      {/* 1. Header Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] p-6 sm:p-10 text-white shadow-xl">
+        <GeometricPattern opacity={0.06} />
+        <div className="relative z-10 max-w-3xl space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Kalomulloh</span>
+            <BookOpen className="w-4 h-4" />
+            <span>Kalomulloh Ekotizimi</span>
             <span aria-hidden="true">·</span>
-            <span>114 Ta Sura Toʻliq Mushafi Sharif</span>
+            <span>114 Ta Sura · 8 Mashhur Qori · Tafsiri Hilol</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
-            Qurʼoni Karim
+            Qurʼoni Karim va Tafsir Maskani
           </h1>
-          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-            Qurʼoni Karimning 114 ta surasini asl arabcha matni, tafsir maʼnolari, qiroat tinglash va MP3 audiolarni yuklab olish imkoniyati.
+          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-2xl">
+            114 ta suraning toʻliq arabcha matni, 8 ta mashhur qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
           </p>
         </div>
       </div>
 
-      {/* Main Grid: Surah Selector (114 Surahs) + Active Surah Reading Pane */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Surah List (4 cols) */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="relative">
+      {/* 2. Mode Selector: 1. Mushafi Sharif vs 2. Tafsiri Hilol */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 dark:border-emerald-950 pb-3">
+        <div className="flex items-center gap-2 p-1 rounded-2xl bg-stone-100 dark:bg-emerald-950/40 border border-stone-200/80 dark:border-emerald-900/40">
+          <button
+            onClick={() => setActiveQuranTab('mushaf')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeQuranTab === 'mushaf'
+                ? 'bg-[#c5a869] text-[#071614] shadow-md'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Mushaf va Tilovat (114 Sura)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveQuranTab('tafsir_hilol')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeQuranTab === 'tafsir_hilol'
+                ? 'bg-[#c5a869] text-[#071614] shadow-md'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>Tafsiri Hilol & Hazrat Merosi</span>
+          </button>
+        </div>
+
+        {/* Reciter Selector (When in Mushaf tab) */}
+        {activeQuranTab === 'mushaf' && (
+          <div className="flex items-center gap-2 text-xs">
+            <Headphones className="w-4 h-4 text-[#c5a869]" />
+            <span className="font-semibold text-stone-600 dark:text-stone-300 hidden sm:inline">
+              Qori:
+            </span>
+            <select
+              value={selectedReciterId}
+              onChange={(e) => {
+                setSelectedReciterId(e.target.value);
+                try {
+                  localStorage.setItem('asaka_ziyo_reciter', e.target.value);
+                } catch {
+                  // ignore
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 font-semibold text-xs focus:ring-1 focus:ring-[#c5a869] cursor-pointer"
+            >
+              {QURAN_RECITERS.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* ---------------- TAB 1: MUSHAF & TILOVAT ---------------- */}
+      {activeQuranTab === 'mushaf' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: 114 Surahs Directory (4 cols) */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Sura nomi yoki raqamini qidiring..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#c5a869]"
+              />
+            </div>
+
+            <div className="space-y-1.5 max-h-[640px] overflow-y-auto pr-1">
+              {filteredSurahs.map((surah) => {
+                const isSelected = surah.number === selectedSurahNumber;
+                return (
+                  <button
+                    key={surah.number}
+                    onClick={() => setSelectedSurahNumber(surah.number)}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-[#c5a869] bg-[#c5a869]/10 text-stone-900 dark:text-white ring-1 ring-[#c5a869]/30'
+                        : 'border-stone-200/80 dark:border-emerald-950/70 bg-white dark:bg-[#0d211e]/70 hover:border-[#c5a869]/40 text-stone-700 dark:text-stone-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-lg bg-stone-100 dark:bg-emerald-950 flex items-center justify-center font-mono-numbers text-xs font-semibold text-stone-600 dark:text-[#c5a869]">
+                        {surah.number}
+                      </span>
+                      <div>
+                        <div className="text-sm font-semibold">{getLocalizedSurahName(surah)}</div>
+                        <div className="text-xs text-stone-400 dark:text-stone-500">
+                          {getLocalizedSurahMeaning(surah)} · {surah.numberOfAyahs} oyat
+                        </div>
+                      </div>
+                    </div>
+                    <span className="font-arabic text-lg text-[#c5a869]">{surah.nameAr}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Column: Surah Player & Verses Reading Pane (8 cols) */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Surah Header & Premium Audio Controller */}
+            <Card elevated className="p-6 text-center relative overflow-hidden border-[#c5a869]/40 space-y-4 bg-gradient-to-br from-stone-900 via-[#071614] to-stone-900 text-white">
+              <GeometricPattern opacity={0.05} />
+              <div className="relative z-10 space-y-2">
+                <div className="flex items-center justify-center gap-2 text-xs text-[#c5a869] uppercase tracking-widest font-semibold">
+                  <span>{selectedSurah.revelationType === 'Makkah' ? 'Makkiy' : 'Madaniy'}</span>
+                  <span>·</span>
+                  <span>{selectedSurah.numberOfAyahs} oyat</span>
+                  <span>·</span>
+                  <span>{selectedSurah.pageNumber}-sahifa</span>
+                </div>
+
+                <h2 className="text-3xl font-display font-bold text-white">
+                  {getLocalizedSurahName(selectedSurah)} surasi
+                </h2>
+
+                <p className="font-arabic text-4xl text-[#c5a869] py-1">{selectedSurah.nameAr}</p>
+
+                {selectedSurah.number !== 9 && (
+                  <div className="pt-2">
+                    <p className="font-arabic text-2xl text-amber-100/90">
+                      بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                    </p>
+                    <p className="text-xs text-stone-400 italic mt-0.5">
+                      Mehribon va rahmli Allohning nomi ila boshlayman
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Advanced Audio Player Bar */}
+              <div className="relative z-10 pt-4 border-t border-white/10 space-y-3 bg-black/40 p-4 rounded-2xl border border-white/10">
+                <div className="flex items-center justify-between text-xs text-stone-300">
+                  <div className="flex items-center gap-2">
+                    <Headphones className="w-3.5 h-3.5 text-[#c5a869]" />
+                    <span className="font-semibold">{activeReciter.name}</span>
+                  </div>
+                  <div className="font-mono text-[11px] text-[#c5a869]">
+                    {formatSeconds(currentTimeSec)} / {formatSeconds(durationSec)}
+                  </div>
+                </div>
+
+                {/* Progress Scrub Bar */}
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={surahAudioProgress}
+                  onChange={handleSeek}
+                  className="w-full h-1.5 bg-stone-700 rounded-lg appearance-none cursor-pointer accent-[#c5a869]"
+                />
+
+                {/* Controls row */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  {/* Prev / Play / Next */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => selectedSurahNumber > 1 && setSelectedSurahNumber((n) => n - 1)}
+                      disabled={selectedSurahNumber <= 1}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 transition-colors"
+                      title="Oldingi sura"
+                    >
+                      <SkipBack className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      onClick={handleToggleSurahAudio}
+                      className="w-11 h-11 rounded-full bg-[#c5a869] text-[#071614] flex items-center justify-center font-bold hover:scale-105 transition-all shadow-md cursor-pointer"
+                      title={isSurahAudioPlaying ? 'Pauza' : 'Qiroatni tinglash'}
+                    >
+                      {isSurahAudioPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                    </button>
+
+                    <button
+                      onClick={() => selectedSurahNumber < 114 && setSelectedSurahNumber((n) => n + 1)}
+                      disabled={selectedSurahNumber >= 114}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 transition-colors"
+                      title="Keyingi sura"
+                    >
+                      <SkipForward className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Speed Controls: 0.75x, 1x, 1.25x, 1.5x */}
+                  <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                    {[0.75, 1, 1.25, 1.5].map((sp) => (
+                      <button
+                        key={sp}
+                        onClick={() => handleChangeSpeed(sp)}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono transition-all ${
+                          playbackSpeed === sp
+                            ? 'bg-[#c5a869] text-[#071614]'
+                            : 'text-stone-300 hover:text-white'
+                        }`}
+                      >
+                        {sp}x
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Loop Toggle */}
+                  <button
+                    onClick={() => setIsLooping(!isLooping)}
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors ${
+                      isLooping
+                        ? 'border-[#c5a869] bg-[#c5a869]/20 text-[#c5a869]'
+                        : 'border-white/10 text-stone-400 hover:text-white'
+                    }`}
+                    title="Takrorlash rejimi"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Takrorlash</span>
+                  </button>
+                </div>
+
+                {audioError && (
+                  <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs">
+                    {audioError}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Verses Reading List */}
+            <div className="space-y-4">
+              {isLoadingAyahs ? (
+                <Card className="p-12 text-center text-xs text-stone-500">
+                  Sura oyatlari va tarjimasi yuklanmoqda...
+                </Card>
+              ) : currentAyahs.length === 0 ? (
+                <Card className="p-10 text-center text-xs text-stone-500">
+                  Ushbu sura oyatlari tez orada toʻliq namoyish etiladi.
+                </Card>
+              ) : (
+                currentAyahs.map((ayah) => {
+                  const isPlayingThisAyah = playingAyahId === ayah.id;
+                  const isAyahFav = isFavorited(ayah.id);
+
+                  return (
+                    <Card
+                      key={ayah.id}
+                      elevated={isPlayingThisAyah}
+                      className={`p-5 sm:p-6 space-y-4 transition-all ${
+                        isPlayingThisAyah ? 'border-[#c5a869] ring-2 ring-[#c5a869]/40 bg-[#c5a869]/5' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between border-b border-stone-100 dark:border-emerald-950/60 pb-3">
+                        <span className="font-mono-numbers px-2.5 py-0.5 rounded-lg bg-stone-100 dark:bg-emerald-950 text-xs font-bold text-[#c5a869]">
+                          {selectedSurah.number}:{ayah.numberInSurah}
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          {ayah.audioUrl && (
+                            <button
+                              onClick={() => handlePlayAyah(ayah)}
+                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                isPlayingThisAyah
+                                  ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
+                                  : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
+                              }`}
+                              title="Oyatni tinglash"
+                            >
+                              <Volume2 className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() =>
+                              onToggleFavorite({
+                                id: ayah.id,
+                                type: 'ayah',
+                                title: `${selectedSurah.nameUz}, ${ayah.numberInSurah}-oyat`,
+                                subtitle: selectedSurah.nameAr,
+                                snippet: ayah.translationUz,
+                                routeTab: 'quran',
+                                routeId: ayah.id,
+                              })
+                            }
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              isAyahFav
+                                ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
+                                : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
+                            }`}
+                            title="Sevimlilarga qoʻshish"
+                          >
+                            <Bookmark className={`w-4 h-4 ${isAyahFav ? 'fill-[#c5a869]' : ''}`} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Arabic text with beautiful Amiri typography */}
+                      <p
+                        dir="rtl"
+                        className="font-arabic text-2xl sm:text-3xl text-stone-900 dark:text-amber-100/95 leading-loose text-right"
+                      >
+                        {ayah.textAr}
+                      </p>
+
+                      {/* Translation by Shayx Muhammad Sodiq Muhammad Yusuf */}
+                      <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed font-editorial italic">
+                        «{ayah.translationUz}»
+                      </p>
+
+                      <div className="text-[11px] text-stone-400 dark:text-stone-500 border-t border-stone-100 dark:border-emerald-950/60 pt-2 flex items-center justify-between">
+                        <span>Tarjima: Shayx Muhammad Sodiq Muhammad Yusuf (Tafsiri Hilol)</span>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- TAB 2: SHAYX MUHAMMAD SODIQ MUHAMMAD YUSUF TAFSIRI HILOL ---------------- */}
+      {activeQuranTab === 'tafsir_hilol' && (
+        <div className="space-y-6">
+          {/* Tafsir Search Bar */}
+          <div className="relative max-w-xl mx-auto">
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Sura nomi yoki raqamini qidiring..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tafsir mavzulari yoki suralar boʻyicha qidiring..."
+              value={tafsirSearchQuery}
+              onChange={(e) => setTafsirSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#c5a869]"
             />
           </div>
 
-          <div className="space-y-1.5 max-h-[620px] overflow-y-auto pr-1">
-            {filteredSurahs.map((surah) => {
-              const isSelected = surah.number === selectedSurahNumber;
-              const surahName = getLocalizedSurahName(surah);
-              const surahMeaning = getLocalizedSurahMeaning(surah);
-
-              return (
-                <button
-                  key={surah.number}
-                  onClick={() => setSelectedSurahNumber(surah.number)}
-                  className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-[#c5a869] bg-[#c5a869]/10 text-stone-900 dark:text-white ring-1 ring-[#c5a869]/30'
-                      : 'border-stone-200/80 dark:border-emerald-950/70 bg-white dark:bg-[#0d211e]/70 hover:border-[#c5a869]/40 text-stone-700 dark:text-stone-300'
-                  }`}
-                >
+          {/* Tafsir Overview Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredTafsirList.map((entry) => (
+              <Card
+                key={entry.surahNumber}
+                elevated
+                className="p-6 space-y-4 border-[#c5a869]/30 bg-stone-50/50 dark:bg-[#071614]/50"
+              >
+                <div className="flex items-center justify-between border-b border-stone-200 dark:border-emerald-950 pb-3">
                   <div className="flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-lg bg-stone-100 dark:bg-emerald-950 flex items-center justify-center font-mono-numbers text-xs font-semibold text-stone-600 dark:text-[#c5a869]">
-                      {surah.number}
+                    <span className="w-8 h-8 rounded-lg bg-[#c5a869]/15 text-[#c5a869] font-bold text-xs flex items-center justify-center font-mono">
+                      {entry.surahNumber}
                     </span>
                     <div>
-                      <div className="text-sm font-semibold">{surahName}</div>
-                      <div className="text-xs text-stone-400 dark:text-stone-500">
-                        {surahMeaning} · {surah.numberOfAyahs} oyat
+                      <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">
+                        {entry.surahNameUz} surasi tafsiri
+                      </h3>
+                      <div className="text-xs text-stone-400">
+                        {entry.revelationType === 'Makkah' ? 'Makkiy' : 'Madaniy'} · {entry.totalAyahs} oyat
                       </div>
                     </div>
                   </div>
-                  <span className="font-arabic text-lg text-[#c5a869]">{surah.nameAr}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Active Surah Reading & Audio Center (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Surah Header Card with Full Audio Player & Audio Download */}
-          <Card elevated className="p-6 text-center relative overflow-hidden border-[#c5a869]/30 space-y-4">
-            <GeometricPattern opacity={0.04} />
-            <div className="relative z-10 space-y-3">
-              <div className="flex items-center justify-center gap-2 text-xs text-stone-500 dark:text-stone-400 uppercase tracking-widest">
-                <span>{selectedSurah.revelationType === 'Makkah' ? 'Makkiy' : 'Madaniy'}</span>
-                <span aria-hidden="true">·</span>
-                <span>{selectedSurah.numberOfAyahs} oyat</span>
-                <span aria-hidden="true">·</span>
-                <span>{selectedSurah.pageNumber}-sahifa</span>
-              </div>
-
-              <h2 className="text-3xl font-display font-bold text-stone-900 dark:text-stone-100">
-                {getLocalizedSurahName(selectedSurah)} surasi
-              </h2>
-
-              <p className="font-arabic text-4xl text-[#c5a869] py-1">{selectedSurah.nameAr}</p>
-
-              {/* Bismillah (except for Surah At-Tawbah) */}
-              {selectedSurah.number !== 9 && (
-                <div className="pt-2">
-                  <p className="font-arabic text-2xl text-stone-700 dark:text-amber-100/90">
-                    بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                  </p>
-                  <p className="text-xs text-stone-400 dark:text-stone-500 italic mt-1">
-                    Mehribon va rahmli Allohning nomi ila boshlayman
-                  </p>
+                  <span className="font-arabic text-2xl text-[#c5a869]">{entry.nameAr}</span>
                 </div>
-              )}
-            </div>
 
-            {/* Audio player & Download Controller for Full Surah */}
-            <div className="relative z-10 pt-4 border-t border-stone-200/60 dark:border-emerald-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#c5a869]/5 p-4 rounded-xl">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleToggleSurahAudio}
-                  className="w-10 h-10 rounded-full bg-[#c5a869] text-[#071614] flex items-center justify-center hover:opacity-90 transition-all cursor-pointer shadow-md"
-                  title={isSurahAudioPlaying ? 'Qiroatni toʻxtatish' : 'Toʻliq sura qiroatini tinglash'}
-                >
-                  {isSurahAudioPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-                </button>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-stone-900 dark:text-stone-100">
-                    {isSurahAudioPlaying ? 'Qiroat ijro etilmoqda...' : 'Toʻliq sura qiroati'}
-                  </div>
-                  <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                    Shayx Mishariy al-Afosiy (Murattal)
-                  </div>
-                </div>
-              </div>
+                <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+                  {entry.tafsirOverview}
+                </p>
 
-              {/* Download Surah MP3 Button */}
-              <button
-                onClick={() =>
-                  handleDownloadAudio(
-                    getSurahAudioUrl(selectedSurah.number),
-                    `Asaka-Ziyo-Sura-${selectedSurah.number}-${selectedSurah.nameUz}.mp3`,
-                    `surah-${selectedSurah.number}`
-                  )
-                }
-                disabled={downloadingId === `surah-${selectedSurah.number}`}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-stone-900 dark:bg-stone-800 text-[#c5a869] hover:bg-stone-800 dark:hover:bg-stone-700 border border-[#c5a869]/30 flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all shadow-sm"
-              >
-                {downloadingId === `surah-${selectedSurah.number}` ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Yuklanmoqda...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 text-[#c5a869]" />
-                    <span>Surani yuklab olish (MP3)</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </Card>
-
-          {/* Ayahs List Display */}
-          {isLoadingAyahs ? (
-            <Card className="p-12 text-center space-y-3">
-              <Loader2 className="w-8 h-8 text-[#c5a869] animate-spin mx-auto" />
-              <div className="text-sm font-semibold text-stone-800 dark:text-stone-200">
-                {selectedSurah.nameUz} surasi oyatlari yuklanmoqda...
-              </div>
-              <p className="text-xs text-stone-400">
-                Asl arabcha xattotlik matni va oʻzbekcha tafsir maʼnolari tayyorlanmoqda.
-              </p>
-            </Card>
-          ) : currentAyahs.length > 0 ? (
-            <div className="space-y-4">
-              {currentAyahs.map((ayah) => {
-                const isPlaying = playingAyahId === ayah.id;
-                const isSaved = isFavorited(ayah.id);
-                const { text: ayahTranslationText, translator: translatorName } =
-                  getAyahTranslation(ayah);
-                const surahName = getLocalizedSurahName(selectedSurah);
-                const ayahAudio = ayah.audioUrl || getAyahAudioUrl(selectedSurahNumber, ayah.numberInSurah);
-
-                return (
-                  <Card
-                    key={ayah.id}
-                    className={`p-6 space-y-4 transition-all ${
-                      isPlaying
-                        ? 'border-[#c5a869] ring-1 ring-[#c5a869]/40 bg-gradient-to-b from-[#c5a869]/5 to-transparent'
-                        : ''
-                    }`}
-                  >
-                    {/* Top action row */}
-                    <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 border-b border-stone-100 dark:border-emerald-950/60 pb-3">
-                      <div className="flex items-center gap-2 font-mono-numbers">
-                        <span className="w-6 h-6 rounded-md bg-stone-100 dark:bg-emerald-950 flex items-center justify-center font-bold text-[#c5a869]">
-                          {ayah.numberInSurah}
-                        </span>
-                        <span>{surahName} : {ayah.numberInSurah}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        {/* Play Ayah */}
-                        <button
-                          onClick={() => handlePlayAyahAudio(ayah)}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            isPlaying
-                              ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
-                              : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
-                          }`}
-                          title={isPlaying ? 'Toʻxtatish' : 'Oyatni tinglash'}
-                        >
-                          <Volume2 className="w-4 h-4" />
-                        </button>
-
-                        {/* Download Ayah MP3 */}
-                        <button
-                          onClick={() =>
-                            handleDownloadAudio(
-                              ayahAudio,
-                              `Asaka-Ziyo-${selectedSurah.nameUz}-oyat-${ayah.numberInSurah}.mp3`,
-                              ayah.id
-                            )
-                          }
-                          className="p-1.5 rounded-lg border border-stone-200 dark:border-emerald-950 text-stone-500 hover:text-[#c5a869] transition-colors cursor-pointer"
-                          title="Oyat audiosini yuklab olish (MP3)"
-                        >
-                          {downloadingId === ayah.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-[#c5a869]" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                        </button>
-
-                        {/* Save to Favorites */}
-                        <button
-                          onClick={() =>
-                            onToggleFavorite({
-                              id: ayah.id,
-                              type: 'ayah',
-                              title: `${surahName} surasi, ${ayah.numberInSurah}-oyat`,
-                              subtitle: ayah.transliterationUz,
-                              snippet: ayahTranslationText,
-                              routeTab: 'quran',
-                              routeId: ayah.id,
-                            })
-                          }
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            isSaved
-                              ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
-                              : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
-                          }`}
-                          title="Saqlash"
-                        >
-                          <Bookmark className="w-4 h-4" />
-                        </button>
-
-                        {/* Copy / Share */}
-                        <button
-                          onClick={() => handleCopyAyah(ayah)}
-                          className="p-1.5 rounded-lg border border-stone-200 dark:border-emerald-950 text-stone-500 hover:text-[#c5a869] transition-colors cursor-pointer"
-                          title="Nusxa olish"
-                        >
-                          {copiedId === ayah.id ? (
-                            <Check className="w-4 h-4 text-emerald-500" />
-                          ) : (
-                            <Share2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Arabic Text (Authentic, never altered by localization) */}
-                    <p
-                      dir="rtl"
-                      className={`font-arabic text-stone-900 dark:text-amber-100/95 text-right ${fontSizeClass}`}
-                    >
-                      {ayah.textAr}
-                      <span className="inline-block mx-2 text-sm font-mono-numbers text-[#c5a869] border border-[#c5a869]/40 rounded-full w-7 h-7 leading-7 text-center align-middle">
-                        {ayah.numberInSurah}
+                {/* Key Themes tags */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-[#c5a869]">Asosiy mavzular:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {entry.keyThemes.map((theme, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded-md bg-stone-100 dark:bg-emerald-950 text-stone-700 dark:text-stone-300 text-[11px]"
+                      >
+                        {theme}
                       </span>
-                    </p>
+                    ))}
+                  </div>
+                </div>
 
-                    {/* Localized Translation */}
-                    <div className="space-y-1.5 pt-2">
-                      <p className="text-sm sm:text-base text-stone-800 dark:text-stone-200 font-editorial leading-relaxed">
-                        «{ayahTranslationText}»
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-stone-400 dark:text-stone-500 pt-1">
-                        <span className="italic">{ayah.transliterationUz}</span>
-                        <span className="flex items-center gap-1 text-[11px] text-[#c5a869]">
-                          <Languages className="w-3 h-3" />
-                          <span>{translatorName}</span>
-                        </span>
-                      </div>
+                {/* Sample Ayah Tafsir Excerpt */}
+                {entry.sampleAyahTafsir.length > 0 && (
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-[#091a18] border border-stone-200/80 dark:border-emerald-950 space-y-2 text-xs">
+                    <div className="font-bold text-[#c5a869] flex items-center justify-between">
+                      <span>{entry.sampleAyahTafsir[0].ayahNumber}-oyat sharhi (Tafsiri Hilol):</span>
                     </div>
+                    <p dir="rtl" className="font-arabic text-base text-stone-900 dark:text-amber-100">
+                      {entry.sampleAyahTafsir[0].textAr}
+                    </p>
+                    <p className="italic text-stone-600 dark:text-stone-400">
+                      «{entry.sampleAyahTafsir[0].translationUz}»
+                    </p>
+                    <p className="text-stone-700 dark:text-stone-300 leading-relaxed">
+                      {entry.sampleAyahTafsir[0].tafsirHilolBody[0]}
+                    </p>
+                  </div>
+                )}
 
-                    {ayah.tafsirSummaryUz && (
-                      <div className="text-xs text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-emerald-950/40 pt-2.5">
-                        <span className="font-semibold text-stone-700 dark:text-stone-300">Tafsir: </span>
-                        {currentLocale === 'uz-Latn-new' ? toNewUzbekAlphabet(ayah.tafsirSummaryUz) : ayah.tafsirSummaryUz}
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
+                {/* Audio Lesson & Attributions */}
+                <div className="pt-3 border-t border-stone-200 dark:border-emerald-950 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="text-[11px] text-stone-400">
+                    {entry.sourceNote}
+                  </div>
+                  {entry.audioLessonUrl && (
+                    <a
+                      href={entry.audioLessonUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#c5a869] text-[#071614] font-bold text-xs shadow-sm hover:brightness-105 transition-all"
+                    >
+                      <Headphones className="w-3.5 h-3.5" />
+                      <span>Audio Tafsirni Tinglash</span>
+                    </a>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Institutional Heritage Acknowledgement */}
+          <Card className="p-6 bg-gradient-to-r from-emerald-950/40 via-[#071614] to-emerald-950/40 border border-[#c5a869]/30 text-xs sm:text-sm text-stone-300 space-y-2">
+            <div className="font-bold text-[#c5a869] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#c5a869]" />
+              <span>Mualliflik huquqi va maʼrifiy manbalar eslatmasi</span>
             </div>
-          ) : (
-            <Card className="p-8 text-center space-y-4">
-              <BookOpen className="w-10 h-10 text-[#c5a869] mx-auto" />
-              <h4 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-                {selectedSurah.nameUz} surasi qiroati tayyor
-              </h4>
-              <p className="text-xs text-stone-500 dark:text-stone-400 max-w-md mx-auto">
-                Ushbu surani yuqoridagi audio pleer orqali toʻliq tinglashingiz yoki &quot;Surani yuklab olish (MP3)&quot; tugmasi orqali qurilmangizga yuklab olishingiz mumkin.
-              </p>
-              <div className="flex justify-center gap-3">
-                <Button variant="primary" size="sm" onClick={handleToggleSurahAudio}>
-                  <Play className="w-4 h-4 mr-1.5" />
-                  <span>Qiroatni boshlash</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    handleDownloadAudio(
-                      getSurahAudioUrl(selectedSurah.number),
-                      `Asaka-Ziyo-Sura-${selectedSurah.number}-${selectedSurah.nameUz}.mp3`,
-                      `surah-${selectedSurah.number}`
-                    )
-                  }
-                >
-                  <Download className="w-4 h-4 mr-1.5 text-[#c5a869]" />
-                  <span>MP3 yuklab olish</span>
-                </Button>
-              </div>
-            </Card>
-          )}
+            <p className="leading-relaxed">
+              Fazilatli shayx Muhammad Sodiq Muhammad Yusuf rahimahullohning Qurʼoni Karim maʼnolari tarjimasi va «Tafsiri Hilol» asari matnlari «Hilol Nashr» nashriyotining rasmiy ruxsati va islom.uz portali manbalari asosida taqdim etilmoqda.
+            </p>
+          </Card>
         </div>
-      </div>
+      )}
     </div>
   );
 };

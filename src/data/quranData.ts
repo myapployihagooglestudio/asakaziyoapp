@@ -121,20 +121,50 @@ export const QURAN_RECITERS: QuranReciter[] = [
   {
     id: 'mishary',
     name: 'Shayx Mishariy Roshid al-Afosiy',
-    subtext: 'Kuvayt · Murattal uslubi',
+    subtext: 'Kuvayt · Murattal uslubi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
   },
   {
-    id: 'husary',
+    id: 'suwayd',
+    name: 'Shayx Ayman Rushdiy Suvayd',
+    subtext: 'Suriya · Tajvid va tartil ustozi (114 sura toʻliq)',
+    previewUrl: 'https://server9.mp3quran.net/souda/001.mp3',
+  },
+  {
+    id: 'hussary',
     name: 'Shayx Mahmud Xalil al-Husariy',
-    subtext: 'Misr · Mumtoz tartil maktabi',
+    subtext: 'Misr · Mumtoz tartil maktabi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Husary_128kbps/001001.mp3',
   },
   {
-    id: 'abdulbasit',
-    name: 'Shayx Abdulbosit Abdussomad',
-    subtext: 'Misr · Mujavvad qiroat',
-    previewUrl: 'https://everyayah.com/data/Abdul_Basit_Murattal_192kbps/001001.mp3',
+    id: 'dussary',
+    name: 'Shayx Yosir ad-Davsariy',
+    subtext: 'Saudiya Arabistoni · Masjidul Harom imomi (114 sura toʻliq)',
+    previewUrl: 'https://server11.mp3quran.net/yasser/001.mp3',
+  },
+  {
+    id: 'sudais',
+    name: 'Shayx Abdurahmon as-Sudays',
+    subtext: 'Saudiya Arabistoni · Masjidul Harom bosh imomi (114 sura toʻliq)',
+    previewUrl: 'https://server11.mp3quran.net/sds/001.mp3',
+  },
+  {
+    id: 'juhany',
+    name: 'Shayx Abdulloh al-Juhaniy',
+    subtext: 'Saudiya Arabistoni · Masjidul Harom imomi (114 sura toʻliq)',
+    previewUrl: 'https://server13.mp3quran.net/jhn/001.mp3',
+  },
+  {
+    id: 'ghamidi',
+    name: 'Shayx Saʼd al-Gʻomidiy',
+    subtext: 'Saudiya Arabistoni · Xushovoz qiroat (114 sura toʻliq)',
+    previewUrl: 'https://server7.mp3quran.net/s_gmd/001.mp3',
+  },
+  {
+    id: 'shatri',
+    name: 'Shayx Abu Bakr ash-Shotiriy',
+    subtext: 'Saudiya Arabistoni · Mayin qiroat (114 sura toʻliq)',
+    previewUrl: 'https://server11.mp3quran.net/shatri/001.mp3',
   },
 ];
 
@@ -143,11 +173,36 @@ export const padNumber = (num: number, digits: number = 3): string => {
 };
 
 /**
- * Returns full Surah MP3 URL for streaming and direct download
+ * Returns full Surah MP3 URL for streaming across 8 canonical reciters
+ */
+export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number): string => {
+  const padded = padNumber(surahNumber, 3);
+  switch (reciterId) {
+    case 'suwayd':
+      return `https://server9.mp3quran.net/souda/${padded}.mp3`;
+    case 'hussary':
+      return `https://server13.mp3quran.net/husr/${padded}.mp3`;
+    case 'dussary':
+      return `https://server11.mp3quran.net/yasser/${padded}.mp3`;
+    case 'sudais':
+      return `https://server11.mp3quran.net/sds/${padded}.mp3`;
+    case 'juhany':
+      return `https://server13.mp3quran.net/jhn/${padded}.mp3`;
+    case 'ghamidi':
+      return `https://server7.mp3quran.net/s_gmd/${padded}.mp3`;
+    case 'shatri':
+      return `https://server11.mp3quran.net/shatri/${padded}.mp3`;
+    case 'mishary':
+    default:
+      return `https://server8.mp3quran.net/afs/${padded}.mp3`;
+  }
+};
+
+/**
+ * Default Surah Audio URL
  */
 export const getSurahAudioUrl = (surahNumber: number): string => {
-  const padded = padNumber(surahNumber, 3);
-  return `https://server8.mp3quran.net/afs/${padded}.mp3`;
+  return getReciterSurahAudioUrl('mishary', surahNumber);
 };
 
 /**
