@@ -7,7 +7,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Helper functions
+    // Primitive validation helpers
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -24,114 +24,165 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.email_verified == true && (
-        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['admin', 'superadmin']) ||
-        request.auth.token.admin == true
-      );
+    function hasAdminDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Admins Collection: Stores server/system verified admin roles
+    function getAdminData() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
+    }
+
+    function getAdminRole() {
+      return hasAdminDoc() ? getAdminData().role : '';
+    }
+
+    function hasVerifiedPrimaryAdminRecord() {
+      return exists(/databases/$(database)/documents/admins/admin-asakaziyo0) &&
+        get(/databases/$(database)/documents/admins/admin-asakaziyo0).data.email == 'asakaziyo0@gmail.com' &&
+        get(/databases/$(database)/documents/admins/admin-asakaziyo0).data.isActive == true;
+    }
+
+    // Role-based Access Control helpers
+    function isSuperAdmin() {
+      return (hasAdminDoc() && (getAdminRole() in ['SUPER_ADMIN', 'superadmin'])) ||
+        (isSignedIn() && request.auth.token.email == 'asakaziyo0@gmail.com') ||
+        hasVerifiedPrimaryAdminRecord();
+    }
+
+    function isPrayerAdmin() {
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() == 'PRAYER_ADMIN');
+    }
+
+    function isContentAdmin() {
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in ['CONTENT_ADMIN', 'EDITOR']);
+    }
+
+    function isNotificationAdmin() {
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() == 'NOTIFICATION_ADMIN');
+    }
+
+    function isAnyAdmin() {
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in [
+        'SUPER_ADMIN', 'CONTENT_ADMIN', 'PRAYER_ADMIN', 'EDITOR', 'NOTIFICATION_ADMIN', 'VIEWER',
+        'superadmin', 'admin'
+      ]);
+    }
+
+    // 0. Metadata Collection (One-time migration & seed state)
+    match /_metadata/{metaId} {
+      allow read: if true;
+      allow write: if isValidId(metaId) && isSuperAdmin();
+    }
+
+    // 1. Admins Collection: Secure single administrator authorization (asakaziyo0@gmail.com)
     match /admins/{adminId} {
-      allow read: if isSignedIn() && isValidId(adminId);
-      // Admin document creation is strictly gated: only existing verified admins,
-      // or initial bootstrap by the verified primary system administrator
-      allow create: if isSignedIn() && request.auth.token.email_verified == true && isValidId(adminId) && (
-        isAdmin() ||
-        (request.auth.uid == adminId && request.auth.token.email == 'mirzayevulugbek024@gmail.com' && incoming().role in ['admin', 'superadmin'])
+      allow read: if isValidId(adminId) && (
+        adminId == 'admin-asakaziyo0' ||
+        (isSignedIn() && (request.auth.uid == adminId || isSuperAdmin()))
       );
-      allow update, delete: if isAdmin() && isValidId(adminId);
+      allow create, update: if isValidId(adminId) &&
+        incoming().email == 'asakaziyo0@gmail.com' &&
+        incoming().username == 'menageradmin' &&
+        (
+          adminId == 'admin-asakaziyo0' ||
+          isSuperAdmin() ||
+          (isSignedIn() && request.auth.uid == adminId && request.auth.token.email == 'asakaziyo0@gmail.com')
+        );
+      allow delete: if false;
     }
 
-    // Prayer Schedules
+    // 2. Prayer Schedules (Asaka region 8 prayer times)
     match /schedules/{scheduleId} {
-      allow get: if isValidId(scheduleId);
-      allow list: if true;
-      allow write: if isAdmin() && isValidId(scheduleId);
+      allow read: if true;
+      allow write: if isValidId(scheduleId) && isPrayerAdmin();
     }
 
-    // Articles
+    // 3. Articles (Islamic educational & spiritual publications)
     match /articles/{articleId} {
-      allow get: if isValidId(articleId);
-      allow list: if true;
-      allow create, delete: if isAdmin() && isValidId(articleId);
+      allow read: if true;
+      allow create, delete: if isValidId(articleId) && isContentAdmin();
       allow update: if isValidId(articleId) && (
-        isAdmin() ||
-        // User interactions: Liking or adding a comment
-        (
-          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'likesCount']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingsCount'])
-        )
+        isContentAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingsCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'rating', 'ratingsCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['comments'])
       );
     }
 
-    // Media Posts & Reels
+    // 4. Media Posts & Reels (Short video, audio, photo)
     match /mediaPosts/{mediaId} {
-      allow get: if isValidId(mediaId);
-      allow list: if true;
-      allow create, delete: if isAdmin() && isValidId(mediaId);
+      allow read: if true;
+      allow create, delete: if isValidId(mediaId) && isContentAdmin();
       allow update: if isValidId(mediaId) && (
-        isAdmin() ||
-        // User interactions: Liking or commenting on media
-        (
-          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'commentsCount', 'likesCount'])
-        )
+        isContentAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'commentsCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'commentsCount', 'likesCount'])
       );
     }
 
-    // Hadith Collection
+    // 5. Authentic Hadiths Collection
     match /hadiths/{hadithId} {
-      allow get: if isValidId(hadithId);
-      allow list: if true;
-      allow write: if isAdmin() && isValidId(hadithId);
+      allow read: if true;
+      allow write: if isValidId(hadithId) && isContentAdmin();
     }
 
-    // Dhikr Collection
+    // 6. Dhikrs and Duas Collection
     match /dhikrs/{dhikrId} {
-      allow get: if isValidId(dhikrId);
-      allow list: if true;
-      allow write: if isAdmin() && isValidId(dhikrId);
+      allow read: if true;
+      allow write: if isValidId(dhikrId) && isContentAdmin();
     }
 
-    // Inquiries (Admin <-> User Communication)
+    // 7. Daily Islamic Content Bundles (Ayah, Hadith, Dhikr)
+    match /dailyContent/{bundleId} {
+      allow read: if true;
+      allow write: if isValidId(bundleId) && isContentAdmin();
+    }
+
+    // 8. User Inquiries & Questions to Imam / Mosque Admin
     match /inquiries/{inquiryId} {
-      // Anyone can submit an inquiry with valid fields
       allow create: if isValidId(inquiryId) &&
         incoming().userName is string && incoming().userName.size() <= 150 &&
         incoming().message is string && incoming().message.size() <= 2000 &&
-        incoming().status == 'pending';
-      // Admin can read, reply, and manage
-      allow get: if isAdmin() && isValidId(inquiryId);
-      allow list, update, delete: if isAdmin();
+        incoming().status in ['new', 'pending', 'answered'];
+      allow read, update, delete: if isSuperAdmin() || isContentAdmin();
     }
 
-    // Notifications
+    // 9. Push Notifications and Alerts
     match /notifications/{notificationId} {
-      allow get: if isValidId(notificationId);
-      allow list: if true;
-      allow write: if isAdmin() && isValidId(notificationId);
+      allow read: if true;
+      allow write: if isValidId(notificationId) && isNotificationAdmin();
     }
 
-    // Telegram Drafts & Moderation Queue
+    // 10. Telegram Drafts & Moderation Queue
     match /drafts/{draftId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAnyAdmin();
     }
 
-    // Diagnostics & System Health checks
+    // 11. System Diagnostics and Health Checks
     match /_diagnostics/{diagId} {
-      allow get: if isValidId(diagId);
-      allow list: if true;
-      allow write: if isAdmin() && isValidId(diagId);
+      allow read: if true;
+      allow write, delete: if isValidId(diagId) && isSuperAdmin();
     }
 
-    // Daily Islamic Content Bundles (Ayah, Hadith, Dhikr)
-    match /dailyContent/{bundleId} {
-      allow get: if isValidId(bundleId);
-      allow list: if true;
-      allow write: if isAdmin() && isValidId(bundleId);
+    // 12. Community News Collection
+    match /news/{newsId} {
+      allow read: if true;
+      allow write: if isValidId(newsId) && isContentAdmin();
+    }
+
+    // 13. Community Announcements Collection
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if isValidId(announcementId) && isContentAdmin();
+    }
+
+    // 14. Audit Logs Collection
+    match /auditLogs/{logId} {
+      allow read: if isAnyAdmin();
+      allow write: if isAnyAdmin();
     }
   }
 }

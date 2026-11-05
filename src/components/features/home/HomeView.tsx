@@ -16,6 +16,8 @@ import {
 import {
   getStoredBroadcastNotifications,
   getStoredArticles,
+  subscribeToDatabase,
+  isPubliclyPublished,
 } from '../../../utils/databaseService';
 import {
   Clock,
@@ -77,12 +79,26 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [dailyBundle, setDailyBundle] = useState<DailyIslamicBundle>(() => getActiveDailyBundle());
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
 
-  // Latest notifications & featured content
-  const [notifications] = useState(() => getStoredBroadcastNotifications());
-  const [articles] = useState<Article[]>(() => getStoredArticles());
+  // Latest notifications & featured content from Firestore
+  const [notifications, setNotifications] = useState(() => getStoredBroadcastNotifications());
+  const [articles, setArticles] = useState<Article[]>(() => getStoredArticles());
+
+  useEffect(() => {
+    const unsubscribe = subscribeToDatabase((event) => {
+      if (event.type === 'ARTICLES_UPDATED') {
+        setArticles(getStoredArticles());
+      }
+      if (event.type === 'NOTIFICATIONS_UPDATED') {
+        setNotifications(getStoredBroadcastNotifications());
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const unreadNotifs = notifications.filter((n) => !n.read);
-  const featuredArticle = articles.find((a) => a.isFeatured) || articles[0];
+  const featuredArticle =
+    articles.find((a) => isPubliclyPublished(a) && a.isFeatured) ||
+    articles.find((a) => isPubliclyPublished(a));
 
   const [completedPrayers, setCompletedPrayers] = useState<Record<string, boolean>>(() => {
     try {

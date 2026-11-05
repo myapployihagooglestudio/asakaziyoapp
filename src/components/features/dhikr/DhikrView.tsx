@@ -5,7 +5,7 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { GeometricPattern } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
-import { getStoredDhikrs, subscribeToDatabase } from '../../../utils/databaseService';
+import { getStoredDhikrs, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import {
   Sparkles,
   RotateCcw,
@@ -15,6 +15,19 @@ import {
   Bookmark,
   Award,
 } from 'lucide-react';
+
+const DEFAULT_COUNTER_DHIKR: DhikrItem = {
+  id: 'default-tasbeh',
+  category: 'namozdan_keyin',
+  categoryTitleUz: 'Tasbeh',
+  titleUz: 'Subhanalloh',
+  textAr: 'سُبْحَانَ اللَّهِ',
+  transliterationUz: 'Subhanalloh',
+  translationUz: 'Alloh barcha nuqsonlardan pokdir.',
+  targetCount: 33,
+  virtueUz: 'Har namozdan keyin 33 marta aytiladigan tasbeh.',
+  source: 'Tasbeh hisoblagich',
+};
 
 interface DhikrViewProps {
   onToggleFavorite: (item: {
@@ -40,11 +53,11 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
-  const [dhikrs, setDhikrs] = useState<DhikrItem[]>(() => getStoredDhikrs());
+  const [dhikrs, setDhikrs] = useState<DhikrItem[]>(() => getStoredDhikrs().filter(isPubliclyPublished));
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeDhikr, setActiveDhikr] = useState<DhikrItem>(() => {
-    const list = getStoredDhikrs();
-    return list[1] || list[0];
+    const list = getStoredDhikrs().filter(isPubliclyPublished);
+    return list[0] || DEFAULT_COUNTER_DHIKR;
   });
   const [count, setCount] = useState<number>(0);
   const [totalCompletedRounds, setTotalCompletedRounds] = useState<number>(0);
@@ -54,15 +67,17 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'DHIKRS_UPDATED') {
-        const fresh = getStoredDhikrs();
+        const fresh = getStoredDhikrs().filter(isPubliclyPublished);
         setDhikrs(fresh);
-        if (!fresh.some((d) => d.id === activeDhikr.id) && fresh.length > 0) {
+        if (fresh.length > 0 && (!activeDhikr || activeDhikr.id === 'default-tasbeh' || !fresh.some((d) => d.id === activeDhikr.id))) {
           setActiveDhikr(fresh[0]);
+        } else if (fresh.length === 0) {
+          setActiveDhikr(DEFAULT_COUNTER_DHIKR);
         }
       }
     });
     return unsubscribe;
-  }, [activeDhikr.id]);
+  }, [activeDhikr?.id]);
 
   const categories = [
     { id: 'all', label: t('dhikr:allDhikrs') },

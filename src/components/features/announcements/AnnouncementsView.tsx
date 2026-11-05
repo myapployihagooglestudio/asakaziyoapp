@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SupportedLocale, AnnouncementItem } from '../../../types';
-import { getStoredAnnouncements, subscribeToDatabase } from '../../../utils/databaseService';
+import { getStoredAnnouncements, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
 import { GeometricPattern } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
@@ -10,12 +10,12 @@ import { Calendar, MapPin, Clock, User, Phone, Megaphone } from 'lucide-react';
 export const AnnouncementsView: React.FC = () => {
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
-  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() => getStoredAnnouncements());
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() => getStoredAnnouncements().filter(isPubliclyPublished));
 
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'ANNOUNCEMENTS_UPDATED') {
-        setAnnouncements(getStoredAnnouncements());
+        setAnnouncements(getStoredAnnouncements().filter(isPubliclyPublished));
       }
     });
     return unsubscribe;

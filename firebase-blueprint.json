@@ -158,9 +158,15 @@
       "description": "Registered administrator document for role verification",
       "type": "object",
       "properties": {
+        "uid": { "type": "string" },
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "superadmin"] },
-        "createdAt": { "type": "string" }
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "CONTENT_ADMIN", "PRAYER_ADMIN", "EDITOR", "NOTIFICATION_ADMIN", "VIEWER", "superadmin", "admin"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" }
       },
       "required": ["email", "role"]
     }
@@ -205,6 +211,18 @@
     "/dailyContent/{bundleId}": {
       "schema": "DailyIslamicBundle",
       "description": "Daily verified Ayah, Hadith, and Dhikr bundles"
+    },
+    "/news/{newsId}": {
+      "schema": "NewsItem",
+      "description": "Mosque and community verified news"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "AnnouncementItem",
+      "description": "Juma and community announcements"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLogEntry",
+      "description": "Administrative actions audit log"
     }
   }
 }

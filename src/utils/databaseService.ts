@@ -15,12 +15,9 @@ import {
   TelegramDraftItem,
   AnnouncementItem,
   NewsItem,
+  PublishMode,
 } from '../types';
 import { INITIAL_ASAKA_PRAYER_SCHEDULE } from '../data/prayerTimesData';
-import { EDITORIAL_ARTICLES } from '../data/articlesData';
-import { AUTHENTIC_HADITHS } from '../data/hadithData';
-import { AUTHENTIC_DHIKRS } from '../data/dhikrData';
-import { COMMUNITY_ANNOUNCEMENTS, COMMUNITY_NEWS } from '../data/newsAndAnnouncementsData';
 import { triggerBrowserNotification, AppNotification } from './notificationService';
 import {
   syncDocToFirestore,
@@ -29,27 +26,52 @@ import {
   fetchCollectionFromFirestore,
   auth,
   db,
+  isAdminAuthenticated,
+  getActiveAdminSession,
+  getActiveAdminToken,
 } from './firebaseClient';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import {
   DailyIslamicBundle,
   getDailyBundleForDate,
-  getDailyArchiveBundles,
 } from '../data/dailyContentData';
 
-// Storage Keys
+// Storage Keys (v5_admin: strictly admin-approved Firestore records only, zero sample/demo data)
 const KEYS = {
-  PRAYER: 'asaka_ziyo_db_prayer_v2',
-  ARTICLES: 'asaka_ziyo_db_articles_v2',
-  MEDIA_POSTS: 'asaka_ziyo_db_media_posts_v2',
-  HADITHS: 'asaka_ziyo_db_hadiths_v2',
-  DHIKRS: 'asaka_ziyo_db_dhikrs_v2',
-  INQUIRIES: 'asaka_ziyo_db_inquiries_v2',
-  DRAFTS: 'asaka_ziyo_db_drafts_v2',
-  NOTIFICATIONS: 'asaka_ziyo_db_notifications_v2',
-  ANNOUNCEMENTS: 'asaka_ziyo_db_announcements_v2',
-  NEWS: 'asaka_ziyo_db_news_v2',
+  PRAYER: 'asaka_ziyo_db_prayer_v5_admin',
+  ARTICLES: 'asaka_ziyo_db_articles_v5_admin',
+  MEDIA_POSTS: 'asaka_ziyo_db_media_posts_v5_admin',
+  HADITHS: 'asaka_ziyo_db_hadiths_v5_admin',
+  DHIKRS: 'asaka_ziyo_db_dhikrs_v5_admin',
+  INQUIRIES: 'asaka_ziyo_db_inquiries_v5_admin',
+  DRAFTS: 'asaka_ziyo_db_drafts_v5_admin',
+  NOTIFICATIONS: 'asaka_ziyo_db_notifications_v5_admin',
+  ANNOUNCEMENTS: 'asaka_ziyo_db_announcements_v5_admin',
+  NEWS: 'asaka_ziyo_db_news_v5_admin',
 };
+
+// Purge legacy v1..v4 sample caches so only admin-approved data is ever shown
+if (typeof window !== 'undefined' && window.localStorage) {
+  const legacyPrefixes = [
+    'asaka_ziyo_db_prayer_v2',
+    'asaka_ziyo_db_articles_v2',
+    'asaka_ziyo_db_media_posts_v2',
+    'asaka_ziyo_db_hadiths_v2',
+    'asaka_ziyo_db_dhikrs_v2',
+    'asaka_ziyo_db_inquiries_v2',
+    'asaka_ziyo_db_drafts_v2',
+    'asaka_ziyo_db_notifications_v2',
+    'asaka_ziyo_db_announcements_v2',
+    'asaka_ziyo_db_news_v2',
+  ];
+  for (const k of legacyPrefixes) {
+    try {
+      window.localStorage.removeItem(k);
+    } catch {
+      // ignore
+    }
+  }
+}
 
 // Seed initial Media Posts & Reels for Asaka Ziyo
 const INITIAL_MEDIA_POSTS: MediaPost[] = [
@@ -289,194 +311,248 @@ if (typeof window !== 'undefined') {
 }
 
 // --------------------------------------------------------------------------
-// FIRESTORE & SERVER BIDIRECTIONAL SYNCHRONIZATION
-// Firestore is the PRIMARY permanent cloud database.
-let isSyncingFirestore = false;
+// RECOVERABLE DATA SNAPSHOTS (Pre-Sync & Pre-Migration Protection)
+// --------------------------------------------------------------------------
+export interface DataSnapshot {
+  id: string;
+  timestamp: string;
+  reason: string;
+  data: {
+    prayerSchedule?: PrayerSchedule;
+    articles?: Article[];
+    mediaPosts?: MediaPost[];
+    hadiths?: HadithItem[];
+    dhikrs?: DhikrItem[];
+    news?: NewsItem[];
+    announcements?: AnnouncementItem[];
+    inquiries?: SupportInquiry[];
+  };
+}
 
-export async function syncWithFirestore(): Promise<void> {
-  if (typeof window === 'undefined' || isSyncingFirestore) return;
-  isSyncingFirestore = true;
+export function createDataSnapshot(reason = 'Avtomatik xavfsizlik zaxirasi'): DataSnapshot {
+  const snapshot: DataSnapshot = {
+    id: `snap-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    reason,
+    data: {
+      prayerSchedule: getStoredPrayerSchedule(),
+      articles: getStoredArticles(),
+      mediaPosts: getStoredMediaPosts(),
+      hadiths: getStoredHadiths(),
+      dhikrs: getStoredDhikrs(),
+      news: getStoredNews(),
+      announcements: getStoredAnnouncements(),
+      inquiries: getStoredInquiries(),
+    },
+  };
   try {
-    // 1. Fetch Prayer Schedule from Firestore
-    const schedule = await fetchDocFromFirestore<PrayerSchedule>('schedules', 'asaka-main');
-    if (schedule && Array.isArray(schedule.times) && schedule.times.length >= 6) {
-      const cur = localStorage.getItem(KEYS.PRAYER);
-      const next = JSON.stringify(schedule);
-      if (cur !== next) {
-        localStorage.setItem(KEYS.PRAYER, next);
-        localStorage.setItem('asaka_ziyo_prayer_schedule', next);
-        broadcastEvent('PRAYER_UPDATED', schedule);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('asaka_ziyo_snapshot_latest', JSON.stringify(snapshot));
+      const historyStr = localStorage.getItem('asaka_ziyo_snapshot_history');
+      const history: DataSnapshot[] = historyStr ? JSON.parse(historyStr) : [];
+      history.unshift(snapshot);
+      // Keep last 5 snapshots for instant rollback
+      localStorage.setItem('asaka_ziyo_snapshot_history', JSON.stringify(history.slice(0, 5)));
+    }
+  } catch {
+    // Non-blocking
+  }
+  return snapshot;
+}
+
+export function getLatestDataSnapshot(): DataSnapshot | null {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = localStorage.getItem('asaka_ziyo_snapshot_latest');
+      if (saved) return JSON.parse(saved);
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+// Smart non-destructive merger by ID and timestamp
+export function mergeCollections<T extends { id: string; updatedAt?: string; isArchived?: boolean }>(
+  localList: T[],
+  remoteList: T[]
+): T[] {
+  if (!remoteList || !Array.isArray(remoteList) || remoteList.length === 0) return localList;
+  const map = new Map<string, T>();
+  // 1. Add all local items first
+  for (const item of localList) {
+    if (item && item.id) {
+      map.set(item.id, item);
+    }
+  }
+  // 2. Merge remote items: if remote has updatedAt >= local, remote takes precedence
+  for (const remote of remoteList) {
+    if (!remote || !remote.id) continue;
+    const local = map.get(remote.id);
+    if (!local) {
+      map.set(remote.id, remote);
+    } else {
+      const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+      const remoteTime = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
+      if (remoteTime >= localTime || !local.updatedAt) {
+        map.set(remote.id, { ...local, ...remote });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+// --------------------------------------------------------------------------
+// FIRESTORE SINGLE SOURCE OF TRUTH SYNCHRONIZATION
+// Firestore is the SINGLE AUTHORITATIVE PRIMARY DATABASE.
+// LocalStorage is strictly a read-through cache of Firestore, never a competing database.
+let isSyncingFirestore = false;
+let lastSyncTimestamp = 0;
+
+function sortFirestoreDocs<T extends { id: string; updatedAt?: string; syncedAt?: string; createdAt?: string }>(
+  docs: T[]
+): T[] {
+  return [...docs].sort((a, b) => {
+    const timeA = Date.parse(a.updatedAt || (a as any).syncedAt || a.createdAt || '') || 0;
+    const timeB = Date.parse(b.updatedAt || (b as any).syncedAt || b.createdAt || '') || 0;
+    if (timeB !== timeA) return timeB - timeA;
+    return String(b.id).localeCompare(String(a.id));
+  });
+}
+
+function safeSetLocalCache(key: string, value: unknown) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  } catch {
+    // ignore quota or SSR errors
+  }
+}
+
+export async function syncWithFirestore(force = false): Promise<void> {
+  if (isSyncingFirestore) return;
+  const now = Date.now();
+  if (!force && now - lastSyncTimestamp < 2500) return; // Short 2.5s cooldown unless forced
+  isSyncingFirestore = true;
+
+  try {
+    // Take safety snapshot before remote sync
+    createDataSnapshot('Firestore sinxronlashdan oldingi zaxira');
+
+    // 1. Fetch Prayer Schedule directly from Firestore (Authoritative Single Source of Truth)
+    const scheduleRes = await fetchDocFromFirestore<PrayerSchedule>('schedules', 'asaka-main');
+    if (
+      scheduleRes.success &&
+      scheduleRes.exists &&
+      scheduleRes.data &&
+      Array.isArray(scheduleRes.data.times) &&
+      scheduleRes.data.times.length >= 6
+    ) {
+      safeSetLocalCache(KEYS.PRAYER, scheduleRes.data);
+      safeSetLocalCache('asaka_ziyo_prayer_schedule', scheduleRes.data);
+      broadcastEvent('PRAYER_UPDATED', scheduleRes.data);
+    }
+
+    // 2. Fetch Articles directly from Firestore (Authoritative — no competing localStorage merge)
+    const remoteArticlesRes = await fetchCollectionFromFirestore<Article>('articles');
+    if (remoteArticlesRes.success) {
+      const authoritativeArticles = sortFirestoreDocs(remoteArticlesRes.data);
+      safeSetLocalCache(KEYS.ARTICLES, authoritativeArticles);
+      broadcastEvent('ARTICLES_UPDATED', authoritativeArticles);
+    }
+
+    // 3. Fetch Media Posts directly from Firestore
+    const remoteMediaRes = await fetchCollectionFromFirestore<MediaPost>('mediaPosts');
+    if (remoteMediaRes.success) {
+      const authoritativeMedia = sortFirestoreDocs(remoteMediaRes.data);
+      safeSetLocalCache(KEYS.MEDIA_POSTS, authoritativeMedia);
+      broadcastEvent('POSTS_UPDATED', authoritativeMedia);
+    }
+
+    // 4. Fetch Hadiths directly from Firestore
+    const remoteHadithsRes = await fetchCollectionFromFirestore<HadithItem>('hadiths');
+    if (remoteHadithsRes.success) {
+      const authoritativeHadiths = sortFirestoreDocs(remoteHadithsRes.data);
+      safeSetLocalCache(KEYS.HADITHS, authoritativeHadiths);
+      broadcastEvent('HADITHS_UPDATED', authoritativeHadiths);
+    }
+
+    // 5. Fetch Dhikrs directly from Firestore
+    const remoteDhikrsRes = await fetchCollectionFromFirestore<DhikrItem>('dhikrs');
+    if (remoteDhikrsRes.success) {
+      const authoritativeDhikrs = sortFirestoreDocs(remoteDhikrsRes.data);
+      safeSetLocalCache(KEYS.DHIKRS, authoritativeDhikrs);
+      broadcastEvent('DHIKRS_UPDATED', authoritativeDhikrs);
+    }
+
+    // 6. Fetch News directly from Firestore
+    const remoteNewsRes = await fetchCollectionFromFirestore<NewsItem>('news');
+    if (remoteNewsRes.success) {
+      const authoritativeNews = sortFirestoreDocs(remoteNewsRes.data);
+      safeSetLocalCache(KEYS.NEWS, authoritativeNews);
+      broadcastEvent('NEWS_UPDATED', authoritativeNews);
+    }
+
+    // 7. Fetch Announcements directly from Firestore
+    const remoteAnnRes = await fetchCollectionFromFirestore<AnnouncementItem>('announcements');
+    if (remoteAnnRes.success) {
+      const authoritativeAnn = sortFirestoreDocs(remoteAnnRes.data);
+      safeSetLocalCache(KEYS.ANNOUNCEMENTS, authoritativeAnn);
+      broadcastEvent('ANNOUNCEMENTS_UPDATED', authoritativeAnn);
+    }
+
+    // 8. Fetch Broadcast Notifications directly from Firestore
+    const remoteNotifRes = await fetchCollectionFromFirestore<AppNotification>('notifications');
+    if (remoteNotifRes.success) {
+      const authoritativeNotifs = sortFirestoreDocs(remoteNotifRes.data as any);
+      safeSetLocalCache(KEYS.NOTIFICATIONS, authoritativeNotifs);
+      broadcastEvent('NOTIFICATIONS_UPDATED', authoritativeNotifs);
+    }
+
+    // 9. Fetch Inquiries & Drafts directly from Firestore (Admin only)
+    if (isAdminAuthenticated()) {
+      const remoteInqRes = await fetchCollectionFromFirestore<SupportInquiry>('inquiries');
+      if (remoteInqRes.success) {
+        const authoritativeInquiries = sortFirestoreDocs(remoteInqRes.data);
+        safeSetLocalCache(KEYS.INQUIRIES, authoritativeInquiries);
+        broadcastEvent('INQUIRIES_UPDATED', authoritativeInquiries);
+      }
+
+      const remoteDraftsRes = await fetchCollectionFromFirestore<TelegramDraftItem>('drafts');
+      if (remoteDraftsRes.success) {
+        const authoritativeDrafts = sortFirestoreDocs(remoteDraftsRes.data);
+        safeSetLocalCache(KEYS.DRAFTS, authoritativeDrafts);
+        broadcastEvent('DRAFTS_UPDATED', authoritativeDrafts);
       }
     }
 
-    // 2. Fetch Articles from Firestore
-    const articles = await fetchCollectionFromFirestore<Article>('articles');
-    if (articles && articles.length > 0) {
-      const cur = localStorage.getItem(KEYS.ARTICLES);
-      const next = JSON.stringify(articles);
-      if (cur !== next) {
-        localStorage.setItem(KEYS.ARTICLES, next);
-        broadcastEvent('ARTICLES_UPDATED', articles);
-      }
-    }
-
-    // 3. Fetch Media Posts from Firestore
-    const media = await fetchCollectionFromFirestore<MediaPost>('mediaPosts');
-    if (media && media.length > 0) {
-      const cur = localStorage.getItem(KEYS.MEDIA_POSTS);
-      const next = JSON.stringify(media);
-      if (cur !== next) {
-        localStorage.setItem(KEYS.MEDIA_POSTS, next);
-        broadcastEvent('POSTS_UPDATED', media);
-      }
-    }
-
-    // 4. Fetch Hadiths from Firestore
-    const hadiths = await fetchCollectionFromFirestore<HadithItem>('hadiths');
-    if (hadiths && hadiths.length > 0) {
-      const cur = localStorage.getItem(KEYS.HADITHS);
-      const next = JSON.stringify(hadiths);
-      if (cur !== next) {
-        localStorage.setItem(KEYS.HADITHS, next);
-        broadcastEvent('HADITHS_UPDATED', hadiths);
-      }
-    }
-
-    // 5. Fetch Dhikrs from Firestore
-    const dhikrs = await fetchCollectionFromFirestore<DhikrItem>('dhikrs');
-    if (dhikrs && dhikrs.length > 0) {
-      const cur = localStorage.getItem(KEYS.DHIKRS);
-      const next = JSON.stringify(dhikrs);
-      if (cur !== next) {
-        localStorage.setItem(KEYS.DHIKRS, next);
-        broadcastEvent('DHIKRS_UPDATED', dhikrs);
-      }
-    }
-
-    // 6. Fetch Inquiries from Firestore (if permitted)
-    const inquiries = await fetchCollectionFromFirestore<SupportInquiry>('inquiries');
-    if (inquiries && inquiries.length > 0) {
-      const cur = localStorage.getItem(KEYS.INQUIRIES);
-      const next = JSON.stringify(inquiries);
-      if (cur !== next) {
-        localStorage.setItem(KEYS.INQUIRIES, next);
-        broadcastEvent('INQUIRIES_UPDATED', inquiries);
-      }
-    }
+    lastSyncTimestamp = Date.now();
   } catch (err) {
-    // Non-blocking offline fallback
-    console.warn('Firestore primary sync resilient note:', err);
+    console.warn('[Firestore Sync] Resilient fallback notice:', err);
   } finally {
     isSyncingFirestore = false;
   }
 }
 
 export async function syncWithServer(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  try {
-    const res = await fetch('/api/database');
-    if (!res.ok) return;
-    const json = await res.json();
-    if (json.success && json.data) {
-      const data = json.data;
-
-      // 1. Sync Prayer Schedule
-      if (data.prayerSchedule && Array.isArray(data.prayerSchedule.times)) {
-        const cur = localStorage.getItem(KEYS.PRAYER);
-        const next = JSON.stringify(data.prayerSchedule);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.PRAYER, next);
-          localStorage.setItem('asaka_ziyo_prayer_schedule', next);
-          broadcastEvent('PRAYER_UPDATED', data.prayerSchedule);
-        }
-      }
-
-      // 2. Sync Articles
-      if (Array.isArray(data.articles)) {
-        const cur = localStorage.getItem(KEYS.ARTICLES);
-        const next = JSON.stringify(data.articles);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.ARTICLES, next);
-          broadcastEvent('ARTICLES_UPDATED', data.articles);
-        }
-      }
-
-      // 3. Sync Media Posts
-      if (Array.isArray(data.mediaPosts)) {
-        const cur = localStorage.getItem(KEYS.MEDIA_POSTS);
-        const next = JSON.stringify(data.mediaPosts);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.MEDIA_POSTS, next);
-          broadcastEvent('POSTS_UPDATED', data.mediaPosts);
-        }
-      }
-
-      // 4. Sync Hadiths
-      if (Array.isArray(data.hadiths) && data.hadiths.length > 0) {
-        const cur = localStorage.getItem(KEYS.HADITHS);
-        const next = JSON.stringify(data.hadiths);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.HADITHS, next);
-          broadcastEvent('HADITHS_UPDATED', data.hadiths);
-        }
-      }
-
-      // 5. Sync Dhikrs
-      if (Array.isArray(data.dhikrs) && data.dhikrs.length > 0) {
-        const cur = localStorage.getItem(KEYS.DHIKRS);
-        const next = JSON.stringify(data.dhikrs);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.DHIKRS, next);
-          broadcastEvent('DHIKRS_UPDATED', data.dhikrs);
-        }
-      }
-
-      // 6. Sync Inquiries
-      if (Array.isArray(data.inquiries)) {
-        const cur = localStorage.getItem(KEYS.INQUIRIES);
-        const next = JSON.stringify(data.inquiries);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.INQUIRIES, next);
-          broadcastEvent('INQUIRIES_UPDATED', data.inquiries);
-        }
-      }
-
-      // 7. Sync Drafts
-      if (Array.isArray(data.drafts)) {
-        const cur = localStorage.getItem(KEYS.DRAFTS);
-        const next = JSON.stringify(data.drafts);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.DRAFTS, next);
-          broadcastEvent('DRAFTS_UPDATED', data.drafts);
-        }
-      }
-
-      // 8. Sync Notifications
-      if (Array.isArray(data.notifications)) {
-        const cur = localStorage.getItem(KEYS.NOTIFICATIONS);
-        const next = JSON.stringify(data.notifications);
-        if (cur !== next) {
-          localStorage.setItem(KEYS.NOTIFICATIONS, next);
-          broadcastEvent('NOTIFICATIONS_UPDATED', data.notifications);
-        }
-      }
-    }
-  } catch {
-    // Server or network transient; offline localStorage acts as active layer
-  }
+  // Firestore is the sole authoritative store; server JSON is never allowed to overwrite Firestore or local cache.
+  return syncWithFirestore(false);
 }
 
-// Auto-trigger sync on module load, on window focus, and periodic interval
+// Auto-trigger sync on module load and periodic interval (Firestore First)
 if (typeof window !== 'undefined') {
-  syncWithFirestore();
-  syncWithServer();
+  // 1. Initial Firestore primary sync
+  syncWithFirestore(true);
+
+  // 2. Periodic sync every 2 minutes
   setInterval(() => {
-    syncWithFirestore();
-    syncWithServer();
-  }, 60000);
+    syncWithFirestore(false);
+  }, 120000);
+
+  // 3. Tab focus sync with 30s cooldown
   window.addEventListener('focus', () => {
-    syncWithFirestore();
-    syncWithServer();
+    syncWithFirestore(false);
   });
 }
 
@@ -505,52 +581,41 @@ export async function saveStoredPrayerSchedule(
   schedule: PrayerSchedule,
   notifyUsers = true
 ): Promise<{ success: boolean; schedule: PrayerSchedule; error?: string }> {
-  // 1. Primary write to Firestore Cloud
-  const firestoreRes = await syncDocToFirestore('schedules', 'asaka-main', schedule);
+  const canonicalSchedule: PrayerSchedule = {
+    ...schedule,
+    verifiedAt: schedule.verifiedAt || new Date().toISOString(),
+  };
 
-  // If authenticated in Firebase and cloud write failed, do NOT falsely report success
-  if (auth.currentUser && !firestoreRes.success) {
+  // 1. Primary write to Firestore Cloud — must succeed before updating local cache
+  const firestoreRes = await syncDocToFirestore('schedules', 'asaka-main', canonicalSchedule);
+  if (!firestoreRes.success) {
     return {
       success: false,
-      schedule,
+      schedule: canonicalSchedule,
       error: `Firestore bazasiga yozish rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
     };
   }
 
-  // 2. Update local cache
+  // 2. Update local cache only after confirmed Firestore persistence
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(KEYS.PRAYER, JSON.stringify(schedule));
-      localStorage.setItem('asaka_ziyo_prayer_schedule', JSON.stringify(schedule));
+      localStorage.setItem(KEYS.PRAYER, JSON.stringify(canonicalSchedule));
+      localStorage.setItem('asaka_ziyo_prayer_schedule', JSON.stringify(canonicalSchedule));
     }
   } catch (e) {
     console.error('Error saving prayer schedule to local storage:', e);
   }
 
-  broadcastEvent('PRAYER_UPDATED', schedule);
+  broadcastEvent('PRAYER_UPDATED', canonicalSchedule);
 
   if (notifyUsers) {
     triggerBrowserNotification(
       'Asaka namoz vaqtlari yangilandi',
-      `Asaka Jome Masjidi maʼmuriyati tomonidan ${schedule.formattedDateUz} uchun 8 namoz vaqtlari tasdiqlandi.`
+      `Asaka Jome Masjidi maʼmuriyati tomonidan ${canonicalSchedule.formattedDateUz} uchun 8 namoz vaqtlari tasdiqlandi.`
     );
   }
 
-  // 3. Mirror to server backend cache
-  try {
-    const res = await fetch('/api/database/prayer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ schedule }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: firestoreRes.success, schedule, error: json.error || 'Server keshiga yozishda xato' };
-    }
-    return { success: true, schedule: json.schedule || schedule };
-  } catch (err: any) {
-    return { success: firestoreRes.success, schedule, error: firestoreRes.success ? undefined : 'Oflayn rejimda saqlandi' };
-  }
+  return { success: true, schedule: canonicalSchedule };
 }
 
 // --------------------------------------------------------------------------
@@ -561,7 +626,7 @@ export function getStoredArticles(): Article[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.ARTICLES);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           return parsed;
@@ -574,28 +639,42 @@ export function getStoredArticles(): Article[] {
   return [];
 }
 
-export async function saveStoredArticle(article: Article): Promise<{ success: boolean; article: Article; error?: string }> {
+export async function saveStoredArticle(
+  article: Article
+): Promise<{ success: boolean; article: Article; error?: string }> {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.id === article.id);
   let updated: Article[];
 
+  const nowIso = new Date().toISOString();
+  const mode: PublishMode = article.publishMode || (article.isArchived ? 'archived' : 'published');
+  const canonicalArticle: Article = {
+    ...article,
+    publishMode: mode,
+    isArchived: mode === 'archived' || Boolean(article.isArchived),
+    createdAtIso: article.createdAtIso || nowIso,
+    updatedAt: nowIso,
+    updatedBy: auth.currentUser?.email || 'Administrator',
+  };
+
   if (index >= 0) {
     updated = [...articles];
-    updated[index] = article;
+    updated[index] = canonicalArticle;
   } else {
-    updated = [article, ...articles];
+    updated = [canonicalArticle, ...articles];
   }
 
-  // Primary write to Firestore Cloud
-  const firestoreRes = await syncDocToFirestore('articles', article.id, article);
-  if (auth.currentUser && !firestoreRes.success) {
+  // 1. Primary write to Firestore Cloud
+  const firestoreRes = await syncDocToFirestore('articles', canonicalArticle.id, canonicalArticle);
+  if (!firestoreRes.success) {
     return {
       success: false,
-      article,
-      error: `Firestore maqola saqlash rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+      article: canonicalArticle,
+      error: `Firestore bazasiga yozish rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}. Maʼlumot yoʻqotilmadi.`,
     };
   }
 
+  // 2. Update local storage only after cloud write succeeds
   try {
     localStorage.setItem(KEYS.ARTICLES, JSON.stringify(updated));
   } catch {
@@ -604,101 +683,131 @@ export async function saveStoredArticle(article: Article): Promise<{ success: bo
 
   broadcastEvent('ARTICLES_UPDATED', updated);
 
-  try {
-    const res = await fetch('/api/database/articles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', article }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: firestoreRes.success, article, error: json.error || 'Maqolani serverga yozishda eslatma' };
-    }
-    return { success: true, article };
-  } catch {
-    return { success: firestoreRes.success, article, error: firestoreRes.success ? undefined : 'Oflayn rejimda saqlandi' };
-  }
+  return { success: true, article: canonicalArticle };
 }
 
-export async function deleteStoredArticle(id: string): Promise<{ success: boolean; error?: string }> {
-  const firestoreRes = await deleteDocFromFirestore('articles', id);
-  if (auth.currentUser && !firestoreRes.success) {
+export async function archiveStoredArticle(
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const articles = getStoredArticles();
+  const target = articles.find((a) => a.id === id);
+  if (!target) return { success: false, error: 'Maqola topilmadi' };
+
+  const archived: Article = {
+    ...target,
+    isArchived: true,
+    archivedAt: new Date().toISOString(),
+    archivedBy: auth.currentUser?.email || 'Administrator',
+    archiveReason: reason || 'Administrator tomonidan arxivlandi',
+    updatedAt: new Date().toISOString(),
+  };
+
+  const firestoreRes = await syncDocToFirestore('articles', id, archived);
+  if (!firestoreRes.success) {
     return {
       success: false,
-      error: `Firestore maqola oʻchirish rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+      error: `Firestore arxivlash rad etildi: ${firestoreRes.error || 'Ruxsat yo‘q'}`,
     };
   }
 
-  const articles = getStoredArticles().filter((a) => a.id !== id);
+  const updated = articles.map((a) => (a.id === id ? archived : a));
   try {
-    localStorage.setItem(KEYS.ARTICLES, JSON.stringify(articles));
+    localStorage.setItem(KEYS.ARTICLES, JSON.stringify(updated));
   } catch {
     // ignore
   }
 
-  broadcastEvent('ARTICLES_UPDATED', articles);
+  broadcastEvent('ARTICLES_UPDATED', updated);
 
-  try {
-    const res = await fetch('/api/database/articles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success };
-  } catch {
-    return { success: true };
+  return { success: true };
+}
+
+export async function restoreStoredArticle(id: string): Promise<{ success: boolean; error?: string }> {
+  const articles = getStoredArticles();
+  const target = articles.find((a) => a.id === id);
+  if (!target) return { success: false, error: 'Maqola topilmadi' };
+
+  const restored: Article = {
+    ...target,
+    isArchived: false,
+    archivedAt: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const firestoreRes = await syncDocToFirestore('articles', id, restored);
+  if (!firestoreRes.success) {
+    return {
+      success: false,
+      error: `Firestore tiklash rad etildi: ${firestoreRes.error || 'Ruxsat yo‘q'}`,
+    };
   }
+
+  const updated = articles.map((a) => (a.id === id ? restored : a));
+  try {
+    localStorage.setItem(KEYS.ARTICLES, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+
+  broadcastEvent('ARTICLES_UPDATED', updated);
+
+  return { success: true };
+}
+
+export async function deleteStoredArticle(id: string): Promise<{ success: boolean; error?: string }> {
+  // Always perform safe soft-delete archiving to prevent accidental data destruction
+  return archiveStoredArticle(id, 'O‘chirish buyrug‘i orqali xavfsiz arxivga o‘tkazildi');
 }
 
 export async function likeStoredArticle(id: string): Promise<void> {
   const articles = getStoredArticles();
+  let targetArticle: Article | undefined;
   const updated = articles.map((art) => {
     if (art.id === id) {
-      return { ...art, likesCount: (art.likesCount || 0) + 1 };
+      targetArticle = { ...art, likesCount: (art.likesCount || 0) + 1 };
+      return targetArticle;
     }
     return art;
   });
-  try {
-    localStorage.setItem(KEYS.ARTICLES, JSON.stringify(updated));
-  } catch {
-    // ignore
+  if (targetArticle) {
+    try {
+      await setDoc(doc(db, 'articles', id), { likesCount: targetArticle.likesCount }, { merge: true });
+    } catch {
+      // non-blocking
+    }
   }
-
+  safeSetLocalCache(KEYS.ARTICLES, updated);
   broadcastEvent('ARTICLES_UPDATED', updated);
-
-  fetch('/api/database/articles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'like', id }),
-  }).catch(() => {});
 }
 
 export async function rateStoredArticle(id: string, stars: number): Promise<void> {
   const articles = getStoredArticles();
+  let targetArticle: Article | undefined;
   const updated = articles.map((art) => {
     if (art.id === id) {
       const currentCount = art.ratingsCount || 0;
       const currentAvg = art.rating || 5;
       const newCount = currentCount + 1;
       const newAvg = Number(((currentAvg * currentCount + stars) / newCount).toFixed(1));
-      return { ...art, rating: newAvg, ratingsCount: newCount };
+      targetArticle = { ...art, rating: newAvg, ratingsCount: newCount };
+      return targetArticle;
     }
     return art;
   });
-  try {
-    localStorage.setItem(KEYS.ARTICLES, JSON.stringify(updated));
-  } catch {
-    // ignore
+  if (targetArticle) {
+    try {
+      await setDoc(
+        doc(db, 'articles', id),
+        { rating: targetArticle.rating, ratingsCount: targetArticle.ratingsCount },
+        { merge: true }
+      );
+    } catch {
+      // non-blocking
+    }
   }
-
+  safeSetLocalCache(KEYS.ARTICLES, updated);
   broadcastEvent('ARTICLES_UPDATED', updated);
-
-  fetch('/api/database/articles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'rate', id, rating: stars }),
-  }).catch(() => {});
 }
 
 export async function addArticleComment(
@@ -706,6 +815,7 @@ export async function addArticleComment(
   comment: { authorName: string; text: string }
 ): Promise<void> {
   const articles = getStoredArticles();
+  let targetArticle: Article | undefined;
   const updated = articles.map((art) => {
     if (art.id === articleId) {
       const newComment: CommentItem = {
@@ -717,27 +827,24 @@ export async function addArticleComment(
         createdAt: 'Hozirgina',
         likesCount: 0,
       };
-      return {
+      targetArticle = {
         ...art,
         comments: [...(art.comments || []), newComment],
       };
+      return targetArticle;
     }
     return art;
   });
 
-  try {
-    localStorage.setItem(KEYS.ARTICLES, JSON.stringify(updated));
-  } catch {
-    // ignore
+  if (targetArticle) {
+    try {
+      await setDoc(doc(db, 'articles', articleId), { comments: targetArticle.comments }, { merge: true });
+    } catch {
+      // non-blocking
+    }
   }
-
+  safeSetLocalCache(KEYS.ARTICLES, updated);
   broadcastEvent('ARTICLES_UPDATED', updated);
-
-  fetch('/api/database/articles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'comment', id: articleId, comment }),
-  }).catch(() => {});
 }
 
 // --------------------------------------------------------------------------
@@ -748,9 +855,9 @@ export function getStoredMediaPosts(): MediaPost[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.MEDIA_POSTS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -758,36 +865,41 @@ export function getStoredMediaPosts(): MediaPost[] {
   } catch {
     // ignore
   }
-
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(KEYS.MEDIA_POSTS, JSON.stringify(INITIAL_MEDIA_POSTS));
-    }
-  } catch {
-    // ignore
-  }
-  return INITIAL_MEDIA_POSTS;
+  return [];
 }
 
-export async function saveStoredMediaPost(post: MediaPost): Promise<{ success: boolean; post: MediaPost; error?: string }> {
+export async function saveStoredMediaPost(
+  post: MediaPost
+): Promise<{ success: boolean; post: MediaPost; error?: string }> {
   const posts = getStoredMediaPosts();
   const index = posts.findIndex((p) => p.id === post.id);
   let updated: MediaPost[];
 
+  const nowIso = new Date().toISOString();
+  const mode: PublishMode = post.publishMode || (post.isArchived ? 'archived' : 'published');
+  const canonicalPost: MediaPost = {
+    ...post,
+    publishMode: mode,
+    isArchived: mode === 'archived' || Boolean(post.isArchived),
+    isPublished: mode === 'published',
+    createdAtIso: post.createdAtIso || nowIso,
+    updatedAt: nowIso,
+  };
+
   if (index >= 0) {
     updated = [...posts];
-    updated[index] = post;
+    updated[index] = canonicalPost;
   } else {
-    updated = [post, ...posts];
+    updated = [canonicalPost, ...posts];
   }
 
-  // Primary write to Firestore Cloud
-  const firestoreRes = await syncDocToFirestore('mediaPosts', post.id, post);
-  if (auth.currentUser && !firestoreRes.success) {
+  // 1. Primary write to Firestore Cloud
+  const firestoreRes = await syncDocToFirestore('mediaPosts', canonicalPost.id, canonicalPost);
+  if (!firestoreRes.success) {
     return {
       success: false,
-      post,
-      error: `Firestore media saqlash rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+      post: canonicalPost,
+      error: `Firestore media saqlash rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}. Maʼlumot yoʻqotilmadi.`,
     };
   }
 
@@ -799,74 +911,95 @@ export async function saveStoredMediaPost(post: MediaPost): Promise<{ success: b
 
   broadcastEvent('POSTS_UPDATED', updated);
 
-  try {
-    const res = await fetch('/api/database/media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', post }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: firestoreRes.success, post, error: json.error || 'Server keshiga yozishda eslatma' };
-    }
-    return { success: true, post };
-  } catch {
-    return { success: firestoreRes.success, post, error: firestoreRes.success ? undefined : 'Oflayn rejimda saqlandi' };
-  }
+  return { success: true, post: canonicalPost };
 }
 
-export async function deleteStoredMediaPost(id: string): Promise<{ success: boolean; error?: string }> {
-  const firestoreRes = await deleteDocFromFirestore('mediaPosts', id);
-  if (auth.currentUser && !firestoreRes.success) {
-    return {
-      success: false,
-      error: `Firestore media oʻchirish rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
-    };
+export async function archiveStoredMediaPost(
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const posts = getStoredMediaPosts();
+  const target = posts.find((p) => p.id === id);
+  if (!target) return { success: false, error: 'Media topilmadi' };
+
+  const archived: MediaPost = {
+    ...target,
+    isArchived: true,
+    archivedAt: new Date().toISOString(),
+    archivedBy: auth.currentUser?.email || 'Administrator',
+    archiveReason: reason || 'Administrator tomonidan arxivlandi',
+    updatedAt: new Date().toISOString(),
+  };
+
+  const firestoreRes = await syncDocToFirestore('mediaPosts', id, archived);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore arxivlash rad etildi: ${firestoreRes.error}` };
   }
 
-  const posts = getStoredMediaPosts().filter((p) => p.id !== id);
+  const updated = posts.map((p) => (p.id === id ? archived : p));
   try {
-    localStorage.setItem(KEYS.MEDIA_POSTS, JSON.stringify(posts));
+    localStorage.setItem(KEYS.MEDIA_POSTS, JSON.stringify(updated));
   } catch {
     // ignore
   }
 
-  broadcastEvent('POSTS_UPDATED', posts);
+  broadcastEvent('POSTS_UPDATED', updated);
 
-  try {
-    const res = await fetch('/api/database/media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success };
-  } catch {
-    return { success: true };
+  return { success: true };
+}
+
+export async function restoreStoredMediaPost(id: string): Promise<{ success: boolean; error?: string }> {
+  const posts = getStoredMediaPosts();
+  const target = posts.find((p) => p.id === id);
+  if (!target) return { success: false, error: 'Media topilmadi' };
+
+  const restored: MediaPost = {
+    ...target,
+    isArchived: false,
+    archivedAt: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const firestoreRes = await syncDocToFirestore('mediaPosts', id, restored);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore tiklash rad etildi: ${firestoreRes.error}` };
   }
+
+  const updated = posts.map((p) => (p.id === id ? restored : p));
+  try {
+    localStorage.setItem(KEYS.MEDIA_POSTS, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+
+  broadcastEvent('POSTS_UPDATED', updated);
+
+  return { success: true };
+}
+
+export async function deleteStoredMediaPost(id: string): Promise<{ success: boolean; error?: string }> {
+  return archiveStoredMediaPost(id, 'O‘chirish buyrug‘i orqali xavfsiz arxivga o‘tkazildi');
 }
 
 export async function likeStoredMediaPost(id: string): Promise<void> {
   const posts = getStoredMediaPosts();
+  let targetPost: MediaPost | undefined;
   const updated = posts.map((p) => {
     if (p.id === id) {
-      return { ...p, likesCount: p.likesCount + 1 };
+      targetPost = { ...p, likesCount: p.likesCount + 1 };
+      return targetPost;
     }
     return p;
   });
-  try {
-    localStorage.setItem(KEYS.MEDIA_POSTS, JSON.stringify(updated));
-  } catch {
-    // ignore
+  if (targetPost) {
+    try {
+      await setDoc(doc(db, 'mediaPosts', id), { likesCount: targetPost.likesCount }, { merge: true });
+    } catch {
+      // non-blocking
+    }
   }
-
+  safeSetLocalCache(KEYS.MEDIA_POSTS, updated);
   broadcastEvent('POSTS_UPDATED', updated);
-
-  fetch('/api/database/media', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'like', id }),
-  }).catch(() => {});
 }
 
 export async function addMediaPostComment(
@@ -874,6 +1007,7 @@ export async function addMediaPostComment(
   comment: { authorName: string; text: string }
 ): Promise<void> {
   const posts = getStoredMediaPosts();
+  let targetPost: MediaPost | undefined;
   const updated = posts.map((p) => {
     if (p.id === postId) {
       const newComment: CommentItem = {
@@ -885,28 +1019,29 @@ export async function addMediaPostComment(
         createdAt: 'Hozirgina',
         likesCount: 0,
       };
-      return {
+      targetPost = {
         ...p,
         commentsCount: p.commentsCount + 1,
         comments: [newComment, ...(p.comments || [])],
       };
+      return targetPost;
     }
     return p;
   });
 
-  try {
-    localStorage.setItem(KEYS.MEDIA_POSTS, JSON.stringify(updated));
-  } catch {
-    // ignore
+  if (targetPost) {
+    try {
+      await setDoc(
+        doc(db, 'mediaPosts', postId),
+        { commentsCount: targetPost.commentsCount, comments: targetPost.comments },
+        { merge: true }
+      );
+    } catch {
+      // non-blocking
+    }
   }
-
+  safeSetLocalCache(KEYS.MEDIA_POSTS, updated);
   broadcastEvent('POSTS_UPDATED', updated);
-
-  fetch('/api/database/media', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'comment', id: postId, comment }),
-  }).catch(() => {});
 }
 
 // --------------------------------------------------------------------------
@@ -917,22 +1052,43 @@ export function getStoredHadiths(): HadithItem[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.HADITHS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     }
   } catch {
     // ignore
   }
-  return AUTHENTIC_HADITHS;
+  return [];
 }
 
-export async function saveStoredHadith(hadith: HadithItem): Promise<{ success: boolean; hadith: HadithItem; error?: string }> {
+export async function saveStoredHadith(
+  hadith: HadithItem
+): Promise<{ success: boolean; hadith: HadithItem; error?: string }> {
   const hadiths = getStoredHadiths();
+  const nowIso = new Date().toISOString();
+  const mode: PublishMode = hadith.publishMode || (hadith.isArchived ? 'archived' : 'published');
+  const canonicalHadith: HadithItem = {
+    ...hadith,
+    publishMode: mode,
+    isArchived: mode === 'archived' || Boolean(hadith.isArchived),
+    createdAtIso: hadith.createdAtIso || nowIso,
+    updatedAt: nowIso,
+  };
   const index = hadiths.findIndex((h) => h.id === hadith.id);
-  const updated = index >= 0 ? [...hadiths] : [hadith, ...hadiths];
-  if (index >= 0) updated[index] = hadith;
+  const updated = index >= 0 ? [...hadiths] : [canonicalHadith, ...hadiths];
+  if (index >= 0) updated[index] = canonicalHadith;
+
+  // Primary write to Firestore Cloud
+  const firestoreRes = await syncDocToFirestore('hadiths', canonicalHadith.id, canonicalHadith);
+  if (!firestoreRes.success) {
+    return {
+      success: false,
+      hadith: canonicalHadith,
+      error: `Firestore bazasiga hadis saqlash rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+    };
+  }
 
   try {
     localStorage.setItem(KEYS.HADITHS, JSON.stringify(updated));
@@ -941,65 +1097,116 @@ export async function saveStoredHadith(hadith: HadithItem): Promise<{ success: b
   }
 
   broadcastEvent('HADITHS_UPDATED', updated);
-  syncDocToFirestore('hadiths', hadith.id, hadith).catch(() => {});
 
-  try {
-    const res = await fetch('/api/database/hadiths', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', hadith }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success, hadith };
-  } catch {
-    return { success: true, hadith, error: 'Oflayn rejimda saqlandi' };
-  }
+  return { success: true, hadith: canonicalHadith };
 }
 
-export async function deleteStoredHadith(id: string): Promise<{ success: boolean; error?: string }> {
-  const hadiths = getStoredHadiths().filter((h) => h.id !== id);
+export async function archiveStoredHadith(
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const hadiths = getStoredHadiths();
+  const target = hadiths.find((h) => h.id === id);
+  if (!target) return { success: false, error: 'Hadis topilmadi' };
+
+  const archived: HadithItem = {
+    ...target,
+    isArchived: true,
+    archivedAt: new Date().toISOString(),
+    archivedBy: auth.currentUser?.email || 'Administrator',
+    archiveReason: reason || 'Administrator tomonidan arxivlandi',
+  };
+
+  const firestoreRes = await syncDocToFirestore('hadiths', id, archived);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore arxivlash rad etildi: ${firestoreRes.error}` };
+  }
+
+  const updated = hadiths.map((h) => (h.id === id ? archived : h));
   try {
-    localStorage.setItem(KEYS.HADITHS, JSON.stringify(hadiths));
+    localStorage.setItem(KEYS.HADITHS, JSON.stringify(updated));
   } catch {
     // ignore
   }
 
-  broadcastEvent('HADITHS_UPDATED', hadiths);
-  deleteDocFromFirestore('hadiths', id).catch(() => {});
+  broadcastEvent('HADITHS_UPDATED', updated);
 
-  try {
-    const res = await fetch('/api/database/hadiths', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success };
-  } catch {
-    return { success: true };
+  return { success: true };
+}
+
+export async function restoreStoredHadith(id: string): Promise<{ success: boolean; error?: string }> {
+  const hadiths = getStoredHadiths();
+  const target = hadiths.find((h) => h.id === id);
+  if (!target) return { success: false, error: 'Hadis topilmadi' };
+
+  const restored: HadithItem = {
+    ...target,
+    isArchived: false,
+    archivedAt: undefined,
+  };
+
+  const firestoreRes = await syncDocToFirestore('hadiths', id, restored);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore tiklash rad etildi: ${firestoreRes.error}` };
   }
+
+  const updated = hadiths.map((h) => (h.id === id ? restored : h));
+  try {
+    localStorage.setItem(KEYS.HADITHS, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+
+  broadcastEvent('HADITHS_UPDATED', updated);
+
+  return { success: true };
+}
+
+export async function deleteStoredHadith(id: string): Promise<{ success: boolean; error?: string }> {
+  return archiveStoredHadith(id, 'O‘chirish buyrug‘i orqali xavfsiz arxivga o‘tkazildi');
 }
 
 export function getStoredDhikrs(): DhikrItem[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.DHIKRS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     }
   } catch {
     // ignore
   }
-  return AUTHENTIC_DHIKRS;
+  return [];
 }
 
-export async function saveStoredDhikr(dhikr: DhikrItem): Promise<{ success: boolean; dhikr: DhikrItem; error?: string }> {
+export async function saveStoredDhikr(
+  dhikr: DhikrItem
+): Promise<{ success: boolean; dhikr: DhikrItem; error?: string }> {
   const dhikrs = getStoredDhikrs();
+  const nowIso = new Date().toISOString();
+  const mode: PublishMode = dhikr.publishMode || (dhikr.isArchived ? 'archived' : 'published');
+  const canonicalDhikr: DhikrItem = {
+    ...dhikr,
+    publishMode: mode,
+    isArchived: mode === 'archived' || Boolean(dhikr.isArchived),
+    createdAtIso: dhikr.createdAtIso || nowIso,
+    updatedAt: nowIso,
+  };
   const index = dhikrs.findIndex((d) => d.id === dhikr.id);
-  const updated = index >= 0 ? [...dhikrs] : [dhikr, ...dhikrs];
-  if (index >= 0) updated[index] = dhikr;
+  const updated = index >= 0 ? [...dhikrs] : [canonicalDhikr, ...dhikrs];
+  if (index >= 0) updated[index] = canonicalDhikr;
+
+  // Primary write to Firestore Cloud
+  const firestoreRes = await syncDocToFirestore('dhikrs', canonicalDhikr.id, canonicalDhikr);
+  if (!firestoreRes.success) {
+    return {
+      success: false,
+      dhikr: canonicalDhikr,
+      error: `Firestore bazasiga zikr saqlash rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+    };
+  }
 
   try {
     localStorage.setItem(KEYS.DHIKRS, JSON.stringify(updated));
@@ -1008,43 +1215,73 @@ export async function saveStoredDhikr(dhikr: DhikrItem): Promise<{ success: bool
   }
 
   broadcastEvent('DHIKRS_UPDATED', updated);
-  syncDocToFirestore('dhikrs', dhikr.id, dhikr).catch(() => {});
 
-  try {
-    const res = await fetch('/api/database/dhikrs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', dhikr }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success, dhikr };
-  } catch {
-    return { success: true, dhikr, error: 'Oflayn rejimda saqlandi' };
-  }
+  return { success: true, dhikr: canonicalDhikr };
 }
 
-export async function deleteStoredDhikr(id: string): Promise<{ success: boolean; error?: string }> {
-  const dhikrs = getStoredDhikrs().filter((d) => d.id !== id);
+export async function archiveStoredDhikr(
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const dhikrs = getStoredDhikrs();
+  const target = dhikrs.find((d) => d.id === id);
+  if (!target) return { success: false, error: 'Zikr topilmadi' };
+
+  const archived: DhikrItem = {
+    ...target,
+    isArchived: true,
+    archivedAt: new Date().toISOString(),
+    archivedBy: auth.currentUser?.email || 'Administrator',
+    archiveReason: reason || 'Administrator tomonidan arxivlandi',
+  };
+
+  const firestoreRes = await syncDocToFirestore('dhikrs', id, archived);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore arxivlash rad etildi: ${firestoreRes.error}` };
+  }
+
+  const updated = dhikrs.map((d) => (d.id === id ? archived : d));
   try {
-    localStorage.setItem(KEYS.DHIKRS, JSON.stringify(dhikrs));
+    localStorage.setItem(KEYS.DHIKRS, JSON.stringify(updated));
   } catch {
     // ignore
   }
 
-  broadcastEvent('DHIKRS_UPDATED', dhikrs);
-  deleteDocFromFirestore('dhikrs', id).catch(() => {});
+  broadcastEvent('DHIKRS_UPDATED', updated);
 
-  try {
-    const res = await fetch('/api/database/dhikrs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success };
-  } catch {
-    return { success: true };
+  return { success: true };
+}
+
+export async function restoreStoredDhikr(id: string): Promise<{ success: boolean; error?: string }> {
+  const dhikrs = getStoredDhikrs();
+  const target = dhikrs.find((d) => d.id === id);
+  if (!target) return { success: false, error: 'Zikr topilmadi' };
+
+  const restored: DhikrItem = {
+    ...target,
+    isArchived: false,
+    archivedAt: undefined,
+  };
+
+  const firestoreRes = await syncDocToFirestore('dhikrs', id, restored);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore tiklash rad etildi: ${firestoreRes.error}` };
   }
+
+  const updated = dhikrs.map((d) => (d.id === id ? restored : d));
+  try {
+    localStorage.setItem(KEYS.DHIKRS, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+
+  broadcastEvent('DHIKRS_UPDATED', updated);
+
+  return { success: true };
+}
+
+export async function deleteStoredDhikr(id: string): Promise<{ success: boolean; error?: string }> {
+  return archiveStoredDhikr(id, 'O‘chirish buyrug‘i orqali xavfsiz arxivga o‘tkazildi');
 }
 
 // --------------------------------------------------------------------------
@@ -1055,7 +1292,7 @@ export function getStoredInquiries(): SupportInquiry[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.INQUIRIES);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
@@ -1063,7 +1300,7 @@ export function getStoredInquiries(): SupportInquiry[] {
   } catch {
     // ignore
   }
-  return INITIAL_INQUIRIES;
+  return [];
 }
 
 export async function submitUserInquiry(
@@ -1080,7 +1317,11 @@ export async function submitUserInquiry(
     id: `inq-${Date.now()}`,
     createdAt: formattedTime,
     status: 'new',
+    isArchived: false,
   };
+
+  // Primary write to Firestore Cloud
+  await syncDocToFirestore('inquiries', newInquiry.id, newInquiry);
 
   const list = [newInquiry, ...getStoredInquiries()];
   try {
@@ -1090,12 +1331,6 @@ export async function submitUserInquiry(
   }
 
   broadcastEvent('INQUIRIES_UPDATED', list);
-
-  fetch('/api/database/inquiries', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'submit', inquiry: newInquiry }),
-  }).catch(() => {});
 
   return newInquiry;
 }
@@ -1111,19 +1346,32 @@ export async function replyToInquiry(
     .toString()
     .padStart(2, '0')}`;
 
+  let targetInquiry: SupportInquiry | undefined;
   const list = getStoredInquiries().map((inq) => {
     if (inq.id === id) {
-      return {
+      targetInquiry = {
         ...inq,
         status: 'answered' as const,
         adminReply,
         repliedAt: formattedTime,
         repliedBy: adminName,
       };
+      return targetInquiry;
     }
     return inq;
   });
 
+  if (!targetInquiry) return { success: false, error: 'Murojaat topilmadi' };
+
+  // Primary write to Firestore Cloud
+  const firestoreRes = await syncDocToFirestore('inquiries', id, targetInquiry);
+  if (!firestoreRes.success) {
+    return {
+      success: false,
+      error: `Firestore javob yozish rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+    };
+  }
+
   try {
     localStorage.setItem(KEYS.INQUIRIES, JSON.stringify(list));
   } catch {
@@ -1132,40 +1380,72 @@ export async function replyToInquiry(
 
   broadcastEvent('INQUIRIES_UPDATED', list);
 
-  try {
-    const res = await fetch('/api/database/inquiries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reply', id, replyText: adminReply }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success };
-  } catch {
-    return { success: true };
+  return { success: true };
+}
+
+export async function archiveStoredInquiry(
+  id: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const inquiries = getStoredInquiries();
+  const target = inquiries.find((i) => i.id === id);
+  if (!target) return { success: false, error: 'Murojaat topilmadi' };
+
+  const archived: SupportInquiry = {
+    ...target,
+    isArchived: true,
+    archivedAt: new Date().toISOString(),
+    archivedBy: auth.currentUser?.email || 'Administrator',
+    archiveReason: reason || 'Arxivlandi',
+  };
+
+  const firestoreRes = await syncDocToFirestore('inquiries', id, archived);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore arxivlash rad etildi: ${firestoreRes.error}` };
   }
+
+  const updated = inquiries.map((i) => (i.id === id ? archived : i));
+  try {
+    localStorage.setItem(KEYS.INQUIRIES, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+
+  broadcastEvent('INQUIRIES_UPDATED', updated);
+
+  return { success: true };
+}
+
+export async function restoreStoredInquiry(id: string): Promise<{ success: boolean; error?: string }> {
+  const inquiries = getStoredInquiries();
+  const target = inquiries.find((i) => i.id === id);
+  if (!target) return { success: false, error: 'Murojaat topilmadi' };
+
+  const restored: SupportInquiry = {
+    ...target,
+    isArchived: false,
+    archivedAt: undefined,
+  };
+
+  const firestoreRes = await syncDocToFirestore('inquiries', id, restored);
+  if (!firestoreRes.success) {
+    return { success: false, error: `Firestore tiklash rad etildi: ${firestoreRes.error}` };
+  }
+
+  const updated = inquiries.map((i) => (i.id === id ? restored : i));
+  try {
+    localStorage.setItem(KEYS.INQUIRIES, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+
+  broadcastEvent('INQUIRIES_UPDATED', updated);
+
+  return { success: true };
 }
 
 export async function deleteStoredInquiry(id: string): Promise<{ success: boolean; error?: string }> {
-  const list = getStoredInquiries().filter((i) => i.id !== id);
-  try {
-    localStorage.setItem(KEYS.INQUIRIES, JSON.stringify(list));
-  } catch {
-    // ignore
-  }
-
-  broadcastEvent('INQUIRIES_UPDATED', list);
-
-  try {
-    const res = await fetch('/api/database/inquiries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success };
-  } catch {
-    return { success: true };
-  }
+  return archiveStoredInquiry(id, 'O‘chirish buyrug‘i orqali xavfsiz arxivga o‘tkazildi');
 }
 
 // --------------------------------------------------------------------------
@@ -1176,7 +1456,7 @@ export function getStoredDrafts(): TelegramDraftItem[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.DRAFTS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
@@ -1184,7 +1464,7 @@ export function getStoredDrafts(): TelegramDraftItem[] {
   } catch {
     // ignore
   }
-  return INITIAL_DRAFTS;
+  return [];
 }
 
 export async function approveDraft(id: string, reviewer = 'Bosh Administrator'): Promise<boolean> {
@@ -1193,14 +1473,16 @@ export async function approveDraft(id: string, reviewer = 'Bosh Administrator'):
   if (!target) return false;
 
   const nowFormatted = new Date().toISOString().replace('T', ' ').slice(0, 16);
-  target.status = 'approved';
-  target.reviewedBy = reviewer;
-  target.reviewedAt = nowFormatted;
+  const updatedDraft: TelegramDraftItem = {
+    ...target,
+    status: 'approved',
+    reviewedBy: reviewer,
+    reviewedAt: nowFormatted,
+  };
 
-  try {
-    localStorage.setItem(KEYS.DRAFTS, JSON.stringify(drafts));
-  } catch {
-    // ignore
+  const firestoreDraftRes = await syncDocToFirestore('drafts', id, updatedDraft);
+  if (!firestoreDraftRes.success) {
+    return false;
   }
 
   // If draft is for prayer times, update live schedule
@@ -1220,7 +1502,8 @@ export async function approveDraft(id: string, reviewer = 'Bosh Administrator'):
       publishedBy: `${target.sourceChannel} orqali tasdiqlandi`,
       verifiedAt: nowFormatted,
     };
-    await saveStoredPrayerSchedule(updatedSchedule);
+    const saveRes = await saveStoredPrayerSchedule(updatedSchedule);
+    if (!saveRes.success) return false;
   } else if (target.targetSection === 'articles') {
     const newArt: Article = {
       id: `art-${Date.now()}`,
@@ -1241,7 +1524,8 @@ export async function approveDraft(id: string, reviewer = 'Bosh Administrator'):
       bodyParagraphs: [target.content],
       comments: [],
     };
-    await saveStoredArticle(newArt);
+    const saveRes = await saveStoredArticle(newArt);
+    if (!saveRes.success) return false;
   } else if (target.targetSection === 'media') {
     const newPost: MediaPost = {
       id: `post-${Date.now()}`,
@@ -1258,38 +1542,39 @@ export async function approveDraft(id: string, reviewer = 'Bosh Administrator'):
       isPublished: true,
       comments: [],
     };
-    await saveStoredMediaPost(newPost);
+    const saveRes = await saveStoredMediaPost(newPost);
+    if (!saveRes.success) return false;
   }
 
-  // Push to server
+  const updatedDrafts = drafts.map((d) => (d.id === id ? updatedDraft : d));
   try {
-    const res = await fetch('/api/database/drafts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', id, reviewer }),
-    });
-    const json = await res.json();
-    broadcastEvent('DRAFTS_UPDATED', drafts);
-    return res.ok && json.success;
+    localStorage.setItem(KEYS.DRAFTS, JSON.stringify(updatedDrafts));
   } catch {
-    broadcastEvent('DRAFTS_UPDATED', drafts);
-    return true;
+    // ignore
   }
+
+  broadcastEvent('DRAFTS_UPDATED', updatedDrafts);
+  return true;
 }
 
 export async function rejectDraft(id: string, reviewer = 'Bosh Administrator'): Promise<boolean> {
-  const drafts = getStoredDrafts().map((d) => {
-    if (d.id === id) {
-      return {
-        ...d,
-        status: 'rejected' as const,
-        reviewedBy: reviewer,
-        reviewedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      };
-    }
-    return d;
-  });
+  const existing = getStoredDrafts();
+  const target = existing.find((d) => d.id === id);
+  if (!target) return false;
 
+  const rejectedDraft: TelegramDraftItem = {
+    ...target,
+    status: 'rejected' as const,
+    reviewedBy: reviewer,
+    reviewedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+  };
+
+  const firestoreRes = await syncDocToFirestore('drafts', id, rejectedDraft);
+  if (!firestoreRes.success) {
+    return false;
+  }
+
+  const drafts = existing.map((d) => (d.id === id ? rejectedDraft : d));
   try {
     localStorage.setItem(KEYS.DRAFTS, JSON.stringify(drafts));
   } catch {
@@ -1297,21 +1582,15 @@ export async function rejectDraft(id: string, reviewer = 'Bosh Administrator'): 
   }
 
   broadcastEvent('DRAFTS_UPDATED', drafts);
-
-  try {
-    const res = await fetch('/api/database/drafts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reject', id, reviewer }),
-    });
-    const json = await res.json();
-    return res.ok && json.success;
-  } catch {
-    return true;
-  }
+  return true;
 }
 
 export async function deleteDraft(id: string): Promise<boolean> {
+  const firestoreRes = await deleteDocFromFirestore('drafts', id);
+  if (!firestoreRes.success) {
+    return false;
+  }
+
   const drafts = getStoredDrafts().filter((d) => d.id !== id);
   try {
     localStorage.setItem(KEYS.DRAFTS, JSON.stringify(drafts));
@@ -1320,18 +1599,7 @@ export async function deleteDraft(id: string): Promise<boolean> {
   }
 
   broadcastEvent('DRAFTS_UPDATED', drafts);
-
-  try {
-    const res = await fetch('/api/database/drafts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id }),
-    });
-    const json = await res.json();
-    return res.ok && json.success;
-  } catch {
-    return true;
-  }
+  return true;
 }
 
 export async function createDraft(draft: Partial<TelegramDraftItem>): Promise<boolean> {
@@ -1347,6 +1615,11 @@ export async function createDraft(draft: Partial<TelegramDraftItem>): Promise<bo
     status: 'pending',
   };
 
+  const firestoreRes = await syncDocToFirestore('drafts', newDraft.id, newDraft);
+  if (!firestoreRes.success) {
+    return false;
+  }
+
   const drafts = [newDraft, ...getStoredDrafts()];
   try {
     localStorage.setItem(KEYS.DRAFTS, JSON.stringify(drafts));
@@ -1355,18 +1628,7 @@ export async function createDraft(draft: Partial<TelegramDraftItem>): Promise<bo
   }
 
   broadcastEvent('DRAFTS_UPDATED', drafts);
-
-  try {
-    const res = await fetch('/api/database/drafts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', draft: newDraft }),
-    });
-    const json = await res.json();
-    return res.ok && json.success;
-  } catch {
-    return true;
-  }
+  return true;
 }
 
 // --------------------------------------------------------------------------
@@ -1377,9 +1639,9 @@ export function getStoredBroadcastNotifications(): AppNotification[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.NOTIFICATIONS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     }
   } catch {
@@ -1398,6 +1660,15 @@ export async function saveStoredNotification(
     read: false,
   };
 
+  const firestoreRes = await syncDocToFirestore('notifications', newNotif.id, newNotif);
+  if (!firestoreRes.success) {
+    return {
+      success: false,
+      notification: newNotif,
+      error: `Firestore bildirishnoma saqlash rad etildi: ${firestoreRes.error || 'Ruxsat berilmadi'}`,
+    };
+  }
+
   const list = [newNotif, ...getStoredBroadcastNotifications()];
   try {
     localStorage.setItem(KEYS.NOTIFICATIONS, JSON.stringify(list));
@@ -1407,17 +1678,7 @@ export async function saveStoredNotification(
 
   broadcastEvent('NOTIFICATIONS_UPDATED', list);
 
-  try {
-    const res = await fetch('/api/database/notifications', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', notification: newNotif }),
-    });
-    const json = await res.json();
-    return { success: res.ok && json.success, notification: newNotif };
-  } catch {
-    return { success: true, notification: newNotif };
-  }
+  return { success: true, notification: newNotif };
 }
 
 /**
@@ -1427,36 +1688,65 @@ export async function syncAllToFirestore(): Promise<{ success: boolean; count: n
   try {
     let count = 0;
     const schedule = getStoredPrayerSchedule();
-    await syncDocToFirestore('schedules', 'asaka-main', schedule);
+    const schedRes = await syncDocToFirestore('schedules', 'asaka-main', schedule);
+    if (!schedRes.success) {
+      return { success: false, count: 0, error: schedRes.error };
+    }
     count++;
 
     const articles = getStoredArticles();
     for (const art of articles) {
-      await syncDocToFirestore('articles', art.id, art);
+      const r = await syncDocToFirestore('articles', art.id, art);
+      if (!r.success) return { success: false, count, error: r.error };
       count++;
     }
 
     const media = getStoredMediaPosts();
     for (const m of media) {
-      await syncDocToFirestore('mediaPosts', m.id, m);
+      const r = await syncDocToFirestore('mediaPosts', m.id, m);
+      if (!r.success) return { success: false, count, error: r.error };
       count++;
     }
 
     const hadiths = getStoredHadiths();
     for (const h of hadiths) {
-      await syncDocToFirestore('hadiths', h.id, h);
+      const r = await syncDocToFirestore('hadiths', h.id, h);
+      if (!r.success) return { success: false, count, error: r.error };
       count++;
     }
 
     const dhikrs = getStoredDhikrs();
     for (const d of dhikrs) {
-      await syncDocToFirestore('dhikrs', d.id, d);
+      const r = await syncDocToFirestore('dhikrs', d.id, d);
+      if (!r.success) return { success: false, count, error: r.error };
+      count++;
+    }
+
+    const news = getStoredNews();
+    for (const n of news) {
+      const r = await syncDocToFirestore('news', n.id, n);
+      if (!r.success) return { success: false, count, error: r.error };
+      count++;
+    }
+
+    const announcements = getStoredAnnouncements();
+    for (const ann of announcements) {
+      const r = await syncDocToFirestore('announcements', ann.id, ann);
+      if (!r.success) return { success: false, count, error: r.error };
       count++;
     }
 
     const inquiries = getStoredInquiries();
     for (const i of inquiries) {
-      await syncDocToFirestore('inquiries', i.id, i);
+      const r = await syncDocToFirestore('inquiries', i.id, i);
+      if (!r.success) return { success: false, count, error: r.error };
+      count++;
+    }
+
+    const drafts = getStoredDrafts();
+    for (const d of drafts) {
+      const r = await syncDocToFirestore('drafts', d.id, d);
+      if (!r.success) return { success: false, count, error: r.error };
       count++;
     }
 
@@ -1490,17 +1780,18 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
   const startTime = performance.now();
   const timestamp = new Date().toISOString();
   const testDocId = `diag-${Date.now()}`;
-  const currentUser = auth.currentUser;
+  const activeAdmin = getActiveAdminSession();
 
   try {
-    if (currentUser) {
+    if (activeAdmin && isAdminAuthenticated()) {
       // 1. Authenticated Admin: Real write then read test in _diagnostics collection
       const testData = {
         testId: testDocId,
         createdAt: timestamp,
         client: 'ASAKA ZIYO Admin Diagnostic Suite',
-        authorUid: currentUser.uid,
-        authorEmail: currentUser.email || 'admin@asaka.uz',
+        authorUid: activeAdmin.uid,
+        authorUsername: activeAdmin.username || 'menageradmin',
+        authorEmail: activeAdmin.email || 'asakaziyo0@gmail.com',
         purpose: 'Real-time Firestore latency & write integrity check',
         status: 'active_check',
       };
@@ -1525,8 +1816,9 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
           latencyMs,
           operation: 'READ_WRITE',
           timestamp,
-          details: `Google Cloud Firestore bilan ikki tomonlama (yozish/oʻqish) aloqa ${latencyMs}ms tezlikda muvaffaqiyatli sinovdan oʻtdi. Hujjat ID: ${testDocId}.`,
-          authenticatedAs: currentUser.email,
+          details: `Google Cloud Firestore bilan ikki tomonlama (yozish/oʻqish) aloqa ${latencyMs}ms tezlikda muvaffaqiyatli sinovdan oʻtdi. Admin: ${activeAdmin.email} (${activeAdmin.username || 'menageradmin'}). Hujjat ID: ${testDocId}.`,
+          authenticatedAs: `${activeAdmin.email} (${activeAdmin.username || 'menageradmin'})`,
+          role: activeAdmin.role,
           documentId: testDocId,
         };
       } else {
@@ -1536,7 +1828,7 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
           operation: 'READ_WRITE',
           timestamp,
           details: 'Hujjat yozildi, biroq qayta oʻqishda topilmadi.',
-          authenticatedAs: currentUser.email,
+          authenticatedAs: activeAdmin.email,
         };
       }
     } else {
@@ -1550,7 +1842,7 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
         latencyMs,
         operation: 'READ',
         timestamp,
-        details: `Firestore umumiy oʻqish soʻrovi ${latencyMs}ms tezlikda muvaffaqiyatli amalga oshirildi (${snapshot.exists() ? 'tasdiqlangan jadval mavjud' : 'baza tayyor'}). Yozish testini oʻtkazish uchun Google Admin orqali tizimga kiring.`,
+        details: `Firestore umumiy oʻqish soʻrovi ${latencyMs}ms tezlikda muvaffaqiyatli amalga oshirildi (${snapshot.exists() ? 'tasdiqlangan jadval mavjud' : 'baza tayyor'}). Yozish testini oʻtkazish uchun Administrator (asakaziyo0@gmail.com) sifatida tizimga kiring.`,
         authenticatedAs: null,
       };
     }
@@ -1560,10 +1852,10 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
     return {
       status: 'FAIL',
       latencyMs,
-      operation: currentUser ? 'READ_WRITE' : 'READ',
+      operation: activeAdmin ? 'READ_WRITE' : 'READ',
       timestamp,
       details: `Firestore ulanishida xatolik yuz berdi: ${errorMsg}`,
-      authenticatedAs: currentUser?.email || null,
+      authenticatedAs: activeAdmin?.email || null,
       error: errorMsg,
     };
   }
@@ -1649,7 +1941,7 @@ export function getStoredAnnouncements(): AnnouncementItem[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.ANNOUNCEMENTS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
@@ -1659,13 +1951,22 @@ export function getStoredAnnouncements(): AnnouncementItem[] {
 }
 
 export async function saveStoredAnnouncement(announcement: AnnouncementItem): Promise<{ success: boolean; error?: string }> {
+  const nowIso = new Date().toISOString();
+  const mode: PublishMode = announcement.publishMode || (announcement.isArchived ? 'archived' : 'published');
+  const canonicalAnn: AnnouncementItem = {
+    ...announcement,
+    publishMode: mode,
+    isArchived: mode === 'archived' || Boolean(announcement.isArchived),
+    createdAtIso: announcement.createdAtIso || nowIso,
+    updatedAt: nowIso,
+  };
   const list = getStoredAnnouncements();
-  const idx = list.findIndex((a) => a.id === announcement.id);
-  const updated = idx >= 0 ? list.map((a, i) => (i === idx ? announcement : a)) : [announcement, ...list];
+  const idx = list.findIndex((a) => a.id === canonicalAnn.id);
+  const updated = idx >= 0 ? list.map((a, i) => (i === idx ? canonicalAnn : a)) : [canonicalAnn, ...list];
 
-  const firestoreRes = await syncDocToFirestore('announcements', announcement.id, announcement);
-  if (auth.currentUser && !firestoreRes.success) {
-    return { success: false, error: firestoreRes.error };
+  const firestoreRes = await syncDocToFirestore('announcements', canonicalAnn.id, canonicalAnn);
+  if (!firestoreRes.success) {
+    return { success: false, error: firestoreRes.error || 'Firestore eʼlon saqlash rad etildi' };
   }
 
   try {
@@ -1676,20 +1977,14 @@ export async function saveStoredAnnouncement(announcement: AnnouncementItem): Pr
 }
 
 export async function deleteStoredAnnouncement(id: string): Promise<{ success: boolean; error?: string }> {
-  const firestoreRes = await deleteDocFromFirestore('announcements', id);
-  const list = getStoredAnnouncements().filter((a) => a.id !== id);
-  try {
-    localStorage.setItem(KEYS.ANNOUNCEMENTS, JSON.stringify(list));
-  } catch {}
-  broadcastEvent('ANNOUNCEMENTS_UPDATED', list);
-  return { success: true };
+  return updateItemPublishMode('announcements', id, 'archived');
 }
 
 export function getStoredNews(): NewsItem[] {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const saved = localStorage.getItem(KEYS.NEWS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
@@ -1699,13 +1994,22 @@ export function getStoredNews(): NewsItem[] {
 }
 
 export async function saveStoredNews(newsItem: NewsItem): Promise<{ success: boolean; error?: string }> {
+  const nowIso = new Date().toISOString();
+  const mode: PublishMode = newsItem.publishMode || (newsItem.isArchived ? 'archived' : 'published');
+  const canonicalNews: NewsItem = {
+    ...newsItem,
+    publishMode: mode,
+    isArchived: mode === 'archived' || Boolean(newsItem.isArchived),
+    createdAtIso: newsItem.createdAtIso || nowIso,
+    updatedAt: nowIso,
+  };
   const list = getStoredNews();
-  const idx = list.findIndex((n) => n.id === newsItem.id);
-  const updated = idx >= 0 ? list.map((n, i) => (i === idx ? newsItem : n)) : [newsItem, ...list];
+  const idx = list.findIndex((n) => n.id === canonicalNews.id);
+  const updated = idx >= 0 ? list.map((n, i) => (i === idx ? canonicalNews : n)) : [canonicalNews, ...list];
 
-  const firestoreRes = await syncDocToFirestore('news', newsItem.id, newsItem);
-  if (auth.currentUser && !firestoreRes.success) {
-    return { success: false, error: firestoreRes.error };
+  const firestoreRes = await syncDocToFirestore('news', canonicalNews.id, canonicalNews);
+  if (!firestoreRes.success) {
+    return { success: false, error: firestoreRes.error || 'Firestore yangilik saqlash rad etildi' };
   }
 
   try {
@@ -1716,12 +2020,367 @@ export async function saveStoredNews(newsItem: NewsItem): Promise<{ success: boo
 }
 
 export async function deleteStoredNews(id: string): Promise<{ success: boolean; error?: string }> {
-  const firestoreRes = await deleteDocFromFirestore('news', id);
-  const list = getStoredNews().filter((n) => n.id !== id);
-  try {
-    localStorage.setItem(KEYS.NEWS, JSON.stringify(list));
-  } catch {}
-  broadcastEvent('NEWS_UPDATED', list);
+  return updateItemPublishMode('news', id, 'archived');
+}
+
+export function isPubliclyPublished(item?: { isArchived?: boolean; publishMode?: PublishMode }): boolean {
+  if (!item) return false;
+  if (item.isArchived) return false;
+  if (item.publishMode && item.publishMode !== 'published') return false;
+  return true;
+}
+
+export function getDateCategoryInfo(item: {
+  createdAtIso?: string;
+  updatedAt?: string;
+  publishedDate?: string;
+  date?: string;
+}): { bucket: 'today' | 'yesterday' | 'older'; label: string } {
+  const rawDateStr = item.createdAtIso || item.updatedAt;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+
+  if (rawDateStr) {
+    const parsedTime = Date.parse(rawDateStr);
+    if (!Number.isNaN(parsedTime)) {
+      if (parsedTime >= todayStart) {
+        return { bucket: 'today', label: 'Bugun' };
+      }
+      if (parsedTime >= yesterdayStart) {
+        return { bucket: 'yesterday', label: 'Kecha' };
+      }
+      const d = new Date(parsedTime);
+      return {
+        bucket: 'older',
+        label: d.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      };
+    }
+  }
+
+  const textDate = (item.publishedDate || item.date || '').toLowerCase();
+  if (textDate.includes('bugun') || textDate.includes('hozir')) {
+    return { bucket: 'today', label: 'Bugun' };
+  }
+  if (textDate.includes('kecha')) {
+    return { bucket: 'yesterday', label: 'Kecha' };
+  }
+  return {
+    bucket: 'older',
+    label: item.publishedDate || item.date || 'Barcha sanalar',
+  };
+}
+
+export interface ArchivedItemSummary {
+  id: string;
+  type: 'article' | 'media' | 'hadith' | 'dhikr' | 'inquiry' | 'news' | 'announcement';
+  typeLabelUz: string;
+  title: string;
+  publishMode?: PublishMode;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
+  originalItem: any;
+}
+
+export function getAllArchivedItems(): ArchivedItemSummary[] {
+  const archives: ArchivedItemSummary[] = [];
+
+  getStoredArticles()
+    .filter((a) => a.isArchived || a.publishMode === 'archived')
+    .forEach((a) => {
+      archives.push({
+        id: a.id,
+        type: 'article',
+        typeLabelUz: 'Maqola',
+        title: a.title,
+        publishMode: a.publishMode || 'archived',
+        archivedAt: a.archivedAt || a.updatedAt,
+        archivedBy: a.archivedBy,
+        archiveReason: a.archiveReason,
+        originalItem: a,
+      });
+    });
+
+  getStoredNews()
+    .filter((n) => n.isArchived || n.publishMode === 'archived')
+    .forEach((n) => {
+      archives.push({
+        id: n.id,
+        type: 'news',
+        typeLabelUz: 'Yangilik',
+        title: n.title,
+        publishMode: n.publishMode || 'archived',
+        archivedAt: n.archivedAt || n.updatedAt,
+        archivedBy: n.archivedBy,
+        archiveReason: n.archiveReason,
+        originalItem: n,
+      });
+    });
+
+  getStoredAnnouncements()
+    .filter((ann) => ann.isArchived || ann.publishMode === 'archived')
+    .forEach((ann) => {
+      archives.push({
+        id: ann.id,
+        type: 'announcement',
+        typeLabelUz: 'Eʼlon',
+        title: ann.title,
+        publishMode: ann.publishMode || 'archived',
+        archivedAt: ann.archivedAt || ann.updatedAt,
+        archivedBy: ann.archivedBy,
+        archiveReason: ann.archiveReason,
+        originalItem: ann,
+      });
+    });
+
+  getStoredMediaPosts()
+    .filter((m) => m.isArchived || m.publishMode === 'archived')
+    .forEach((m) => {
+      archives.push({
+        id: m.id,
+        type: 'media',
+        typeLabelUz: 'Media / Reel',
+        title: m.title,
+        publishMode: m.publishMode || 'archived',
+        archivedAt: m.archivedAt || m.updatedAt,
+        archivedBy: m.archivedBy,
+        archiveReason: m.archiveReason,
+        originalItem: m,
+      });
+    });
+
+  getStoredHadiths()
+    .filter((h) => h.isArchived || h.publishMode === 'archived')
+    .forEach((h) => {
+      archives.push({
+        id: h.id,
+        type: 'hadith',
+        typeLabelUz: 'Hadis',
+        title: `${h.collectionNameUz}: ${h.reference || h.number}`,
+        publishMode: h.publishMode || 'archived',
+        archivedAt: h.archivedAt || h.updatedAt,
+        archivedBy: h.archivedBy,
+        archiveReason: h.archiveReason,
+        originalItem: h,
+      });
+    });
+
+  getStoredDhikrs()
+    .filter((d) => d.isArchived || d.publishMode === 'archived')
+    .forEach((d) => {
+      archives.push({
+        id: d.id,
+        type: 'dhikr',
+        typeLabelUz: 'Zikr / Duo',
+        title: d.titleUz,
+        publishMode: d.publishMode || 'archived',
+        archivedAt: d.archivedAt || d.updatedAt,
+        archivedBy: d.archivedBy,
+        archiveReason: d.archiveReason,
+        originalItem: d,
+      });
+    });
+
+  getStoredInquiries()
+    .filter((i) => i.isArchived)
+    .forEach((i) => {
+      archives.push({
+        id: i.id,
+        type: 'inquiry',
+        typeLabelUz: 'Foydalanuvchi murojaati',
+        title: `${i.userName}: ${i.subject || i.message.slice(0, 45)}`,
+        archivedAt: i.archivedAt,
+        archivedBy: i.archivedBy,
+        archiveReason: i.archiveReason,
+        originalItem: i,
+      });
+    });
+
+  return archives;
+}
+
+export async function restoreArchivedItem(
+  type: 'article' | 'media' | 'hadith' | 'dhikr' | 'inquiry' | 'news' | 'announcement',
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  switch (type) {
+    case 'article':
+      return updateItemPublishMode('articles', id, 'published');
+    case 'news':
+      return updateItemPublishMode('news', id, 'published');
+    case 'announcement':
+      return updateItemPublishMode('announcements', id, 'published');
+    case 'media':
+      return updateItemPublishMode('mediaPosts', id, 'published');
+    case 'hadith':
+      return updateItemPublishMode('hadiths', id, 'published');
+    case 'dhikr':
+      return updateItemPublishMode('dhikrs', id, 'published');
+    case 'inquiry':
+      return restoreStoredInquiry(id);
+    default:
+      return { success: false, error: 'Nomaʼlum maʼlumot turi' };
+  }
+}
+
+/**
+ * Updates the publishMode ('published' | 'draft' | 'test' | 'archived') of any content item in Firestore
+ */
+export async function updateItemPublishMode(
+  collectionName: 'articles' | 'news' | 'announcements' | 'mediaPosts' | 'hadiths' | 'dhikrs',
+  id: string,
+  mode: PublishMode
+): Promise<{ success: boolean; error?: string }> {
+  const nowIso = new Date().toISOString();
+  const isArchived = mode === 'archived';
+  const isPublished = mode === 'published';
+
+  const getterMap = {
+    articles: getStoredArticles,
+    news: getStoredNews,
+    announcements: getStoredAnnouncements,
+    mediaPosts: getStoredMediaPosts,
+    hadiths: getStoredHadiths,
+    dhikrs: getStoredDhikrs,
+  };
+  const keyMap = {
+    articles: KEYS.ARTICLES,
+    news: KEYS.NEWS,
+    announcements: KEYS.ANNOUNCEMENTS,
+    mediaPosts: KEYS.MEDIA_POSTS,
+    hadiths: KEYS.HADITHS,
+    dhikrs: KEYS.DHIKRS,
+  };
+  const eventMap: Record<string, DBEventType> = {
+    articles: 'ARTICLES_UPDATED',
+    news: 'NEWS_UPDATED',
+    announcements: 'ANNOUNCEMENTS_UPDATED',
+    mediaPosts: 'POSTS_UPDATED',
+    hadiths: 'HADITHS_UPDATED',
+    dhikrs: 'DHIKRS_UPDATED',
+  };
+
+  const list = getterMap[collectionName]() as any[];
+  const target = list.find((item) => item.id === id);
+  if (!target) {
+    return { success: false, error: 'Element topilmadi' };
+  }
+
+  const updatedItem = {
+    ...target,
+    publishMode: mode,
+    isArchived,
+    isPublished,
+    archivedAt: isArchived ? nowIso : null,
+    updatedAt: nowIso,
+  };
+
+  const firestoreRes = await syncDocToFirestore(collectionName, id, updatedItem);
+  if (!firestoreRes.success) {
+    return { success: false, error: firestoreRes.error || 'Firestore holatni yangilash rad etildi' };
+  }
+
+  const updatedList = list.map((item) => (item.id === id ? updatedItem : item));
+  safeSetLocalCache(keyMap[collectionName], updatedList);
+  broadcastEvent(eventMap[collectionName], updatedList);
   return { success: true };
 }
+
+/**
+ * Permanently deletes an item from Firestore and local cache (Admin only)
+ */
+export async function permanentlyDeleteItem(
+  collectionName: 'articles' | 'news' | 'announcements' | 'mediaPosts' | 'hadiths' | 'dhikrs',
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const firestoreRes = await deleteDocFromFirestore(collectionName, id);
+  if (!firestoreRes.success) {
+    return { success: false, error: firestoreRes.error || 'Firestore oʻchirish rad etildi' };
+  }
+
+  const getterMap = {
+    articles: getStoredArticles,
+    news: getStoredNews,
+    announcements: getStoredAnnouncements,
+    mediaPosts: getStoredMediaPosts,
+    hadiths: getStoredHadiths,
+    dhikrs: getStoredDhikrs,
+  };
+  const keyMap = {
+    articles: KEYS.ARTICLES,
+    news: KEYS.NEWS,
+    announcements: KEYS.ANNOUNCEMENTS,
+    mediaPosts: KEYS.MEDIA_POSTS,
+    hadiths: KEYS.HADITHS,
+    dhikrs: KEYS.DHIKRS,
+  };
+  const eventMap: Record<string, DBEventType> = {
+    articles: 'ARTICLES_UPDATED',
+    news: 'NEWS_UPDATED',
+    announcements: 'ANNOUNCEMENTS_UPDATED',
+    mediaPosts: 'POSTS_UPDATED',
+    hadiths: 'HADITHS_UPDATED',
+    dhikrs: 'DHIKRS_UPDATED',
+  };
+
+  const updatedList = (getterMap[collectionName]() as any[]).filter((item) => item.id !== id);
+  safeSetLocalCache(keyMap[collectionName], updatedList);
+  broadcastEvent(eventMap[collectionName], updatedList);
+  return { success: true };
+}
+
+/**
+ * Uploads an image, video, or audio file selected by the administrator from their device
+ */
+export async function uploadAdminMediaFile(file: File): Promise<{
+  success: boolean;
+  url?: string;
+  mediaType?: 'image' | 'video' | 'audio';
+  error?: string;
+}> {
+  try {
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Faylni oʻqishda xatolik'));
+      reader.readAsDataURL(file);
+    });
+
+    const token = getActiveAdminToken();
+    const resp = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        fileName: file.name,
+        mimeType: file.type,
+        base64Data,
+      }),
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok && data.success && data.url) {
+      return {
+        success: true,
+        url: data.url,
+        mediaType: data.mediaType,
+      };
+    }
+    return {
+      success: false,
+      error: data.error || 'Faylni serverga yuklashda xatolik yuz berdi.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Fayl yuklash xatosi',
+    };
+  }
+}
+
+
+
 

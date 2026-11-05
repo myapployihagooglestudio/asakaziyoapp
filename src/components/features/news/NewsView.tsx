@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NewsItem, SupportedLocale } from '../../../types';
-import { getStoredNews, subscribeToDatabase } from '../../../utils/databaseService';
+import { getStoredNews, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
 import { Modal } from '../../ui/Modal';
 import { GeometricPattern } from '../../ui/GeometricPattern';
@@ -11,13 +11,13 @@ import { Newspaper, Calendar, Building, ArrowRight } from 'lucide-react';
 export const NewsView: React.FC = () => {
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
-  const [newsList, setNewsList] = useState<NewsItem[]>(() => getStoredNews());
+  const [newsList, setNewsList] = useState<NewsItem[]>(() => getStoredNews().filter(isPubliclyPublished));
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'NEWS_UPDATED') {
-        setNewsList(getStoredNews());
+        setNewsList(getStoredNews().filter(isPubliclyPublished));
       }
     });
     return unsubscribe;

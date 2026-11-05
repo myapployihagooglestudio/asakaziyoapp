@@ -9,6 +9,7 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
+    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/databaseService.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

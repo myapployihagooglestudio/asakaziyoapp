@@ -4,7 +4,7 @@ import { HadithItem, NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
 import { GeometricPattern } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
-import { getStoredHadiths, subscribeToDatabase } from '../../../utils/databaseService';
+import { getStoredHadiths, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Search, Bookmark, Check, Share2, BookMarked } from 'lucide-react';
 
 interface HadithViewProps {
@@ -27,7 +27,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
-  const [hadiths, setHadiths] = useState<HadithItem[]>(() => getStoredHadiths());
+  const [hadiths, setHadiths] = useState<HadithItem[]>(() => getStoredHadiths().filter(isPubliclyPublished));
   const [activeCollection, setActiveCollection] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'HADITHS_UPDATED') {
-        setHadiths(getStoredHadiths());
+        setHadiths(getStoredHadiths().filter(isPubliclyPublished));
       }
     });
     return unsubscribe;

@@ -14,6 +14,7 @@ import {
   TelegramDraftItem,
   AnnouncementItem,
   NewsItem,
+  PublishMode,
 } from '../../../types';
 import { ADMIN_ROLES_CONFIG, INITIAL_AUDIT_LOGS } from '../../../data/adminData';
 import { Card } from '../../ui/Card';
@@ -56,6 +57,8 @@ import {
   Flame,
   Cloud,
   RefreshCw,
+  AlertCircle,
+  Upload,
 } from 'lucide-react';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -87,22 +90,49 @@ import {
   saveStoredNews,
   deleteStoredNews,
   subscribeToDatabase,
+  syncWithFirestore,
   syncAllToFirestore,
   runFirestoreDiagnostics,
   FirestoreDiagnosticResult,
+  getAllArchivedItems,
+  restoreArchivedItem,
+  archiveStoredArticle,
+  restoreStoredArticle,
+  archiveStoredMediaPost,
+  restoreStoredMediaPost,
+  archiveStoredHadith,
+  restoreStoredHadith,
+  archiveStoredDhikr,
+  restoreStoredDhikr,
+  archiveStoredInquiry,
+  restoreStoredInquiry,
+  updateItemPublishMode,
+  permanentlyDeleteItem,
+  uploadAdminMediaFile,
 } from '../../../utils/databaseService';
 import {
   testFirestoreConnection,
-  signInWithGoogle,
+  signInAdmin,
   signOutFirebase,
   auth,
-  bootstrapAdmin,
   checkAdminRole,
+  fetchAdminProfile,
+  changeCurrentAdminPassword,
+  getActiveAdminSession,
+  getActiveAdminToken,
+  AUTHORIZED_ADMIN_EMAIL,
+  AUTHORIZED_ADMIN_USERNAME,
 } from '../../../utils/firebaseClient';
+import { AdminUser } from '../../../types';
 import {
   getStoredSupabaseConfig,
   saveStoredSupabaseConfig,
   testSupabaseConnection,
+  AUTHORIZED_SUPABASE_ADMIN_EMAIL,
+  fetchBackupList,
+  createBackupSnapshot,
+  restoreBackupSnapshot,
+  BackupSummaryItem,
 } from '../../../utils/supabaseClient';
 import {
   saveNotification,
@@ -126,18 +156,15 @@ type AdminTab =
   | 'drafts'
   | 'prayer_schedule'
   | 'content'
+  | 'archive'
   | 'inquiries'
   | 'notifications'
   | 'telegram'
   | 'firebase'
   | 'supabase'
   | 'localization'
-  | 'users'
   | 'audit_logs';
 
-const REQUIRED_LOGIN = 'menageradmin';
-const REQUIRED_PASS = 'menageradmin1';
-const AUTH_STORAGE_KEY = 'asaka_ziyo_admin_session';
 const TELEGRAM_CONFIG_KEY = 'asaka_ziyo_telegram_config';
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
@@ -146,29 +173,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onExitAdmin,
 }) => {
   // Authentication gate state
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const session = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (session) {
-          const parsed = JSON.parse(session);
-          return parsed.authenticated === true && parsed.login === REQUIRED_LOGIN;
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return false;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const [activeRole, setActiveRole] = useState<UserRole>('SUPER_ADMIN');
 
   // Login form inputs
   const [loginInput, setLoginInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
-  // Admin tabs & state
-  const [activeRole] = useState<UserRole>('SUPER_ADMIN');
+  // Password change modal state
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
+  const [newPasswordValue, setNewPasswordValue] = useState('');
+  const [confirmNewPasswordValue, setConfirmNewPasswordValue] = useState('');
+  const [passwordChangeStatus, setPasswordChangeStatus] = useState<string | null>(null);
+
+  // Archive & Recovery state
+  const [archivedItems, setArchivedItems] = useState(() => getAllArchivedItems());
+  const [archiveFilter, setArchiveFilter] = useState<'all' | 'article' | 'news' | 'announcement' | 'media' | 'hadith' | 'dhikr' | 'inquiry'>('all');
+  const [archiveActionMsg, setArchiveActionMsg] = useState<string | null>(null);
+
+  // Navigation tab state
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
 
@@ -176,10 +204,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [draftsList, setDraftsList] = useState<TelegramDraftItem[]>(() => getStoredDrafts());
   const [draftActionMsg, setDraftActionMsg] = useState<string | null>(null);
 
-  // Supabase state
+  // Supabase & Backup state
   const [supabaseConfig, setSupabaseConfig] = useState(getStoredSupabaseConfig());
   const [supabaseStatus, setSupabaseStatus] = useState<string | null>(null);
   const [isTestingSupabase, setIsTestingSupabase] = useState(false);
+  const [backupsList, setBackupsList] = useState<BackupSummaryItem[]>([]);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isRestoringBackupId, setIsRestoringBackupId] = useState<string | null>(null);
 
   // Prayer times state (All 8 times)
   const [editableTimes, setEditableTimes] = useState<PrayerTimeEntry[]>(
@@ -191,11 +222,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // CMS state
-  const [cmsTab, setCmsTab] = useState<'articles' | 'media' | 'hadiths' | 'dhikrs' | 'daily'>('articles');
+  const [cmsTab, setCmsTab] = useState<'articles' | 'news' | 'announcements' | 'media' | 'hadiths' | 'dhikrs' | 'daily'>('articles');
   const [articlesList, setArticlesList] = useState<Article[]>(() => getStoredArticles());
+  const [newsList, setNewsList] = useState<NewsItem[]>(() => getStoredNews());
+  const [announcementsList, setAnnouncementsList] = useState<AnnouncementItem[]>(() => getStoredAnnouncements());
   const [mediaList, setMediaList] = useState<MediaPost[]>(() => getStoredMediaPosts());
   const [hadithsList, setHadithsList] = useState<HadithItem[]>(() => getStoredHadiths());
   const [dhikrsList, setDhikrsList] = useState<DhikrItem[]>(() => getStoredDhikrs());
+
+  // News & Announcement Modal state
+  const [showAddNewsModal, setShowAddNewsModal] = useState(false);
+  const [newNewsTitle, setNewNewsTitle] = useState('');
+  const [newNewsCategory, setNewNewsCategory] = useState<'Mahalliy' | 'Oʻzbekiston' | 'Ilm-maʼrifat' | 'Masjid hayoti'>('Masjid hayoti');
+  const [newNewsSummary, setNewNewsSummary] = useState('');
+  const [newNewsContent, setNewNewsContent] = useState('');
+
+  const [showAddAnnouncementModal, setShowAddAnnouncementModal] = useState(false);
+  const [newAnnTitle, setNewAnnTitle] = useState('');
+  const [newAnnCategory, setNewAnnCategory] = useState<'Juma' | 'Ramazon' | 'Tadbir' | 'Xayriya' | 'Muhim'>('Muhim');
+  const [newAnnContent, setNewAnnContent] = useState('');
+  const [newAnnLocation, setNewAnnLocation] = useState('Asaka Markaziy Jome Masjidi');
 
   // Inquiries / Support Chat state
   const [inquiriesList, setInquiriesList] = useState<SupportInquiry[]>(() => getStoredInquiries());
@@ -241,7 +287,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [telegramStatus, setTelegramStatus] = useState<string | null>(null);
   const [isSendingTelegram, setIsSendingTelegram] = useState(false);
 
-  // Forms for adding new CMS items
+  // Forms for adding new CMS items + Publish Mode + File Upload
+  const [selectedPublishMode, setSelectedPublishMode] = useState<PublishMode>('published');
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string>('');
+  const [uploadedFileType, setUploadedFileType] = useState<'image' | 'video' | 'audio' | undefined>(undefined);
+  const [isUploadingFile, setIsUploadingFile] = useState<boolean>(false);
+  const [fileUploadStatus, setFileUploadStatus] = useState<string | null>(null);
+
   const [showAddArticleModal, setShowAddArticleModal] = useState(false);
   const [newArticleTitle, setNewArticleTitle] = useState('');
   const [newArticleSubtitle, setNewArticleSubtitle] = useState('');
@@ -283,36 +335,105 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isTestingFirebase, setIsTestingFirebase] = useState(false);
   const [isSyncingFirebase, setIsSyncingFirebase] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<any>(() => auth.currentUser);
-  const [adminRoleInfo, setAdminRoleInfo] = useState<{ isAdmin: boolean; role?: string } | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    // 1. Check active authenticated admin session (menageradmin / asakaziyo0@gmail.com)
+    const existingSession = getActiveAdminSession();
+    if (existingSession && existingSession.isActive) {
+      setAdminUser(existingSession);
+      setActiveRole(existingSession.role);
+      setIsAuthenticated(true);
+      setIsAuthLoading(false);
+    }
+
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       setFirebaseUser(user);
       if (user) {
-        if (user.email === 'mirzayevulugbek024@gmail.com') {
-          await bootstrapAdmin(user);
+        try {
+          const profile = await fetchAdminProfile(user.uid);
+          if (profile && profile.isActive && isMounted) {
+            setAdminUser(profile);
+            setActiveRole(profile.role);
+            setIsAuthenticated(true);
+            setLoginError(null);
+          } else if (isMounted && !getActiveAdminSession()) {
+            setAdminUser(null);
+            setIsAuthenticated(false);
+          }
+        } catch {
+          if (isMounted && !getActiveAdminSession()) {
+            setAdminUser(null);
+            setIsAuthenticated(false);
+          }
         }
-        const role = await checkAdminRole(user.uid);
-        setAdminRoleInfo(role);
-      } else {
-        setAdminRoleInfo(null);
+      } else if (isMounted) {
+        const sessionFallback = getActiveAdminSession();
+        if (sessionFallback && sessionFallback.isActive) {
+          setAdminUser(sessionFallback);
+          setActiveRole(sessionFallback.role);
+          setIsAuthenticated(true);
+        } else {
+          setAdminUser(null);
+          setIsAuthenticated(false);
+        }
       }
+
+      if (isMounted) setIsAuthLoading(false);
     });
-    return () => unsubscribeAuth();
+
+    return () => {
+      isMounted = false;
+      unsubscribeAuth();
+    };
   }, []);
 
   // Real-time synchronization subscription
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
-      if (event.type === 'ARTICLES_UPDATED') setArticlesList(getStoredArticles());
-      if (event.type === 'POSTS_UPDATED') setMediaList(getStoredMediaPosts());
-      if (event.type === 'HADITHS_UPDATED') setHadithsList(getStoredHadiths());
-      if (event.type === 'DHIKRS_UPDATED') setDhikrsList(getStoredDhikrs());
-      if (event.type === 'INQUIRIES_UPDATED') setInquiriesList(getStoredInquiries());
+      if (event.type === 'ARTICLES_UPDATED') {
+        setArticlesList(getStoredArticles());
+        setArchivedItems(getAllArchivedItems());
+      }
+      if (event.type === 'POSTS_UPDATED') {
+        setMediaList(getStoredMediaPosts());
+        setArchivedItems(getAllArchivedItems());
+      }
+      if (event.type === 'HADITHS_UPDATED') {
+        setHadithsList(getStoredHadiths());
+        setArchivedItems(getAllArchivedItems());
+      }
+      if (event.type === 'DHIKRS_UPDATED') {
+        setDhikrsList(getStoredDhikrs());
+        setArchivedItems(getAllArchivedItems());
+      }
+      if (event.type === 'NEWS_UPDATED') {
+        setNewsList(getStoredNews());
+      }
+      if (event.type === 'ANNOUNCEMENTS_UPDATED') {
+        setAnnouncementsList(getStoredAnnouncements());
+      }
+      if (event.type === 'INQUIRIES_UPDATED') {
+        setInquiriesList(getStoredInquiries());
+        setArchivedItems(getAllArchivedItems());
+      }
       if (event.type === 'DRAFTS_UPDATED') setDraftsList(getStoredDrafts());
     });
     return unsubscribe;
   }, []);
+
+  // Refresh authoritative Firestore data and backup snapshots whenever admin is authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncWithFirestore(true);
+      fetchBackupList().then((res) => {
+        if (res.success) {
+          setBackupsList(res.backups);
+        }
+      });
+    }
+  }, [isAuthenticated]);
 
   // Sync currentSchedule prop changes
   useEffect(() => {
@@ -323,55 +444,77 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   }, [currentSchedule]);
 
   // Login handler
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    setIsSubmittingAuth(true);
 
-    const trimmedLogin = loginInput.trim();
-    const trimmedPass = passwordInput.trim();
-
-    if (trimmedLogin === REQUIRED_LOGIN && trimmedPass === REQUIRED_PASS) {
+    try {
+      const { admin } = await signInAdmin(loginInput, passwordInput);
+      setAdminUser(admin);
+      setActiveRole(admin.role);
       setIsAuthenticated(true);
-      try {
-        localStorage.setItem(
-          AUTH_STORAGE_KEY,
-          JSON.stringify({
-            authenticated: true,
-            login: REQUIRED_LOGIN,
-            timestamp: Date.now(),
-          })
-        );
-      } catch {
-        // ignore
-      }
 
       const loginLog: AuditLogEntry = {
         id: `log-auth-${Date.now()}`,
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        user: `${REQUIRED_LOGIN} (Bosh Maʼmur)`,
-        role: 'SUPER_ADMIN',
-        action: 'SUPER_ADMIN_LOGIN_SUCCESS',
+        user: `${admin.displayName} (${admin.role})`,
+        role: admin.role,
+        action: 'ADMIN_LOGIN_SUCCESS',
         resource: 'Maʼmuriyat Konsoli',
         status: 'SUCCESS',
-        detailsUz: 'Boshqaruv konsoliga muvaffaqiyatli kirish amalga oshirildi.',
+        detailsUz: `Administrator ${admin.displayName} Firebase orqali muvaffaqiyatli tizimga kirdi.`,
       };
       setAuditLogs((prev) => [loginLog, ...prev]);
-    } else {
-      setLoginError(
-        'Login yoki parol notoʻgʻri! Faqat tayinlangan maʼmuriyat hisobi orqali kirish mumkin.'
-      );
+    } catch (err: any) {
+      setLoginError(err?.message || 'Login yoki parol noto‘g‘ri kiritildi.');
+    } finally {
+      setIsSubmittingAuth(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOutFirebase();
     setIsAuthenticated(false);
-    try {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    setAdminUser(null);
     setLoginInput('');
     setPasswordInput('');
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPasswordValue !== confirmNewPasswordValue) {
+      setPasswordChangeStatus('Parollar bir-biriga mos kelmadi!');
+      return;
+    }
+    const res = await changeCurrentAdminPassword(newPasswordValue);
+    if (res.success) {
+      setPasswordChangeStatus('✅ Parol muvaffaqiyatli yangilandi!');
+      setTimeout(() => {
+        setShowPasswordChangeModal(false);
+        setPasswordChangeStatus(null);
+        setNewPasswordValue('');
+        setConfirmNewPasswordValue('');
+      }, 2000);
+    } else {
+      setPasswordChangeStatus(`⚠️ ${res.error}`);
+    }
+  };
+
+  const handleRestoreItem = async (type: any, id: string) => {
+    const res = await restoreArchivedItem(type, id);
+    if (res.success) {
+      setArchiveActionMsg('✅ Material arxivdan muvaffaqiyatli tiklandi va jonli tizimga qaytarildi!');
+      setArchivedItems(getAllArchivedItems());
+      setArticlesList(getStoredArticles());
+      setMediaList(getStoredMediaPosts());
+      setHadithsList(getStoredHadiths());
+      setDhikrsList(getStoredDhikrs());
+      setInquiriesList(getStoredInquiries());
+      setTimeout(() => setArchiveActionMsg(null), 3000);
+    } else {
+      setArchiveActionMsg(`⚠️ Xatolik: ${res.error}`);
+    }
   };
 
   // Prayer times update handler for all 8 prayer times
@@ -496,24 +639,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const handleReplyInquiry = async (inquiryId: string) => {
     if (!replyText.trim()) return;
 
-    await replyToInquiry(inquiryId, replyText.trim(), 'Asaka Jome Masjidi Maʼmuriyati');
+    const res = await replyToInquiry(inquiryId, replyText.trim(), 'Asaka Jome Masjidi Maʼmuriyati');
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error || 'Javob saqlanmadi'}`);
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+      return;
+    }
     setReplyText('');
     setSelectedInquiryId(null);
     setInquiriesList(getStoredInquiries());
-    setSaveSuccessMsg('Javob markaziy server bazasida saqlandi va foydalanuvchiga muvaffaqiyatli yetkazildi!');
+    setSaveSuccessMsg('Javob Firebase Firestore bazasida saqlandi va foydalanuvchiga muvaffaqiyatli yetkazildi!');
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
   const handleDeleteInquiry = async (inquiryId: string) => {
-    await deleteStoredInquiry(inquiryId);
+    const res = await deleteStoredInquiry(inquiryId);
     setInquiriesList(getStoredInquiries());
-    setSaveSuccessMsg('Murojaat oʻchirildi.');
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Murojaat xavfsiz arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
     setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
   // Telegram Drafts Moderation Handlers
   const handleApproveDraft = async (id: string) => {
-    const ok = await approveDraft(id, `${REQUIRED_LOGIN} (Bosh Maʼmur)`);
+    const ok = await approveDraft(id, `${adminUser?.displayName || 'Bosh Maʼmur'}`);
     if (ok) {
       setDraftsList(getStoredDrafts());
       setArticlesList(getStoredArticles());
@@ -524,7 +673,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleRejectDraft = async (id: string) => {
-    const ok = await rejectDraft(id, `${REQUIRED_LOGIN} (Bosh Maʼmur)`);
+    const ok = await rejectDraft(id, `${adminUser?.displayName || 'Bosh Maʼmur'}`);
     if (ok) {
       setDraftsList(getStoredDrafts());
       setSaveSuccessMsg('Qoralama rad etildi.');
@@ -606,9 +755,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         TELEGRAM_CONFIG_KEY,
         JSON.stringify({ botToken: telegramBotToken, channelId: telegramChannelId })
       );
+      const token = getActiveAdminToken();
       await fetch('/api/database/telegram', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ botToken: telegramBotToken, channelId: telegramChannelId }),
       });
       setTelegramStatus('Telegram sozlamalari markaziy serverda saqlandi!');
@@ -626,9 +779,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setTelegramStatus(`${selectedTelegramChannel} kanaliga server orqali yuborilmoqda...`);
 
     try {
+      const adminToken = getActiveAdminToken();
       const response = await fetch('/api/telegram/broadcast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
         body: JSON.stringify({
           message: textToSend,
           token: telegramBotToken.trim(),
@@ -670,11 +827,79 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     handleSendTelegramMessage(message);
   };
 
+  const resetModalMediaAndMode = () => {
+    setSelectedPublishMode('published');
+    setUploadedFileUrl('');
+    setUploadedFileType(undefined);
+    setFileUploadStatus(null);
+  };
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingFile(true);
+    setFileUploadStatus(`«${file.name}» serverga yuklanmoqda...`);
+    const res = await uploadAdminMediaFile(file);
+    setIsUploadingFile(false);
+    if (res.success && res.url) {
+      setUploadedFileUrl(res.url);
+      setUploadedFileType(res.mediaType);
+      setNewMediaUrl(res.url);
+      setFileUploadStatus(`✅ Yuklandi: ${file.name} (${res.mediaType || 'fayl'})`);
+    } else {
+      setFileUploadStatus(`⚠️ Xatolik: ${res.error || 'Yuklab boʻlmadi'}`);
+    }
+  };
+
+  const handleSwitchPublishMode = async (
+    collectionName: 'articles' | 'news' | 'announcements' | 'mediaPosts' | 'hadiths' | 'dhikrs',
+    id: string,
+    mode: PublishMode
+  ) => {
+    const res = await updateItemPublishMode(collectionName, id, mode);
+    setArticlesList(getStoredArticles());
+    setNewsList(getStoredNews());
+    setAnnouncementsList(getStoredAnnouncements());
+    setMediaList(getStoredMediaPosts());
+    setHadithsList(getStoredHadiths());
+    setDhikrsList(getStoredDhikrs());
+    setArchivedItems(getAllArchivedItems());
+    const modeLabels: Record<PublishMode, string> = {
+      published: 'Doimiy chop etildi (Jonli)',
+      draft: 'Qoralama rejimiga oʻtkazildi',
+      test: 'Test rejimiga oʻtkazildi',
+      archived: 'Arxivga oʻtkazildi',
+    };
+    setSaveSuccessMsg(res.success ? `✅ Holat yangilandi: ${modeLabels[mode]}` : `⚠️ ${res.error}`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handlePermanentDelete = async (
+    collectionName: 'articles' | 'news' | 'announcements' | 'mediaPosts' | 'hadiths' | 'dhikrs',
+    id: string
+  ) => {
+    const res = await permanentlyDeleteItem(collectionName, id);
+    setArticlesList(getStoredArticles());
+    setNewsList(getStoredNews());
+    setAnnouncementsList(getStoredAnnouncements());
+    setMediaList(getStoredMediaPosts());
+    setHadithsList(getStoredHadiths());
+    setDhikrsList(getStoredDhikrs());
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(
+      res.success
+        ? '🗑️ Material Firestore va keshdan butunlay oʻchirildi.'
+        : `⚠️ ${res.error}`
+    );
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
   // Adding new Article
   const handleCreateArticle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newArticleTitle.trim() || !newArticleExcerpt.trim()) return;
 
+    const nowIso = new Date().toISOString();
     const newArt: Article = {
       id: `art-${Date.now()}`,
       title: newArticleTitle.trim(),
@@ -682,9 +907,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       category: newArticleCategory,
       author: newArticleAuthor.trim() || 'Asaka Masjidi Imomi',
       authorRole: 'Tahririyat Hayʼati',
-      publishedDate: 'Bugun',
+      publishedDate: new Date().toLocaleDateString('uz-UZ'),
+      createdAtIso: nowIso,
+      publishMode: selectedPublishMode,
+      isArchived: selectedPublishMode === 'archived',
       readTimeMinutes: Math.max(3, Math.round(newArticleBody.length / 400)),
-      featuredImage: '/images/quran_illumination_art_1793634658336.jpg',
+      featuredImage: uploadedFileUrl || '/images/quran_illumination_art_1793634658336.jpg',
+      mediaUrl: uploadedFileUrl || undefined,
+      mediaType: uploadedFileType,
       excerpt: newArticleExcerpt.trim(),
       bodyParagraphs: newArticleBody
         ? newArticleBody.split('\n\n').filter(Boolean)
@@ -695,21 +925,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       comments: [],
     };
 
-    await saveStoredArticle(newArt);
+    const res = await saveStoredArticle(newArt);
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error}`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+      return;
+    }
     setArticlesList(getStoredArticles());
+    setArchivedItems(getAllArchivedItems());
     setShowAddArticleModal(false);
     setNewArticleTitle('');
     setNewArticleSubtitle('');
     setNewArticleExcerpt('');
     setNewArticleBody('');
-    setSaveSuccessMsg('Yangi maqola markaziy server bazasida muvaffaqiyatli chop etildi!');
+    resetModalMediaAndMode();
+    setSaveSuccessMsg('Yangi maqola Firebase Firestore bazasida muvaffaqiyatli saqlandi!');
     setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   const handleDeleteArticle = async (id: string) => {
-    await deleteStoredArticle(id);
+    const res = await deleteStoredArticle(id);
     setArticlesList(getStoredArticles());
-    setSaveSuccessMsg('Maqola muvaffaqiyatli oʻchirildi.');
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Maqola xavfsiz arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
     setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
@@ -718,36 +956,49 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     e.preventDefault();
     if (!newMediaTitle.trim()) return;
 
+    const finalUrl = uploadedFileUrl || newMediaUrl.trim() || '/images/asaka_islamic_architecture_1793634657962.jpg';
     const newPost: MediaPost = {
       id: `post-${Date.now()}`,
       title: newMediaTitle.trim(),
       type: newMediaType,
       category: newMediaCategory,
       author: 'Asaka Ziyo Studiyasi',
-      publishedDate: 'Hozirgina',
-      mediaUrl: newMediaUrl.trim() || 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=1200&q=80',
-      thumbnail: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=600&q=80',
+      publishedDate: new Date().toLocaleDateString('uz-UZ'),
+      createdAtIso: new Date().toISOString(),
+      publishMode: selectedPublishMode,
+      isArchived: selectedPublishMode === 'archived',
+      mediaUrl: finalUrl,
+      mediaType: uploadedFileType || (newMediaType === 'reel' || newMediaType === 'video' ? 'video' : newMediaType === 'audio' ? 'audio' : 'image'),
+      thumbnail: finalUrl,
       caption: newMediaCaption.trim(),
       likesCount: 0,
       commentsCount: 0,
-      isPublished: true,
+      isPublished: selectedPublishMode === 'published',
       comments: [],
     };
 
-    await saveStoredMediaPost(newPost);
+    const res = await saveStoredMediaPost(newPost);
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error}`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+      return;
+    }
     setMediaList(getStoredMediaPosts());
+    setArchivedItems(getAllArchivedItems());
     setShowAddMediaModal(false);
     setNewMediaTitle('');
     setNewMediaCaption('');
     setNewMediaUrl('');
-    setSaveSuccessMsg('Yangi media lavhasi markaziy server bazasida eʼlon qilindi!');
+    resetModalMediaAndMode();
+    setSaveSuccessMsg('Yangi media lavhasi Firebase Firestore bazasida saqlandi!');
     setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   const handleDeleteMediaPost = async (id: string) => {
-    await deleteStoredMediaPost(id);
+    const res = await deleteStoredMediaPost(id);
     setMediaList(getStoredMediaPosts());
-    setSaveSuccessMsg('Media posti oʻchirildi.');
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Media posti xavfsiz arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
     setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
@@ -775,22 +1026,35 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       grade: 'Sahih',
       reference: `${newHadithCollection}, ${newHadithNumber}-hadis`,
       keywords: ['hadis', 'hikmat', 'sunnat'],
+      createdAtIso: new Date().toISOString(),
+      publishMode: selectedPublishMode,
+      isArchived: selectedPublishMode === 'archived',
+      mediaUrl: uploadedFileUrl || undefined,
+      mediaType: uploadedFileType,
     };
 
-    await saveStoredHadith(newH);
+    const res = await saveStoredHadith(newH);
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error}`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+      return;
+    }
     setHadithsList(getStoredHadiths());
+    setArchivedItems(getAllArchivedItems());
     setShowAddHadithModal(false);
     setNewHadithNarrator('');
     setNewHadithTextAr('');
     setNewHadithTranslation('');
-    setSaveSuccessMsg('Yangi moʻtabar hadis markaziy server bazasida saqlandi!');
+    resetModalMediaAndMode();
+    setSaveSuccessMsg('Yangi moʻtabar hadis Firebase Firestore bazasida saqlandi!');
     setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   const handleDeleteHadith = async (id: string) => {
-    await deleteStoredHadith(id);
+    const res = await deleteStoredHadith(id);
     setHadithsList(getStoredHadiths());
-    setSaveSuccessMsg('Hadis oʻchirildi.');
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Hadis xavfsiz arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
     setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
@@ -810,28 +1074,197 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       targetCount: newDhikrTargetCount,
       virtueUz: 'Qalbga xotirjamlik va ulugʻ ajr keltiruvchi muborak zikr.',
       source: 'Moʻtabar manbalardan',
+      createdAtIso: new Date().toISOString(),
+      publishMode: selectedPublishMode,
+      isArchived: selectedPublishMode === 'archived',
+      mediaUrl: uploadedFileUrl || undefined,
+      mediaType: uploadedFileType,
     };
 
-    await saveStoredDhikr(newD);
+    const res = await saveStoredDhikr(newD);
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error}`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+      return;
+    }
     setDhikrsList(getStoredDhikrs());
+    setArchivedItems(getAllArchivedItems());
     setShowAddDhikrModal(false);
     setNewDhikrTitle('');
     setNewDhikrTextAr('');
     setNewDhikrTransliteration('');
     setNewDhikrTranslation('');
-    setSaveSuccessMsg('Yangi zikr va duo markaziy server bazasida saqlandi!');
+    resetModalMediaAndMode();
+    setSaveSuccessMsg('Yangi zikr va duo Firebase Firestore bazasida saqlandi!');
     setTimeout(() => setSaveSuccessMsg(null), 3500);
   };
 
   const handleDeleteDhikr = async (id: string) => {
-    await deleteStoredDhikr(id);
+    const res = await deleteStoredDhikr(id);
     setDhikrsList(getStoredDhikrs());
-    setSaveSuccessMsg('Zikr oʻchirildi.');
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Zikr xavfsiz arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
     setTimeout(() => setSaveSuccessMsg(null), 2500);
   };
 
-  // Unauthenticated: Secure Login Gate
+  // Adding new News item
+  const handleCreateNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNewsTitle.trim() || !newNewsSummary.trim()) return;
+
+    const newItem: NewsItem = {
+      id: `news-${Date.now()}`,
+      title: newNewsTitle.trim(),
+      summary: newNewsSummary.trim(),
+      content: newNewsContent.trim() || newNewsSummary.trim(),
+      category: newNewsCategory,
+      publishedDate: new Date().toLocaleDateString('uz-UZ'),
+      createdAtIso: new Date().toISOString(),
+      publishMode: selectedPublishMode,
+      isArchived: selectedPublishMode === 'archived',
+      source: 'Asaka Ziyo Axborot Xizmati',
+      imageUrl: uploadedFileUrl || '/images/islamic_scholarship_library_1793634659800.jpg',
+      mediaUrl: uploadedFileUrl || undefined,
+      mediaType: uploadedFileType,
+    };
+
+    const res = await saveStoredNews(newItem);
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error}`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+      return;
+    }
+    setNewsList(getStoredNews());
+    setArchivedItems(getAllArchivedItems());
+    setShowAddNewsModal(false);
+    setNewNewsTitle('');
+    setNewNewsSummary('');
+    setNewNewsContent('');
+    resetModalMediaAndMode();
+    setSaveSuccessMsg('Yangi yangilik Firebase Firestore bazasida muvaffaqiyatli saqlandi!');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleDeleteNews = async (id: string) => {
+    const res = await deleteStoredNews(id);
+    setNewsList(getStoredNews());
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Yangilik arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
+  };
+
+  // Adding new Announcement item
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnnTitle.trim() || !newAnnContent.trim()) return;
+
+    const newItem: AnnouncementItem = {
+      id: `ann-${Date.now()}`,
+      title: newAnnTitle.trim(),
+      type: newAnnCategory === 'Juma' ? 'juma' : newAnnCategory === 'Xayriya' ? 'xayriya' : 'masjid',
+      typeLabelUz: newAnnCategory,
+      description: newAnnContent.trim(),
+      date: new Date().toLocaleDateString('uz-UZ'),
+      createdAtIso: new Date().toISOString(),
+      publishMode: selectedPublishMode,
+      isArchived: selectedPublishMode === 'archived',
+      mediaUrl: uploadedFileUrl || undefined,
+      mediaType: uploadedFileType,
+      location: newAnnLocation.trim() || 'Asaka Markaziy Jome Masjidi',
+      isPinned: true,
+    };
+
+    const res = await saveStoredAnnouncement(newItem);
+    if (!res.success) {
+      setSaveSuccessMsg(`⚠️ Xatolik: ${res.error}`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+      return;
+    }
+    setAnnouncementsList(getStoredAnnouncements());
+    setArchivedItems(getAllArchivedItems());
+    setShowAddAnnouncementModal(false);
+    setNewAnnTitle('');
+    setNewAnnContent('');
+    resetModalMediaAndMode();
+    setSaveSuccessMsg('Yangi rasmiy eʼlon Firebase Firestore bazasida saqlandi!');
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    const res = await deleteStoredAnnouncement(id);
+    setAnnouncementsList(getStoredAnnouncements());
+    setArchivedItems(getAllArchivedItems());
+    setSaveSuccessMsg(res.success ? 'Eʼlon arxivga oʻtkazildi.' : `⚠️ ${res.error}`);
+    setTimeout(() => setSaveSuccessMsg(null), 2500);
+  };
+
+  // Create Backup Snapshot
+  const handleCreateBackup = async () => {
+    setIsCreatingBackup(true);
+    setSupabaseStatus('Firestore maʼlumotlaridan toʻliq zaxira nusxa (snapshot) olinmoqda...');
+    const snapshot = {
+      prayerSchedule: currentSchedule,
+      articles: articlesList,
+      mediaPosts: mediaList,
+      hadiths: hadithsList,
+      dhikrs: dhikrsList,
+      announcements: announcementsList,
+      news: newsList,
+      inquiries: inquiriesList,
+      drafts: draftsList,
+    };
+    const res = await createBackupSnapshot(
+      `Toʻliq zaxira nusxasi (${new Date().toLocaleString('uz-UZ')})`,
+      snapshot
+    );
+    setIsCreatingBackup(false);
+    if (res.success && res.backup) {
+      setBackupsList((prev) => [res.backup!, ...prev]);
+      setSupabaseStatus(
+        `✅ Zaxira nusxa muvaffaqiyatli yaratildi (${res.backup.id}) — Holati: ${res.backup.status}`
+      );
+    } else {
+      setSupabaseStatus(`⚠️ Zaxira yaratishda xatolik: ${res.error}`);
+    }
+  };
+
+  // Restore Backup Snapshot (with automatic pre-restore safety snapshot)
+  const handleRestoreBackup = async (backupId: string) => {
+    setIsRestoringBackupId(backupId);
+    setSupabaseStatus(`Tiklashdan oldin himoya nusxasi olinib, ${backupId} zaxirasi tiklanmoqda...`);
+    const res = await restoreBackupSnapshot(backupId);
+    if (res.success && res.data) {
+      if (res.data.prayerSchedule) {
+        await saveStoredPrayerSchedule(res.data.prayerSchedule, false);
+        onUpdateSchedule(res.data.prayerSchedule);
+      }
+      await syncAllToFirestore();
+      const updatedList = await fetchBackupList();
+      if (updatedList.success) {
+        setBackupsList(updatedList.backups);
+      }
+      setSupabaseStatus(
+        `✅ Zaxira (${backupId}) muvaffaqiyatli tiklandi va Firebase Firestore bazasiga sinxronlandi! (Himoya nusxasi: ${res.preRestoreBackupId})`
+      );
+    } else {
+      setSupabaseStatus(`⚠️ Tiklashda xatolik: ${res.error}`);
+    }
+    setIsRestoringBackupId(null);
+  };
+
+  // Unauthenticated: Secure Login Gate (Strict Privacy: No login or password hints shown to public)
   if (!isAuthenticated) {
+    if (isAuthLoading) {
+      return (
+        <div className="min-h-[70vh] flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-3 border-[#c5a869] border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-stone-400 font-mono">Xavfsiz administrator sessiyasi tekshirilmoqda...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
@@ -847,64 +1280,76 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   Maʼmuriyat Konsoli
                 </h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Asaka Ziyo tizimini boshqarish uchun maxsus kirish eshigi.
+                  Asaka Ziyo tizimini boshqarish uchun shaxsiy administrator login va parolingizni kiriting.
                 </p>
               </div>
 
               {loginError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs flex items-center gap-2 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{loginError}</span>
                 </div>
               )}
 
+              {/* Enterprise Administrator Login Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
-                    Boshqaruv Logini:
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Loginni kiriting"
-                    value={loginInput}
-                    onChange={(e) => setLoginInput(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-mono focus:outline-none focus:border-[#c5a869]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
-                    Maxfiy Parol:
-                  </label>
-                  <div className="relative">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                      Administrator logini:
+                    </label>
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type="text"
                       required
-                      placeholder="Parolni kiriting"
-                      value={passwordInput}
-                      onChange={(e) => setPasswordInput(e.target.value)}
-                      className="w-full p-3 pr-10 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-mono focus:outline-none focus:border-[#c5a869]"
+                      autoComplete="username"
+                      placeholder="Loginni kiriting"
+                      value={loginInput}
+                      onChange={(e) => setLoginInput(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-mono focus:outline-none focus:border-[#c5a869]"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-stone-400 hover:text-stone-200 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
                   </div>
-                </div>
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  className="w-full justify-center text-xs font-bold py-3.5 tracking-wider uppercase"
-                >
-                  <Lock className="w-4 h-4 mr-1.5" />
-                  <span>Konsolga Kirish</span>
-                </Button>
-              </form>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                      Maxfiy Parol:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="current-password"
+                        placeholder="••••••••"
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        className="w-full p-3 pr-10 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-mono focus:outline-none focus:border-[#c5a869]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3 text-stone-400 hover:text-stone-200 cursor-pointer"
+                        title={showPassword ? 'Parolni yashirish' : 'Parolni koʻrsatish'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    disabled={isSubmittingAuth}
+                    className="w-full justify-center text-xs font-bold py-3.5 tracking-wider uppercase cursor-pointer"
+                  >
+                    {isSubmittingAuth ? (
+                      <span>Tekshirilmoqda...</span>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 mr-1.5" />
+                        <span>Konsolga Kirish</span>
+                      </>
+                    )}
+                  </Button>
+                </form>
 
               <div className="pt-2 text-center">
                 <button
@@ -943,16 +1388,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 ASAKA ZIYO — Maʼmuriyat Markazi
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#c5a869] text-[#071614]">
-                SUPER ADMIN
+                {adminUser?.role || activeRole}
               </span>
             </div>
             <p className="text-xs text-stone-300">
-              Kirilgan hisob: <span className="font-mono text-[#c5a869]">{REQUIRED_LOGIN}</span> · Asaka jome masjidi boshqaruv portali
+              Kirilgan hisob:{' '}
+              <span className="font-semibold text-[#c5a869]">
+                {adminUser?.username || AUTHORIZED_ADMIN_USERNAME} ({adminUser?.email || AUTHORIZED_ADMIN_EMAIL})
+              </span>{' '}
+              · Firebase & Supabase Admin: <span className="font-mono text-emerald-400">{AUTHORIZED_ADMIN_EMAIL}</span>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPasswordChangeModal(true)}
+            className="text-xs border-[#c5a869]/40 text-[#c5a869] hover:bg-[#c5a869]/10"
+          >
+            <Lock className="w-3.5 h-3.5 mr-1" />
+            <span>Parolni oʻzgartirish</span>
+          </Button>
+
           <Button variant="outline" size="sm" onClick={onExitAdmin} className="text-xs">
             <ArrowLeft className="w-3.5 h-3.5 mr-1" />
             <span>Ilovaga Qaytish</span>
@@ -985,13 +1444,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           { id: 'drafts', label: `Telegram Moderatsiya (${draftsList.filter((d) => d.status === 'pending').length} yangi)`, icon: Inbox },
           { id: 'prayer_schedule', label: '8 Namoz Vaqtlari', icon: Clock },
           { id: 'content', label: 'Kontent CMS (Barcha)', icon: FileText },
+          { id: 'archive', label: `Arxiv & Tiklash (${archivedItems.length})`, icon: History },
           { id: 'inquiries', label: `Murojaatlar & Chat (${inquiriesList.filter((i) => i.status === 'new').length} yangi)`, icon: MessageSquare },
           { id: 'notifications', label: 'Push & Ovozli Eslatmalar', icon: Bell },
           { id: 'telegram', label: 'Telegram Bot & Kanal', icon: Send },
           { id: 'firebase', label: 'Firebase Firestore (Faol)', icon: Flame },
           { id: 'supabase', label: 'Bulut & Supabase (Ixtiyoriy)', icon: Database },
           { id: 'localization', label: 'Yangi Alifbo', icon: Languages },
-          { id: 'audit_logs', label: 'Audit Jurnali', icon: History },
+          { id: 'audit_logs', label: 'Audit Jurnali', icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -1405,6 +1865,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 Maqolalar ({articlesList.length})
               </button>
               <button
+                onClick={() => setCmsTab('news')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer ${
+                  cmsTab === 'news'
+                    ? 'bg-[#c5a869] text-[#071614]'
+                    : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                Yangiliklar ({newsList.length})
+              </button>
+              <button
+                onClick={() => setCmsTab('announcements')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer ${
+                  cmsTab === 'announcements'
+                    ? 'bg-[#c5a869] text-[#071614]'
+                    : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-300'
+                }`}
+              >
+                Eʼlonlar ({announcementsList.length})
+              </button>
+              <button
                 onClick={() => setCmsTab('media')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer ${
                   cmsTab === 'media'
@@ -1452,40 +1932,261 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {cmsTab === 'articles' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-stone-500">Mavjud maqolalar roʻyxati:</span>
-                <Button variant="primary" size="sm" onClick={() => setShowAddArticleModal(true)}>
+                <span className="text-xs font-bold text-stone-500">Mavjud maqolalar roʻyxati (Firestore):</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    resetModalMediaAndMode();
+                    setShowAddArticleModal(true);
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   <span>Yangi Maqola Qoʻshish</span>
                 </Button>
               </div>
 
               <div className="divide-y divide-stone-200 dark:divide-emerald-950/60">
-                {articlesList.map((art) => (
-                  <div key={art.id} className="py-3 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="font-bold text-sm text-stone-900 dark:text-stone-100 truncate">
-                        {art.title}
+                {articlesList.map((art) => {
+                  const mode: PublishMode = art.publishMode || (art.isArchived ? 'archived' : 'published');
+                  return (
+                    <div key={art.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              mode === 'published'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : mode === 'draft'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : mode === 'test'
+                                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                : 'bg-stone-500/20 text-stone-400 border border-stone-500/30'
+                            }`}
+                          >
+                            {mode === 'published'
+                              ? 'Doimiy chop etilgan'
+                              : mode === 'draft'
+                              ? 'Qoralama'
+                              : mode === 'test'
+                              ? 'Test rejimi'
+                              : 'Arxiv'}
+                          </span>
+                          <div className="font-bold text-sm text-stone-900 dark:text-stone-100 truncate">
+                            {art.title}
+                          </div>
+                        </div>
+                        <div className="text-xs text-stone-400 flex flex-wrap items-center gap-2">
+                          <span className="text-[#c5a869] font-semibold">{art.category}</span>
+                          <span>·</span>
+                          <span>{art.author}</span>
+                          <span>·</span>
+                          <span>{art.publishedDate}</span>
+                          <span>·</span>
+                          <span>{art.likesCount || 0} ta yoqdi</span>
+                        </div>
                       </div>
-                      <div className="text-xs text-stone-400 flex items-center gap-3 mt-0.5">
-                        <span className="text-[#c5a869] font-semibold">{art.category}</span>
-                        <span>·</span>
-                        <span>{art.author}</span>
-                        <span>·</span>
-                        <span>{art.likesCount || 0} ta yoqdi</span>
-                        <span>·</span>
-                        <span>{art.comments?.length || 0} ta izoh</span>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          value={mode}
+                          onChange={(e) =>
+                            handleSwitchPublishMode('articles', art.id, e.target.value as PublishMode)
+                          }
+                          className="p-1.5 text-xs rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-semibold cursor-pointer"
+                        >
+                          <option value="published">Doimiy chop etish</option>
+                          <option value="draft">Qoralama</option>
+                          <option value="test">Test rejimi</option>
+                          <option value="archived">Arxiv</option>
+                        </select>
+                        <button
+                          onClick={() => handlePermanentDelete('articles', art.id)}
+                          className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
+                          title="Butunlay oʻchirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-                    <button
-                      onClick={() => handleDeleteArticle(art.id)}
-                      className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Oʻchirish"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+          {/* CMS: NEWS */}
+          {cmsTab === 'news' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-stone-500">Rasmiy yangiliklar roʻyxati (Firestore):</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    resetModalMediaAndMode();
+                    setShowAddNewsModal(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  <span>Yangi Yangilik Qoʻshish</span>
+                </Button>
+              </div>
+
+              <div className="divide-y divide-stone-200 dark:divide-emerald-950/60">
+                {newsList.map((item) => {
+                  const mode: PublishMode = item.publishMode || (item.isArchived ? 'archived' : 'published');
+                  return (
+                    <div key={item.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              mode === 'published'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : mode === 'draft'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : mode === 'test'
+                                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                : 'bg-stone-500/20 text-stone-400 border border-stone-500/30'
+                            }`}
+                          >
+                            {mode === 'published'
+                              ? 'Doimiy chop etilgan'
+                              : mode === 'draft'
+                              ? 'Qoralama'
+                              : mode === 'test'
+                              ? 'Test rejimi'
+                              : 'Arxiv'}
+                          </span>
+                          <div className="font-bold text-sm text-stone-900 dark:text-stone-100 truncate">
+                            {item.title}
+                          </div>
+                        </div>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 line-clamp-1">{item.summary}</p>
+                        <div className="text-[11px] text-stone-400 flex items-center gap-2">
+                          <span className="text-[#c5a869] font-semibold">{item.category}</span>
+                          <span>·</span>
+                          <span>{item.publishedDate}</span>
+                          <span>·</span>
+                          <span>{item.source}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          value={mode}
+                          onChange={(e) =>
+                            handleSwitchPublishMode('news', item.id, e.target.value as PublishMode)
+                          }
+                          className="p-1.5 text-xs rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-semibold cursor-pointer"
+                        >
+                          <option value="published">Doimiy chop etish</option>
+                          <option value="draft">Qoralama</option>
+                          <option value="test">Test rejimi</option>
+                          <option value="archived">Arxiv</option>
+                        </select>
+                        <button
+                          onClick={() => handlePermanentDelete('news', item.id)}
+                          className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
+                          title="Butunlay oʻchirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* CMS: ANNOUNCEMENTS */}
+          {cmsTab === 'announcements' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-stone-500">Masjid va maʼmuriyat eʼlonlari (Firestore):</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    resetModalMediaAndMode();
+                    setShowAddAnnouncementModal(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  <span>Yangi Eʼlon Qoʻshish</span>
+                </Button>
+              </div>
+
+              <div className="divide-y divide-stone-200 dark:divide-emerald-950/60">
+                {announcementsList.map((ann) => {
+                  const mode: PublishMode = ann.publishMode || (ann.isArchived ? 'archived' : 'published');
+                  return (
+                    <div key={ann.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              mode === 'published'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : mode === 'draft'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : mode === 'test'
+                                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                : 'bg-stone-500/20 text-stone-400 border border-stone-500/30'
+                            }`}
+                          >
+                            {mode === 'published'
+                              ? 'Doimiy chop etilgan'
+                              : mode === 'draft'
+                              ? 'Qoralama'
+                              : mode === 'test'
+                              ? 'Test rejimi'
+                              : 'Arxiv'}
+                          </span>
+                          <div className="font-bold text-sm text-stone-900 dark:text-stone-100 truncate">
+                            {ann.title}
+                          </div>
+                        </div>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 line-clamp-2">{ann.description}</p>
+                        <div className="text-[11px] text-stone-400 flex items-center gap-2">
+                          <span className="text-[#c5a869] font-semibold">{ann.typeLabelUz}</span>
+                          <span>·</span>
+                          <span>{ann.date}</span>
+                          {ann.location && (
+                            <>
+                              <span>·</span>
+                              <span>{ann.location}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          value={mode}
+                          onChange={(e) =>
+                            handleSwitchPublishMode('announcements', ann.id, e.target.value as PublishMode)
+                          }
+                          className="p-1.5 text-xs rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-semibold cursor-pointer"
+                        >
+                          <option value="published">Doimiy chop etish</option>
+                          <option value="draft">Qoralama</option>
+                          <option value="test">Test rejimi</option>
+                          <option value="archived">Arxiv</option>
+                        </select>
+                        <button
+                          onClick={() => handlePermanentDelete('announcements', ann.id)}
+                          className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
+                          title="Butunlay oʻchirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1494,38 +2195,83 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {cmsTab === 'media' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-stone-500">Reels va Medialar:</span>
-                <Button variant="primary" size="sm" onClick={() => setShowAddMediaModal(true)}>
+                <span className="text-xs font-bold text-stone-500">Reels, Postlar va Medialar (Firestore):</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    resetModalMediaAndMode();
+                    setShowAddMediaModal(true);
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-1" />
-                  <span>Yangi Media Qoʻshish</span>
+                  <span>Yangi Media / Reel Qoʻshish</span>
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {mediaList.map((m) => (
-                  <div key={m.id} className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-2 bg-stone-50/50 dark:bg-black/20">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#c5a869] text-[#071614] uppercase">
-                        {m.type}
-                      </span>
-                      <button
-                        onClick={() => handleDeleteMediaPost(m.id)}
-                        className="text-stone-400 hover:text-rose-500 p-1 cursor-pointer"
-                        title="Oʻchirish"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                {mediaList.map((m) => {
+                  const mode: PublishMode = m.publishMode || (m.isArchived ? 'archived' : 'published');
+                  return (
+                    <div
+                      key={m.id}
+                      className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-2 bg-stone-50/50 dark:bg-black/20"
+                    >
+                      <div className="flex justify-between items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#c5a869] text-[#071614] uppercase">
+                            {m.type}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              mode === 'published'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : mode === 'draft'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : mode === 'test'
+                                ? 'bg-sky-500/20 text-sky-400'
+                                : 'bg-stone-500/20 text-stone-400'
+                            }`}
+                          >
+                            {mode === 'published'
+                              ? 'Jonli'
+                              : mode === 'draft'
+                              ? 'Qoralama'
+                              : mode === 'test'
+                              ? 'Test'
+                              : 'Arxiv'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handlePermanentDelete('mediaPosts', m.id)}
+                          className="text-stone-400 hover:text-rose-500 p-1 cursor-pointer"
+                          title="Butunlay oʻchirish"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="font-bold text-xs text-stone-900 dark:text-stone-100 line-clamp-1">
+                        {m.title}
+                      </div>
+                      <p className="text-[11px] text-stone-400 line-clamp-2">{m.caption}</p>
+                      <div className="pt-1 border-t border-stone-200 dark:border-white/5 flex items-center justify-between gap-2">
+                        <select
+                          value={mode}
+                          onChange={(e) =>
+                            handleSwitchPublishMode('mediaPosts', m.id, e.target.value as PublishMode)
+                          }
+                          className="p-1 text-[11px] rounded border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-semibold cursor-pointer"
+                        >
+                          <option value="published">Doimiy chop etish</option>
+                          <option value="draft">Qoralama</option>
+                          <option value="test">Test rejimi</option>
+                          <option value="archived">Arxiv</option>
+                        </select>
+                        <span className="text-[10px] text-stone-500">{m.likesCount} ta yoqdi</span>
+                      </div>
                     </div>
-                    <div className="font-bold text-xs text-stone-900 dark:text-stone-100 line-clamp-1">
-                      {m.title}
-                    </div>
-                    <p className="text-[11px] text-stone-400 line-clamp-2">{m.caption}</p>
-                    <div className="flex justify-between text-[10px] text-stone-500 pt-1 border-t border-stone-200 dark:border-white/5">
-                      <span>{m.likesCount} ta yoqdi</span>
-                      <span>{m.commentsCount} ta izoh</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1534,37 +2280,82 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {cmsTab === 'hadiths' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-stone-500">Hadislar toʻplami:</span>
-                <Button variant="primary" size="sm" onClick={() => setShowAddHadithModal(true)}>
+                <span className="text-xs font-bold text-stone-500">Hadislar toʻplami (Firestore):</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    resetModalMediaAndMode();
+                    setShowAddHadithModal(true);
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-1" />
                   <span>Yangi Hadis Qoʻshish</span>
                 </Button>
               </div>
 
               <div className="divide-y divide-stone-200 dark:divide-emerald-950/60">
-                {hadithsList.map((h) => (
-                  <div key={h.id} className="py-3 flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="font-bold text-xs text-[#c5a869]">
-                        {h.collectionNameUz} · {h.reference}
+                {hadithsList.map((h) => {
+                  const mode: PublishMode = h.publishMode || (h.isArchived ? 'archived' : 'published');
+                  return (
+                    <div key={h.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              mode === 'published'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : mode === 'draft'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : mode === 'test'
+                                ? 'bg-sky-500/20 text-sky-400'
+                                : 'bg-stone-500/20 text-stone-400'
+                            }`}
+                          >
+                            {mode === 'published'
+                              ? 'Doimiy chop etilgan'
+                              : mode === 'draft'
+                              ? 'Qoralama'
+                              : mode === 'test'
+                              ? 'Test rejimi'
+                              : 'Arxiv'}
+                          </span>
+                          <div className="font-bold text-xs text-[#c5a869]">
+                            {h.collectionNameUz} · {h.reference}
+                          </div>
+                        </div>
+                        <div className="font-arabic text-sm text-stone-800 dark:text-stone-200">
+                          {h.textAr.slice(0, 100)}...
+                        </div>
+                        <p className="text-xs text-stone-600 dark:text-stone-400">
+                          {h.translationUz.slice(0, 120)}...
+                        </p>
                       </div>
-                      <div className="font-arabic text-sm text-stone-800 dark:text-stone-200">
-                        {h.textAr.slice(0, 100)}...
-                      </div>
-                      <p className="text-xs text-stone-600 dark:text-stone-400">
-                        {h.translationUz.slice(0, 120)}...
-                      </p>
-                    </div>
 
-                    <button
-                      onClick={() => handleDeleteHadith(h.id)}
-                      className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
-                      title="Oʻchirish"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          value={mode}
+                          onChange={(e) =>
+                            handleSwitchPublishMode('hadiths', h.id, e.target.value as PublishMode)
+                          }
+                          className="p-1.5 text-xs rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-semibold cursor-pointer"
+                        >
+                          <option value="published">Doimiy chop etish</option>
+                          <option value="draft">Qoralama</option>
+                          <option value="test">Test rejimi</option>
+                          <option value="archived">Arxiv</option>
+                        </select>
+                        <button
+                          onClick={() => handlePermanentDelete('hadiths', h.id)}
+                          className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
+                          title="Butunlay oʻchirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1573,36 +2364,79 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {cmsTab === 'dhikrs' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-stone-500">Zikr va Duolar:</span>
-                <Button variant="primary" size="sm" onClick={() => setShowAddDhikrModal(true)}>
+                <span className="text-xs font-bold text-stone-500">Zikr va Duolar (Firestore):</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    resetModalMediaAndMode();
+                    setShowAddDhikrModal(true);
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-1" />
-                  <span>Yangi Zikr Qoʻshish</span>
+                  <span>Yangi Zikr / Duo Qoʻshish</span>
                 </Button>
               </div>
 
               <div className="divide-y divide-stone-200 dark:divide-emerald-950/60">
-                {dhikrsList.map((d) => (
-                  <div key={d.id} className="py-3 flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="font-bold text-xs text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                        <span>{d.titleUz}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#c5a869]/10 text-[#c5a869]">
-                          {d.targetCount} marta
-                        </span>
+                {dhikrsList.map((d) => {
+                  const mode: PublishMode = d.publishMode || (d.isArchived ? 'archived' : 'published');
+                  return (
+                    <div key={d.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="font-bold text-xs text-stone-900 dark:text-stone-100 flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              mode === 'published'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : mode === 'draft'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : mode === 'test'
+                                ? 'bg-sky-500/20 text-sky-400'
+                                : 'bg-stone-500/20 text-stone-400'
+                            }`}
+                          >
+                            {mode === 'published'
+                              ? 'Doimiy chop etilgan'
+                              : mode === 'draft'
+                              ? 'Qoralama'
+                              : mode === 'test'
+                              ? 'Test rejimi'
+                              : 'Arxiv'}
+                          </span>
+                          <span>{d.titleUz}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#c5a869]/10 text-[#c5a869]">
+                            {d.targetCount} marta
+                          </span>
+                        </div>
+                        <div className="font-arabic text-sm text-[#c5a869]">{d.textAr}</div>
+                        <p className="text-xs text-stone-600 dark:text-stone-400">{d.translationUz}</p>
                       </div>
-                      <div className="font-arabic text-sm text-[#c5a869]">{d.textAr}</div>
-                      <p className="text-xs text-stone-600 dark:text-stone-400">{d.translationUz}</p>
-                    </div>
 
-                    <button
-                      onClick={() => handleDeleteDhikr(d.id)}
-                      className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
-                      title="Oʻchirish"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          value={mode}
+                          onChange={(e) =>
+                            handleSwitchPublishMode('dhikrs', d.id, e.target.value as PublishMode)
+                          }
+                          className="p-1.5 text-xs rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-semibold cursor-pointer"
+                        >
+                          <option value="published">Doimiy chop etish</option>
+                          <option value="draft">Qoralama</option>
+                          <option value="test">Test rejimi</option>
+                          <option value="archived">Arxiv</option>
+                        </select>
+                        <button
+                          onClick={() => handlePermanentDelete('dhikrs', d.id)}
+                          className="p-2 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
+                          title="Butunlay oʻchirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1713,6 +2547,91 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             );
           })()}
+        </Card>
+      )}
+
+      {/* ---------------- TAB: ARCHIVE & SAFE RECOVERY ---------------- */}
+      {activeTab === 'archive' && (
+        <Card elevated className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-emerald-950 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <History className="w-5 h-5 text-[#c5a869]" />
+                <span>Xavfsiz Arxiv & Tiklash Markazi</span>
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Oʻchirilgan barcha maqolalar, audio/video materiallar, hadislar, zikrlar va murojaatlar shu yerda saqlanadi. Hech bir maʼlumot oʻchib ketmaydi va xohlagan payt tiklanishi mumkin.
+              </p>
+            </div>
+
+            {/* Filter buttons */}
+            <div className="flex flex-wrap gap-1.5">
+              {(['all', 'article', 'media', 'hadith', 'dhikr', 'inquiry'] as const).map((filterKey) => (
+                <button
+                  key={filterKey}
+                  onClick={() => setArchiveFilter(filterKey)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    archiveFilter === filterKey
+                      ? 'bg-[#c5a869] text-[#071614] shadow'
+                      : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                  }`}
+                >
+                  {filterKey === 'all' && `Barchasi (${archivedItems.length})`}
+                  {filterKey === 'article' && `Maqolalar (${archivedItems.filter((i) => i.type === 'article').length})`}
+                  {filterKey === 'media' && `Media (${archivedItems.filter((i) => i.type === 'media').length})`}
+                  {filterKey === 'hadith' && `Hadislar (${archivedItems.filter((i) => i.type === 'hadith').length})`}
+                  {filterKey === 'dhikr' && `Zikrlar (${archivedItems.filter((i) => i.type === 'dhikr').length})`}
+                  {filterKey === 'inquiry' && `Murojaatlar (${archivedItems.filter((i) => i.type === 'inquiry').length})`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {archiveActionMsg && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle className="w-4 h-4 shrink-0" />
+              <span>{archiveActionMsg}</span>
+            </div>
+          )}
+
+          {archivedItems.filter((i) => archiveFilter === 'all' || i.type === archiveFilter).length === 0 ? (
+            <div className="text-center py-12 text-stone-400 space-y-2">
+              <History className="w-10 h-10 mx-auto text-stone-500 opacity-50" />
+              <p className="text-sm font-semibold">Arxiv boʻsh</p>
+              <p className="text-xs text-stone-500">Hozirda arxivlangan hech qanday material mavjud emas.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-200 dark:divide-emerald-950/60">
+              {archivedItems
+                .filter((i) => archiveFilter === 'all' || i.type === archiveFilter)
+                .map((item) => (
+                  <div key={`${item.type}-${item.id}`} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-300">
+                          {item.type}
+                        </span>
+                        <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{item.title}</h4>
+                      </div>
+                      <div className="text-xs text-stone-400 flex flex-wrap items-center gap-2">
+                        <span>Arxivlangan vaqt: {new Date(item.archivedAt || Date.now()).toLocaleString('uz-UZ')}</span>
+                        {item.archivedBy && <span>· Masʼul: {item.archivedBy}</span>}
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleRestoreItem(item.type, item.id)}
+                      className="shrink-0 text-xs bg-emerald-700 hover:bg-emerald-600 text-white"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                      <span>Jonli Tizimga Qaytarish</span>
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          )}
         </Card>
       )}
 
@@ -2191,7 +3110,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
                   <span className="text-stone-500">Boshqaruvchi Admin Email:</span>
-                  <span className="font-mono text-emerald-400">mirzayevulugbek024@gmail.com</span>
+                  <span className="font-mono text-emerald-400">asakaziyo0@gmail.com</span>
                 </div>
                 <div className="flex justify-between py-1.5">
                   <span className="text-stone-500">Firestore Holati:</span>
@@ -2306,97 +3225,58 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
               <div className="font-semibold text-sm text-stone-900 dark:text-stone-100 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#c5a869]" />
-                <span>Firebase Authentication & Admin Ruxsati</span>
+                <span>Faol Administrator Seansi (Firebase Auth & RBAC)</span>
               </div>
 
               <p className="text-xs text-stone-600 dark:text-stone-400">
-                Xavfsizlik qoidalariga koʻra (<code className="text-[#c5a869]">firestore.rules</code>), boshqaruv huquqi tasdiqlangan bosh maʼmur <code className="text-[#c5a869]">mirzayevulugbek024@gmail.com</code> hisobiga biriktirilgan.
+                Xavfsizlik qoidalariga koʻra (<code className="text-[#c5a869]">firestore.rules</code>), barcha maʼmuriy amallar faqat haqiqiy Firebase autentifikatsiyasidan oʻtgan va Firestore <code className="text-[#c5a869]">/admins/{'{uid}'}</code> hujjati mavjud boʻlgan hisoblarga ruxsat etiladi.
               </p>
 
-              {firebaseUser ? (
-                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 space-y-3">
+              {adminUser ? (
+                <div className="p-3.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 space-y-3">
                   <div className="flex items-center gap-3">
-                    {firebaseUser.photoURL ? (
-                      <img
-                        src={firebaseUser.photoURL}
-                        alt="Avatar"
-                        className="w-10 h-10 rounded-full border border-emerald-500/50"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-emerald-800 flex items-center justify-center font-bold text-white">
-                        {firebaseUser.email ? firebaseUser.email[0].toUpperCase() : 'A'}
-                      </div>
-                    )}
+                    <div className="w-10 h-10 rounded-full bg-emerald-800 border border-[#c5a869]/40 flex items-center justify-center font-bold text-white text-base">
+                      {adminUser.displayName ? adminUser.displayName[0].toUpperCase() : 'A'}
+                    </div>
                     <div className="space-y-0.5">
-                      <div className="text-xs font-bold text-white">{firebaseUser.displayName || 'Google Foydalanuvchisi'}</div>
-                      <div className="text-[11px] text-emerald-300 font-mono">{firebaseUser.email}</div>
+                      <div className="text-xs font-bold text-white">{adminUser.displayName}</div>
+                      <div className="text-[11px] text-emerald-300 font-mono">
+                        {adminUser.username} · {adminUser.email}
+                      </div>
                       <div className="flex items-center gap-1.5 pt-0.5">
-                        <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded font-semibold ${
-                          adminRoleInfo?.isAdmin
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        }`}>
-                          {adminRoleInfo?.isAdmin
-                            ? `Rol: ${adminRoleInfo.role || 'superadmin'} (Baza tasdiqlagan)`
-                            : 'Rol: Oddiy Foydalanuvchi'}
+                        <span className="inline-block px-2 py-0.5 text-[10px] rounded font-bold bg-[#c5a869] text-[#071614]">
+                          Rol: {adminUser.role} (Firestore tasdiqlangan)
                         </span>
-                        {firebaseUser.emailVerified && (
-                          <span className="text-[10px] text-emerald-400">✓ Email tasdiqlangan</span>
-                        )}
+                        <span className="text-[10px] text-emerald-400 font-semibold">✓ Faol Sessiya</span>
                       </div>
                     </div>
                   </div>
+
+                  <div className="text-[11px] text-stone-400 font-mono space-y-1 pt-2 border-t border-emerald-950">
+                    <div>UID: <span className="text-stone-300">{adminUser.uid}</span></div>
+                    {adminUser.lastLoginAt && (
+                      <div>Oxirgi kirish: <span className="text-stone-300">{new Date(adminUser.lastLoginAt).toLocaleString('uz-UZ')}</span></div>
+                    )}
+                  </div>
+
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={async () => {
-                      await signOutFirebase();
-                      setFirebaseUser(null);
-                      setAdminRoleInfo(null);
-                      setFirebaseStatus('Firebase hisobidan chiqildi.');
-                    }}
+                    onClick={handleLogout}
                     className="w-full justify-center text-xs text-rose-400 hover:text-rose-300"
                   >
-                    <span>Google Hisobidan Chiqish</span>
+                    <LogOut className="w-3.5 h-3.5 mr-1" />
+                    <span>Xavfsiz Chiqish</span>
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className="text-xs text-stone-500">
-                    Hozirda tizimga parol orqali kirilgansiz (<span className="font-mono text-[#c5a869]">{REQUIRED_LOGIN}</span>).
-                    Ixtiyoriy ravishda Google orqali Firebase Auth seansini ochishingiz mumkin:
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      setFirebaseStatus('Google bilan kirish oynasi ochilmoqda...');
-                      const user = await signInWithGoogle();
-                      if (user) {
-                        setFirebaseUser(user);
-                        if (user.email === 'mirzayevulugbek024@gmail.com') {
-                          await bootstrapAdmin(user);
-                        }
-                        const role = await checkAdminRole(user.uid);
-                        setAdminRoleInfo(role);
-                        if (role.isAdmin) {
-                          setFirebaseStatus(`✅ Xush kelibsiz, ${user.displayName || user.email}! Boshqaruvchi roli: ${role.role} (/admins/${user.uid}).`);
-                        } else {
-                          setFirebaseStatus(`ℹ️ Kirildi: ${user.email}. Ushbu akkaunt oddiy foydalanuvchi hisoblanadi (maʼmuriyat huquqi berilmagan).`);
-                        }
-                      } else {
-                        setFirebaseStatus('Google orqali kirish bekor qilindi yoki yopildi.');
-                      }
-                    }}
-                    className="w-full justify-center text-xs"
-                  >
-                    <span>Google orqali Kirish (Firebase Auth)</span>
-                  </Button>
+                <div className="text-xs text-stone-400">
+                  Faol seans topilmadi.
                 </div>
               )}
 
               <div className="pt-2 border-t border-stone-200 dark:border-emerald-950/60 text-[11px] text-stone-500">
-                🔒 <b>Uch bosqichli himoya</b>: Oflayn kesh (PWA) + Markaziy server JSON bazasi + Google Cloud Firestore toʻliq muvofiqlashtirilgan.
+                🔒 <b>Xavfsizlik standarti</b>: Qattiq yozilgan parollar va avtomatik email-huquqlar butunlay olib tashlangan. Har bir administrator individual ravishda Firestore orqali boshqariladi.
               </div>
             </div>
           </div>
@@ -2409,17 +3289,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="space-y-1">
             <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
               <Database className="w-4 h-4 text-[#c5a869]" />
-              <span>Bulutli Baza & Supabase Integratsiyasi (Ixtiyoriy)</span>
+              <span>Bulutli Baza & Supabase Integratsiyasi (Ixtiyoriy Zaxira)</span>
             </h3>
             <p className="text-xs text-stone-500 dark:text-stone-400">
-              Loyiha hozirda toʻliq mustaqil: ichki doimiy server bazasi (/data/asaka_ziyo_db.json) orqali barcha maʼlumotlar (namoz vaqtlari, maqolalar, reels, hadislar, zikrlar) ishonchli saqlanmoqda. Supabase esa ixtiyoriy tashqi zaxira sifatida ishlatilishi mumkin.
+              Google Cloud Firebase Firestore (<code className="text-[#c5a869]">{AUTHORIZED_ADMIN_EMAIL}</code>) — Asaka Ziyo loyihasining yagona asosiy va doimiy maʼlumotlar bazasidir. Supabase esa faqat qoʻshimcha ikkilamchi zaxira nusxalari (backup) uchun xizmat qiladi.
             </p>
           </div>
 
           <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs flex items-start gap-2">
             <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <div>
-              <span className="font-bold">Ichki doimiy server bazasi faol:</span> Namoz jadvallari, maqolalar, audio va foydalanuvchilar suhbati browser qayta yuklanganda ham, boshqa qurilmalarda ham toʻliq saqlanadi. Hech qanday majburiy maxfiy kalitlar talab etilmaydi.
+              <span className="font-bold">Firebase & Supabase Admin Email: {AUTHORIZED_SUPABASE_ADMIN_EMAIL}</span> — Barcha bulutli maʼlumotlar va ikkilamchi zaxiralar yagona tasdiqlangan administrator (<code className="font-mono">{AUTHORIZED_ADMIN_USERNAME}</code> / <code className="font-mono">{AUTHORIZED_SUPABASE_ADMIN_EMAIL}</code>) hisobiga biriktirilgan.
             </div>
           </div>
 
@@ -2432,7 +3312,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4 p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50">
               <div className="font-semibold text-sm text-stone-900 dark:text-stone-100">
-                Supabase Sozlamalari (Ixtiyoriy)
+                Supabase Sozlamalari (Ixtiyoriy Zaxira)
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold block">Supabase Administrator Email:</label>
+                <input
+                  type="email"
+                  readOnly
+                  value={AUTHORIZED_SUPABASE_ADMIN_EMAIL}
+                  className="w-full p-2.5 text-xs font-mono font-bold text-emerald-400 rounded-xl border border-emerald-500/30 bg-emerald-950/20"
+                />
               </div>
 
               <div className="space-y-2">
@@ -2441,7 +3331,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   type="text"
                   placeholder="https://xyzcompany.supabase.co"
                   value={supabaseConfig.url}
-                  onChange={(e) => setSupabaseConfig({ ...supabaseConfig, url: e.target.value })}
+                  onChange={(e) => setSupabaseConfig({ ...supabaseConfig, url: e.target.value, adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL })}
                   className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
                 />
               </div>
@@ -2452,7 +3342,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   type="password"
                   placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                   value={supabaseConfig.anonKey}
-                  onChange={(e) => setSupabaseConfig({ ...supabaseConfig, anonKey: e.target.value })}
+                  onChange={(e) => setSupabaseConfig({ ...supabaseConfig, anonKey: e.target.value, adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL })}
                   className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
                 />
                 <p className="text-[11px] text-stone-400">
@@ -2465,7 +3355,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <input
                     type="checkbox"
                     checked={supabaseConfig.isEnabled}
-                    onChange={(e) => setSupabaseConfig({ ...supabaseConfig, isEnabled: e.target.checked })}
+                    onChange={(e) => setSupabaseConfig({ ...supabaseConfig, isEnabled: e.target.checked, adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL })}
                     className="rounded text-[#c5a869] focus:ring-[#c5a869]"
                   />
                   <span>Supabase tashqi zaxirasini yoqish</span>
@@ -2477,8 +3367,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   variant="primary"
                   size="sm"
                   onClick={() => {
-                    saveStoredSupabaseConfig(supabaseConfig);
-                    setSupabaseStatus('Supabase konfiguratsiyasi saqlandi!');
+                    const updatedCfg = { ...supabaseConfig, adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL };
+                    setSupabaseConfig(updatedCfg);
+                    saveStoredSupabaseConfig(updatedCfg);
+                    setSupabaseStatus(`✅ Supabase konfiguratsiyasi (${AUTHORIZED_SUPABASE_ADMIN_EMAIL}) saqlandi!`);
                     setTimeout(() => setSupabaseStatus(null), 3000);
                   }}
                 >
@@ -2508,24 +3400,102 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               <div className="space-y-2 text-xs text-stone-600 dark:text-stone-400">
-                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
                   <span>Asosiy Maʼlumotlar Bazasi:</span>
-                  <span className="font-bold text-emerald-400">✅ Doimiy Server JSON (/data)</span>
+                  <span className="font-bold text-emerald-400">✅ Firebase Firestore (Primary)</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Firebase Admin Email:</span>
+                  <span className="font-mono font-bold text-emerald-400">{AUTHORIZED_ADMIN_EMAIL}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Supabase Admin Email:</span>
+                  <span className="font-mono font-bold text-emerald-400">{AUTHORIZED_SUPABASE_ADMIN_EMAIL}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
+                  <span>Administrator Login:</span>
+                  <span className="font-mono font-bold text-[#c5a869]">{AUTHORIZED_ADMIN_USERNAME}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
                   <span>Cross-Tab Sinxronizatsiya:</span>
                   <span className="font-bold text-emerald-400">✅ BroadcastChannel faol</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
+                <div className="flex justify-between py-1.5 border-b border-stone-200 dark:border-emerald-950/60">
                   <span>Oflayn Kesh (PWA):</span>
                   <span className="font-bold text-emerald-400">✅ LocalStorage kesh faol</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-stone-200 dark:border-emerald-950/60">
-                  <span>Tashqi Supabase Buluti:</span>
-                  <span className="font-bold text-stone-400">{supabaseConfig.isEnabled ? 'Ulangan' : 'Ixtiyoriy (Oʻchirilgan)'}</span>
+                <div className="flex justify-between py-1.5">
+                  <span>Tashqi Supabase Holati:</span>
+                  <span className={`font-bold ${supabaseConfig.isEnabled && supabaseConfig.url && supabaseConfig.anonKey ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {supabaseConfig.isEnabled && supabaseConfig.url && supabaseConfig.anonKey
+                      ? '✅ Ulangan (Faol)'
+                      : '⚠️ Sozlanmagan (Tashqi URL va Anon Key kiritilmagan)'}
+                  </span>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Backup & Restore Snapshot Manager */}
+          <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/50 dark:bg-[#071614]/50 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <Server className="w-4 h-4 text-[#c5a869]" />
+                  <span>Zaxira Nusxalari va Tiklash Markazi (Backup & Restore)</span>
+                </h4>
+                <p className="text-xs text-stone-500">
+                  Firebase Firestore maʼlumotlaridan toʻliq zaxira nusxa olish va istalgan nuqtaga xavfsiz qaytarish (tiklashdan oldin avtomatik himoya nusxasi olinadi).
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={isCreatingBackup}
+                onClick={handleCreateBackup}
+                className="shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                <span>{isCreatingBackup ? 'Yaratilmoqda...' : 'Yangi Zaxira Nusxa Yaratish'}</span>
+              </Button>
+            </div>
+
+            {backupsList.length === 0 ? (
+              <div className="p-4 text-center text-xs text-stone-500 border border-dashed border-stone-200 dark:border-emerald-950 rounded-xl">
+                Hozircha saqlangan zaxira nusxalari mavjud emas. Yuqoridagi tugma orqali birinchi zaxirani yarating.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {backupsList.map((b) => (
+                  <div
+                    key={b.id}
+                    className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                        <span>{b.label}</span>
+                        <span className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 font-mono">
+                          {b.status}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-stone-500 font-mono">
+                        ID: {b.id} · Vaqt: {new Date(b.createdAt).toLocaleString('uz-UZ')} · Manzil: {b.destination}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isRestoringBackupId === b.id}
+                      onClick={() => handleRestoreBackup(b.id)}
+                      className="shrink-0 text-xs"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isRestoringBackupId === b.id ? 'animate-spin' : ''}`} />
+                      <span>{isRestoringBackupId === b.id ? 'Tiklanmoqda...' : 'Zaxiradan Tiklash'}</span>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
       )}
@@ -2617,6 +3587,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Yangi Maqola Qoʻshish
             </h3>
             <form onSubmit={handleCreateArticle} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Joylash rejimi:</label>
+                  <select
+                    value={selectedPublishMode}
+                    onChange={(e) => setSelectedPublishMode(e.target.value as PublishMode)}
+                    className="w-full p-2 text-xs rounded-xl border border-[#c5a869]/40 bg-stone-50 dark:bg-[#071614] font-bold"
+                  >
+                    <option value="published">Doimiy chop etish (Jonli)</option>
+                    <option value="draft">Qoralama (Faqat adminga)</option>
+                    <option value="test">Test qilish rejimi</option>
+                    <option value="archived">Arxivga joylash</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Rasm / Video fayl yuklash:</label>
+                  <label className="w-full flex items-center justify-center gap-1.5 p-2 text-xs font-bold rounded-xl border border-dashed border-[#c5a869]/50 bg-[#c5a869]/10 text-[#c5a869] cursor-pointer hover:bg-[#c5a869]/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingFile ? 'Yuklanmoqda...' : 'Fayl tanlash (Rasm/Video)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {fileUploadStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium">{fileUploadStatus}</div>
+              )}
               <input
                 type="text"
                 required
@@ -2673,7 +3674,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   Bekor qilish
                 </Button>
                 <Button type="submit" variant="primary" size="sm">
-                  Chop etish
+                  Saqlash
                 </Button>
               </div>
             </form>
@@ -2686,9 +3687,40 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <Card elevated className="p-6 max-w-lg w-full space-y-4 max-h-[85vh] overflow-y-auto border-[#c5a869]/40">
             <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">
-              Yangi Reels & Media Qoʻshish
+              Yangi Reels, Post & Media Qoʻshish
             </h3>
             <form onSubmit={handleCreateMediaPost} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Joylash rejimi:</label>
+                  <select
+                    value={selectedPublishMode}
+                    onChange={(e) => setSelectedPublishMode(e.target.value as PublishMode)}
+                    className="w-full p-2 text-xs rounded-xl border border-[#c5a869]/40 bg-stone-50 dark:bg-[#071614] font-bold"
+                  >
+                    <option value="published">Doimiy chop etish (Jonli)</option>
+                    <option value="draft">Qoralama (Faqat adminga)</option>
+                    <option value="test">Test qilish rejimi</option>
+                    <option value="archived">Arxivga joylash</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Video / Rasm / Audio yuklash:</label>
+                  <label className="w-full flex items-center justify-center gap-1.5 p-2 text-xs font-bold rounded-xl border border-dashed border-[#c5a869]/50 bg-[#c5a869]/10 text-[#c5a869] cursor-pointer hover:bg-[#c5a869]/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingFile ? 'Yuklanmoqda...' : 'Fayl tanlash (Video/Rasm)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {fileUploadStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium">{fileUploadStatus}</div>
+              )}
               <input
                 type="text"
                 required
@@ -2706,7 +3738,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <option value="reel">Reel (Qisqa video)</option>
                   <option value="video">Toʻliq Video</option>
                   <option value="audio">Audio Tilovat</option>
-                  <option value="image">Maʼrifiy Tasvir</option>
+                  <option value="image">Maʼrifiy Tasvir / Post</option>
                 </select>
                 <input
                   type="text"
@@ -2717,8 +3749,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 />
               </div>
               <input
-                type="url"
-                placeholder="Media URL (Rasm yoki video havolasi)..."
+                type="text"
+                placeholder="Media URL yoki yuqoridan fayl tanlang..."
                 value={newMediaUrl}
                 onChange={(e) => setNewMediaUrl(e.target.value)}
                 className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
@@ -2736,7 +3768,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   Bekor qilish
                 </Button>
                 <Button type="submit" variant="primary" size="sm">
-                  Eʼlon qilish
+                  Saqlash
                 </Button>
               </div>
             </form>
@@ -2752,6 +3784,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Yangi Hadis Qoʻshish
             </h3>
             <form onSubmit={handleCreateHadith} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Joylash rejimi:</label>
+                  <select
+                    value={selectedPublishMode}
+                    onChange={(e) => setSelectedPublishMode(e.target.value as PublishMode)}
+                    className="w-full p-2 text-xs rounded-xl border border-[#c5a869]/40 bg-stone-50 dark:bg-[#071614] font-bold"
+                  >
+                    <option value="published">Doimiy chop etish (Jonli)</option>
+                    <option value="draft">Qoralama (Faqat adminga)</option>
+                    <option value="test">Test qilish rejimi</option>
+                    <option value="archived">Arxivga joylash</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Rasm / Video fayl (ixtiyoriy):</label>
+                  <label className="w-full flex items-center justify-center gap-1.5 p-2 text-xs font-bold rounded-xl border border-dashed border-[#c5a869]/50 bg-[#c5a869]/10 text-[#c5a869] cursor-pointer hover:bg-[#c5a869]/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingFile ? 'Yuklanmoqda...' : 'Fayl tanlash'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {fileUploadStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium">{fileUploadStatus}</div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={newHadithCollection}
@@ -2817,10 +3880,41 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Yangi Zikr / Duo Qoʻshish
             </h3>
             <form onSubmit={handleCreateDhikr} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Joylash rejimi:</label>
+                  <select
+                    value={selectedPublishMode}
+                    onChange={(e) => setSelectedPublishMode(e.target.value as PublishMode)}
+                    className="w-full p-2 text-xs rounded-xl border border-[#c5a869]/40 bg-stone-50 dark:bg-[#071614] font-bold"
+                  >
+                    <option value="published">Doimiy chop etish (Jonli)</option>
+                    <option value="draft">Qoralama (Faqat adminga)</option>
+                    <option value="test">Test qilish rejimi</option>
+                    <option value="archived">Arxivga joylash</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Rasm / Audio / Video fayl:</label>
+                  <label className="w-full flex items-center justify-center gap-1.5 p-2 text-xs font-bold rounded-xl border border-dashed border-[#c5a869]/50 bg-[#c5a869]/10 text-[#c5a869] cursor-pointer hover:bg-[#c5a869]/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingFile ? 'Yuklanmoqda...' : 'Fayl tanlash'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {fileUploadStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium">{fileUploadStatus}</div>
+              )}
               <input
                 type="text"
                 required
-                placeholder="Zikr nomi..."
+                placeholder="Zikr yoki duo nomi..."
                 value={newDhikrTitle}
                 onChange={(e) => setNewDhikrTitle(e.target.value)}
                 className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
@@ -2874,6 +3968,257 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </Button>
                 <Button type="submit" variant="primary" size="sm">
                   Saqlash
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* ---------------- MODAL: ADD NEWS ---------------- */}
+      {showAddNewsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card elevated className="p-6 max-w-lg w-full space-y-4 max-h-[85vh] overflow-y-auto border-[#c5a869]/40">
+            <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">
+              Yangi Yangilik Qoʻshish
+            </h3>
+            <form onSubmit={handleCreateNews} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Joylash rejimi:</label>
+                  <select
+                    value={selectedPublishMode}
+                    onChange={(e) => setSelectedPublishMode(e.target.value as PublishMode)}
+                    className="w-full p-2 text-xs rounded-xl border border-[#c5a869]/40 bg-stone-50 dark:bg-[#071614] font-bold"
+                  >
+                    <option value="published">Doimiy chop etish (Jonli)</option>
+                    <option value="draft">Qoralama (Faqat adminga)</option>
+                    <option value="test">Test qilish rejimi</option>
+                    <option value="archived">Arxivga joylash</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Rasm / Video fayl yuklash:</label>
+                  <label className="w-full flex items-center justify-center gap-1.5 p-2 text-xs font-bold rounded-xl border border-dashed border-[#c5a869]/50 bg-[#c5a869]/10 text-[#c5a869] cursor-pointer hover:bg-[#c5a869]/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingFile ? 'Yuklanmoqda...' : 'Fayl tanlash (Rasm/Video)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {fileUploadStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium">{fileUploadStatus}</div>
+              )}
+              <input
+                type="text"
+                required
+                placeholder="Yangilik sarlavhasi..."
+                value={newNewsTitle}
+                onChange={(e) => setNewNewsTitle(e.target.value)}
+                className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+              />
+              <select
+                value={newNewsCategory}
+                onChange={(e) => setNewNewsCategory(e.target.value as any)}
+                className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+              >
+                <option value="Masjid hayoti">Masjid hayoti</option>
+                <option value="Mahalliy">Mahalliy</option>
+                <option value="Oʻzbekiston">Oʻzbekiston</option>
+                <option value="Ilm-maʼrifat">Ilm-maʼrifat</option>
+              </select>
+              <textarea
+                rows={2}
+                required
+                placeholder="Qisqacha xulosa (summary)..."
+                value={newNewsSummary}
+                onChange={(e) => setNewNewsSummary(e.target.value)}
+                className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+              />
+              <textarea
+                rows={4}
+                placeholder="Toʻliq yangilik matni..."
+                value={newNewsContent}
+                onChange={(e) => setNewNewsContent(e.target.value)}
+                className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowAddNewsModal(false)}>
+                  Bekor qilish
+                </Button>
+                <Button type="submit" variant="primary" size="sm">
+                  Saqlash
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* ---------------- MODAL: ADD ANNOUNCEMENT ---------------- */}
+      {showAddAnnouncementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card elevated className="p-6 max-w-lg w-full space-y-4 max-h-[85vh] overflow-y-auto border-[#c5a869]/40">
+            <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">
+              Yangi Rasmiy Eʼlon Qoʻshish
+            </h3>
+            <form onSubmit={handleCreateAnnouncement} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Joylash rejimi:</label>
+                  <select
+                    value={selectedPublishMode}
+                    onChange={(e) => setSelectedPublishMode(e.target.value as PublishMode)}
+                    className="w-full p-2 text-xs rounded-xl border border-[#c5a869]/40 bg-stone-50 dark:bg-[#071614] font-bold"
+                  >
+                    <option value="published">Doimiy chop etish (Jonli)</option>
+                    <option value="draft">Qoralama (Faqat adminga)</option>
+                    <option value="test">Test qilish rejimi</option>
+                    <option value="archived">Arxivga joylash</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-stone-400">Rasm / Video fayl yuklash:</label>
+                  <label className="w-full flex items-center justify-center gap-1.5 p-2 text-xs font-bold rounded-xl border border-dashed border-[#c5a869]/50 bg-[#c5a869]/10 text-[#c5a869] cursor-pointer hover:bg-[#c5a869]/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingFile ? 'Yuklanmoqda...' : 'Fayl tanlash (Rasm/Video)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,video/*,audio/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+              {fileUploadStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium">{fileUploadStatus}</div>
+              )}
+              <input
+                type="text"
+                required
+                placeholder="Eʼlon sarlavhasi..."
+                value={newAnnTitle}
+                onChange={(e) => setNewAnnTitle(e.target.value)}
+                className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={newAnnCategory}
+                  onChange={(e) => setNewAnnCategory(e.target.value as any)}
+                  className="p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+                >
+                  <option value="Muhim">Muhim</option>
+                  <option value="Juma">Juma</option>
+                  <option value="Ramazon">Ramazon</option>
+                  <option value="Tadbir">Tadbir</option>
+                  <option value="Xayriya">Xayriya</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Manzil..."
+                  value={newAnnLocation}
+                  onChange={(e) => setNewAnnLocation(e.target.value)}
+                  className="p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+                />
+              </div>
+              <textarea
+                rows={3}
+                required
+                placeholder="Eʼlonning toʻliq matni..."
+                value={newAnnContent}
+                onChange={(e) => setNewAnnContent(e.target.value)}
+                className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowAddAnnouncementModal(false)}>
+                  Bekor qilish
+                </Button>
+                <Button type="submit" variant="primary" size="sm">
+                  Saqlash
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* ---------------- MODAL: PASSWORD CHANGE ---------------- */}
+      {showPasswordChangeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card elevated className="p-6 max-w-md w-full space-y-4 border-[#c5a869]/40">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-base text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#c5a869]" />
+                <span>Administrator Parolini Oʻzgartirish</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPasswordChangeModal(false);
+                  setPasswordChangeStatus(null);
+                }}
+                className="text-stone-400 hover:text-stone-200 text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-stone-500">
+              Ushbu amal joriy administrator hisobingiz parolini Firebase Auth va server tizimida xavfsiz yangilaydi.
+            </p>
+
+            {passwordChangeStatus && (
+              <div className="p-3 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 text-xs">
+                {passwordChangeStatus}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold">Yangi Parol (kamida 8 ta belgi):</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  placeholder="Yangi parolni kiriting"
+                  value={newPasswordValue}
+                  onChange={(e) => setNewPasswordValue(e.target.value)}
+                  className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold">Yangi Parolni Qayta Kiriting:</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  placeholder="Parolni tasdiqlang"
+                  value={confirmNewPasswordValue}
+                  onChange={(e) => setConfirmNewPasswordValue(e.target.value)}
+                  className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] font-mono"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowPasswordChangeModal(false);
+                    setPasswordChangeStatus(null);
+                  }}
+                >
+                  Bekor qilish
+                </Button>
+                <Button type="submit" variant="primary" size="sm">
+                  Parolni Saqlash
                 </Button>
               </div>
             </form>

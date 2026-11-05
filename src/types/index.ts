@@ -112,7 +112,23 @@ export interface QuranReciter {
   previewUrl: string;
 }
 
-export interface HadithItem {
+export type PublishMode = 'published' | 'draft' | 'archived' | 'test';
+
+export interface Archivable {
+  publishMode?: PublishMode;
+  createdAtIso?: string;
+  mediaUrl?: string;
+  videoUrl?: string;
+  mediaType?: 'image' | 'video' | 'audio';
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface HadithItem extends Archivable {
   id: string;
   collection: 'bukhari' | 'muslim' | 'nawawi' | 'tirmidhi';
   collectionNameUz: string;
@@ -126,7 +142,7 @@ export interface HadithItem {
   keywords: string[];
 }
 
-export interface DhikrItem {
+export interface DhikrItem extends Archivable {
   id: string;
   category: 'tonggi' | 'kechki' | 'namozdan_keyin' | 'sayyidul_istigfor';
   categoryTitleUz: string;
@@ -149,7 +165,7 @@ export interface CommentItem {
   likesCount?: number;
 }
 
-export interface MediaPost {
+export interface MediaPost extends Archivable {
   id: string;
   title: string;
   type: 'reel' | 'video' | 'audio' | 'image';
@@ -165,7 +181,7 @@ export interface MediaPost {
   isPublished: boolean;
 }
 
-export interface SupportInquiry {
+export interface SupportInquiry extends Archivable {
   id: string;
   userName: string;
   userPhone?: string;
@@ -179,7 +195,7 @@ export interface SupportInquiry {
   repliedBy?: string;
 }
 
-export interface Article {
+export interface Article extends Archivable {
   id: string;
   title: string;
   subtitle: string;
@@ -200,7 +216,7 @@ export interface Article {
   translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
-export interface NewsItem {
+export interface NewsItem extends Archivable {
   id: string;
   title: string;
   publishedDate: string;
@@ -213,7 +229,7 @@ export interface NewsItem {
   translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
-export interface AnnouncementItem {
+export interface AnnouncementItem extends Archivable {
   id: string;
   title: string;
   type: 'juma' | 'talim' | 'xayriya' | 'masjid';
@@ -243,6 +259,18 @@ export interface AdminRoleConfig {
   labelUz: string;
   descriptionUz: string;
   permissions: string[];
+}
+
+export interface AdminUser {
+  uid: string;
+  email: string;
+  username?: string;
+  displayName: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  lastLoginAt?: string;
 }
 
 export interface AuditLogEntry {
@@ -279,7 +307,7 @@ export interface AppSettings {
   prayerReminders?: Record<string, { triggerMinutesBefore: number; soundProfile: 'chime' | 'azan' | 'silent'; enabled: boolean }>;
 }
 
-export interface TelegramDraftItem {
+export interface TelegramDraftItem extends Archivable {
   id: string;
   sourceChannel: string; // '@Asaka_Ziyo' | '@muhiddinsahhofuz'
   targetSection: 'prayer' | 'announcements' | 'news' | 'articles' | 'media';
