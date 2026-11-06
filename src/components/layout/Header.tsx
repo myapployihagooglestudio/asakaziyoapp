@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { IslamicStarEmblem } from '../ui/GeometricPattern';
 import { LanguageSelector } from '../ui/LanguageSelector';
-import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download, MessageSquare, Bell } from 'lucide-react';
+import { Menu, X, Shield, Bookmark, Settings as SettingsIcon, Download, MessageSquare, Bell, MessageSquareText } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   favoritesCount: number;
   unreadNotificationsCount?: number;
+  unreadMessagesCount?: number;
   onOpenInstallModal?: () => void;
   onOpenChatModal?: () => void;
 }
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   favoritesCount,
   unreadNotificationsCount = 0,
+  unreadMessagesCount = 0,
   onOpenInstallModal,
   onOpenChatModal,
 }) => {
@@ -34,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   const secondaryLinks: { id: NavigationTab; labelKey: string }[] = [
+    { id: 'messages', labelKey: 'messages' },
     { id: 'articles', labelKey: 'articles' },
     { id: 'news', labelKey: 'news' },
     { id: 'announcements', labelKey: 'announcements' },
@@ -141,6 +144,23 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Savol / Chat</span>
               </button>
             )}
+
+            {/* Messages / Channel feed button */}
+            <button
+              onClick={() => handleNavClick('messages')}
+              className={`relative p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${
+                activeTab === 'messages' ? 'text-[#c5a869]' : ''
+              }`}
+              title="Rasmiy Xabarlar & Yangiliklar kanali"
+              aria-label="Rasmiy Xabarlar kanali"
+            >
+              <MessageSquareText className="w-5 h-5" />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#c5a869] text-[#071614] text-[9px] font-bold flex items-center justify-center leading-none">
+                  {unreadMessagesCount}
+                </span>
+              )}
+            </button>
 
             {/* Notifications button */}
             <button

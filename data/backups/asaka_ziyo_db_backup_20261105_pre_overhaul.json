@@ -1,0 +1,33 @@
+{
+  "updatedAt": "2026-11-05T03:42:34.531Z",
+  "prayerSchedule": {
+    "id": "asaka-main",
+    "region": "Asaka, Andijon",
+    "date": "2026-11-05",
+    "bomdod": "04:30",
+    "quyosh": "05:55",
+    "peshin": "12:30",
+    "asr": "17:15",
+    "shom": "19:10",
+    "xufton": "20:35",
+    "isRamadan": false,
+    "saharlikEnd": "04:20",
+    "iftorlikStart": "19:10",
+    "jumaTime": "12:30",
+    "jumaTopic": "",
+    "jumaImam": "",
+    "eidDate": "",
+    "eidTime": "06:30",
+    "isAdministratorPublished": false,
+    "updatedAt": "2026-11-05T03:42:34.531Z"
+  },
+  "inquiries": [],
+  "drafts": [],
+  "articles": [],
+  "mediaPosts": [],
+  "hadiths": [],
+  "dhikrs": [],
+  "announcements": [],
+  "news": [],
+  "notifications": []
+}

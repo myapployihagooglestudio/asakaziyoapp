@@ -1,13 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
-import { Home, BookOpen, Clock, FileText, Bell, MoreHorizontal } from 'lucide-react';
+import { Home, BookOpen, Clock, MessageSquareText, MoreHorizontal } from 'lucide-react';
 
 interface MobileNavProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   onOpenMoreMenu: () => void;
   unreadNotificationsCount?: number;
+  unreadMessagesCount?: number;
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({
@@ -15,6 +16,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   onSelectTab,
   onOpenMoreMenu,
   unreadNotificationsCount = 0,
+  unreadMessagesCount = 0,
 }) => {
   const { t } = useTranslation('navigation');
 
@@ -22,8 +24,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     { id: 'home', labelKey: 'home', icon: <Home className="w-5 h-5" /> },
     { id: 'prayer', labelKey: 'prayer', icon: <Clock className="w-5 h-5" /> },
     { id: 'quran', labelKey: 'quran', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'articles', labelKey: 'articles', icon: <FileText className="w-5 h-5" /> },
-    { id: 'notifications', labelKey: 'notifications', icon: <Bell className="w-5 h-5" />, badge: unreadNotificationsCount },
+    { id: 'messages', labelKey: 'messages', icon: <MessageSquareText className="w-5 h-5" />, badge: unreadMessagesCount },
   ];
 
   return (
@@ -54,7 +55,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 )}
               </div>
               <span className="text-[10px] tracking-tight whitespace-nowrap">
-                {t(item.labelKey, item.id === 'notifications' ? 'Xabarlar' : item.id === 'articles' ? 'Maqolalar' : item.labelKey)}
+                {t(item.labelKey, item.id === 'messages' ? 'Xabarlar' : item.id === 'prayer' ? 'Namoz' : item.id === 'quran' ? 'Qurʼon' : 'Bosh sahifa')}
               </span>
             </button>
           );

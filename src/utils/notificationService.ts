@@ -1,6 +1,7 @@
 /**
- * ASAKA ZIYO — Notification and Prayer Alert Service
- * Handles Web Notifications API, Web Audio Azan chime, and Shayx Mishary Rashid Alafasy Adhan audio streams.
+ * ASAKA ZIYO — Notification and Prayer Alert Service (2026)
+ * Handles Web Notifications API, Web Audio synthetic Azan tone,
+ * and Sheikh Mishary Rashid Alafasy canonical Adhan audio streams.
  */
 
 import { getStoredAdhanTracks, AdhanTrack } from '../data/adhanTracksData';
@@ -10,32 +11,56 @@ export interface AppNotification {
   title: string;
   message: string;
   timestamp: string;
-  category: 'prayer' | 'announcement' | 'news' | 'system';
+  category: 'prayer' | 'announcement' | 'news' | 'system' | 'quiz' | 'article' | 'hadith' | 'dhikr' | 'general';
   read: boolean;
-  priority?: 'normal' | 'high';
+  priority?: 'normal' | 'high' | 'urgent';
+  imageUrl?: string;
+  linkTab?: string;
+  routeTab?: string;
+  routeId?: string;
 }
 
-const STORAGE_KEY = 'asaka_ziyo_notifications';
-const PRAYER_SETTINGS_KEY = 'asaka_ziyo_prayer_alert_settings';
+const STORAGE_KEY = 'asaka_ziyo_notifications_v3';
+const PRAYER_SETTINGS_KEY = 'asaka_ziyo_prayer_alert_settings_v3';
 
 export interface PrayerAlertSettings {
   enabled: boolean;
   minutesBefore: number;
   soundEnabled: boolean;
+  volume: number; // 0.1 to 1.0
   notifyOnExactTime: boolean;
   defaultAdhanTrackId: string;
   bomdodAdhanTrackId: string;
   perPrayerTracks?: Record<string, string>; // prayerKey -> trackId
+  individualPrayerAlerts?: Record<string, boolean>; // prayerKey -> boolean
 }
 
 export const DEFAULT_PRAYER_ALERT_SETTINGS: PrayerAlertSettings = {
   enabled: true,
   minutesBefore: 15,
   soundEnabled: true,
+  volume: 0.85,
   notifyOnExactTime: true,
-  defaultAdhanTrackId: 'track-mishary-short',
+  defaultAdhanTrackId: 'track-mishary-madinah',
   bomdodAdhanTrackId: 'track-mishary-bomdod',
-  perPrayerTracks: {},
+  perPrayerTracks: {
+    bomdod: 'track-mishary-bomdod',
+    subh: 'track-mishary-bomdod',
+    peshin: 'track-mishary-madinah',
+    asr: 'track-mishary-madinah',
+    shom: 'track-mishary-short',
+    xufton: 'track-mishary-madinah',
+  },
+  individualPrayerAlerts: {
+    tahajjud: true,
+    subh: true,
+    bomdod: true,
+    quyosh: true,
+    peshin: true,
+    asr: true,
+    shom: true,
+    xufton: true,
+  },
 };
 
 export const getPrayerAlertSettings = (): PrayerAlertSettings => {
@@ -64,7 +89,10 @@ export const getStoredNotifications = (): AppNotification[] => {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const data = localStorage.getItem(STORAGE_KEY);
-      if (data) return JSON.parse(data);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     }
   } catch (e) {
     // fallback
@@ -73,7 +101,7 @@ export const getStoredNotifications = (): AppNotification[] => {
     {
       id: 'notif-welcome',
       title: 'Asaka Ziyo tizimiga xush kelibsiz!',
-      message: 'Asaka jome masjidi rasmiy mobil va veb portaliga xush kelibsiz. Namoz vaqtlari va Qurʼon qiroatlari yangilandi.',
+      message: 'Asaka markaziy jome masjidi rasmiy mobil va veb portaliga xush kelibsiz. Namoz vaqtlari, Qurʼon qiroatlari va kunlik viktorina faol.',
       timestamp: new Date().toLocaleDateString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
       category: 'system',
       read: false,
@@ -121,11 +149,12 @@ export const markNotificationAsRead = (id: string): void => {
 };
 
 /**
- * Web Audio synthetic Azan tone / gentle chime
+ * Web Audio synthetic Azan chime (Guaranteed to work 100% offline without external network)
  */
 export const playGentleChime = (): void => {
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
 
     const ctx = new AudioContextClass();
@@ -140,7 +169,7 @@ export const playGentleChime = (): void => {
       osc.frequency.setValueAtTime(freq, now + idx * 0.15);
 
       gain.gain.setValueAtTime(0, now + idx * 0.15);
-      gain.gain.linearRampToValueAtTime(0.2 / (idx + 1), now + idx * 0.15 + 0.05);
+      gain.gain.linearRampToValueAtTime(0.25 / (idx + 1), now + idx * 0.15 + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.15 + 1.8);
 
       osc.connect(gain);
@@ -154,30 +183,78 @@ export const playGentleChime = (): void => {
   }
 };
 
-/**
- * Play specific Adhan track by ID
- */
-export const playAdhanTrackById = (trackId: string): void => {
-  const tracks = getStoredAdhanTracks();
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track || !track.url) {
-    playGentleChime();
-    return;
-  }
-  try {
-    const audio = new Audio(track.url);
-    audio.play().catch(() => playGentleChime());
-  } catch (e) {
-    playGentleChime();
+// Global active audio instance to prevent audio overlap
+let activeAdhanAudio: HTMLAudioElement | null = null;
+
+export const stopActiveAdhanAudio = (): void => {
+  if (activeAdhanAudio) {
+    try {
+      activeAdhanAudio.pause();
+      activeAdhanAudio.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    activeAdhanAudio = null;
   }
 };
 
 /**
- * Play Adhan for specific prayer key (supports Bomdod special track)
+ * Play specific Adhan track by ID with volume control and overlap prevention
+ */
+export const playAdhanTrackById = (trackId: string, customVolume?: number): Promise<boolean> => {
+  return new Promise((resolve) => {
+    stopActiveAdhanAudio();
+
+    const tracks = getStoredAdhanTracks();
+    const track = tracks.find((t) => t.id === trackId);
+    if (!track || !track.url) {
+      playGentleChime();
+      resolve(true);
+      return;
+    }
+
+    try {
+      const audio = new Audio(track.url);
+      const settings = getPrayerAlertSettings();
+      audio.volume = Math.max(0.1, Math.min(1.0, customVolume ?? settings.volume ?? 0.85));
+
+      activeAdhanAudio = audio;
+
+      audio.onended = () => {
+        activeAdhanAudio = null;
+        resolve(true);
+      };
+
+      audio.onerror = () => {
+        console.warn('[Adhan] Failed to stream audio file, falling back to gentle chime.');
+        activeAdhanAudio = null;
+        playGentleChime();
+        resolve(false);
+      };
+
+      audio.play().then(() => resolve(true)).catch((err) => {
+        console.warn('[Adhan] Browser autoplay restrictions prevented audio:', err);
+        playGentleChime();
+        resolve(false);
+      });
+    } catch (e) {
+      playGentleChime();
+      resolve(false);
+    }
+  });
+};
+
+/**
+ * Play Adhan for specific prayer key
  */
 export const playPrayerAdhanSound = (prayerKey: string): void => {
   const settings = getPrayerAlertSettings();
   if (!settings.soundEnabled) return;
+
+  // Check individual prayer switch
+  if (settings.individualPrayerAlerts && settings.individualPrayerAlerts[prayerKey] === false) {
+    return;
+  }
 
   let trackId = settings.defaultAdhanTrackId;
   if (prayerKey === 'bomdod' || prayerKey === 'subh') {
@@ -187,28 +264,7 @@ export const playPrayerAdhanSound = (prayerKey: string): void => {
     trackId = settings.perPrayerTracks[prayerKey];
   }
 
-  playAdhanTrackById(trackId);
-};
-
-/**
- * Offline download helper for adhan audio tracks
- */
-export const downloadAdhanTrackFile = async (track: AdhanTrack): Promise<void> => {
-  if (!track.url) return;
-  try {
-    const res = await fetch(track.url);
-    const blob = await res.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = `${track.id}_${track.muazzin}.mp3`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(blobUrl);
-    a.remove();
-  } catch {
-    window.open(track.url, '_blank');
-  }
+  playAdhanTrackById(trackId, settings.volume);
 };
 
 /**
@@ -220,12 +276,21 @@ export const requestPushPermission = async (): Promise<boolean> => {
   }
 
   if (Notification.permission === 'granted') {
+    import('./fcmClient').then((m) => m.requestFCMToken()).catch(() => {});
     return true;
   }
 
   if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        import('./fcmClient').then((m) => m.requestFCMToken()).catch(() => {});
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 
   return false;
@@ -234,19 +299,48 @@ export const requestPushPermission = async (): Promise<boolean> => {
 /**
  * Trigger native browser notification
  */
-export const triggerBrowserNotification = (title: string, body: string, prayerKey: string = 'peshin'): void => {
+export const triggerBrowserNotification = (
+  title: string,
+  body: string,
+  prayerKey: string = 'peshin'
+): void => {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
 
   if (Notification.permission === 'granted') {
     try {
       new Notification(title, {
         body,
-        icon: '/favicon.ico',
+        icon: '/pwa-192x192.png',
         badge: '/favicon.ico',
+        tag: `asaka_${prayerKey}_${Date.now()}`,
       });
       playPrayerAdhanSound(prayerKey);
     } catch (e) {
       // ignore
     }
+  }
+};
+
+export const playAdhanAudioTrack = (track: { id: string; url?: string }, customVolume?: number): Promise<boolean> => {
+  return playAdhanTrackById(track.id, customVolume);
+};
+
+export const isAdhanAudioPlaying = (): boolean => {
+  return activeAdhanAudio !== null && !activeAdhanAudio.paused;
+};
+
+export const downloadAdhanTrackFile = (track: { id: string; title?: string; url: string }): void => {
+  if (!track.url || typeof window === 'undefined') return;
+  try {
+    const link = document.createElement('a');
+    link.href = track.url;
+    link.download = `${track.title || track.id}.mp3`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.warn('[Adhan] Download action error:', e);
   }
 };

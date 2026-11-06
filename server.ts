@@ -1426,6 +1426,221 @@ app.post('/api/backup/restore', requireAdminAuth, (req: Request, res: Response) 
   });
 });
 
+// 13. FCM Push Token Management
+app.post('/api/notifications/fcm-token', (req: Request, res: Response) => {
+  const { token, platform, userAgent } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ success: false, error: 'FCM token talab qilinadi.' });
+  }
+
+  const db = readDatabase();
+  if (!Array.isArray(db.fcmTokens)) db.fcmTokens = [];
+
+  const existingIdx = db.fcmTokens.findIndex((t: any) => t.token === token);
+  const tokenRecord = {
+    token,
+    platform: platform || 'web',
+    userAgent: (userAgent || req.headers['user-agent'] || '').slice(0, 150),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existingIdx >= 0) {
+    db.fcmTokens[existingIdx] = { ...db.fcmTokens[existingIdx], ...tokenRecord };
+  } else {
+    db.fcmTokens.push({ ...tokenRecord, createdAt: new Date().toISOString() });
+  }
+
+  // Cap stored tokens to 1000
+  if (db.fcmTokens.length > 1000) {
+    db.fcmTokens = db.fcmTokens.slice(-1000);
+  }
+
+  writeDatabase(db);
+  return res.json({ success: true, count: db.fcmTokens.length });
+});
+
+// 13.1 Admin Notifications Composer & Broadcast with Delivery Statistics
+app.post('/api/notifications/broadcast', requireAdminAuth, (req: Request, res: Response) => {
+  const { title, message, category, imageUrl, linkTab, targetAudience, scheduleAt } = req.body || {};
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ success: false, error: 'Bildirishnoma sarlavhasi kiritilishi shart.' });
+  }
+
+  const db = readDatabase();
+  if (!Array.isArray(db.notifications)) db.notifications = [];
+  if (!Array.isArray(db.fcmTokens)) db.fcmTokens = [];
+
+  const nowIso = new Date().toISOString();
+  const notifId = `notif-${Date.now()}`;
+  const newNotif = {
+    id: notifId,
+    title: String(title).trim(),
+    message: String(message || '').trim(),
+    category: category || 'announcement',
+    priority: 'high',
+    imageUrl: imageUrl || '',
+    linkTab: linkTab || 'notifications',
+    timestamp: new Date().toLocaleDateString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+    createdAt: nowIso,
+    scheduleAt: scheduleAt || null,
+    targetAudience: targetAudience || 'all',
+    read: false,
+    isArchived: false,
+    deliveryStats: {
+      registeredTokens: db.fcmTokens.length,
+      deliveredInApp: true,
+      deliveredAt: nowIso,
+    },
+  };
+
+  db.notifications.unshift(newNotif);
+  writeDatabase(db);
+
+  return res.json({
+    success: true,
+    notification: newNotif,
+    deliveryStats: newNotif.deliveryStats,
+  });
+});
+
+// 14. Telegram/YouTube-Style Channel Messages & User Inbox
+app.get('/api/messages', (_req: Request, res: Response) => {
+  const db = readDatabase();
+  const messages = Array.isArray(db.messages) ? db.messages.filter((m: any) => !m.isArchived) : [];
+  return res.json({ success: true, messages });
+});
+
+app.post('/api/messages', async (req: Request, res: Response) => {
+  const { action, message, messageId, replyText } = req.body || {};
+  const db = readDatabase();
+  if (!Array.isArray(db.messages)) db.messages = [];
+
+  // User reply to an existing message thread
+  if (action === 'reply' && messageId && replyText) {
+    const target = db.messages.find((m: any) => m.id === messageId);
+    if (!target) return res.status(404).json({ success: false, error: 'Xabar topilmadi.' });
+
+    const nowStr = `Bugun, ${new Date().getHours().toString().padStart(2, '0')}:${new Date()
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+    target.userReply = String(replyText).trim();
+    target.userRepliedAt = nowStr;
+    writeDatabase(db);
+    return res.json({ success: true, message: target });
+  }
+
+  // Admin compose / send message (requires admin token)
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1]?.trim() : undefined;
+  const authCheck = await evaluateFirebaseAdminToken(token);
+
+  if (authCheck.status === 'unauthenticated') {
+    return res.status(401).json({ success: false, error: authCheck.error });
+  }
+  if (authCheck.status === 'forbidden') {
+    return res.status(403).json({ success: false, error: authCheck.error });
+  }
+
+  if (action === 'create' || action === 'broadcast') {
+    if (!message || !message.title || !message.body) {
+      return res.status(400).json({ success: false, error: 'Xabar sarlavhasi va matni kiritilishi shart.' });
+    }
+
+    const now = new Date();
+    const formattedDate = `Bugun, ${now.getHours().toString().padStart(2, '0')}:${now
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+
+    const newMsg = {
+      id: message.id || `msg-${Date.now()}`,
+      title: String(message.title).trim(),
+      body: String(message.body).trim(),
+      category: message.category || 'general',
+      senderName: message.senderName || 'Asaka Jome Masjidi Maʼmuriyati',
+      senderRole: message.senderRole || 'Bosh Administrator',
+      createdAt: formattedDate,
+      timestampMs: Date.now(),
+      read: false,
+      isBroadcast: message.isBroadcast !== false,
+      targetUserId: message.targetUserId || null,
+      imageUrl: message.imageUrl || null,
+      linkTab: message.linkTab || null,
+      linkUrl: message.linkUrl || null,
+      priority: message.priority || 'normal',
+      isArchived: false,
+    };
+
+    db.messages.unshift(newMsg);
+    writeDatabase(db);
+
+    return res.json({ success: true, message: newMsg, messages: db.messages });
+  }
+
+  if (action === 'archive' || action === 'delete') {
+    const target = db.messages.find((m: any) => m.id === messageId);
+    if (target) {
+      target.isArchived = true;
+      target.archivedAt = new Date().toISOString();
+      writeDatabase(db);
+    }
+    return res.json({ success: true, messages: db.messages });
+  }
+
+  return res.status(400).json({ success: false, error: 'Nomaʼlum xabar amali.' });
+});
+
+// 15. Daily Islamic Quiz & Progress
+app.get('/api/quiz/daily', (req: Request, res: Response) => {
+  const dateStr = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+  const db = readDatabase();
+  const customQuestions = Array.isArray(db.quizQuestions) ? db.quizQuestions : [];
+
+  return res.json({
+    success: true,
+    date: dateStr,
+    customQuestionsCount: customQuestions.length,
+  });
+});
+
+app.post('/api/quiz/questions', requireAdminAuth, (req: Request, res: Response) => {
+  const { action, question, questionId } = req.body || {};
+  const db = readDatabase();
+  if (!Array.isArray(db.quizQuestions)) db.quizQuestions = [];
+
+  if (action === 'create' || action === 'save') {
+    if (!question || !question.questionUz || !Array.isArray(question.optionsUz) || question.optionsUz.length < 4) {
+      return res.status(400).json({ success: false, error: 'Savol matni va 4 ta javob varianti kiritilishi shart.' });
+    }
+
+    const newQ = {
+      ...question,
+      id: question.id || `q-admin-${Date.now()}`,
+      isApproved: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    const existingIdx = db.quizQuestions.findIndex((q: any) => q.id === newQ.id);
+    if (existingIdx >= 0) {
+      db.quizQuestions[existingIdx] = newQ;
+    } else {
+      db.quizQuestions.unshift(newQ);
+    }
+
+    writeDatabase(db);
+    return res.json({ success: true, questions: db.quizQuestions });
+  }
+
+  if (action === 'delete') {
+    db.quizQuestions = db.quizQuestions.filter((q: any) => q.id !== questionId);
+    writeDatabase(db);
+    return res.json({ success: true, questions: db.quizQuestions });
+  }
+
+  return res.status(400).json({ success: false, error: 'Nomaʼlum viktorina amali.' });
+});
+
 // ---------------------------------------------------------------------------
 // 6. DEVELOPMENT & PRODUCTION VITE MOUNTING
 // ---------------------------------------------------------------------------

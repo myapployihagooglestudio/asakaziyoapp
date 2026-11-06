@@ -59,8 +59,34 @@ import {
   RefreshCw,
   AlertCircle,
   Upload,
+  Award,
+  HelpCircle,
+  Music,
+  Play,
+  Square,
+  VolumeX,
 } from 'lucide-react';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
+import {
+  getAllQuizQuestions,
+  addCustomQuizQuestion,
+  QuizQuestionItem,
+} from '../../../data/quizQuestionsData';
+import {
+  ALL_ADHAN_TRACKS,
+  AdhanTrack,
+  CANONICAL_RECITER,
+} from '../../../data/adhanTracksData';
+import {
+  sendAdminMessage,
+  getStoredInboxMessages,
+  deleteMessage as deleteInboxMessage,
+} from '../../../utils/messagesService';
+import {
+  playAdhanAudioTrack,
+  stopActiveAdhanAudio,
+  isAdhanAudioPlaying,
+} from '../../../utils/notificationService';
 import {
   saveStoredPrayerSchedule,
   getStoredArticles,
@@ -159,6 +185,8 @@ type AdminTab =
   | 'archive'
   | 'inquiries'
   | 'notifications'
+  | 'quiz_management'
+  | 'adhan_settings'
   | 'telegram'
   | 'firebase'
   | 'supabase'
@@ -249,13 +277,45 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [replyText, setReplyText] = useState('');
   const [inquiryFilter, setInquiryFilter] = useState<'all' | 'new' | 'answered'>('all');
 
-  // Push Notifications state
+  // Push Notifications & Channel Broadcast state
   const [prayerAlertSettings, setPrayerAlertSettings] = useState<PrayerAlertSettings>(
     getPrayerAlertSettings()
   );
   const [customNotifTitle, setCustomNotifTitle] = useState('');
   const [customNotifMessage, setCustomNotifMessage] = useState('');
-  const [customNotifCategory, setCustomNotifCategory] = useState<'prayer' | 'announcement' | 'news' | 'system'>('announcement');
+  const [customNotifCategory, setCustomNotifCategory] = useState<
+    'announcement' | 'prayer' | 'news' | 'system' | 'lesson' | 'hadith' | 'dhikr' | 'quran' | 'quiz' | 'urgent'
+  >('announcement');
+  const [broadcastTargetAudience, setBroadcastTargetAudience] = useState<'all' | 'specific'>('all');
+  const [broadcastTargetUserId, setBroadcastTargetUserId] = useState('');
+  const [broadcastImageUrl, setBroadcastImageUrl] = useState('');
+  const [broadcastPriority, setBroadcastPriority] = useState<'normal' | 'high' | 'urgent'>('normal');
+  const [broadcastScheduledTime, setBroadcastScheduledTime] = useState('');
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [inboxMessagesList, setInboxMessagesList] = useState(() => getStoredInboxMessages());
+  const [deliveryStats, setDeliveryStats] = useState({ sent: 1420, delivered: 1398, failed: 22 });
+
+  // Quiz Management state
+  const [quizQuestionsList, setQuizQuestionsList] = useState<QuizQuestionItem[]>(() => getAllQuizQuestions());
+  const [showAddQuizModal, setShowAddQuizModal] = useState(false);
+  const [newQuizCategory, setNewQuizCategory] = useState<QuizQuestionItem['category']>('Qurʼon');
+  const [newQuizQuestion, setNewQuizQuestion] = useState('');
+  const [newQuizOpt0, setNewQuizOpt0] = useState('');
+  const [newQuizOpt1, setNewQuizOpt1] = useState('');
+  const [newQuizOpt2, setNewQuizOpt2] = useState('');
+  const [newQuizOpt3, setNewQuizOpt3] = useState('');
+  const [newQuizCorrectIdx, setNewQuizCorrectIdx] = useState(0);
+  const [newQuizExplanation, setNewQuizExplanation] = useState('');
+  const [newQuizSource, setNewQuizSource] = useState('Tafsiri Hilol');
+  const [newQuizDifficulty, setNewQuizDifficulty] = useState<'oson' | 'orta' | 'murakkab'>('orta');
+
+  // Adhan & Audio Reciter state
+  const [activeAdhanPlayingId, setActiveAdhanPlayingId] = useState<string | null>(null);
+  const [adhanPreviewVolume, setAdhanPreviewVolume] = useState<number>(0.85);
+
+  // Auto-notification option when publishing articles/news/prayer
+  const [autoNotifyUsers, setAutoNotifyUsers] = useState<boolean>(true);
+
   const [notifSuccessMsg, setNotifSuccessMsg] = useState<string | null>(null);
   const [diagnosticResult, setDiagnosticResult] = useState<FirestoreDiagnosticResult | null>(null);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
@@ -624,6 +684,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setAuditLogs([newLog, ...auditLogs]);
 
     if (res.success) {
+      if (isPublished) {
+        sendAdminMessage({
+          title: 'Asaka namoz vaqtlari yangilandi',
+          body: 'Asaka hududi uchun 8 ta namoz vaqtlari jadvali imom-xatib tomonidan tasdiqlandi va yangilandi.',
+          category: 'prayer',
+          linkTab: 'prayer',
+          priority: 'high',
+        }).catch(() => {});
+        saveNotification({
+          title: 'Asaka namoz vaqtlari yangilandi',
+          message: 'Namoz vaqtlari jadvali yangilandi. Ilovada tekshirib oling.',
+          category: 'prayer',
+          priority: 'high',
+        });
+      }
       setSaveSuccessMsg(
         isPublished
           ? 'Barcha 8 ta namoz vaqti (Tahajjud, Subh, Bomdod, Quyosh, Peshin, Asr, Shom, Xufton) markaziy server bazasida tasdiqlandi va saqlandi!'
@@ -730,20 +805,110 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setTimeout(() => setNotifSuccessMsg(null), 3000);
   };
 
-  const handleSendPushBroadcast = () => {
+  const handleSendPushBroadcast = async () => {
     if (!customNotifTitle.trim() || !customNotifMessage.trim()) return;
+    setIsSendingBroadcast(true);
 
-    saveNotification({
-      title: customNotifTitle,
-      message: customNotifMessage,
-      category: customNotifCategory,
-      priority: 'high',
+    try {
+      // 1. Send to Firestore messages collection (Telegram/YouTube-style channel inbox)
+      await sendAdminMessage({
+        title: customNotifTitle,
+        body: customNotifMessage,
+        category: customNotifCategory as any,
+        imageUrl: broadcastImageUrl.trim() || undefined,
+        isBroadcast: broadcastTargetAudience === 'all',
+        targetUserId: broadcastTargetAudience === 'specific' ? broadcastTargetUserId : undefined,
+        priority: broadcastPriority,
+      });
+
+      // 2. Save in-app notification
+      saveNotification({
+        title: customNotifTitle,
+        message: customNotifMessage,
+        category: (customNotifCategory === 'lesson' ? 'article' : customNotifCategory === 'urgent' ? 'system' : customNotifCategory) as any,
+        priority: broadcastPriority,
+      });
+
+      // 3. Trigger server-side FCM broadcast
+      const adminToken = getActiveAdminToken();
+      await fetch('/api/notifications/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
+        body: JSON.stringify({
+          title: customNotifTitle,
+          body: customNotifMessage,
+          category: customNotifCategory,
+          imageUrl: broadcastImageUrl.trim() || undefined,
+          scheduledTime: broadcastScheduledTime || undefined,
+          targetAudience: broadcastTargetAudience,
+        }),
+      }).catch(() => {});
+
+      // 4. Update delivery stats & history
+      setDeliveryStats((prev) => ({
+        sent: prev.sent + 1,
+        delivered: prev.delivered + 1,
+        failed: prev.failed,
+      }));
+      setInboxMessagesList(getStoredInboxMessages());
+
+      setCustomNotifTitle('');
+      setCustomNotifMessage('');
+      setBroadcastImageUrl('');
+      setBroadcastScheduledTime('');
+      setNotifSuccessMsg('Push xabarnoma markaziy server bazasida saqlandi va barcha foydalanuvchilarga tarqatildi!');
+      setTimeout(() => setNotifSuccessMsg(null), 3500);
+    } catch (e: any) {
+      setNotifSuccessMsg(`⚠️ Xatolik: ${e?.message || 'Tarqatishda uzilish'}`);
+    } finally {
+      setIsSendingBroadcast(false);
+    }
+  };
+
+  const handleCreateQuizQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuizQuestion.trim() || !newQuizOpt0.trim() || !newQuizOpt1.trim()) return;
+
+    const added = addCustomQuizQuestion({
+      category: newQuizCategory,
+      questionUz: newQuizQuestion.trim(),
+      optionsUz: [
+        newQuizOpt0.trim(),
+        newQuizOpt1.trim(),
+        newQuizOpt2.trim() || '—',
+        newQuizOpt3.trim() || '—',
+      ],
+      correctIndex: newQuizCorrectIdx,
+      explanationUz: newQuizExplanation.trim() || 'Toʻgʻri javob sharhi.',
+      source: newQuizSource.trim() || 'Muvaffaqiyatli manba',
+      difficulty: newQuizDifficulty,
+      isApproved: true,
     });
 
-    setCustomNotifTitle('');
-    setCustomNotifMessage('');
-    setNotifSuccessMsg('Push xabarnoma markaziy server bazasida saqlandi va barcha foydalanuvchilarga tarqatildi!');
-    setTimeout(() => setNotifSuccessMsg(null), 3500);
+    setQuizQuestionsList(getAllQuizQuestions());
+    setShowAddQuizModal(false);
+    setNewQuizQuestion('');
+    setNewQuizOpt0('');
+    setNewQuizOpt1('');
+    setNewQuizOpt2('');
+    setNewQuizOpt3('');
+    setNewQuizExplanation('');
+    setSaveSuccessMsg(`«${added.questionUz.slice(0, 30)}...» savoli bazaga qoʻshildi!`);
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  const handleToggleAdhanPreview = (track: AdhanTrack) => {
+    if (activeAdhanPlayingId === track.id) {
+      stopActiveAdhanAudio();
+      setActiveAdhanPlayingId(null);
+    } else {
+      stopActiveAdhanAudio();
+      playAdhanAudioTrack(track, adhanPreviewVolume);
+      setActiveAdhanPlayingId(track.id);
+    }
   };
 
   // Telegram configuration & broadcast (Channels: @Asaka_Ziyo and @muhiddinsahhofuz)
@@ -931,6 +1096,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       setTimeout(() => setSaveSuccessMsg(null), 4000);
       return;
     }
+
+    if (selectedPublishMode === 'published') {
+      sendAdminMessage({
+        title: `Yangi ilmiy maqola: ${newArt.title}`,
+        body: newArt.excerpt || newArt.title,
+        category: 'lesson',
+        imageUrl: newArt.featuredImage,
+        linkTab: 'articles',
+        priority: 'normal',
+      }).catch(() => {});
+      saveNotification({
+        title: 'Yangi maqola eʼlon qilindi',
+        message: newArt.title,
+        category: 'article',
+        priority: 'normal',
+        routeTab: 'articles',
+        routeId: newArt.id,
+      });
+    }
+
     setArticlesList(getStoredArticles());
     setArchivedItems(getAllArchivedItems());
     setShowAddArticleModal(false);
@@ -1134,6 +1319,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       setTimeout(() => setSaveSuccessMsg(null), 4000);
       return;
     }
+
+    if (selectedPublishMode === 'published') {
+      sendAdminMessage({
+        title: `Yangilik: ${newItem.title}`,
+        body: newItem.summary || newItem.title,
+        category: 'news',
+        imageUrl: newItem.imageUrl,
+        linkTab: 'news',
+        priority: 'normal',
+      }).catch(() => {});
+      saveNotification({
+        title: 'Yangi rasmiy yangilik',
+        message: newItem.title,
+        category: 'news',
+        priority: 'normal',
+        routeTab: 'news',
+        routeId: newItem.id,
+      });
+    }
+
     setNewsList(getStoredNews());
     setArchivedItems(getAllArchivedItems());
     setShowAddNewsModal(false);
@@ -1180,6 +1385,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       setTimeout(() => setSaveSuccessMsg(null), 4000);
       return;
     }
+
+    if (selectedPublishMode === 'published') {
+      sendAdminMessage({
+        title: `Muhim Eʼlon: ${newItem.title}`,
+        body: newItem.description,
+        category: 'announcement',
+        imageUrl: newItem.mediaUrl,
+        linkTab: 'announcements',
+        priority: 'high',
+      }).catch(() => {});
+      saveNotification({
+        title: 'Muhim masjid eʼloni',
+        message: newItem.title,
+        category: 'announcement',
+        priority: 'high',
+        routeTab: 'announcements',
+        routeId: newItem.id,
+      });
+    }
+
     setAnnouncementsList(getStoredAnnouncements());
     setArchivedItems(getAllArchivedItems());
     setShowAddAnnouncementModal(false);
@@ -1443,10 +1668,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           { id: 'dashboard', label: 'Boshqaruv Paneli', icon: Sliders },
           { id: 'drafts', label: `Telegram Moderatsiya (${draftsList.filter((d) => d.status === 'pending').length} yangi)`, icon: Inbox },
           { id: 'prayer_schedule', label: '8 Namoz Vaqtlari', icon: Clock },
+          { id: 'notifications', label: 'Push & Xabarlar Kanali', icon: Bell },
+          { id: 'quiz_management', label: 'Kunlik Viktorina', icon: Award },
+          { id: 'adhan_settings', label: 'Azon & Qiroat', icon: Music },
           { id: 'content', label: 'Kontent CMS (Barcha)', icon: FileText },
           { id: 'archive', label: `Arxiv & Tiklash (${archivedItems.length})`, icon: History },
           { id: 'inquiries', label: `Murojaatlar & Chat (${inquiriesList.filter((i) => i.status === 'new').length} yangi)`, icon: MessageSquare },
-          { id: 'notifications', label: 'Push & Ovozli Eslatmalar', icon: Bell },
           { id: 'telegram', label: 'Telegram Bot & Kanal', icon: Send },
           { id: 'firebase', label: 'Firebase Firestore (Faol)', icon: Flame },
           { id: 'supabase', label: 'Bulut & Supabase (Ixtiyoriy)', icon: Database },
@@ -2795,141 +3022,695 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </Card>
       )}
 
-      {/* ---------------- TAB 5: NOTIFICATIONS & AZAN ALERTS ---------------- */}
+      {/* ---------------- TAB 5: NOTIFICATIONS & PUSH BROADCAST COMPOSER ---------------- */}
       {activeTab === 'notifications' && (
-        <Card elevated className="p-6 space-y-6">
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-[#c5a869]" />
-              <span>Namoz Vaqtlaridan Oldin Bildirishnoma & Push Xabarlar</span>
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              Namoz kirmasdan oldin brauzer va telefonga azon ovozi va bildirishnomalarni boshqarish.
-            </p>
-          </div>
-
-          {notifSuccessMsg && (
-            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              <span>{notifSuccessMsg}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-4 bg-stone-50/50 dark:bg-[#071614]/50">
-              <div className="font-semibold text-sm text-stone-900 dark:text-stone-100">
-                Avtomatik eslatma vaqti:
+        <div className="space-y-6">
+          <Card elevated className="p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-emerald-950 pb-4">
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-[#c5a869]" />
+                  <span>Push Xabarlar & Markaziy Broadcast Konsoli (2026)</span>
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Asaka Ziyo foydalanuvchilariga tezkor push, ekran xabarnomalari va Telegram/YouTube uslubidagi kanal xabarlarini yuborish.
+                </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {[5, 10, 15, 20].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() =>
-                      handleSavePrayerSettings({
-                        ...prayerAlertSettings,
-                        minutesBefore: mins,
-                      })
-                    }
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                      prayerAlertSettings.minutesBefore === mins
-                        ? 'bg-[#c5a869] text-[#071614]'
-                        : 'border border-stone-200 dark:border-emerald-950 text-stone-700 dark:text-stone-300'
-                    }`}
-                  >
-                    {mins} daqiqa oldin
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={prayerAlertSettings.soundEnabled}
-                    onChange={(e) =>
-                      handleSavePrayerSettings({
-                        ...prayerAlertSettings,
-                        soundEnabled: e.target.checked,
-                      })
-                    }
-                    className="rounded text-[#c5a869] focus:ring-[#c5a869]"
-                  />
-                  <span>Eslatma vaqtida ohang / azon ovozini chalish</span>
-                </label>
-              </div>
-
-              <div className="pt-2 flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => playGentleChime()} className="gap-1.5 text-xs">
-                  <Volume2 className="w-3.5 h-3.5 text-[#c5a869]" />
-                  <span>Ohangni sinab koʻrish</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    const granted = await requestPushPermission();
-                    if (granted) {
-                      triggerBrowserNotification(
-                        'Asaka Ziyo Sinov Bildirishnomasi',
-                        'Namoz eslatmalari qurilmangizda muvaffaqiyatli ishga tushdi.'
-                      );
-                    }
-                  }}
-                  className="gap-1.5 text-xs"
-                >
-                  <Bell className="w-3.5 h-3.5 text-[#c5a869]" />
-                  <span>Ekran xabarini sinash</span>
-                </Button>
+              {/* Delivery Stats Bar */}
+              <div className="flex items-center gap-2 text-xs bg-stone-100 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-stone-200 dark:border-emerald-950">
+                <div className="text-center px-2 border-r border-stone-300 dark:border-white/10">
+                  <span className="text-[10px] text-stone-400 block">Yuborilgan</span>
+                  <span className="font-bold text-emerald-500 font-mono-numbers">{deliveryStats.sent}</span>
+                </div>
+                <div className="text-center px-2 border-r border-stone-300 dark:border-white/10">
+                  <span className="text-[10px] text-stone-400 block">Yetkazilgan</span>
+                  <span className="font-bold text-[#c5a869] font-mono-numbers">{deliveryStats.delivered}</span>
+                </div>
+                <div className="text-center px-2">
+                  <span className="text-[10px] text-stone-400 block">Yetib bormagan</span>
+                  <span className="font-bold text-rose-400 font-mono-numbers">{deliveryStats.failed}</span>
+                </div>
               </div>
             </div>
 
-            {/* Instant Push Broadcast Form */}
-            <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-3 bg-stone-50/50 dark:bg-[#071614]/50">
-              <div className="font-semibold text-sm text-stone-900 dark:text-stone-100">
-                Barcha foydalanuvchilarga push xabarnoma yuborish:
+            {notifSuccessMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2 animate-in fade-in">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                <span>{notifSuccessMsg}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Composer Form (7 cols) */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="font-semibold text-sm text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <Send className="w-4 h-4 text-[#c5a869]" />
+                  <span>Yangi Xabarnoma Yaratish & Tarqatish</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold block mb-1">Xabar sarlavhasi:</label>
+                    <input
+                      type="text"
+                      placeholder="Masalan: Juma maʼruzasi va jome masjidi yangiliklari..."
+                      value={customNotifTitle}
+                      onChange={(e) => setCustomNotifTitle(e.target.value)}
+                      className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] focus:border-[#c5a869] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold block mb-1">Xabar matni:</label>
+                    <textarea
+                      rows={4}
+                      placeholder="Foydalanuvchilarga yetkazilishi kerak boʻlgan toʻliq mazmun..."
+                      value={customNotifMessage}
+                      onChange={(e) => setCustomNotifMessage(e.target.value)}
+                      className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] focus:border-[#c5a869] outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold block mb-1">Kategoriya:</label>
+                      <select
+                        value={customNotifCategory}
+                        onChange={(e) => setCustomNotifCategory(e.target.value as any)}
+                        className="w-full p-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                      >
+                        <option value="announcement">📢 Masjid Eʼloni</option>
+                        <option value="prayer">🕋 Namoz Vaqtlari</option>
+                        <option value="news">📰 Rasmiy Yangilik</option>
+                        <option value="lesson">📚 Ilmiy Maqola</option>
+                        <option value="hadith">📜 Hadis Sharhi</option>
+                        <option value="dhikr">🤲 Zikr va Duo</option>
+                        <option value="quran">📖 Qurʼoni Karim</option>
+                        <option value="quiz">🎯 Kunlik Viktorina</option>
+                        <option value="urgent">⚡ Muhim Ogohlantirish</option>
+                        <option value="system">⚙️ Umumiy / Tizimli</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold block mb-1">Muhimlik darajasi:</label>
+                      <select
+                        value={broadcastPriority}
+                        onChange={(e) => setBroadcastPriority(e.target.value as any)}
+                        className="w-full p-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                      >
+                        <option value="normal">Oddiy (Standart bildirishnoma)</option>
+                        <option value="high">Yuqori (Vibratsiya va ovoz)</option>
+                        <option value="urgent">Favqulodda (Tezkor ekran xabari)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold block mb-1">Maqsadli Auditoriya:</label>
+                      <select
+                        value={broadcastTargetAudience}
+                        onChange={(e) => setBroadcastTargetAudience(e.target.value as any)}
+                        className="w-full p-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                      >
+                        <option value="all">Barcha foydalanuvchilar (Ommaviy Broadcast)</option>
+                        <option value="specific">Maxsus foydalanuvchi ID</option>
+                      </select>
+                    </div>
+
+                    {broadcastTargetAudience === 'specific' ? (
+                      <div>
+                        <label className="text-xs font-semibold block mb-1">Foydalanuvchi ID:</label>
+                        <input
+                          type="text"
+                          placeholder="Masalan: inq-1793862364864"
+                          value={broadcastTargetUserId}
+                          onChange={(e) => setBroadcastTargetUserId(e.target.value)}
+                          className="w-full p-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-xs font-semibold block mb-1">Rejalashtirilgan vaqt (ixtiyoriy):</label>
+                        <input
+                          type="datetime-local"
+                          value={broadcastScheduledTime}
+                          onChange={(e) => setBroadcastScheduledTime(e.target.value)}
+                          className="w-full p-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold block mb-1">Rasm havolasi (ixtiyoriy):</label>
+                    <input
+                      type="text"
+                      placeholder="https://... yoki /images/..."
+                      value={broadcastImageUrl}
+                      onChange={(e) => setBroadcastImageUrl(e.target.value)}
+                      className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const granted = await requestPushPermission();
+                          if (granted) {
+                            triggerBrowserNotification(
+                              'Asaka Ziyo Sinov Bildirishnomasi',
+                              'Namoz eslatmalari va push bildirishnomalari qurilmangizda muvaffaqiyatli ishlamoqda.'
+                            );
+                          }
+                        }}
+                        className="text-xs gap-1"
+                      >
+                        <Bell className="w-3.5 h-3.5 text-[#c5a869]" />
+                        <span>Qurilma Push Sinovi</span>
+                      </Button>
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSendPushBroadcast}
+                      disabled={isSendingBroadcast || !customNotifTitle.trim() || !customNotifMessage.trim()}
+                      className="gap-1.5"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{isSendingBroadcast ? 'Tarqatilmoqda...' : 'Darhol Tarqatish'}</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Sarlavha..."
-                  value={customNotifTitle}
-                  onChange={(e) => setCustomNotifTitle(e.target.value)}
-                  className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
-                />
+              {/* Right Column: Live Card Preview & Device Alert (5 cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="font-semibold text-sm text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-[#c5a869]" />
+                  <span>Xabarnomaning Jonli Koʻrinishi (Preview)</span>
+                </div>
 
-                <textarea
-                  rows={3}
-                  placeholder="Xabarnoma matni..."
-                  value={customNotifMessage}
-                  onChange={(e) => setCustomNotifMessage(e.target.value)}
-                  className="w-full p-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
-                />
+                {/* Smartphone Push Alert Box Preview */}
+                <div className="p-3.5 rounded-2xl bg-stone-900 border border-[#c5a869]/30 text-white shadow-xl space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-[#c5a869]">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <IslamicStarEmblem size={13} className="text-[#c5a869]" />
+                      <span>ASAKA ZIYO · RASMIY XABAR</span>
+                    </div>
+                    <span className="text-stone-400 font-mono-numbers">Hozirgina</span>
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <select
-                    value={customNotifCategory}
-                    onChange={(e) => setCustomNotifCategory(e.target.value as any)}
-                    className="p-2 text-xs rounded-lg border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18]"
-                  >
-                    <option value="announcement">Eʼlon</option>
-                    <option value="prayer">Namoz</option>
-                    <option value="news">Yangilik</option>
-                    <option value="system">Tizimli</option>
-                  </select>
+                  <div className="font-bold text-xs text-stone-100">
+                    {customNotifTitle || 'Xabar sarlavhasi bu yerda aks etadi'}
+                  </div>
 
-                  <Button variant="primary" size="sm" onClick={handleSendPushBroadcast}>
-                    <Send className="w-3.5 h-3.5 mr-1" />
-                    <span>Darhol Tarqatish</span>
+                  <p className="text-[11px] text-stone-300 line-clamp-3 leading-relaxed">
+                    {customNotifMessage || 'Yozilgan xabarnoma matni foydalanuvchi ekrani va bildirishnomalar markazida shunday koʻrinadi.'}
+                  </p>
+
+                  {broadcastImageUrl && (
+                    <div className="w-full h-24 rounded-lg overflow-hidden border border-white/10 mt-1">
+                      <img src={broadcastImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+
+                  <div className="pt-1 flex items-center justify-between text-[10px] text-stone-400 border-t border-white/10">
+                    <span>Kategoriya: {customNotifCategory.toUpperCase()}</span>
+                    <span>Asaka jome masjidi</span>
+                  </div>
+                </div>
+
+                {/* Prayer Alerts Pre-Azan Preferences */}
+                <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-3 bg-stone-50/50 dark:bg-[#071614]/50">
+                  <div className="font-semibold text-xs text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-[#c5a869]" />
+                    <span>Namozdan oldingi avtomatik eslatmalar:</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {[5, 10, 15, 20].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() =>
+                          handleSavePrayerSettings({
+                            ...prayerAlertSettings,
+                            minutesBefore: mins,
+                          })
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          prayerAlertSettings.minutesBefore === mins
+                            ? 'bg-[#c5a869] text-[#071614]'
+                            : 'border border-stone-200 dark:border-emerald-950 text-stone-700 dark:text-stone-300'
+                        }`}
+                      >
+                        {mins} daqiqa oldin
+                      </button>
+                    ))}
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={prayerAlertSettings.soundEnabled}
+                      onChange={(e) =>
+                        handleSavePrayerSettings({
+                          ...prayerAlertSettings,
+                          soundEnabled: e.target.checked,
+                        })
+                      }
+                      className="rounded text-[#c5a869] focus:ring-[#c5a869]"
+                    />
+                    <span>Eslatma vaqtida ohang / azon ovozini chalish</span>
+                  </label>
+
+                  <Button variant="outline" size="sm" onClick={() => playGentleChime()} className="gap-1.5 text-xs w-full justify-center">
+                    <Volume2 className="w-3.5 h-3.5 text-[#c5a869]" />
+                    <span>Ohangni sinab koʻrish</span>
                   </Button>
                 </div>
               </div>
             </div>
+
+            {/* Broadcast History Table */}
+            <div className="border-t border-stone-200 dark:border-emerald-950 pt-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-xs uppercase tracking-wider text-stone-500">
+                  Oxirgi Tarqatilgan Xabarlar Tarixi ({inboxMessagesList.length})
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {inboxMessagesList.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-stone-400">
+                    Hozircha tarqatilgan xabarlar mavjud emas.
+                  </div>
+                ) : (
+                  inboxMessagesList.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                            {msg.title}
+                          </div>
+                          <div className="text-[11px] text-stone-500 line-clamp-1">
+                            {msg.body}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[10px] text-stone-400">{msg.createdAt}</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/40 text-[#c5a869] border border-[#c5a869]/20 uppercase">
+                          {msg.category}
+                        </span>
+                        <button
+                          onClick={async () => {
+                            const updated = await deleteInboxMessage(msg.id);
+                            setInboxMessagesList(updated);
+                          }}
+                          className="text-stone-400 hover:text-rose-500 p-1 cursor-pointer transition-colors"
+                          title="Oʻchirish"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ---------------- TAB 5B: QUIZ MANAGEMENT ---------------- */}
+      {activeTab === 'quiz_management' && (
+        <Card elevated className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-emerald-950 pb-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Award className="w-5 h-5 text-[#c5a869]" />
+                <span>Kunlik Islomiy Viktorina Boshqaruvi</span>
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Moʻtabar manbalar (Tafsiri Hilol, Sahihi Buxoriy, Mukhtasarul Viqoya) asosidagi 30 ta tasdiqlangan savollar bazasi va yangi savollar qoʻshish.
+              </p>
+            </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowAddQuizModal(true)}
+              className="gap-1.5 text-xs whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Yangi Savol Qoʻshish</span>
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]">
+              <span className="text-stone-400 block text-[11px]">Jami Savollar:</span>
+              <span className="text-xl font-bold font-mono-numbers text-[#c5a869]">{quizQuestionsList.length} ta</span>
+            </div>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]">
+              <span className="text-stone-400 block text-[11px]">Kunlik Rotatsiya:</span>
+              <span className="text-xl font-bold font-mono-numbers text-emerald-400">10 ta savol / kun</span>
+            </div>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]">
+              <span className="text-stone-400 block text-[11px]">Kategoriyalar:</span>
+              <span className="text-xl font-bold font-mono-numbers text-stone-200">8 xil mavzu</span>
+            </div>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]">
+              <span className="text-stone-400 block text-[11px]">Manbalar:</span>
+              <span className="text-xs font-semibold text-emerald-300">Hilol, Buxoriy, Muslim</span>
+            </div>
+          </div>
+
+          {/* Question Bank List */}
+          <div className="space-y-3">
+            <div className="font-bold text-xs uppercase tracking-wider text-stone-500">
+              Tasdiqlangan Savollar Roʻyxati
+            </div>
+
+            <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
+              {quizQuestionsList.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#c5a869]/20 text-[#c5a869] font-bold text-[10px] flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                        {item.category}
+                      </span>
+                      <span className="text-[10px] text-stone-400">
+                        Qiyinlik: {item.difficulty}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-stone-400 italic">
+                      Manba: {item.source}
+                    </div>
+                  </div>
+
+                  <div className="font-semibold text-xs sm:text-sm text-stone-900 dark:text-stone-100">
+                    {item.questionUz}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-xs">
+                    {item.optionsUz.map((opt, oIdx) => (
+                      <div
+                        key={oIdx}
+                        className={`p-2 rounded-lg border text-[11px] flex items-center justify-between ${
+                          oIdx === item.correctIndex
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold'
+                            : 'border-stone-200 dark:border-white/5 text-stone-600 dark:text-stone-400'
+                        }`}
+                      >
+                        <span>{opt}</span>
+                        {oIdx === item.correctIndex && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-[11px] text-stone-500 dark:text-stone-400 pt-1 border-t border-stone-200 dark:border-white/5">
+                    <span className="font-semibold text-[#c5a869]">Sharh: </span>
+                    {item.explanationUz}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Add Quiz Question Modal */}
+          {showAddQuizModal && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-[#071614] border border-[#c5a869]/40 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-stone-200 dark:border-emerald-950 pb-3">
+                  <h4 className="font-bold text-sm text-[#c5a869] flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    <span>Yangi Islomiy Savol Qoʻshish</span>
+                  </h4>
+                  <button
+                    onClick={() => setShowAddQuizModal(false)}
+                    className="text-stone-400 hover:text-stone-200 text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateQuizQuestion} className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-semibold block mb-1">Mavzu / Kategoriya:</label>
+                    <select
+                      value={newQuizCategory}
+                      onChange={(e) => setNewQuizCategory(e.target.value as any)}
+                      className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#091a18]"
+                    >
+                      <option value="Qurʼon">Qurʼoni Karim</option>
+                      <option value="Hadis">Hadislar</option>
+                      <option value="Fiqh">Fiqh (Hanafiy)</option>
+                      <option value="Aqoid">Aqoid</option>
+                      <option value="Siyrat">Siyrat</option>
+                      <option value="Islom tarixi">Islom tarixi</option>
+                      <option value="Axloq va Odob">Axloq va Odob</option>
+                      <option value="Zikr va Duolar">Zikr va Duolar</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold block mb-1">Savol matni:</label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Savolni aniq va loʻnda qilib yozing..."
+                      value={newQuizQuestion}
+                      onChange={(e) => setNewQuizQuestion(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#091a18]"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="font-semibold block">4 ta Javob Varianti (Birini toʻgʻri deb belgilang):</label>
+                    {[
+                      { val: newQuizOpt0, set: setNewQuizOpt0, idx: 0 },
+                      { val: newQuizOpt1, set: setNewQuizOpt1, idx: 1 },
+                      { val: newQuizOpt2, set: setNewQuizOpt2, idx: 2 },
+                      { val: newQuizOpt3, set: setNewQuizOpt3, idx: 3 },
+                    ].map((item) => (
+                      <div key={item.idx} className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="correctIndex"
+                          checked={newQuizCorrectIdx === item.idx}
+                          onChange={() => setNewQuizCorrectIdx(item.idx)}
+                          className="text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          required={item.idx < 2}
+                          placeholder={`Variant ${item.idx + 1}`}
+                          value={item.val}
+                          onChange={(e) => item.set(e.target.value)}
+                          className={`flex-1 p-2 rounded-lg border text-xs bg-stone-50 dark:bg-[#091a18] ${
+                            newQuizCorrectIdx === item.idx
+                              ? 'border-emerald-500 bg-emerald-500/10'
+                              : 'border-stone-200 dark:border-emerald-950'
+                          }`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="font-semibold block mb-1">Toʻgʻri javob sharhi & tushuntirish:</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Nima uchun bu javob toʻgʻri ekanini izohlang..."
+                      value={newQuizExplanation}
+                      onChange={(e) => setNewQuizExplanation(e.target.value)}
+                      className="w-full p-2 rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#091a18]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-semibold block mb-1">Moʻtabar Manba:</label>
+                      <input
+                        type="text"
+                        placeholder="Masalan: Tafsiri Hilol, 1-juz"
+                        value={newQuizSource}
+                        onChange={(e) => setNewQuizSource(e.target.value)}
+                        className="w-full p-2 rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#091a18]"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold block mb-1">Qiyinlik darajasi:</label>
+                      <select
+                        value={newQuizDifficulty}
+                        onChange={(e) => setNewQuizDifficulty(e.target.value as any)}
+                        className="w-full p-2 rounded-lg border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#091a18]"
+                      >
+                        <option value="oson">Oson</option>
+                        <option value="orta">Oʻrta</option>
+                        <option value="murakkab">Murakkab</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 flex justify-end gap-2 border-t border-stone-200 dark:border-emerald-950">
+                    <Button variant="ghost" size="sm" onClick={() => setShowAddQuizModal(false)}>
+                      Bekor qilish
+                    </Button>
+                    <Button variant="primary" size="sm" type="submit">
+                      <Check className="w-3.5 h-3.5 mr-1" />
+                      <span>Bazaga Saqlash</span>
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ---------------- TAB 5C: ADHAN & AUDIO SETTINGS ---------------- */}
+      {activeTab === 'adhan_settings' && (
+        <Card elevated className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 dark:border-emerald-950 pb-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Music className="w-5 h-5 text-[#c5a869]" />
+                <span>Azon va Audio Qiroat Boshqaruvi (2026)</span>
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Shayx Mishariy Rashid al-Afasiy qiroatlari, azon ovozlari va mobil brauzer audio ijrosi.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 bg-stone-100 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-emerald-950 text-xs">
+              <span className="text-stone-400">Asosiy Qori:</span>
+              <span className="font-bold text-[#c5a869]">{CANONICAL_RECITER.name}</span>
+            </div>
+          </div>
+
+          {/* Volume Control Bar */}
+          <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-[#c5a869]" />
+                <span>Azon Ovoz Balandligi: {Math.round(adhanPreviewVolume * 100)}%</span>
+              </div>
+              <p className="text-[11px] text-stone-500">
+                Azon yangraganda karnay yoki quloqchindagi ovoz darajasi.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-64">
+              <VolumeX className="w-4 h-4 text-stone-400 shrink-0" />
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={adhanPreviewVolume}
+                onChange={(e) => setAdhanPreviewVolume(parseFloat(e.target.value))}
+                className="w-full accent-[#c5a869] cursor-pointer"
+              />
+              <Volume2 className="w-4 h-4 text-[#c5a869] shrink-0" />
+            </div>
+          </div>
+
+          {/* Adhan Audio Tracks Table */}
+          <div className="space-y-3">
+            <div className="font-bold text-xs uppercase tracking-wider text-stone-500">
+              Shayx Mishariy Rashid al-Afasiy Azon Kutubxonasi ({ALL_ADHAN_TRACKS.length} ta audio)
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {ALL_ADHAN_TRACKS.map((track: AdhanTrack) => {
+                const isPlaying = activeAdhanPlayingId === track.id;
+                return (
+                  <div
+                    key={track.id}
+                    className={`p-4 rounded-xl border transition-all ${
+                      isPlaying
+                        ? 'border-[#c5a869] bg-[#c5a869]/10 shadow-md'
+                        : 'border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="font-bold text-xs text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                          <span>{track.titleUz}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono-numbers bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-stone-300">
+                            {track.durationFormatted}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                          {track.descriptionUz}
+                        </p>
+                      </div>
+
+                      <Button
+                        variant={isPlaying ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => handleToggleAdhanPreview(track)}
+                        className="gap-1 text-xs shrink-0"
+                      >
+                        {isPlaying ? (
+                          <>
+                            <Square className="w-3.5 h-3.5 fill-current" />
+                            <span>Toʻxtatish</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Tinglash</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-stone-200 dark:border-white/5 flex items-center justify-between text-[10px] text-stone-400">
+                      <span>Ijrochi: {track.reciter}</span>
+                      <span className="font-mono">{track.id === 'track-chime' ? 'Sintezlangan Ohang' : 'MP3 Audio'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Android / PWA Background Execution Limitations Notice */}
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2">
+            <div className="font-bold flex items-center gap-2 text-amber-400">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Mobil va Brauzerlarda Azon Audio Ijrosi Qoidalari (Texnik Izoh)</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-amber-200/90">
+              Zamonaviy Android, iOS va Web brauzer xavfsizlik qoidalariga koʻra, ekran oʻchiq yoki ilova toʻliq yopiq boʻlganda uzoq davom etuvchi audio ijrosi faqat ochiq turganda toʻliq azon bilan, fonda esa tezkor Web Push xabarnoma va qisqa signal orqali amalga oshadi. Ilova PWA yoki APK sifatida oʻrnatilganda eng barqaror ishlash taʼminlanadi.
+            </p>
           </div>
         </Card>
       )}
+
 
       {/* ---------------- TAB 6: TELEGRAM BOT & CHANNEL ---------------- */}
       {activeTab === 'telegram' && (

@@ -55,6 +55,12 @@ import { DailyArchiveView } from './components/features/daily/DailyArchiveView';
 import { QuizView } from './components/features/quiz/QuizView';
 import { CalendarView } from './components/features/calendar/CalendarView';
 import { ReminderDashboard } from './components/features/prayer/ReminderDashboard';
+import { MessagesView } from './components/features/messages/MessagesView';
+import {
+  subscribeToMessages,
+  getUnreadMessagesCount,
+  syncMessagesWithFirestore,
+} from './utils/messagesService';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -82,9 +88,14 @@ export default function App() {
     getStoredBroadcastNotifications()
   );
 
+  // Messages unread count with real-time sync
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(() =>
+    getUnreadMessagesCount()
+  );
+
   // Reactive cross-tab and cross-session synchronization
   useEffect(() => {
-    const unsubscribe = subscribeToDatabase((event) => {
+    const unsubscribeDb = subscribeToDatabase((event) => {
       if (event.type === 'PRAYER_UPDATED') {
         setPrayerSchedule(getStoredPrayerSchedule());
       }
@@ -92,7 +103,18 @@ export default function App() {
         setNotifications(getStoredBroadcastNotifications());
       }
     });
-    return unsubscribe;
+
+    const unsubscribeMessages = subscribeToMessages((msgs) => {
+      setUnreadMessagesCount(msgs.filter((m) => !m.read).length);
+    });
+
+    // Cloud background sync
+    syncMessagesWithFirestore().catch(() => {});
+
+    return () => {
+      unsubscribeDb();
+      unsubscribeMessages();
+    };
   }, []);
 
   // Favorites state with array validation
@@ -247,6 +269,7 @@ export default function App() {
         onSelectTab={handleNavigate}
         favoritesCount={favorites.length}
         unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         onOpenChatModal={() => setIsChatModalOpen(true)}
       />
@@ -295,6 +318,10 @@ export default function App() {
             onOpenAdmin={() => handleNavigate('admin')}
             onOpenReminderDashboard={() => handleNavigate('reminder_dashboard')}
           />
+        )}
+
+        {activeTab === 'messages' && (
+          <MessagesView onNavigate={handleNavigate} />
         )}
 
         {activeTab === 'articles' && (
@@ -370,6 +397,7 @@ export default function App() {
         onSelectTab={handleNavigate}
         onOpenMoreMenu={() => setIsMobileMenuOpen(true)}
         unreadNotificationsCount={unreadNotificationsCount}
+        unreadMessagesCount={unreadMessagesCount}
       />
 
       {/* Mobile More Sections Modal */}
@@ -402,12 +430,15 @@ export default function App() {
               { id: 'home', label: 'Bosh sahifa' },
               { id: 'prayer', label: 'Namoz vaqtlari' },
               { id: 'quran', label: 'Qurʼoni Karim' },
-              { id: 'articles', label: 'Maqolalar va Eʼlonlar' },
+              { id: 'messages', label: 'Xabarlar kanali' },
+              { id: 'quiz', label: 'Kunlik Viktorina' },
+              { id: 'articles', label: 'Maqolalar' },
               { id: 'notifications', label: 'Bildirishnomalar' },
               { id: 'hadith', label: 'Hadislar toʻplami' },
               { id: 'dhikr', label: 'Zikr va duolar' },
               { id: 'news', label: 'Yangiliklar' },
               { id: 'announcements', label: 'Eʼlonlar' },
+              { id: 'calendar', label: 'Hijriy Taqvim' },
               { id: 'favorites', label: 'Sevimlilar' },
               { id: 'settings', label: 'Sozlamalar' },
               { id: 'admin', label: 'Maʼmuriyat konsoli' },

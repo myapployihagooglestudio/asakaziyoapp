@@ -169,6 +169,71 @@
         "lastLoginAt": { "type": "string" }
       },
       "required": ["email", "role"]
+    },
+    "QuizQuestion": {
+      "title": "QuizQuestion",
+      "description": "Daily verified Islamic quiz question with 4 options and source citations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "questionUz": { "type": "string" },
+        "optionsUz": { "type": "array" },
+        "correctIndex": { "type": "number" },
+        "explanationUz": { "type": "string" },
+        "source": { "type": "string" },
+        "category": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["oson", "orta", "murakkab"] },
+        "isApproved": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "questionUz", "optionsUz", "correctIndex", "explanationUz", "source", "category"]
+    },
+    "QuizAttempt": {
+      "title": "QuizAttempt",
+      "description": "User completion attempt of daily or archived quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quizDate": { "type": "string" },
+        "score": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "completedAt": { "type": "string" },
+        "answers": { "type": "array" },
+        "userIdentifier": { "type": "string" }
+      },
+      "required": ["id", "quizDate", "score", "totalQuestions", "completedAt"]
+    },
+    "UserMessage": {
+      "title": "UserMessage",
+      "description": "Telegram/YouTube-style inbox message from administration or mosque",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "senderName": { "type": "string" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "linkUrl": { "type": "string" },
+        "isBroadcast": { "type": "boolean" },
+        "targetUserId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "title", "body", "createdAt"]
+    },
+    "FCMToken": {
+      "title": "FCMToken",
+      "description": "Browser and Android push notification registration token",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "platform": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastActiveAt": { "type": "string" },
+        "categories": { "type": "array" }
+      },
+      "required": ["token", "createdAt"]
     }
   },
   "firestore": {
@@ -223,6 +288,22 @@
     "/auditLogs/{logId}": {
       "schema": "AuditLogEntry",
       "description": "Administrative actions audit log"
+    },
+    "/quizQuestions/{questionId}": {
+      "schema": "QuizQuestion",
+      "description": "Islamic quiz question bank"
+    },
+    "/quizAttempts/{attemptId}": {
+      "schema": "QuizAttempt",
+      "description": "Quiz completion and scores"
+    },
+    "/messages/{messageId}": {
+      "schema": "UserMessage",
+      "description": "Telegram/YouTube-style notifications and inbox messages"
+    },
+    "/fcmTokens/{tokenId}": {
+      "schema": "FCMToken",
+      "description": "Push notification device tokens"
     }
   }
 }

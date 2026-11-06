@@ -1,0 +1,445 @@
+{
+  "timestamp": "2026-11-05T12:31:01.767Z",
+  "collections": {
+    "schedules": [
+      {
+        "id": "asaka-main",
+        "location": "Asaka shahri, Andijon viloyati",
+        "eidDate": "",
+        "xufton": "20:35",
+        "iftorlikStart": "19:10",
+        "isAdministratorPublished": true,
+        "timezone": "Asia/Tashkent",
+        "shom": "19:10",
+        "quyosh": "05:55",
+        "saharlikEnd": "04:20",
+        "peshin": "12:30",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "isRamadan": false,
+        "jumaImam": "",
+        "publishedBy": "Tasdiqlandi: Asaka Jome Masjidi Maʼmuriyati",
+        "jumaTopic": "",
+        "times": [
+          {
+            "time": "01:30",
+            "nameAr": "التَّهَجُّد",
+            "nameUz": "Tahajjud",
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "time": "05:35",
+            "key": "subh",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "id": "p-01",
+            "nameAr": "الصُّبْح",
+            "nameUz": "Subh (Saharlik)"
+          },
+          {
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "iqamahTime": "06:15",
+            "id": "p-1",
+            "key": "bomdod",
+            "nameAr": "الفَجْر",
+            "time": "05:35",
+            "nameUz": "Bomdod"
+          },
+          {
+            "key": "quyosh",
+            "time": "06:46",
+            "id": "p-2",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "iqamahTime": "12:50",
+            "key": "peshin",
+            "id": "p-3",
+            "time": "12:45"
+          },
+          {
+            "id": "p-4",
+            "time": "15:25",
+            "key": "asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha",
+            "iqamahTime": "15:30",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr"
+          },
+          {
+            "time": "17:10",
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "key": "shom",
+            "iqamahTime": "17:10",
+            "nameAr": "المَغْرِب",
+            "nameUz": "Shom",
+            "id": "p-5"
+          },
+          {
+            "time": "18:45",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "id": "p-6",
+            "iqamahTime": "18:55"
+          }
+        ],
+        "bomdod": "04:30",
+        "eidTime": "06:30",
+        "updatedAt": "2026-11-05T03:42:34.451Z",
+        "jumaTime": "12:30",
+        "syncedAt": "2026-11-05T12:01:41.485Z",
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "disclaimer": "Ushbu namoz vaqtlari Asaka jome masjidi maʼmuriyati tomonidan rasman tasdiqlangan va joriy etilgan jadvaldir.",
+        "region": "Asaka, Andijon",
+        "asr": "17:15",
+        "qiblaAngleDeg": 241,
+        "verifiedAt": "2026-11-05T12:01:40.567Z"
+      },
+      {
+        "id": "unauth-test",
+        "test": true
+      }
+    ],
+    "articles": [
+      {
+        "id": "art-1793856286465",
+        "author": "Asaka Masjidi Imomi",
+        "rating": 5,
+        "subtitle": "Пайшанба – амаллар Аллоҳ ҳузурига кўтариладиган муборак кун!",
+        "mediaType": "image",
+        "title": "Пайшанба – амаллар Аллоҳ ҳузурига кўтариладиган муборак кун!",
+        "readTimeMinutes": 3,
+        "updatedAt": "2026-11-05T05:24:46.467Z",
+        "ratingsCount": 1,
+        "publishedDate": "05/11/2026",
+        "likesCount": 1,
+        "category": "Axloq",
+        "authorRole": "Tahririyat Hayʼati",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "bodyParagraphs": [
+          "Пайшанба – амаллар Аллоҳ ҳузурига кўтариладиган муборак кун!",
+          "Пайшанба – ҳафтанинг энг баракали кунларидан бири, эртанги улуғЖума кунига тайёргарлик ва руҳни поклаш палласи. Бугунги кунимизни қандай ўтказишимиз эса жуда муҳим!",
+          "Нима учун пайшанба алоҳида аҳамиятга эга?",
+          "Расулуллоҳ : «Бу икки кун (душанба ва пайшанба) – амаллар оламлар Робби ҳузурига кўтариладиган кундир. Шунинг учун амалим рўза тутган ҳолатимда кўтарилишини истайман», дедилар (Насаий ривояти 2358-ҳадис).",
+          "Бу куни Аллоҳга ширк келтирмаган барча бандалар кечирилади. Фақат бир истисно бор: ўртасида адоват ва гина бўлган икки кишининг мағфирати улар ярашгунча тўхтатиб турилади (Муслим ривояти 2565-ҳадис).",
+          "Имконингиз бўлса, пайшанба куни рўза тутиб қолинг – токи амалларингиз Аллоҳ ҳузурига рўзадор ҳолатингизда кўтарилсин.",
+          "Ўртангиздаги гина-кудратларни унутинг, кечиримли бўлинг. Кечирилишдан маҳрум қолувчилардан бўлиб қолишдан эҳтиёт бўлинг. Эртанги улуғЖума кунининг файзини тўлиқ ҳис қилиш учун ҳозирдан руҳий ва жисмоний тайёргарликни бошланг."
+        ],
+        "isArchived": false,
+        "syncedAt": "2026-11-05T11:49:05.458Z",
+        "publishMode": "published",
+        "comments": [],
+        "mediaUrl": "/uploads/1793856237020_IMG_20261105_102210_496.jpg",
+        "featuredImage": "/uploads/1793856237020_IMG_20261105_102210_496.jpg",
+        "excerpt": "🌙 Payshanba – amallar Alloh huzuriga ko‘tariladigan muborak kun!\n\nPayshanba – haftaning eng barakali kunlaridan biri, ertangi ulug‘ Juma kuniga tayyorgarlik va ruhni poklash pallasi. Bugungi kunimizni qanday o‘tkazishimiz esa juda muhim!\n\n Nima uchun payshanba alohida ahamiyatga ega?\n\n Rasululloh 🤍: «Bu ikki kun (dushanba va payshanba) – amallar olamlar Robbi huzuriga ko‘tariladigan kundir. Shuning uchun amalim ro‘za tutgan holatimda ko‘tarilishini istayman», dedilar (Nasaiy rivoyati 2358-hadis).\n\n Bu kuni Allohga shirk keltirmagan barcha bandalar kechiriladi. Faqat bir istisno bor: o‘rtasida adovat va gina bo‘lgan ikki kishining mag‘firati ular yarashguncha to‘xtatib turiladi (Muslim rivoyati 2565-hadis).\n\n Imkoningiz bo‘lsa, payshanba kuni ro‘za tutib qoling – toki amallaringiz Alloh huzuriga ro‘zador holatingizda ko‘tarilsin.\n\nO‘rtangizdagi gina-kudratlarni unuting, kechirimli bo‘ling. Kechirilishdan mahrum qoluvchilardan bo‘lib qolishdan ehtiyot bo'ling. Ertangi ulug‘ Juma kunining fayzini to‘liq his qilish uchun hozirdan ruhiy va jismoniy tayyorgarlikni boshlang.",
+        "updatedBy": "Administrator",
+        "createdAtIso": "2026-11-05T05:24:46.464Z"
+      },
+      {
+        "id": "art-1793857435337",
+        "mediaType": null,
+        "publishedDate": "05/11/2026",
+        "ratingsCount": 4,
+        "publishMode": "published",
+        "mediaUrl": null,
+        "comments": [],
+        "syncedAt": "2026-11-05T11:49:04.846Z",
+        "title": "Одамлар сени ёқтириши",
+        "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+        "updatedAt": "2026-11-05T05:43:55.338Z",
+        "category": "Axloq",
+        "bodyParagraphs": [
+          "Одамлар сени ёқтираётган бўлса, билгинки, улар Аллоҳ сенда зоҳир қилиб қўйган нарсаларни ёқтиришяпти, холос. Улар ҳали Аллоҳ сатр қилиб қўйган (бировлардан яширган) қабиҳликларингни билишмайди. ",
+          "Шундай экан, мағрур бўла кўрмаки, бу Аллоҳнинг гўзал сатридир. Аллоҳдан дунёю охиратда ушбу сатр ва офиятни сен учун бардавом қилишини сўра.",
+          "Расулуллоҳ соллаллоҳу алайҳи васаллам шундай дуо қилардилар:",
+          "اللَّهُمَّ اسْتُرْ عَوْرَتِي، وَآمِنْ رَوْعَتِي",
+          "«Аллооҳуммастур ъавротии ва аамин ровъатии» \n(«Аллоҳим! Уят ишларимни яшир, қўрқинчимни омонликка айлантир».",
+          "Абу Довуд, Насаий ва Ибн Можалар ривоят қилган."
+        ],
+        "createdAtIso": "2026-11-05T05:43:55.337Z",
+        "readTimeMinutes": 3,
+        "excerpt": "Одамлар сени ёқтириши",
+        "likesCount": 9,
+        "subtitle": "Одамлар сени ёқтириши",
+        "updatedBy": "Administrator",
+        "isArchived": false,
+        "author": "Asaka Masjidi Imomi",
+        "authorRole": "Tahririyat Hayʼati",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "rating": 4.8
+      },
+      {
+        "id": "art-1793877968318",
+        "title": "Фарзандлар беш турли бўлади:",
+        "likesCount": 0,
+        "excerpt": "Фарзандлар беш турли бўлади:",
+        "authorRole": "Tahririyat Hayʼati",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "isArchived": false,
+        "updatedBy": "Administrator",
+        "subtitle": "Фарзандлар беш турли бўлади:",
+        "bodyParagraphs": [
+          "1. Ота онаси буюрган нарсани бажармайди. Бундай фарзанд ота онасига оқ бўлиб қолиши мумкин.",
+          "2. Ота онаси буюрган нарсани ёқтирмай бажаради. Бундай фарзанд ажр ва савобга эришмайди.",
+          " 3. Буюрилган нарсани бажаради. Аммо, уни миннат, уф тортиш ва овозини баландлатиш билан бажаради. Бундай фарзанд гуноҳга ботади.",
+          "4. Буюрилган нарсани чин кўнгилдан бажаради. Фарзанд бунинг учун ажр савобни қўлга киритади. Бундай фарзандлар озчиликни ташкил қилади.",
+          " 5. Ота онаси ҳали буюрмай туриб, улар хоҳлаган нарсани бажаради. Мана шу фарзанд ота онага яхшилик қилувчилар, деган савобни қўлга киритади. Бундай фарзандлар ўта нодир бўлади.",
+          "Охирги икки тури, яъни тўртинчи ва бешинчи қисмдаги фарзандларнинг умрлари ва ризқларида барака, қалблари шод, ишлари ўнгидан келувчи кимсалар бўлади. Мана шу Аллоҳнинг фазли бўлиб, Аллоҳ хоҳлаган кишисига беради. Аллоҳ улуғ фазл эгасидир. ",
+          "Аллоҳим! Бизларни ҳам ана шу охирги икки турдаги фарзандлар қаторида қилгин!"
+        ],
+        "createdAtIso": "2026-11-05T11:26:08.318Z",
+        "mediaType": null,
+        "readTimeMinutes": 3,
+        "publishedDate": "05/11/2026",
+        "comments": [],
+        "mediaUrl": null,
+        "syncedAt": "2026-11-05T11:49:04.200Z",
+        "category": "Oila",
+        "updatedAt": "2026-11-05T11:26:08.320Z",
+        "author": "Asaka Masjidi Imomi",
+        "publishMode": "published",
+        "rating": 5,
+        "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+        "ratingsCount": 1
+      },
+      {
+        "id": "art-1793878082289",
+        "syncedAt": "2026-11-05T11:49:03.579Z",
+        "comments": [],
+        "mediaUrl": null,
+        "publishMode": "published",
+        "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+        "updatedBy": "Administrator",
+        "bodyParagraphs": [
+          "Кимнидир гўзаллиги, чиройи учун яхши кўрсанг, бу севги эмас, шаҳватдир.",
+          " Кимнидир заковати учун яхши кўрсанг, бу муҳаббат эмас, ҳайратдир.",
+          "Кимнидир бойлиги учун яхши кўрсанг, бу ҳам муҳаббат эмас, балки моддапарастликдир.",
+          "Кимнидир ўз наздингда яхши бўлгани учун яхши кўрсанг, бу ҳам севги эмас, балки ҳис-туйғуларингдан миннатдорлигингдир. ",
+          "Аммо яхши кўрган кишингни нима учун яхши кўришингни ўзинг ҳам билмасанг, мана шу ҳақиқий севгидир."
+        ],
+        "title": "Яхши кўриш...",
+        "publishedDate": "05/11/2026",
+        "category": "Oila",
+        "ratingsCount": 1,
+        "updatedAt": "2026-11-05T11:28:02.289Z",
+        "authorRole": "Tahririyat Hayʼati",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "readTimeMinutes": 3,
+        "rating": 5,
+        "isArchived": false,
+        "author": "Asaka Masjidi Imomi",
+        "mediaType": null,
+        "subtitle": "Яхши кўриш...",
+        "likesCount": 0,
+        "excerpt": "Яхши кўриш...",
+        "createdAtIso": "2026-11-05T11:28:02.289Z"
+      },
+      {
+        "id": "malicious-article",
+        "body": "Spam",
+        "title": "Hacked"
+      }
+    ],
+    "mediaPosts": [
+      {
+        "id": "malicious-media",
+        "title": "Spam Reel"
+      }
+    ],
+    "hadiths": [
+      {
+        "id": "fake-hadith",
+        "text": "Fake"
+      },
+      {
+        "id": "h-1793878613983",
+        "narratorUz": "Roviy: Umar ibn Xattob (r.a.)",
+        "mediaUrl": null,
+        "syncedAt": "2026-11-05T11:49:07.410Z",
+        "translationUz": "Albatta, amallar niyatlarga bog‘liqdir. Har bir kishiga niyat qilgan narsasi bo‘ladi.\nManba: Sahih al-Buxoriy, 1-hadis.",
+        "publishMode": "published",
+        "collection": "bukhari",
+        "createdAtIso": "2026-11-05T11:36:53.983Z",
+        "keywords": [
+          "hadis",
+          "hikmat",
+          "sunnat"
+        ],
+        "mediaType": null,
+        "collectionNameUz": "Sahihi Buxoriy",
+        "isArchived": false,
+        "adminEmail": "asakaziyo0@gmail.com",
+        "chapterUz": "Moʻtabar hadislar bobi",
+        "textAr": "Amallar niyatga bog‘liq\nإِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ",
+        "number": 1,
+        "updatedAt": "2026-11-05T11:36:53.984Z",
+        "grade": "Sahih",
+        "reference": "bukhari, 1-hadis"
+      },
+      {
+        "id": "h-1793878758294",
+        "createdAtIso": "2026-11-05T11:39:18.294Z",
+        "translationUz": "Sizlardan biringiz o‘zi uchun yaxshi ko‘rgan narsani birodari uchun ham yaxshi ko‘rmagunicha komil mo‘min bo‘la olmaydi.\n\nManba: Sahih al-Buxoriy, 13; Sahih Muslim, 45.",
+        "keywords": [
+          "hadis",
+          "hikmat",
+          "sunnat"
+        ],
+        "textAr": "لَا يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لِأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ",
+        "publishMode": "published",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "number": 13,
+        "collectionNameUz": "Sahihi Buxoriy",
+        "isArchived": false,
+        "collection": "bukhari",
+        "grade": "Sahih",
+        "syncedAt": "2026-11-05T11:49:06.902Z",
+        "mediaType": null,
+        "mediaUrl": null,
+        "narratorUz": "Roviy: Anas ibn Molik (r.a.)",
+        "reference": "bukhari, 13-hadis",
+        "updatedAt": "2026-11-05T11:39:18.294Z",
+        "chapterUz": "Moʻtabar hadislar bobi"
+      },
+      {
+        "id": "h-1793878860475",
+        "number": 10,
+        "mediaUrl": null,
+        "textAr": "الْمُسْلِمُ مَنْ سَلِمَ الْمُسْلِمُونَ مِنْ لِسَانِهِ وَيَدِهِ",
+        "collectionNameUz": "Sahihi Buxoriy",
+        "syncedAt": "2026-11-05T11:49:06.130Z",
+        "publishMode": "published",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "isArchived": false,
+        "createdAtIso": "2026-11-05T11:41:00.475Z",
+        "grade": "Sahih",
+        "keywords": [
+          "hadis",
+          "hikmat",
+          "sunnat"
+        ],
+        "narratorUz": "Roviy: Abdulloh ibn Amr (r.a.)",
+        "mediaType": null,
+        "translationUz": "Musulmon — boshqa musulmonlar uning tili va qo‘lidan omonda bo‘lgan kishidir.\n\nManba: Sahih al-Buxoriy, 10-hadis.",
+        "reference": "bukhari, 10-hadis",
+        "collection": "bukhari",
+        "chapterUz": "Moʻtabar hadislar bobi",
+        "updatedAt": "2026-11-05T11:41:00.475Z"
+      }
+    ],
+    "dhikrs": [
+      {
+        "id": "d-1793878988701",
+        "mediaUrl": null,
+        "syncedAt": "2026-11-05T11:49:08.444Z",
+        "textAr": "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي، فَاغْفِرْ لِي، فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ",
+        "createdAtIso": "2026-11-05T11:43:08.701Z",
+        "titleUz": "Sayyidul istig‘for",
+        "source": "Moʻtabar manbalardan",
+        "mediaType": null,
+        "category": "sayyidul_istigfor",
+        "updatedAt": "2026-11-05T11:43:08.702Z",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "publishMode": "published",
+        "isArchived": false,
+        "targetCount": 33,
+        "categoryTitleUz": "Zikr va Tasbeh",
+        "virtueUz": "Qalbga xotirjamlik va ulugʻ ajr keltiruvchi muborak zikr.",
+        "transliterationUz": "",
+        "translationUz": "Ey Alloh! Sen mening Rabbimsan. Sendan boshqa iloh yo‘q. Meni Sen yaratding va men Sening bandangman. Imkonim boricha Senga bergan ahdim va va'damda turaman. Qilgan ishlarimning yomonligidan Sening panohingga qochaman. Menga bergan ne'matlaringni e'tirof etaman va gunohlarimni ham tan olaman. Meni mag‘firat qil. Albatta, gunohlarni Sendan boshqa hech kim kechirmaydi."
+      },
+      {
+        "id": "d-1793879070726",
+        "virtueUz": "Qalbga xotirjamlik va ulugʻ ajr keltiruvchi muborak zikr.",
+        "categoryTitleUz": "Zikr va Tasbeh",
+        "textAr": "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ",
+        "source": "Moʻtabar manbalardan",
+        "updatedAt": "2026-11-05T11:44:30.727Z",
+        "targetCount": 100,
+        "publishMode": "published",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "translationUz": "Allohni hamd aytish bilan poklab yod etaman.",
+        "mediaUrl": null,
+        "syncedAt": "2026-11-05T11:49:07.911Z",
+        "isArchived": false,
+        "createdAtIso": "2026-11-05T11:44:30.726Z",
+        "titleUz": "Subhanallohi va bihamdihi",
+        "transliterationUz": "",
+        "mediaType": null,
+        "category": "namozdan_keyin"
+      },
+      {
+        "id": "fake-dhikr",
+        "title": "Fake"
+      }
+    ],
+    "inquiries": [
+      {
+        "id": "inq-1793862364864",
+        "repliedAt": "Bugun, 12:06",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "adminReply": "assalomu alaykum",
+        "isArchived": false,
+        "syncedAt": "2026-11-05T11:49:08.992Z",
+        "subject": "Assalomu alaykum",
+        "status": "answered",
+        "userName": "U",
+        "userPhone": "852888888",
+        "message": "Salom",
+        "repliedBy": "Asaka Jome Masjidi Maʼmuriyati",
+        "createdAt": "Bugun, 12:06"
+      },
+      {
+        "id": "inq-invalid-1793881758499",
+        "status": "answered",
+        "message": "Test",
+        "userName": "Hacker"
+      },
+      {
+        "id": "inq-test-1793881758399",
+        "userName": "Audit Test User",
+        "message": "Savol matni",
+        "status": "pending"
+      }
+    ],
+    "notifications": [
+      {
+        "id": "spam-notif",
+        "title": "Spam"
+      }
+    ],
+    "drafts": [
+      {
+        "id": "draft-1793856616470",
+        "targetSection": "articles",
+        "reviewedAt": "2026-11-05 05:30",
+        "status": "rejected",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "prayerTimesDraft": null,
+        "syncedAt": "2026-11-05T11:49:09.509Z",
+        "reviewedBy": "Bosh Administrator (Asaka Ziyo)",
+        "mediaUrl": "/images/islamic_scholarship_library_1793634659800.jpg",
+        "receivedAt": "Bugun, 10:30",
+        "sourceChannel": "@muhiddinsahhofuz",
+        "content": "Alloh taolo moʻmin bandalariga oʻz Paygʻambari Muhammad Mustafo ﷺ ga itoat qilishni va ul zotning goʻzal sunnatlariga ergashishni buyuradi. Qalb qachonki sunnat bilan nurlansa, dunyo va oxirat saodatiga erishadi...",
+        "title": "Qalb tarbiyasi va sunnatga ergashish fazilati"
+      },
+      {
+        "id": "fake-draft",
+        "content": "Phishing post"
+      }
+    ],
+    "news": [],
+    "announcements": [],
+    "dailyContent": []
+  }
+}

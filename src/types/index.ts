@@ -16,6 +16,7 @@ export type NavigationTab =
   | 'settings'
   | 'admin'
   | 'notifications'
+  | 'messages'
   | 'daily_archive'
   | 'quiz'
   | 'calendar'
@@ -329,3 +330,50 @@ export interface TelegramDraftItem extends Archivable {
   reviewedBy?: string;
   reviewedAt?: string;
 }
+
+export type MessageCategory =
+  | 'announcement'
+  | 'content'
+  | 'news'
+  | 'lesson'
+  | 'hadith'
+  | 'dhikr'
+  | 'prayer'
+  | 'quran'
+  | 'quiz'
+  | 'urgent'
+  | 'direct'
+  | 'system'
+  | 'general';
+
+export interface InboxMessageItem extends Archivable {
+  id: string;
+  title: string;
+  body: string;
+  category: MessageCategory;
+  senderName: string;
+  senderRole?: string;
+  senderAvatar?: string;
+  createdAt: string;
+  timestampMs: number;
+  read: boolean;
+  linkUrl?: string;
+  linkTab?: NavigationTab;
+  imageUrl?: string;
+  isBroadcast: boolean;
+  targetUserId?: string;
+  priority?: 'normal' | 'high' | 'urgent';
+  userReply?: string;
+  userRepliedAt?: string;
+}
+
+export interface QuizAttemptItem {
+  id: string;
+  quizDate: string;
+  score: number;
+  totalQuestions: number;
+  completedAt: string;
+  answers: { questionId: string; selectedIndex: number; isCorrect: boolean }[];
+  streakDays?: number;
+}
+

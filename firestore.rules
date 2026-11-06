@@ -44,9 +44,11 @@ service cloud.firestore {
 
     // Role-based Access Control helpers
     function isSuperAdmin() {
-      return (hasAdminDoc() && (getAdminRole() in ['SUPER_ADMIN', 'superadmin'])) ||
-        (isSignedIn() && request.auth.token.email == 'asakaziyo0@gmail.com') ||
-        hasVerifiedPrimaryAdminRecord();
+      return isSignedIn() && (
+        (hasAdminDoc() && (getAdminRole() in ['SUPER_ADMIN', 'superadmin'])) ||
+        (request.auth.token.email == 'asakaziyo0@gmail.com') ||
+        (request.auth.uid == 'admin-asakaziyo0' && hasVerifiedPrimaryAdminRecord())
+      );
     }
 
     function isPrayerAdmin() {
@@ -146,7 +148,7 @@ service cloud.firestore {
       allow create: if isValidId(inquiryId) &&
         incoming().userName is string && incoming().userName.size() <= 150 &&
         incoming().message is string && incoming().message.size() <= 2000 &&
-        incoming().status in ['new', 'pending', 'answered'];
+        incoming().status in ['new', 'pending'];
       allow read, update, delete: if isSuperAdmin() || isContentAdmin();
     }
 
@@ -183,6 +185,32 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow read: if isAnyAdmin();
       allow write: if isAnyAdmin();
+    }
+
+    // 15. Daily Islamic Quiz Question Bank
+    match /quizQuestions/{questionId} {
+      allow read: if true;
+      allow write: if isValidId(questionId) && isContentAdmin();
+    }
+
+    // 16. Quiz Completion Attempts
+    match /quizAttempts/{attemptId} {
+      allow read: if true;
+      allow create: if isValidId(attemptId) && incoming().score is number;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // 17. Telegram/YouTube-style Notifications & Inbox Messages
+    match /messages/{messageId} {
+      allow read: if true;
+      allow write: if isValidId(messageId) && (isNotificationAdmin() || isContentAdmin());
+    }
+
+    // 18. FCM Device Tokens for Web & Android Push
+    match /fcmTokens/{tokenId} {
+      allow read: if isNotificationAdmin();
+      allow create, update: if isValidId(tokenId) && incoming().token is string;
+      allow delete: if isNotificationAdmin();
     }
   }
 }

@@ -49,7 +49,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Initialize Firebase App
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // Initialize Firestore with auto-detect long polling for resilient connection in all environments
 let firestoreInstance: Firestore;
