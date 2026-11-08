@@ -191,6 +191,80 @@ async function runAudit() {
     recordTest('10.1 Notifications Non-Admin Write Block', isPermissionDenied, `Notifications protected: ${err.code}`);
   }
 
+  // 11. Server-Side Vault & Lock Protection
+  try {
+    await getDoc(doc(db, '_server_vault', 'master_key'));
+    recordTest('11.1 Server Vault Read Block', false, 'Critical Vulnerability: _server_vault/master_key is readable by client!');
+  } catch (err) {
+    const isPermissionDenied = err.code === 'permission-denied' || String(err).includes('PERMISSION_DENIED');
+    recordTest('11.1 Server Vault Read Block', isPermissionDenied, `Vault protected: ${err.code}`);
+  }
+
+  try {
+    await setDoc(doc(db, '_server_gate', 'lock'), { secret: 'forged', batchId: '123' });
+    recordTest('11.2 Server Gate Forgery Block', false, 'Critical Vulnerability: _server_gate/lock forged without secret!');
+  } catch (err) {
+    const isPermissionDenied = err.code === 'permission-denied' || String(err).includes('PERMISSION_DENIED');
+    recordTest('11.2 Server Gate Forgery Block', isPermissionDenied, `Gate protected: ${err.code}`);
+  }
+
+  // 12. Authenticated Admin Server-Mediated Write, Live Firestore Read-Back, Diagnostics & Cleanup
+  const BASE_URL = 'http://127.0.0.1:3000';
+  try {
+    const loginRes = await fetch(`${BASE_URL}/api/admin/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'menageradmin',
+        password: process.env.ADMIN_PASSWORD || 'menageradmin1',
+      }),
+    });
+    const loginJson = await loginRes.json();
+    const token = loginJson.token;
+    recordTest(
+      '12.1 Admin Authentication (menageradmin)',
+      loginRes.status === 200 && Boolean(token),
+      `Authenticated as ${loginJson.admin?.username} (${loginJson.admin?.uid})`
+    );
+
+    if (token) {
+      // Run 7-point Firestore Diagnostics
+      const diagRes = await fetch(`${BASE_URL}/api/admin/firestore/diagnostics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const diagJson = await diagRes.json();
+      recordTest(
+        '12.2 Genuine 7-Point Firestore Diagnostics',
+        diagRes.status === 200 && (diagJson.status === 'healthy' || diagJson.status === 'PASS' || diagJson.success === true),
+        `Status: ${diagJson.status} | Latency: ${diagJson.latencyMs}ms`
+      );
+
+      // Clean up the testInquiryId created in step 7.1 so no test artifact remains in Firestore
+      const delInqRes = await fetch(`${BASE_URL}/api/admin/firestore/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          collectionName: 'inquiries',
+          docId: testInquiryId,
+        }),
+      });
+      recordTest(
+        '12.3 Test Inquiry Cleanup from Live Firestore',
+        delInqRes.status === 200,
+        `Cleaned up temporary inquiry ${testInquiryId}`
+      );
+    }
+  } catch (err) {
+    recordTest('12.1 Admin Server Integration', false, `Server test error: ${err.message}`);
+  }
+
   console.log('\n====================================================');
   console.log('AUDIT SUMMARY');
   console.log('Total Tests:', results.length);

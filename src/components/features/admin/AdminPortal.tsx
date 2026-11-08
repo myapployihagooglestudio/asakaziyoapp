@@ -5604,7 +5604,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               {diagnosticResult && (
-                <div className={`mt-3 p-3.5 rounded-xl border text-xs space-y-2 ${
+                <div className={`mt-3 p-3.5 rounded-xl border text-xs space-y-2.5 ${
                   diagnosticResult.status === 'PASS'
                     ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
                     : 'bg-rose-950/40 border-rose-500/40 text-rose-200'
@@ -5625,6 +5625,38 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <p className="text-[11px] leading-relaxed opacity-95">
                     {diagnosticResult.details}
                   </p>
+                  {diagnosticResult.checks && (
+                    <div className="grid grid-cols-1 gap-1.5 pt-2 border-t border-white/10 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span>1. Firebase Loyiha Aloqasi:</span>
+                        <span className="font-mono">{diagnosticResult.checks.projectConnectivity.passed ? '✅' : '❌'} {diagnosticResult.checks.projectConnectivity.detail}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>2. Firestore Database ID:</span>
+                        <span className="font-mono">{diagnosticResult.checks.databaseIdMatch.passed ? '✅' : '❌'} {diagnosticResult.checks.databaseIdMatch.configuredId}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>3. Firestore Oʻqish (Read):</span>
+                        <span className="font-mono">{diagnosticResult.checks.firestoreRead.passed ? '✅' : '❌'} {diagnosticResult.checks.firestoreRead.detail}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>4. Admin Avtorizatsiyasi:</span>
+                        <span className="font-mono">{diagnosticResult.checks.adminAuth.passed ? '✅' : '❌'} {diagnosticResult.checks.adminAuth.detail}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>5. Tasdiqlangan Yozish (Write):</span>
+                        <span className="font-mono">{diagnosticResult.checks.authorizedWrite.passed ? '✅' : '❌'} {diagnosticResult.checks.authorizedWrite.detail}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>6. Qayta Oʻqib Tekshirish (Read-Back):</span>
+                        <span className="font-mono">{diagnosticResult.checks.subsequentReadBack.passed ? '✅' : '❌'} {diagnosticResult.checks.subsequentReadBack.detail}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>7. Firestore Security Rules:</span>
+                        <span className="font-mono">{diagnosticResult.checks.securityRulesEnforcement.passed ? '✅' : '❌'} {diagnosticResult.checks.securityRulesEnforcement.detail}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-3 text-[10px] opacity-75 font-mono pt-1 border-t border-white/10">
                     <span>Vaqt: {diagnosticResult.timestamp}</span>
                     {diagnosticResult.authenticatedAs && (
@@ -5645,7 +5677,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               <p className="text-xs text-stone-600 dark:text-stone-400">
-                Xavfsizlik qoidalariga koʻra (<code className="text-[#c5a869]">firestore.rules</code>), barcha maʼmuriy amallar faqat haqiqiy Firebase autentifikatsiyasidan oʻtgan va Firestore <code className="text-[#c5a869]">/admins/{'{uid}'}</code> hujjati mavjud boʻlgan hisoblarga ruxsat etiladi.
+                Xavfsizlik qoidalariga koʻra (<code className="text-[#c5a869]">firestore.rules</code>), barcha maʼmuriy amallar faqat haqiqiy administrator autentifikatsiyasidan oʻtgan va Firestore <code className="text-[#c5a869]">/admins/{'{uid}'}</code> hujjati mavjud boʻlgan hisoblarga ruxsat etiladi.
               </p>
 
               {adminUser ? (
@@ -5782,15 +5814,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     const updatedCfg = { ...supabaseConfig, adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL };
                     setSupabaseConfig(updatedCfg);
-                    saveStoredSupabaseConfig(updatedCfg);
-                    setSupabaseStatus(`✅ Supabase konfiguratsiyasi (${AUTHORIZED_SUPABASE_ADMIN_EMAIL}) saqlandi!`);
-                    setTimeout(() => setSupabaseStatus(null), 3000);
+                    setSupabaseStatus('Supabase konfiguratsiyasi saqlanmoqda va zaxira tekshirilmoqda...');
+                    const res = await saveStoredSupabaseConfig(updatedCfg);
+                    if (res.success && res.supabaseSynced && res.verifiedReadBack) {
+                      setSupabaseStatus(`✅ Supabase konfiguratsiyasi saqlandi va ${res.syncedCount || 1} jadval zaxiraga yozilib qayta oʻqib tasdiqlandi!`);
+                    } else if (res.success && !updatedCfg.isEnabled) {
+                      setSupabaseStatus(`✅ Supabase ixtiyoriy zaxirasi oʻchirib qoʻyildi (Firestore asosiy baza sifatida faol).`);
+                    } else {
+                      setSupabaseStatus(`⚠️ Sozlamalar saqlandi, lekin Supabase bulutiga maʼlumot uzatilmadi: ${res.error || res.lastError || 'URL va jadval sozlamalarini tekshiring'}`);
+                    }
                   }}
                 >
-                  <span>Saqlash</span>
+                  <span>Saqlash va Zaxiralash</span>
                 </Button>
 
                 <Button
@@ -5799,7 +5837,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   disabled={isTestingSupabase || !supabaseConfig.url || !supabaseConfig.anonKey}
                   onClick={async () => {
                     setIsTestingSupabase(true);
-                    setSupabaseStatus('Ulanish tekshirilmoqda...');
+                    setSupabaseStatus('Ulanish va qayta oʻqish (read-back) tekshirilmoqda...');
                     const res = await testSupabaseConnection(supabaseConfig.url, supabaseConfig.anonKey);
                     setIsTestingSupabase(false);
                     setSupabaseStatus(res.message);

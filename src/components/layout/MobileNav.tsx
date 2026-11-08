@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { NavigationTab } from '../../types';
-import { Home, BookOpen, Clock, Sparkles, LayoutGrid } from 'lucide-react';
+import { Home, BookOpen, Clock, Sparkles, Newspaper, LayoutGrid } from 'lucide-react';
 
 interface MobileNavProps {
   activeTab: NavigationTab;
@@ -25,14 +25,15 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     { id: 'prayer', labelKey: 'prayer', fallback: 'Namoz', icon: <Clock className="w-5 h-5" /> },
     { id: 'quran', labelKey: 'quran', fallback: 'Qurʼon', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'dhikr', labelKey: 'dhikr', fallback: 'Zikr/Duo', icon: <Sparkles className="w-5 h-5" /> },
+    { id: 'articles', labelKey: 'articles', fallback: 'Maqolalar', icon: <Newspaper className="w-5 h-5" /> },
   ];
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F8F5EC]/95 dark:bg-[#031814]/95 backdrop-blur-xl border-t border-[#063D32]/15 dark:border-[#C6A45C]/25 px-2 pt-1.5 pb-safe transition-colors shadow-[0_-8px_28px_rgba(4,43,37,0.08)]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F8F5EC]/95 dark:bg-[#031814]/95 backdrop-blur-xl border-t border-[#063D32]/15 dark:border-[#C6A45C]/25 px-1.5 pt-1.5 pb-safe transition-colors shadow-[0_-8px_28px_rgba(4,43,37,0.08)]"
       aria-label="Mobil tezkor navigatsiya"
     >
-      <div className="grid grid-cols-5 items-center max-w-md mx-auto h-14">
+      <div className="grid grid-cols-6 items-center max-w-lg mx-auto h-14">
         {items.map((item) => {
           const isActive = activeTab === item.id;
           return (

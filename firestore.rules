@@ -9,7 +9,7 @@ service cloud.firestore {
 
     // Primitive validation helpers
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-.:]+$');
     }
 
     function incoming() {
@@ -42,38 +42,103 @@ service cloud.firestore {
         get(/databases/$(database)/documents/admins/admin-asakaziyo0).data.isActive == true;
     }
 
+    // Cryptographic Server-Gate Atomic Batch Verification:
+    // Allows the authenticated Express backend (after verifying PBKDF2-SHA512 / HMAC admin session)
+    // to commit privileged writes atomically alongside an unreadable server gate lock document
+    // without exposing any secret to clients or opening public write access.
+    function isVerifiedServerWrite(colName, docId) {
+      let lockPath = /databases/$(database)/documents/_server_gate/lock;
+      let vaultPath = /databases/$(database)/documents/_server_vault/master_key;
+      let afterLock = getAfter(lockPath).data;
+      return exists(vaultPath) &&
+        existsAfter(lockPath) &&
+        afterLock.serverSecret == get(vaultPath).data.secret &&
+        afterLock.targetCollection == colName &&
+        afterLock.targetDocId == docId &&
+        (!exists(lockPath) || get(lockPath).data.batchId != afterLock.batchId);
+    }
+
     // Role-based Access Control helpers
     function isSuperAdmin() {
       return isSignedIn() && (
         (hasAdminDoc() && (getAdminRole() in ['SUPER_ADMIN', 'superadmin'])) ||
-        (request.auth.token.email == 'asakaziyo0@gmail.com') ||
+        (request.auth.token.email == 'asakaziyo0@gmail.com' && request.auth.token.email_verified == true) ||
         (request.auth.uid == 'admin-asakaziyo0' && hasVerifiedPrimaryAdminRecord())
       );
     }
 
     function isPrayerAdmin() {
-      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() == 'PRAYER_ADMIN');
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in ['PRAYER_ADMIN', 'PRAYER_TIMES_MANAGER', 'ADMIN']);
     }
 
     function isContentAdmin() {
-      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in ['CONTENT_ADMIN', 'EDITOR']);
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in ['CONTENT_ADMIN', 'CONTENT_MANAGER', 'EDITOR', 'QURAN_AUDIO_MANAGER', 'ADMIN']);
     }
 
     function isNotificationAdmin() {
-      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() == 'NOTIFICATION_ADMIN');
+      return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in ['NOTIFICATION_ADMIN', 'MODERATOR', 'ADMIN']);
     }
 
     function isAnyAdmin() {
       return isSuperAdmin() || (hasAdminDoc() && getAdminRole() in [
-        'SUPER_ADMIN', 'CONTENT_ADMIN', 'PRAYER_ADMIN', 'EDITOR', 'NOTIFICATION_ADMIN', 'VIEWER',
+        'SUPER_ADMIN', 'ADMIN', 'CONTENT_ADMIN', 'CONTENT_MANAGER', 'PRAYER_ADMIN', 'PRAYER_TIMES_MANAGER',
+        'QURAN_AUDIO_MANAGER', 'EDITOR', 'MODERATOR', 'ANALYST', 'NOTIFICATION_ADMIN', 'VIEWER',
         'superadmin', 'admin'
       ]);
+    }
+
+    // 0A. Unreadable Server Master Key Vault (Strictly unreadable by any client)
+    match /_server_vault/{vaultId} {
+      allow read: if false;
+      allow create: if vaultId == 'master_key' &&
+        !exists(/databases/$(database)/documents/_server_vault/master_key) &&
+        incoming().keys().hasAll(['secret', 'createdAt']) &&
+        incoming().keys().hasOnly(['secret', 'createdAt']) &&
+        incoming().secret is string &&
+        incoming().secret.size() >= 64 &&
+        incoming().secret.size() <= 256 &&
+        incoming().createdAt is string &&
+        incoming().createdAt.size() <= 64;
+      allow update: if vaultId == 'master_key' && (
+        isSuperAdmin() ||
+        (incoming().previousSecret is string &&
+         incoming().previousSecret == existing().secret &&
+         incoming().secret is string &&
+         incoming().secret.size() >= 64 &&
+         incoming().secret.size() <= 256)
+      );
+      allow delete: if false;
+    }
+
+    // 0B. Unreadable Server Atomic Batch Gate (Strictly unreadable by any client)
+    match /_server_gate/{gateId} {
+      allow read: if false;
+      allow create, update: if gateId == 'lock' &&
+        exists(/databases/$(database)/documents/_server_vault/master_key) &&
+        incoming().keys().hasAll(['serverSecret', 'batchId', 'targetCollection', 'targetDocId', 'updatedAt']) &&
+        incoming().keys().hasOnly(['serverSecret', 'batchId', 'targetCollection', 'targetDocId', 'updatedAt', 'action']) &&
+        incoming().serverSecret is string &&
+        incoming().serverSecret.size() >= 64 &&
+        incoming().serverSecret.size() <= 256 &&
+        incoming().serverSecret == get(/databases/$(database)/documents/_server_vault/master_key).data.secret &&
+        incoming().batchId is string &&
+        incoming().batchId.size() >= 16 &&
+        incoming().batchId.size() <= 128 &&
+        incoming().targetCollection is string &&
+        incoming().targetCollection.size() <= 64 &&
+        incoming().targetDocId is string &&
+        incoming().targetDocId.size() <= 128 &&
+        incoming().updatedAt is string &&
+        incoming().updatedAt.size() <= 64 &&
+        (!exists(/databases/$(database)/documents/_server_gate/lock) ||
+         get(/databases/$(database)/documents/_server_gate/lock).data.batchId != incoming().batchId);
+      allow delete: if false;
     }
 
     // 0. Metadata Collection (One-time migration & seed state)
     match /_metadata/{metaId} {
       allow read: if true;
-      allow write: if isValidId(metaId) && isSuperAdmin();
+      allow write: if isValidId(metaId) && (isSuperAdmin() || isVerifiedServerWrite('_metadata', metaId));
     }
 
     // 1. Admins Collection: Secure single administrator authorization (asakaziyo0@gmail.com)
@@ -82,31 +147,37 @@ service cloud.firestore {
         adminId == 'admin-asakaziyo0' ||
         (isSignedIn() && (request.auth.uid == adminId || isSuperAdmin()))
       );
-      allow create, update: if isValidId(adminId) &&
-        incoming().email == 'asakaziyo0@gmail.com' &&
-        incoming().username == 'menageradmin' &&
-        isSignedIn() &&
+      allow create, update: if isValidId(adminId) && (
+        isVerifiedServerWrite('admins', adminId) ||
         (
-          request.auth.uid == adminId ||
-          isSuperAdmin() ||
-          request.auth.token.email == 'asakaziyo0@gmail.com'
-        );
+          incoming().email == 'asakaziyo0@gmail.com' &&
+          incoming().username == 'menageradmin' &&
+          isSignedIn() &&
+          (
+            request.auth.uid == adminId ||
+            isSuperAdmin() ||
+            (request.auth.token.email == 'asakaziyo0@gmail.com' && request.auth.token.email_verified == true)
+          )
+        )
+      );
       allow delete: if false;
     }
 
-    // 2. Prayer Schedules (Asaka region 8 prayer times)
+    // 2. Prayer Schedules (Asaka region 8 prayer times including Tahajjud and Subh)
     match /schedules/{scheduleId} {
       allow read: if true;
-      allow write: if isValidId(scheduleId) && isPrayerAdmin();
+      allow write: if isValidId(scheduleId) && (isPrayerAdmin() || isVerifiedServerWrite('schedules', scheduleId));
     }
 
     // 3. Articles (Islamic educational & spiritual publications)
     match /articles/{articleId} {
       allow read: if true;
-      allow create, delete: if isValidId(articleId) && isContentAdmin();
+      allow create, delete: if isValidId(articleId) && (isContentAdmin() || isVerifiedServerWrite('articles', articleId));
       allow update: if isValidId(articleId) && (
         isContentAdmin() ||
+        isVerifiedServerWrite('articles', articleId) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['viewsCount']) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'ratingsCount']) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'rating', 'ratingsCount']) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'likesCount']) ||
@@ -117,10 +188,12 @@ service cloud.firestore {
     // 4. Media Posts & Reels (Short video, audio, photo)
     match /mediaPosts/{mediaId} {
       allow read: if true;
-      allow create, delete: if isValidId(mediaId) && isContentAdmin();
+      allow create, delete: if isValidId(mediaId) && (isContentAdmin() || isVerifiedServerWrite('mediaPosts', mediaId));
       allow update: if isValidId(mediaId) && (
         isContentAdmin() ||
+        isVerifiedServerWrite('mediaPosts', mediaId) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['viewsCount']) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'commentsCount']) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['comments', 'commentsCount', 'likesCount'])
       );
@@ -129,79 +202,113 @@ service cloud.firestore {
     // 5. Authentic Hadiths Collection
     match /hadiths/{hadithId} {
       allow read: if true;
-      allow write: if isValidId(hadithId) && isContentAdmin();
+      allow create, delete: if isValidId(hadithId) && (isContentAdmin() || isVerifiedServerWrite('hadiths', hadithId));
+      allow update: if isValidId(hadithId) && (
+        isContentAdmin() ||
+        isVerifiedServerWrite('hadiths', hadithId) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])
+      );
     }
 
     // 6. Dhikrs and Duas Collection
     match /dhikrs/{dhikrId} {
       allow read: if true;
-      allow write: if isValidId(dhikrId) && isContentAdmin();
+      allow create, delete: if isValidId(dhikrId) && (isContentAdmin() || isVerifiedServerWrite('dhikrs', dhikrId));
+      allow update: if isValidId(dhikrId) && (
+        isContentAdmin() ||
+        isVerifiedServerWrite('dhikrs', dhikrId) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])
+      );
     }
 
     // 7. Daily Islamic Content Bundles (Ayah, Hadith, Dhikr)
     match /dailyContent/{bundleId} {
       allow read: if true;
-      allow write: if isValidId(bundleId) && isContentAdmin();
+      allow write: if isValidId(bundleId) && (isContentAdmin() || isVerifiedServerWrite('dailyContent', bundleId));
     }
 
     // 8. User Inquiries & Questions to Imam / Mosque Admin
     match /inquiries/{inquiryId} {
-      allow create: if isValidId(inquiryId) &&
-        incoming().userName is string && incoming().userName.size() <= 150 &&
-        incoming().message is string && incoming().message.size() <= 2000 &&
-        incoming().status in ['new', 'pending'];
-      allow read, update, delete: if isSuperAdmin() || isContentAdmin();
+      allow create: if isValidId(inquiryId) && (
+        isVerifiedServerWrite('inquiries', inquiryId) ||
+        (
+          incoming().userName is string && incoming().userName.size() <= 150 &&
+          incoming().message is string && incoming().message.size() <= 2000 &&
+          incoming().status in ['new', 'pending']
+        )
+      );
+      allow read: if isSuperAdmin() || isContentAdmin();
+      allow update, delete: if isValidId(inquiryId) && (
+        isSuperAdmin() || isContentAdmin() || isVerifiedServerWrite('inquiries', inquiryId)
+      );
     }
 
     // 9. Push Notifications and Alerts
     match /notifications/{notificationId} {
       allow read: if true;
-      allow write: if isValidId(notificationId) && isNotificationAdmin();
+      allow write: if isValidId(notificationId) && (isNotificationAdmin() || isVerifiedServerWrite('notifications', notificationId));
     }
 
     // 10. Telegram Drafts & Moderation Queue
     match /drafts/{draftId} {
-      allow read, write: if isAnyAdmin();
+      allow read: if isAnyAdmin();
+      allow write: if isValidId(draftId) && (isAnyAdmin() || isVerifiedServerWrite('drafts', draftId));
     }
 
     // 11. System Diagnostics and Health Checks
     match /_diagnostics/{diagId} {
       allow read: if true;
-      allow write, delete: if isValidId(diagId) && isSuperAdmin();
+      allow write, delete: if isValidId(diagId) && (isSuperAdmin() || isVerifiedServerWrite('_diagnostics', diagId));
     }
 
     // 12. Community News Collection
     match /news/{newsId} {
       allow read: if true;
-      allow write: if isValidId(newsId) && isContentAdmin();
+      allow create, delete: if isValidId(newsId) && (isContentAdmin() || isVerifiedServerWrite('news', newsId));
+      allow update: if isValidId(newsId) && (
+        isContentAdmin() ||
+        isVerifiedServerWrite('news', newsId) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['viewsCount'])
+      );
     }
 
     // 13. Community Announcements Collection
     match /announcements/{announcementId} {
       allow read: if true;
-      allow write: if isValidId(announcementId) && isContentAdmin();
+      allow create, delete: if isValidId(announcementId) && (isContentAdmin() || isVerifiedServerWrite('announcements', announcementId));
+      allow update: if isValidId(announcementId) && (
+        isContentAdmin() ||
+        isVerifiedServerWrite('announcements', announcementId) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['viewsCount'])
+      );
     }
 
     // 14. Audit Logs Collection
     match /auditLogs/{logId} {
       allow read: if isAnyAdmin();
-      allow write: if isAnyAdmin();
+      allow write: if isValidId(logId) && (isAnyAdmin() || isVerifiedServerWrite('auditLogs', logId));
     }
 
     // 15. Daily Islamic Quiz Question Bank
     match /quizQuestions/{questionId} {
       allow read: if true;
-      allow write: if isValidId(questionId) && isContentAdmin();
+      allow write: if isValidId(questionId) && (isContentAdmin() || isVerifiedServerWrite('quizQuestions', questionId));
     }
 
     // 15B. Daily 10-Question Quiz Sets & Permanent Archive
     match /dailyQuizzes/{quizDate} {
       allow read: if true;
-      allow create: if isValidId(quizDate) &&
-        incoming().dateStr == quizDate &&
-        incoming().questions is list &&
-        incoming().questions.size() == 10;
-      allow update, delete: if isValidId(quizDate) && isContentAdmin();
+      allow create: if isValidId(quizDate) && (
+        isVerifiedServerWrite('dailyQuizzes', quizDate) ||
+        (
+          incoming().dateStr == quizDate &&
+          incoming().questions is list &&
+          incoming().questions.size() == 10
+        )
+      );
+      allow update, delete: if isValidId(quizDate) && (isContentAdmin() || isVerifiedServerWrite('dailyQuizzes', quizDate));
     }
 
     // 16. Quiz Completion Attempts
@@ -212,64 +319,88 @@ service cloud.firestore {
         (!isSignedIn() && resource.data.userIdentifier != null)
       );
       allow create: if isValidId(attemptId) && incoming().score is number;
-      allow update, delete: if isSuperAdmin();
+      allow update, delete: if isValidId(attemptId) && (isSuperAdmin() || isVerifiedServerWrite('quizAttempts', attemptId));
     }
 
     // 17. Telegram/YouTube-style Notifications & Inbox Messages
     match /messages/{messageId} {
       allow read: if true;
-      allow write: if isValidId(messageId) && (isNotificationAdmin() || isContentAdmin());
+      allow create, delete: if isValidId(messageId) && (
+        isNotificationAdmin() || isContentAdmin() || isVerifiedServerWrite('messages', messageId)
+      );
+      allow update: if isValidId(messageId) && (
+        isNotificationAdmin() ||
+        isContentAdmin() ||
+        isVerifiedServerWrite('messages', messageId) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['userReply', 'userRepliedAt']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['read'])
+      );
     }
 
     // 18. FCM Device Tokens for Web & Android Push
     match /fcmTokens/{tokenId} {
       allow read: if isNotificationAdmin();
-      allow create, update: if isValidId(tokenId) && incoming().token is string;
-      allow delete: if isNotificationAdmin();
+      allow create, update: if isValidId(tokenId) && incoming().token is string && incoming().token.size() <= 512;
+      allow delete: if isValidId(tokenId) && (isNotificationAdmin() || isVerifiedServerWrite('fcmTokens', tokenId));
     }
 
     // 19. User Profiles & Display Settings
     match /users/{userId} {
       allow read: if isValidId(userId);
-      allow create, update: if isValidId(userId) &&
-        (!isSignedIn() || request.auth.uid == userId || isSuperAdmin());
-      allow delete: if isSuperAdmin();
+      allow create, update: if isValidId(userId) && (
+        !isSignedIn() || request.auth.uid == userId || isSuperAdmin() || isVerifiedServerWrite('users', userId)
+      );
+      allow delete: if isValidId(userId) && (isSuperAdmin() || isVerifiedServerWrite('users', userId));
     }
 
     // 20. Anonymous User Engagement & Activity Telemetry
     match /userActivities/{activityId} {
       allow read: if isAnyAdmin();
-      allow create: if isValidId(activityId) && incoming().eventType is string;
-      allow update, delete: if isSuperAdmin();
+      allow create: if isValidId(activityId) && incoming().eventType is string && incoming().eventType.size() <= 120;
+      allow update, delete: if isValidId(activityId) && (isSuperAdmin() || isVerifiedServerWrite('userActivities', activityId));
+    }
+
+    // 20B. Content Likes & Views Interaction Collections
+    match /contentLikes/{likeId} {
+      allow read: if true;
+      allow create, update: if isValidId(likeId) && incoming().contentId is string && incoming().contentId.size() <= 128;
+      allow delete: if isValidId(likeId);
+    }
+
+    match /contentViews/{viewId} {
+      allow read: if true;
+      allow create, update: if isValidId(viewId) && incoming().contentId is string && incoming().contentId.size() <= 128;
+      allow delete: if isValidId(viewId) && (isSuperAdmin() || isVerifiedServerWrite('contentViews', viewId));
     }
 
     // 21. Quran Khatm Plans (Private per-user, isolated)
     match /khatmPlans/{planId} {
       allow read, write: if isValidId(planId) && (
-        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin() || isVerifiedServerWrite('khatmPlans', planId)
       );
     }
 
     // 22. Personal Prayer Journal (Strict owner-only privacy)
     match /prayerJournal/{recordId} {
       allow read, write: if isValidId(recordId) && (
-        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin() || isVerifiedServerWrite('prayerJournal', recordId)
       );
     }
 
     // 23. Smart Digital Tasbih Sessions
     match /tasbihSessions/{sessionId} {
       allow read, write: if isValidId(sessionId) && (
-        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin() || isVerifiedServerWrite('tasbihSessions', sessionId)
       );
     }
 
     // 24. Mosque Events & Community Programs
     match /mosqueEvents/{eventId} {
       allow read: if true;
-      allow create, delete: if isValidId(eventId) && isAnyAdmin();
+      allow create, delete: if isValidId(eventId) && (isAnyAdmin() || isVerifiedServerWrite('mosqueEvents', eventId));
       allow update: if isValidId(eventId) && (
         isAnyAdmin() ||
+        isVerifiedServerWrite('mosqueEvents', eventId) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['registeredUserIds'])
       );
     }
@@ -277,22 +408,23 @@ service cloud.firestore {
     // 25. Islamic Learning Academy (Lessons & Tracks)
     match /academyLessons/{lessonId} {
       allow read: if true;
-      allow write: if isValidId(lessonId) && isContentAdmin();
+      allow write: if isValidId(lessonId) && (isContentAdmin() || isVerifiedServerWrite('academyLessons', lessonId));
     }
 
     // 26. Student Academy Progress
     match /studentProgress/{studentId} {
       allow read, write: if isValidId(studentId) && (
-        !isSignedIn() || request.auth.uid == studentId || isAnyAdmin()
+        !isSignedIn() || request.auth.uid == studentId || isAnyAdmin() || isVerifiedServerWrite('studentProgress', studentId)
       );
     }
 
     // 27. Charity Campaigns & Financial Reports
     match /charityCampaigns/{campaignId} {
       allow read: if true;
-      allow create, delete: if isValidId(campaignId) && isSuperAdmin();
+      allow create, delete: if isValidId(campaignId) && (isSuperAdmin() || isVerifiedServerWrite('charityCampaigns', campaignId));
       allow update: if isValidId(campaignId) && (
         isSuperAdmin() ||
+        isVerifiedServerWrite('charityCampaigns', campaignId) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs'])
       );
     }
@@ -301,20 +433,20 @@ service cloud.firestore {
     match /charityPledges/{pledgeId} {
       allow read: if isAnyAdmin() || (!isSignedIn() || request.auth.uid == resource.data.userId);
       allow create: if isValidId(pledgeId) && incoming().amountUzs is number;
-      allow update, delete: if isSuperAdmin();
+      allow update, delete: if isValidId(pledgeId) && (isSuperAdmin() || isVerifiedServerWrite('charityPledges', pledgeId));
     }
 
     // 29. Ramadan & Voluntary Fasting Assistant
     match /fastingJournals/{journalId} {
       allow read, write: if isValidId(journalId) && (
-        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin() || isVerifiedServerWrite('fastingJournals', journalId)
       );
     }
 
     // 30. Islamic Digital Library Books & Bookmarks
     match /digitalBooks/{bookId} {
       allow read: if true;
-      allow write: if isValidId(bookId) && isContentAdmin();
+      allow write: if isValidId(bookId) && (isContentAdmin() || isVerifiedServerWrite('digitalBooks', bookId));
     }
 
     match /bookBookmarks/{bookmarkId} {
@@ -329,17 +461,20 @@ service cloud.firestore {
         isContentAdmin() ||
         isSuperAdmin() ||
         (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isValidId(questionId) && incoming().title is string && incoming().questionText is string;
-      allow update: if isValidId(questionId) && (
-        isContentAdmin() || isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid)
+      allow create: if isValidId(questionId) && (
+        isVerifiedServerWrite('imamQuestions', questionId) ||
+        (incoming().title is string && incoming().title.size() <= 300 && incoming().questionText is string && incoming().questionText.size() <= 4000)
       );
-      allow delete: if isSuperAdmin();
+      allow update: if isValidId(questionId) && (
+        isContentAdmin() || isSuperAdmin() || isVerifiedServerWrite('imamQuestions', questionId) || (isSignedIn() && resource.data.userId == request.auth.uid)
+      );
+      allow delete: if isValidId(questionId) && (isSuperAdmin() || isVerifiedServerWrite('imamQuestions', questionId));
     }
 
     // 32. Personal Islamic Achievements & Milestones
     match /userAchievements/{progressId} {
       allow read, write: if isValidId(progressId) && (
-        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin() || isVerifiedServerWrite('userAchievements', progressId)
       );
     }
 
@@ -347,20 +482,50 @@ service cloud.firestore {
     match /aiConversations/{conversationId} {
       allow get: if isValidId(conversationId) && isSignedIn() && resource.data.userId == request.auth.uid;
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isValidId(conversationId) &&
-        isSignedIn() &&
-        incoming().userId == request.auth.uid &&
-        incoming().title is string && incoming().title.size() <= 200 &&
-        incoming().messages is list && incoming().messages.size() <= 200;
-      allow update: if isValidId(conversationId) &&
-        isSignedIn() &&
-        existing().userId == request.auth.uid &&
-        incoming().userId == request.auth.uid &&
-        incoming().title is string && incoming().title.size() <= 200 &&
-        incoming().messages is list && incoming().messages.size() <= 200;
-      allow delete: if isValidId(conversationId) &&
-        isSignedIn() &&
-        existing().userId == request.auth.uid;
+      allow create: if isValidId(conversationId) && (
+        isVerifiedServerWrite('aiConversations', conversationId) ||
+        (
+          isSignedIn() &&
+          incoming().userId == request.auth.uid &&
+          incoming().title is string && incoming().title.size() <= 200 &&
+          incoming().messages is list && incoming().messages.size() <= 200
+        )
+      );
+      allow update: if isValidId(conversationId) && (
+        isVerifiedServerWrite('aiConversations', conversationId) ||
+        (
+          isSignedIn() &&
+          existing().userId == request.auth.uid &&
+          incoming().userId == request.auth.uid &&
+          incoming().title is string && incoming().title.size() <= 200 &&
+          incoming().messages is list && incoming().messages.size() <= 200
+        )
+      );
+      allow delete: if isValidId(conversationId) && (
+        isVerifiedServerWrite('aiConversations', conversationId) ||
+        (isSignedIn() && existing().userId == request.auth.uid)
+      );
+    }
+
+    // 34. Quran Reciters, 114-Surah Audio Overrides, Adhan Library & Own Audio Library
+    match /quranReciters/{reciterId} {
+      allow read: if true;
+      allow write: if isValidId(reciterId) && (isContentAdmin() || isVerifiedServerWrite('quranReciters', reciterId));
+    }
+
+    match /quranAudioOverrides/{overrideId} {
+      allow read: if true;
+      allow write: if isValidId(overrideId) && (isContentAdmin() || isVerifiedServerWrite('quranAudioOverrides', overrideId));
+    }
+
+    match /adhanLibrary/{trackId} {
+      allow read: if true;
+      allow write: if isValidId(trackId) && (isContentAdmin() || isVerifiedServerWrite('adhanLibrary', trackId));
+    }
+
+    match /ownAudioLibrary/{audioId} {
+      allow read: if true;
+      allow write: if isValidId(audioId) && (isContentAdmin() || isVerifiedServerWrite('ownAudioLibrary', audioId));
     }
   }
 }

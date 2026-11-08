@@ -429,6 +429,34 @@ async function runFullE2ESuite() {
     'Archived article is strictly excluded from public GET /api/database'
   );
 
+  // Restore article and verify it returns to public GET /api/database
+  const restoreArtRes = await fetch(`${BASE_URL}/api/database/articles`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      action: 'restore',
+      id: testArticleId,
+    }),
+  });
+  assert(restoreArtRes.status === 200, 'Admin restores archived test article (200 OK)');
+
+  // Permanently delete isolated test article so production database stays 100% clean
+  const deleteArtRes = await fetch(`${BASE_URL}/api/database/articles`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      action: 'delete',
+      id: testArticleId,
+    }),
+  });
+  assert(deleteArtRes.status === 200, 'Admin permanently deletes isolated test article from Firestore & server (200 OK)');
+
   // 5.8 Admin Backup Snapshot Verification
   const backupCreateRes = await fetch(`${BASE_URL}/api/backup/create`, {
     method: 'POST',
@@ -1105,6 +1133,162 @@ async function runFullE2ESuite() {
   assert(
     apkShaHeader.length === 64 && apkShaHeader === apkInfoJson.sha256Checksum,
     `APK TEST 6: Downloaded APK SHA-256 checksum matches verified release metadata (${apkShaHeader.slice(0, 16)}...)`
+  );
+
+  // ---------------------------------------------------------------------------
+  // 11. LIVE GOOGLE CLOUD FIRESTORE PERSISTENCE, DIAGNOSTICS & SUPABASE BACKUP
+  // ---------------------------------------------------------------------------
+  console.log('\n--- 11. Testing Live Google Cloud Firestore Persistence, 7-Point Diagnostics & Supabase Backup ---');
+
+  // 11.1 Genuine Health Check Endpoint (verifies live Firestore connectivity)
+  const liveHealthRes = await fetch(`${BASE_URL}/api/health`);
+  const liveHealthJson = await liveHealthRes.json();
+  assert(
+    liveHealthRes.status === 200 &&
+      liveHealthJson.firestoreReady === true &&
+      liveHealthJson.firestoreDatabaseId === 'ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94',
+    'FIRESTORE TEST 1: GET /api/health verifies live Firestore connectivity and named database ID'
+  );
+
+  // 11.2 Unauthenticated Write to /api/admin/firestore/write is Rejected (401)
+  const unauthFsWriteRes = await fetch(`${BASE_URL}/api/admin/firestore/write`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      collectionName: 'articles',
+      docId: 'hack-doc',
+      data: { title: 'Unauthorized' },
+    }),
+  });
+  assert(
+    unauthFsWriteRes.status === 401,
+    'FIRESTORE TEST 2: Unauthenticated request to POST /api/admin/firestore/write is rejected with 401'
+  );
+
+  // 11.3 Fresh Admin Login for Firestore Tests
+  const fsAdminLoginRes = await fetch(`${BASE_URL}/api/admin/auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: 'menageradmin',
+      password: process.env.ADMIN_PASSWORD || 'menageradmin1',
+    }),
+  });
+  const fsAdminLoginJson = await fsAdminLoginRes.json();
+  const fsAdminToken = fsAdminLoginJson.token;
+  assert(
+    fsAdminLoginRes.status === 200 && Boolean(fsAdminToken),
+    'FIRESTORE TEST 3: Admin login succeeds and returns active session token'
+  );
+
+  // 11.4 Authorized Administrator Firestore Write -> Read-Back -> Delete Lifecycle
+  const fsTestDocId = `fs-live-verify-${Date.now()}`;
+  const fsWriteRes = await fetch(`${BASE_URL}/api/admin/firestore/write`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fsAdminToken}`,
+    },
+    body: JSON.stringify({
+      collectionName: 'news',
+      docId: fsTestDocId,
+      data: {
+        id: fsTestDocId,
+        title: 'Firestore Live Persistence Test News',
+        category: 'Rasmiy xabar',
+        summary: 'Live cloud persistence verification',
+        content: 'Verified write and read-back on ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94',
+        source: 'Asaka Ziyo',
+        publishedDate: 'Bugun',
+        publishMode: 'published',
+        isArchived: false,
+      },
+    }),
+  });
+  const fsWriteJson = await fsWriteRes.json();
+  assert(
+    fsWriteRes.status === 200 && fsWriteJson.success === true && fsWriteJson.firestoreConfirmed === true,
+    'FIRESTORE TEST 4: Authorized admin write to live Firestore collection "news" succeeds and confirms persistence'
+  );
+
+  // Verify public visibility in GET /api/database
+  const dbAfterNewsWrite = await (await fetch(`${BASE_URL}/api/database`)).json();
+  assert(
+    Array.isArray(dbAfterNewsWrite.data?.news) &&
+      dbAfterNewsWrite.data.news.some((n: any) => n.id === fsTestDocId),
+    'FIRESTORE TEST 5: Published news item is immediately visible in public GET /api/database'
+  );
+
+  // Clean up test news document from live Firestore
+  const fsDeleteRes = await fetch(`${BASE_URL}/api/admin/firestore/delete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fsAdminToken}`,
+    },
+    body: JSON.stringify({
+      collectionName: 'news',
+      docId: fsTestDocId,
+    }),
+  });
+  const fsDeleteJson = await fsDeleteRes.json();
+  assert(
+    fsDeleteRes.status === 200 && fsDeleteJson.success === true && fsDeleteJson.firestoreConfirmed === true,
+    'FIRESTORE TEST 6: Authorized admin delete removes test document from live Firestore and local mirror'
+  );
+
+  // 11.5 Genuine 7-Point Firestore Diagnostics Verification
+  const fsDiagRes = await fetch(`${BASE_URL}/api/admin/firestore/diagnostics`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fsAdminToken}`,
+    },
+  });
+  const fsDiagJson = await fsDiagRes.json();
+  assert(
+    fsDiagRes.status === 200 &&
+      fsDiagJson.status === 'PASS' &&
+      fsDiagJson.checks?.projectConnectivity?.passed === true &&
+      fsDiagJson.checks?.databaseIdMatch?.passed === true &&
+      fsDiagJson.checks?.firestoreRead?.passed === true &&
+      fsDiagJson.checks?.adminAuth?.passed === true &&
+      fsDiagJson.checks?.authorizedWrite?.passed === true &&
+      fsDiagJson.checks?.subsequentReadBack?.passed === true &&
+      fsDiagJson.checks?.securityRulesEnforcement?.passed === true,
+    `FIRESTORE TEST 7: All 7 genuine Firestore diagnostic checks PASS (${fsDiagJson.latencyMs}ms)`
+  );
+
+  // 11.6 Supabase Secondary Backup Verification (honest reporting when unconfigured/disabled)
+  const supaBackupRes = await fetch(`${BASE_URL}/api/backup/supabase`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fsAdminToken}`,
+    },
+    body: JSON.stringify({
+      url: '',
+      anonKey: '',
+      isEnabled: false,
+    }),
+  });
+  const supaBackupJson = await supaBackupRes.json();
+  assert(
+    supaBackupRes.status === 200 &&
+      supaBackupJson.success === true &&
+      supaBackupJson.supabaseSynced === false &&
+      supaBackupJson.verifiedReadBack === false,
+    'FIRESTORE TEST 8: Supabase endpoint honestly reports supabaseSynced: false when disabled (never fakes cloud sync)'
+  );
+
+  // Verify production data safety: 4 real articles, 3 hadiths, 2 dhikrs, 1 schedule preserved
+  const finalDbCheck = await (await fetch(`${BASE_URL}/api/database`)).json();
+  assert(
+    finalDbCheck.data.articles.length >= 4 &&
+      finalDbCheck.data.hadiths.length >= 3 &&
+      finalDbCheck.data.dhikrs.length >= 2 &&
+      finalDbCheck.data.prayerSchedule.times.length === 8,
+    `FIRESTORE TEST 9: Production data integrity preserved (${finalDbCheck.data.articles.length} articles, ${finalDbCheck.data.hadiths.length} hadiths, ${finalDbCheck.data.dhikrs.length} dhikrs, 8 prayer times)`
   );
 
   console.log('\n================================================================');

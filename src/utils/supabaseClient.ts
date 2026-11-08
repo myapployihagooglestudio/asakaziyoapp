@@ -20,6 +20,8 @@ export interface SupabaseSettings {
   adminEmail: string;
   isEnabled: boolean;
   lastSync?: string | null;
+  lastError?: string | null;
+  verifiedReadBack?: boolean;
 }
 
 const SUPABASE_STORAGE_KEY = 'asaka_ziyo_supabase_config';
@@ -36,6 +38,8 @@ export function getStoredSupabaseConfig(): SupabaseSettings {
           adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL,
           isEnabled: Boolean(parsed.isEnabled),
           lastSync: parsed.lastSync || null,
+          lastError: parsed.lastError || null,
+          verifiedReadBack: Boolean(parsed.verifiedReadBack),
         };
       }
     }
@@ -48,34 +52,93 @@ export function getStoredSupabaseConfig(): SupabaseSettings {
     adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL,
     isEnabled: false,
     lastSync: null,
+    lastError: null,
+    verifiedReadBack: false,
   };
 }
 
-export function saveStoredSupabaseConfig(config: SupabaseSettings): void {
+export async function saveStoredSupabaseConfig(config: SupabaseSettings): Promise<{
+  success: boolean;
+  supabaseSynced?: boolean;
+  verifiedReadBack?: boolean;
+  syncedCount?: number;
+  lastSync?: string | null;
+  lastError?: string | null;
+  error?: string;
+}> {
   const normalized: SupabaseSettings = {
     ...config,
     adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL,
   };
+
+  // Security guard: never allow service_role key in frontend config
+  if (normalized.anonKey && normalized.anonKey.toLowerCase().includes('service_role')) {
+    return {
+      success: false,
+      supabaseSynced: false,
+      error: 'Xavfsizlik qoidasi: SUPABASE_SERVICE_ROLE_KEY brauzerda ishlatilishi qatʼiyan taqiqlanadi.',
+    };
+  }
+
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(SUPABASE_STORAGE_KEY, JSON.stringify(normalized));
+    const token = getActiveAdminToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-  } catch {
-    // ignore
-  }
 
-  const token = getActiveAdminToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+    const resp = await fetch('/api/backup/supabase', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(normalized),
+    });
 
-  // Also sync to server backup configuration
-  fetch('/api/backup/supabase', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(normalized),
-  }).catch(() => {});
+    const data = await resp.json().catch(() => ({}));
+    const updatedConfig: SupabaseSettings = {
+      ...normalized,
+      lastSync: data.supabaseSynced ? data.lastSync : normalized.lastSync || null,
+      lastError: data.lastError || (!resp.ok ? data.error : null) || null,
+      verifiedReadBack: Boolean(data.verifiedReadBack),
+    };
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(SUPABASE_STORAGE_KEY, JSON.stringify(updatedConfig));
+      }
+    } catch {
+      // ignore
+    }
+
+    cachedClient = null;
+
+    if (!resp.ok || !data.success) {
+      return {
+        success: false,
+        supabaseSynced: Boolean(data.supabaseSynced),
+        verifiedReadBack: Boolean(data.verifiedReadBack),
+        syncedCount: data.syncedCount || 0,
+        lastSync: updatedConfig.lastSync,
+        lastError: data.error || data.lastError || 'Supabase zaxiralashda xatolik yuz berdi',
+        error: data.error || data.lastError || 'Supabase zaxiralashda xatolik yuz berdi',
+      };
+    }
+
+    return {
+      success: true,
+      supabaseSynced: Boolean(data.supabaseSynced),
+      verifiedReadBack: Boolean(data.verifiedReadBack),
+      syncedCount: data.syncedCount || 0,
+      lastSync: updatedConfig.lastSync,
+      lastError: data.lastError || null,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      supabaseSynced: false,
+      error: err?.message || 'Server bilan bogʻlanishda xatolik',
+    };
+  }
 }
 
 let cachedClient: SupabaseClient | null = null;
@@ -96,17 +159,43 @@ export function getSupabaseClient(): SupabaseClient | null {
   return cachedClient;
 }
 
-export async function testSupabaseConnection(url: string, key: string): Promise<{ success: boolean; message: string }> {
+export async function testSupabaseConnection(
+  url: string,
+  key: string
+): Promise<{ success: boolean; message: string; verifiedReadBack?: boolean; syncedCount?: number }> {
   try {
     if (!url || !key) {
       return { success: false, message: 'Supabase URL va Anon Key toʻliq kiritilishi shart (Ixtiyoriy xizmat).' };
     }
-    const testClient = createClient(url, key);
-    const { error } = await testClient.from('asaka_ziyo_test').select('*').limit(1);
-    if (error && error.code !== 'PGRST204' && error.code !== '42P01' && error.message.includes('API key')) {
-      return { success: false, message: `Ulanish xatosi: ${error.message}` };
+    if (key.toLowerCase().includes('service_role')) {
+      return {
+        success: false,
+        message: 'Xavfsizlik qoidasi: SUPABASE_SERVICE_ROLE_KEY brauzerda kiritilishi mumkin emas. Server .env faylida saqlang.',
+      };
     }
-    return { success: true, message: '✅ Supabase loyihasiga muvaffaqiyatli ulandi!' };
+
+    // Perform genuine server-side backup write & read-back verification
+    const syncRes = await saveStoredSupabaseConfig({
+      url: url.trim(),
+      anonKey: key.trim(),
+      adminEmail: AUTHORIZED_SUPABASE_ADMIN_EMAIL,
+      isEnabled: true,
+    });
+
+    if (syncRes.success && syncRes.supabaseSynced && syncRes.verifiedReadBack) {
+      return {
+        success: true,
+        verifiedReadBack: true,
+        syncedCount: syncRes.syncedCount,
+        message: `✅ Supabase zaxira bazasiga haqiqiy Firestore maʼlumotlari (${syncRes.syncedCount || 1} jadval) yozildi va qayta oʻqib tasdiqlandi!`,
+      };
+    }
+
+    return {
+      success: false,
+      verifiedReadBack: false,
+      message: `⚠️ Supabase ulanish yoki jadvalga yozish tasdiqlanmadi: ${syncRes.error || syncRes.lastError || 'Maʼlumot uzatilmadi'}`,
+    };
   } catch (err: any) {
     return { success: false, message: `Tarmoq yoki konfiguratsiya xatosi: ${err.message || 'Nomaʼlum xato'}` };
   }
@@ -119,6 +208,8 @@ export interface BackupSummaryItem {
   createdBy: string;
   destination: string;
   status: string;
+  supabaseSynced?: boolean;
+  supabaseError?: string | null;
   counts?: {
     prayerTimes: number;
     articles: number;
@@ -128,6 +219,9 @@ export interface BackupSummaryItem {
     announcements: number;
     news: number;
     inquiries: number;
+    mosqueEvents?: number;
+    quizQuestions?: number;
+    dailyQuizzes?: number;
   };
 }
 
@@ -135,11 +229,14 @@ export async function fetchBackupList(): Promise<{
   success: boolean;
   supabaseConfigured: boolean;
   lastSync: string | null;
+  lastError?: string | null;
+  verifiedReadBack?: boolean;
   backups: BackupSummaryItem[];
 }> {
   try {
     const token = getActiveAdminToken();
     const resp = await fetch('/api/backup/list', {
+      credentials: 'include',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (resp.ok) {
@@ -148,23 +245,32 @@ export async function fetchBackupList(): Promise<{
         success: true,
         supabaseConfigured: Boolean(data.supabaseConfigured),
         lastSync: data.lastSync || null,
+        lastError: data.lastError || null,
+        verifiedReadBack: Boolean(data.verifiedReadBack),
         backups: Array.isArray(data.backups) ? data.backups : [],
       };
     }
   } catch {
     // ignore
   }
-  return { success: false, supabaseConfigured: false, lastSync: null, backups: [] };
+  return { success: false, supabaseConfigured: false, lastSync: null, lastError: null, verifiedReadBack: false, backups: [] };
 }
 
 export async function createBackupSnapshot(
   label: string,
   snapshot: Record<string, any>
-): Promise<{ success: boolean; backup?: BackupSummaryItem; error?: string }> {
+): Promise<{
+  success: boolean;
+  backup?: BackupSummaryItem;
+  supabaseSynced?: boolean;
+  supabaseError?: string | null;
+  error?: string;
+}> {
   try {
     const token = getActiveAdminToken();
     const resp = await fetch('/api/backup/create', {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -173,7 +279,12 @@ export async function createBackupSnapshot(
     });
     const data = await resp.json().catch(() => ({}));
     if (resp.ok && data.success) {
-      return { success: true, backup: data.backup };
+      return {
+        success: true,
+        backup: data.backup,
+        supabaseSynced: Boolean(data.supabaseSynced),
+        supabaseError: data.supabaseError || null,
+      };
     }
     return { success: false, error: data.error || 'Zaxira nusxa yaratishda xatolik' };
   } catch (err: any) {
@@ -183,11 +294,19 @@ export async function createBackupSnapshot(
 
 export async function restoreBackupSnapshot(
   backupId: string
-): Promise<{ success: boolean; restoredBackupId?: string; preRestoreBackupId?: string; data?: any; error?: string }> {
+): Promise<{
+  success: boolean;
+  restoredBackupId?: string;
+  preRestoreBackupId?: string;
+  firestoreRestoredCount?: number;
+  data?: any;
+  error?: string;
+}> {
   try {
     const token = getActiveAdminToken();
     const resp = await fetch('/api/backup/restore', {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -200,6 +319,7 @@ export async function restoreBackupSnapshot(
         success: true,
         restoredBackupId: data.restoredBackupId,
         preRestoreBackupId: data.preRestoreBackupId,
+        firestoreRestoredCount: data.firestoreRestoredCount,
         data: data.data,
       };
     }

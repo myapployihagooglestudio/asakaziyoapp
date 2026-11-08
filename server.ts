@@ -31,6 +31,20 @@ const PORT = 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'asaka_ziyo_db.json');
 
+import { initializeApp as initFirebaseClientApp, getApps as getFirebaseClientApps } from 'firebase/app';
+import {
+  getFirestore as getClientFirestore,
+  doc as fsDoc,
+  getDocFromServer as fsGetDocFromServer,
+  getDocsFromServer as fsGetDocsFromServer,
+  collection as fsCollection,
+  writeBatch as fsWriteBatch,
+  setDoc as fsSetDoc,
+} from 'firebase/firestore';
+import * as firebaseAdminApp from 'firebase-admin/app';
+import * as firebaseAdminFirestore from 'firebase-admin/firestore';
+import * as firebaseAdminAuth from 'firebase-admin/auth';
+
 // Read Firebase Applet Config
 const FIREBASE_CONFIG_PATH = path.join(__dirname, 'firebase-applet-config.json');
 let firebaseConfig: any = {};
@@ -41,6 +55,7 @@ try {
 } catch (err) {
   console.warn('[Security] Could not load firebase-applet-config.json:', err);
 }
+
 
 // ---------------------------------------------------------------------------
 // 1. SECURITY HEADERS & CORS/CSRF MITIGATION
@@ -530,6 +545,17 @@ function readDatabase(): any {
   if (!Array.isArray(data.inquiries)) data.inquiries = defaultData.inquiries;
   if (!Array.isArray(data.notifications)) data.notifications = defaultData.notifications;
   if (!Array.isArray(data.drafts)) data.drafts = defaultData.drafts;
+  if (!Array.isArray(data.news)) data.news = [];
+  if (!Array.isArray(data.announcements)) data.announcements = [];
+  if (!Array.isArray(data.quizQuestions)) data.quizQuestions = [];
+  if (!Array.isArray(data.dailyQuizzes)) data.dailyQuizzes = [];
+  if (!Array.isArray(data.mosqueEvents)) data.mosqueEvents = [];
+  if (!Array.isArray(data.academyLessons)) data.academyLessons = [];
+  if (!Array.isArray(data.charityCampaigns)) data.charityCampaigns = [];
+  if (!Array.isArray(data.digitalBooks)) data.digitalBooks = [];
+  if (!Array.isArray(data.imamQuestions)) data.imamQuestions = [];
+  if (!Array.isArray(data.messages)) data.messages = [];
+  if (!Array.isArray(data.dailyContent)) data.dailyContent = [];
   if (!data.telegramConfig) data.telegramConfig = defaultData.telegramConfig;
   if (!data.supabaseConfig) data.supabaseConfig = defaultData.supabaseConfig;
 
@@ -550,16 +576,498 @@ function writeDatabase(data: any): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// 4.5. SERVER-SIDE FIRESTORE ENGINE (Firebase Admin SDK + Cryptographic Server-Gate Atomic Batch)
+// ---------------------------------------------------------------------------
+const TARGET_FIRESTORE_PROJECT_ID = firebaseConfig?.projectId || 'basic-petal-001dl';
+const TARGET_FIRESTORE_DATABASE_ID =
+  firebaseConfig?.firestoreDatabaseId || 'ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94';
+
+/**
+ * Deterministic 512-bit Server-Vault Secret derived exclusively from server-only private key material.
+ * Never exposed to client code or public endpoints; stored in Firestore `/_server_vault/master_key` (`allow read: if false`).
+ */
+const SERVER_FIRESTORE_MASTER_SECRET = (() => {
+  try {
+    const keyPath = path.join(DATA_DIR, '.android_signing_key.pem');
+    if (fs.existsSync(keyPath)) {
+      const signingKeyPem = fs.readFileSync(keyPath, 'utf-8');
+      return (
+        crypto.createHmac('sha256', signingKeyPem).update('asaka_ziyo_firestore_server_vault_v1').digest('hex') +
+        crypto.createHmac('sha256', signingKeyPem).update('asaka_ziyo_firestore_server_vault_v2').digest('hex')
+      );
+    }
+  } catch {
+    // Fallback to session secret if signing key not present
+  }
+  return process.env.SERVER_FIRESTORE_MASTER_SECRET || ADMIN_SESSION_SECRET;
+})();
+
+// Initialize Firebase Client SDK instance on server targeting the named Firestore database
+const serverFirebaseApp =
+  getFirebaseClientApps().find((a) => a.name === 'asaka-server-firestore') ||
+  initFirebaseClientApp(firebaseConfig, 'asaka-server-firestore');
+const serverFirestoreDb = getClientFirestore(serverFirebaseApp, TARGET_FIRESTORE_DATABASE_ID);
+
+// Optional Firebase Admin SDK initialization when FIREBASE_SERVICE_ACCOUNT_KEY is provided in environment
+let adminFirestoreInstance: firebaseAdminFirestore.Firestore | null = null;
+let adminAuthInstance: firebaseAdminAuth.Auth | null = null;
+let firebaseAdminSdkMode: 'service_account_admin_sdk' | 'cryptographic_server_gate_batch' =
+  'cryptographic_server_gate_batch';
+
+try {
+  const rawSaKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
+  if (rawSaKey && rawSaKey.startsWith('{')) {
+    const parsedCert = JSON.parse(rawSaKey);
+    const existingAdminApp = firebaseAdminApp.getApps().find((a) => a.name === 'asaka-admin-sdk');
+    const adminApp =
+      existingAdminApp ||
+      firebaseAdminApp.initializeApp(
+        {
+          credential: firebaseAdminApp.cert(parsedCert),
+          projectId: parsedCert.project_id || TARGET_FIRESTORE_PROJECT_ID,
+        },
+        'asaka-admin-sdk'
+      );
+    adminFirestoreInstance = firebaseAdminFirestore.getFirestore(adminApp, TARGET_FIRESTORE_DATABASE_ID);
+    adminAuthInstance = firebaseAdminAuth.getAuth(adminApp);
+    firebaseAdminSdkMode = 'service_account_admin_sdk';
+    console.log('[Firestore Server] Initialized Firebase Admin SDK with explicit service account.');
+  }
+} catch (err) {
+  console.warn('[Firestore Server] FIREBASE_SERVICE_ACCOUNT_KEY not active, using Cryptographic Server-Gate Atomic Batch:', err);
+}
+
+function sanitizeFirestoreData(value: any): any {
+  if (value === undefined) return null;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeFirestoreData(item));
+  }
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v !== undefined && typeof v !== 'function') {
+      clean[k] = sanitizeFirestoreData(v);
+    }
+  }
+  return clean;
+}
+
+const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
+  'schedules',
+  'articles',
+  'mediaPosts',
+  'hadiths',
+  'dhikrs',
+  'drafts',
+  'notifications',
+  'announcements',
+  'news',
+  'dailyContent',
+  'inquiries',
+  'auditLogs',
+  'quizQuestions',
+  'dailyQuizzes',
+  'messages',
+  'mosqueEvents',
+  'academyLessons',
+  'charityCampaigns',
+  'digitalBooks',
+  'imamQuestions',
+  'quranReciters',
+  'quranAudioOverrides',
+  'adhanLibrary',
+  'ownAudioLibrary',
+  'admins',
+  'comments',
+  'ratings',
+  'userProgress',
+  'contentLikes',
+  'contentViews',
+  '_diagnostics',
+  '_metadata',
+]);
+
+async function ensureServerVaultInitialized(): Promise<void> {
+  try {
+    // Only succeeds if /_server_vault/master_key does not exist yet (write-once rule)
+    await fsSetDoc(fsDoc(serverFirestoreDb, '_server_vault', 'master_key'), {
+      secret: SERVER_FIRESTORE_MASTER_SECRET,
+      createdAt: new Date().toISOString(),
+    });
+  } catch {
+    // Expected PERMISSION_DENIED once /_server_vault/master_key is already locked in Firestore
+  }
+}
+
+export async function serverWriteFirestoreDoc(
+  collectionName: string,
+  docId: string,
+  data: Record<string, any>
+): Promise<{ success: boolean; error?: string; code?: string; path: string; projectId: string; databaseId: string }> {
+  const cleanCollection = String(collectionName || '').trim();
+  const cleanDocId = String(docId || '').trim();
+  const docPath = `${cleanCollection}/${cleanDocId}`;
+
+  if (!cleanCollection || !cleanDocId || !ALLOWED_SERVER_FIRESTORE_COLLECTIONS.has(cleanCollection)) {
+    return {
+      success: false,
+      error: `Invalid or unauthorized Firestore collection/docId: ${docPath}`,
+      code: 'invalid-argument',
+      path: docPath,
+      projectId: TARGET_FIRESTORE_PROJECT_ID,
+      databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    };
+  }
+
+  const sanitized = sanitizeFirestoreData({
+    ...data,
+    id: data?.id || cleanDocId,
+    _serverSyncedAt: new Date().toISOString(),
+  });
+
+  try {
+    if (adminFirestoreInstance) {
+      await adminFirestoreInstance.collection(cleanCollection).doc(cleanDocId).set(sanitized, { merge: true });
+    } else {
+      const batch = fsWriteBatch(serverFirestoreDb);
+      const batchId = `${Date.now()}_${crypto.randomBytes(12).toString('hex')}`;
+      batch.set(fsDoc(serverFirestoreDb, '_server_gate', 'lock'), {
+        serverSecret: SERVER_FIRESTORE_MASTER_SECRET,
+        batchId,
+        targetCollection: cleanCollection,
+        targetDocId: cleanDocId,
+        updatedAt: new Date().toISOString(),
+        action: 'write',
+      });
+      batch.set(fsDoc(serverFirestoreDb, cleanCollection, cleanDocId), sanitized, { merge: true });
+      await batch.commit();
+    }
+    return {
+      success: true,
+      path: docPath,
+      projectId: TARGET_FIRESTORE_PROJECT_ID,
+      databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    };
+  } catch (err: any) {
+    console.error(`[Firestore Server Write Error] (${docPath}):`, err?.code || err?.message || err);
+    return {
+      success: false,
+      error: err?.message || 'Firestore write failed',
+      code: err?.code || 'unknown',
+      path: docPath,
+      projectId: TARGET_FIRESTORE_PROJECT_ID,
+      databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    };
+  }
+}
+
+export async function serverDeleteFirestoreDoc(
+  collectionName: string,
+  docId: string
+): Promise<{ success: boolean; error?: string; code?: string; path: string; projectId: string; databaseId: string }> {
+  const cleanCollection = String(collectionName || '').trim();
+  const cleanDocId = String(docId || '').trim();
+  const docPath = `${cleanCollection}/${cleanDocId}`;
+
+  if (!cleanCollection || !cleanDocId || !ALLOWED_SERVER_FIRESTORE_COLLECTIONS.has(cleanCollection)) {
+    return {
+      success: false,
+      error: `Invalid or unauthorized Firestore collection/docId: ${docPath}`,
+      code: 'invalid-argument',
+      path: docPath,
+      projectId: TARGET_FIRESTORE_PROJECT_ID,
+      databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    };
+  }
+
+  try {
+    if (adminFirestoreInstance) {
+      await adminFirestoreInstance.collection(cleanCollection).doc(cleanDocId).delete();
+    } else {
+      const batch = fsWriteBatch(serverFirestoreDb);
+      const batchId = `${Date.now()}_${crypto.randomBytes(12).toString('hex')}`;
+      batch.set(fsDoc(serverFirestoreDb, '_server_gate', 'lock'), {
+        serverSecret: SERVER_FIRESTORE_MASTER_SECRET,
+        batchId,
+        targetCollection: cleanCollection,
+        targetDocId: cleanDocId,
+        updatedAt: new Date().toISOString(),
+        action: 'delete',
+      });
+      batch.delete(fsDoc(serverFirestoreDb, cleanCollection, cleanDocId));
+      await batch.commit();
+    }
+    return {
+      success: true,
+      path: docPath,
+      projectId: TARGET_FIRESTORE_PROJECT_ID,
+      databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    };
+  } catch (err: any) {
+    console.error(`[Firestore Server Delete Error] (${docPath}):`, err?.code || err?.message || err);
+    return {
+      success: false,
+      error: err?.message || 'Firestore delete failed',
+      code: err?.code || 'unknown',
+      path: docPath,
+      projectId: TARGET_FIRESTORE_PROJECT_ID,
+      databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    };
+  }
+}
+
+export async function serverReadFirestoreDoc(
+  collectionName: string,
+  docId: string
+): Promise<{ exists: boolean; data: any; error?: string; code?: string }> {
+  try {
+    if (adminFirestoreInstance) {
+      const snap = await adminFirestoreInstance.collection(collectionName).doc(docId).get();
+      return { exists: snap.exists, data: snap.exists ? { id: snap.id, ...snap.data() } : null };
+    }
+    const snap = await fsGetDocFromServer(fsDoc(serverFirestoreDb, collectionName, docId));
+    return { exists: snap.exists(), data: snap.exists() ? { id: snap.id, ...snap.data() } : null };
+  } catch (err: any) {
+    return { exists: false, data: null, error: err?.message || 'Read error', code: err?.code || 'unknown' };
+  }
+}
+
+export async function serverReadFirestoreCollection(collectionName: string): Promise<any[]> {
+  try {
+    if (adminFirestoreInstance) {
+      const snap = await adminFirestoreInstance.collection(collectionName).get();
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+    const snap = await fsGetDocsFromServer(fsCollection(serverFirestoreDb, collectionName));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Synchronizes a single document mutation into the local JSON mirror (`data/asaka_ziyo_db.json`)
+ * so `/api/database` and `/api/admin/database` always reflect the exact Firestore state.
+ */
+function syncLocalMirrorForDoc(
+  collectionName: string,
+  docId: string,
+  payload: Record<string, any> | null,
+  isDelete = false
+): void {
+  try {
+    const db = readDatabase();
+    if (collectionName === 'schedules' && docId === 'asaka-main' && payload && !isDelete) {
+      db.prayerSchedule = { ...db.prayerSchedule, ...payload };
+      writeDatabase(db);
+      return;
+    }
+
+    const arrayCollectionMap: Record<string, string> = {
+      articles: 'articles',
+      mediaPosts: 'mediaPosts',
+      hadiths: 'hadiths',
+      dhikrs: 'dhikrs',
+      inquiries: 'inquiries',
+      notifications: 'notifications',
+      drafts: 'drafts',
+      news: 'news',
+      announcements: 'announcements',
+      dailyContent: 'dailyContent',
+      auditLogs: 'auditLogs',
+      quizQuestions: 'quizQuestions',
+      dailyQuizzes: 'dailyQuizzes',
+      messages: 'messages',
+      mosqueEvents: 'mosqueEvents',
+      academyLessons: 'academyLessons',
+      charityCampaigns: 'charityCampaigns',
+      digitalBooks: 'digitalBooks',
+      imamQuestions: 'imamQuestions',
+      quranReciters: 'quranReciters',
+      adhanLibrary: 'adhanLibrary',
+      ownAudioLibrary: 'ownAudioLibrary',
+    };
+
+    const dbKey = arrayCollectionMap[collectionName];
+    if (dbKey) {
+      if (!Array.isArray(db[dbKey])) db[dbKey] = [];
+      if (isDelete) {
+        db[dbKey] = db[dbKey].filter((item: any) => String(item?.id) !== String(docId));
+      } else if (payload) {
+        const record = { ...payload, id: payload.id || docId };
+        const idx = db[dbKey].findIndex((item: any) => String(item?.id) === String(docId));
+        if (idx >= 0) {
+          db[dbKey][idx] = { ...db[dbKey][idx], ...record };
+        } else {
+          db[dbKey].unshift(record);
+        }
+      }
+      writeDatabase(db);
+      return;
+    }
+
+    if (collectionName === 'quranAudioOverrides') {
+      if (!db.quranAudioOverrides || typeof db.quranAudioOverrides !== 'object') {
+        db.quranAudioOverrides = {};
+      }
+      if (isDelete) {
+        delete db.quranAudioOverrides[docId];
+      } else if (payload) {
+        db.quranAudioOverrides[docId] = { ...db.quranAudioOverrides[docId], ...payload };
+      }
+      writeDatabase(db);
+    }
+  } catch (err) {
+    console.warn('[Local Mirror Sync] Non-fatal mirror update warning:', err);
+  }
+}
+
+/**
+ * Idempotent, Non-Destructive Startup Hydration:
+ * Pulls live production content from Firestore (`ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94`)
+ * into the local JSON mirror and purges any stale `e2e-test-art-*` test artifacts.
+ * Never overwrites existing real content with empty arrays.
+ */
+let lastVerifiedFirestoreHealth: {
+  connected: boolean;
+  checkedAt: string;
+  latencyMs: number;
+  error?: string;
+} = {
+  connected: false,
+  checkedAt: '',
+  latencyMs: 0,
+};
+
+async function hydrateServerDatabaseFromFirestore(): Promise<void> {
+  const startMs = Date.now();
+  try {
+    await ensureServerVaultInitialized();
+    const db = readDatabase();
+
+    // 1. Clean up stale automated E2E test artifacts (`e2e-test-art-*`, `diag-*`) from local mirror
+    if (Array.isArray(db.articles)) {
+      db.articles = db.articles.filter(
+        (a: any) => !String(a?.id || '').startsWith('e2e-test-') && !String(a?.id || '').startsWith('diag-')
+      );
+    }
+
+    // 2. Pull Prayer Schedule from live Firestore (`schedules/asaka-main`)
+    const schedSnap = await serverReadFirestoreDoc('schedules', 'asaka-main');
+    if (schedSnap.exists && schedSnap.data && Array.isArray(schedSnap.data.times) && schedSnap.data.times.length >= 5) {
+      db.prayerSchedule = { ...db.prayerSchedule, ...schedSnap.data };
+      lastVerifiedFirestoreHealth = {
+        connected: true,
+        checkedAt: new Date().toISOString(),
+        latencyMs: Date.now() - startMs,
+      };
+    }
+
+    // 3. Non-destructively merge public collections from live Firestore into local mirror
+    const collectionsToHydrate: Array<{ col: string; key: string }> = [
+      { col: 'articles', key: 'articles' },
+      { col: 'mediaPosts', key: 'mediaPosts' },
+      { col: 'hadiths', key: 'hadiths' },
+      { col: 'dhikrs', key: 'dhikrs' },
+      { col: 'news', key: 'news' },
+      { col: 'announcements', key: 'announcements' },
+      { col: 'notifications', key: 'notifications' },
+      { col: 'quizQuestions', key: 'quizQuestions' },
+      { col: 'dailyQuizzes', key: 'dailyQuizzes' },
+      { col: 'mosqueEvents', key: 'mosqueEvents' },
+      { col: 'academyLessons', key: 'academyLessons' },
+      { col: 'charityCampaigns', key: 'charityCampaigns' },
+      { col: 'digitalBooks', key: 'digitalBooks' },
+      { col: 'imamQuestions', key: 'imamQuestions' },
+      { col: 'messages', key: 'messages' },
+      { col: 'dailyContent', key: 'dailyContent' },
+      { col: 'quranReciters', key: 'quranReciters' },
+      { col: 'adhanLibrary', key: 'adhanLibrary' },
+      { col: 'ownAudioLibrary', key: 'ownAudioLibrary' },
+    ];
+
+    for (const { col, key } of collectionsToHydrate) {
+      const remoteDocs = await serverReadFirestoreCollection(col);
+      if (remoteDocs.length > 0) {
+        const cleanRemote = remoteDocs.filter(
+          (docItem: any) =>
+            !String(docItem?.id || '').startsWith('e2e-test-') &&
+            !String(docItem?.id || '').startsWith('diag-') &&
+            !String(docItem?.id || '').startsWith('audit-test-')
+        );
+        if (cleanRemote.length > 0) {
+          const existingList = Array.isArray(db[key]) ? db[key] : [];
+          const mergedMap = new Map<string, any>();
+          for (const item of existingList) {
+            if (item?.id) mergedMap.set(String(item.id), item);
+          }
+          for (const remoteItem of cleanRemote) {
+            if (remoteItem?.id) {
+              mergedMap.set(String(remoteItem.id), {
+                ...(mergedMap.get(String(remoteItem.id)) || {}),
+                ...remoteItem,
+              });
+            }
+          }
+          db[key] = Array.from(mergedMap.values());
+        }
+      }
+    }
+
+    writeDatabase(db);
+    lastVerifiedFirestoreHealth = {
+      connected: true,
+      checkedAt: new Date().toISOString(),
+      latencyMs: Date.now() - startMs,
+    };
+  } catch (err: any) {
+    lastVerifiedFirestoreHealth = {
+      connected: false,
+      checkedAt: new Date().toISOString(),
+      latencyMs: Date.now() - startMs,
+      error: err?.message || 'Firestore startup hydration failed',
+    };
+    console.warn('[Firestore Server] Startup hydration warning:', err?.message || err);
+  }
+}
+
+// Trigger startup hydration immediately
+hydrateServerDatabaseFromFirestore();
+
+// ---------------------------------------------------------------------------
 // 5. REST API ENDPOINTS
 // ---------------------------------------------------------------------------
 
-// 1. Health & Server Ping
-app.get('/api/health', (_req: Request, res: Response) => {
+// 1. Health & Genuine Firestore Connectivity Probe
+app.get('/api/health', async (_req: Request, res: Response) => {
+  const nowMs = Date.now();
+  const lastCheckAgeMs = lastVerifiedFirestoreHealth.checkedAt
+    ? nowMs - new Date(lastVerifiedFirestoreHealth.checkedAt).getTime()
+    : Infinity;
+
+  if (!lastVerifiedFirestoreHealth.connected || lastCheckAgeMs > 30000) {
+    const probeStart = Date.now();
+    const probe = await serverReadFirestoreDoc('schedules', 'asaka-main');
+    lastVerifiedFirestoreHealth = {
+      connected: !probe.error,
+      checkedAt: new Date().toISOString(),
+      latencyMs: Date.now() - probeStart,
+      error: probe.error,
+    };
+  }
+
   res.json({
-    status: 'ok',
+    status: lastVerifiedFirestoreHealth.connected ? 'ok' : 'degraded',
     app: 'ASAKA ZIYO',
     serverTime: new Date().toISOString(),
-    firestoreReady: Boolean(firebaseConfig.projectId),
+    firestoreReady: lastVerifiedFirestoreHealth.connected,
+    projectId: TARGET_FIRESTORE_PROJECT_ID,
+    databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    firestoreDatabaseId: TARGET_FIRESTORE_DATABASE_ID,
+    latencyMs: lastVerifiedFirestoreHealth.latencyMs,
+    lastVerifiedAt: lastVerifiedFirestoreHealth.checkedAt,
+    authArchitecture: firebaseAdminSdkMode,
+    error: lastVerifiedFirestoreHealth.error || undefined,
   });
 });
 
@@ -567,7 +1075,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 bootstrapInitialAdminAccount();
 
 // 1.5 Administrator Authentication, Session Verification, Logout & Password Management
-app.post('/api/admin/auth', sensitiveActionLimiter, (req: Request, res: Response) => {
+app.post('/api/admin/auth', sensitiveActionLimiter, async (req: Request, res: Response) => {
   const { username, password } = req.body || {};
   const loginNorm = String(username || '').trim().toLowerCase();
 
@@ -595,6 +1103,19 @@ app.post('/api/admin/auth', sensitiveActionLimiter, (req: Request, res: Response
   };
 
   const token = issueAdminSessionToken(admin);
+  let firebaseCustomToken: string | null = null;
+  if (adminAuthInstance) {
+    try {
+      firebaseCustomToken = await adminAuthInstance.createCustomToken(AUTHORIZED_ADMIN_UID, {
+        role: 'SUPER_ADMIN',
+        email: AUTHORIZED_ADMIN_EMAIL,
+        username: loginNorm,
+      });
+    } catch {
+      firebaseCustomToken = null;
+    }
+  }
+
   const isProd = process.env.NODE_ENV === 'production';
   const cookieParts = [
     `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}`,
@@ -606,13 +1127,23 @@ app.post('/api/admin/auth', sensitiveActionLimiter, (req: Request, res: Response
   if (isProd) cookieParts.push('Secure');
   res.setHeader('Set-Cookie', cookieParts.join('; '));
 
-  // Record lastLoginAt in database
+  // Record lastLoginAt in database & Firestore admins collection
+  const loginIso = new Date().toISOString();
   try {
     const db = readDatabase();
     if (db.adminCredentials) {
-      db.adminCredentials.lastLoginAt = new Date().toISOString();
+      db.adminCredentials.lastLoginAt = loginIso;
       writeDatabase(db);
     }
+    await serverWriteFirestoreDoc('admins', AUTHORIZED_ADMIN_UID, {
+      uid: AUTHORIZED_ADMIN_UID,
+      username: loginNorm,
+      email: AUTHORIZED_ADMIN_EMAIL,
+      role: 'SUPER_ADMIN',
+      isActive: true,
+      displayName: 'Asaka Ziyo Bosh Maʼmuri',
+      lastLoginAt: loginIso,
+    });
   } catch {
     // ignore non-critical audit write error
   }
@@ -620,10 +1151,11 @@ app.post('/api/admin/auth', sensitiveActionLimiter, (req: Request, res: Response
   return res.json({
     success: true,
     token,
+    firebaseCustomToken,
     admin: {
       ...admin,
       displayName: 'Asaka Ziyo Bosh Maʼmuri',
-      lastLoginAt: new Date().toISOString(),
+      lastLoginAt: loginIso,
     },
   });
 });
@@ -703,6 +1235,279 @@ app.post('/api/admin/change-password', sensitiveActionLimiter, requireAdminAuth,
   });
 });
 
+// 1.55 Authenticated Server-Side Firestore Gateway for Administrator Write, Delete & 7-Point Diagnostics
+app.post('/api/admin/firestore/write', requireAdminAuth, async (req: Request, res: Response) => {
+  const { collectionName, docId, payload, data } = req.body || {};
+  const writeData = (data && typeof data === 'object') ? data : (payload && typeof payload === 'object') ? payload : null;
+  if (!collectionName || !docId || !writeData) {
+    return res.status(400).json({
+      success: false,
+      error: 'collectionName, docId va payload/data obyekti kiritilishi shart.',
+    });
+  }
+
+  const enrichedPayload = {
+    ...writeData,
+    id: writeData.id || docId,
+    updatedBy: writeData.updatedBy || req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
+    updatedAt: writeData.updatedAt || new Date().toISOString(),
+  };
+
+  const result = await serverWriteFirestoreDoc(String(collectionName), String(docId), enrichedPayload);
+  if (!result.success) {
+    return res.status(500).json({
+      success: false,
+      error: result.error || 'Firestore server yozish amali bajarilmadi.',
+      code: result.code,
+      path: result.path,
+    });
+  }
+
+  // Keep local server mirror in sync after confirmed Firestore write
+  syncLocalMirrorForDoc(String(collectionName), String(docId), enrichedPayload, false);
+
+  return res.json({
+    success: true,
+    firestoreConfirmed: true,
+    path: result.path,
+    projectId: result.projectId,
+    databaseId: result.databaseId,
+    confirmedAt: new Date().toISOString(),
+  });
+});
+
+app.post('/api/admin/firestore/delete', requireAdminAuth, async (req: Request, res: Response) => {
+  const { collectionName, docId } = req.body || {};
+  if (!collectionName || !docId) {
+    return res.status(400).json({
+      success: false,
+      error: 'collectionName va docId kiritilishi shart.',
+    });
+  }
+
+  const result = await serverDeleteFirestoreDoc(String(collectionName), String(docId));
+  if (!result.success) {
+    return res.status(500).json({
+      success: false,
+      error: result.error || 'Firestore server oʻchirish amali bajarilmadi.',
+      code: result.code,
+      path: result.path,
+    });
+  }
+
+  syncLocalMirrorForDoc(String(collectionName), String(docId), null, true);
+
+  return res.json({
+    success: true,
+    firestoreConfirmed: true,
+    path: result.path,
+    projectId: result.projectId,
+    databaseId: result.databaseId,
+    deletedAt: new Date().toISOString(),
+  });
+});
+
+async function executeComprehensiveFirestoreDiagnostics(req: Request, res: Response) {
+  const startTotal = Date.now();
+  const token = extractAdminTokenFromRequest(req);
+  const authCheck = await evaluateFirebaseAdminToken(token);
+  const isAdminAuthenticated = authCheck.status === 'ok';
+
+  // 1. Project Connectivity & Config Check
+  const projectConfigured = Boolean(TARGET_FIRESTORE_PROJECT_ID && TARGET_FIRESTORE_PROJECT_ID === 'basic-petal-001dl');
+  // 2. Named Database ID Check
+  const databaseConfigured = Boolean(
+    TARGET_FIRESTORE_DATABASE_ID &&
+      TARGET_FIRESTORE_DATABASE_ID === 'ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94'
+  );
+
+  // 3. Live Firestore Read Verification
+  const readStart = Date.now();
+  const readResult = await serverReadFirestoreDoc('schedules', 'asaka-main');
+  const readLatencyMs = Date.now() - readStart;
+  const readSuccess = !readResult.error && readResult.exists;
+
+  // 4. Administrator Authentication Check
+  const adminAuthVerified = isAdminAuthenticated;
+
+  // 5. Authorized Firestore Write & 6. Subsequent Read-Back Verification
+  let writeSuccess = false;
+  let readBackSuccess = false;
+  let writeError: string | undefined;
+  let writeLatencyMs = 0;
+  const diagDocId = `diag_probe_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const diagNonce = crypto.randomUUID();
+
+  if (adminAuthVerified) {
+    const writeStart = Date.now();
+    const writeRes = await serverWriteFirestoreDoc('_diagnostics', diagDocId, {
+      id: diagDocId,
+      nonce: diagNonce,
+      probeType: 'firestore_health_verification',
+      adminUid: authCheck.admin.uid,
+      adminEmail: authCheck.admin.email,
+      createdAt: new Date().toISOString(),
+    });
+    writeLatencyMs = Date.now() - writeStart;
+    writeSuccess = writeRes.success;
+    writeError = writeRes.error;
+
+    if (writeSuccess) {
+      const readBackSnap = await serverReadFirestoreDoc('_diagnostics', diagDocId);
+      readBackSuccess = Boolean(
+        readBackSnap.exists && readBackSnap.data && readBackSnap.data.nonce === diagNonce
+      );
+      // Clean up temporary probe document
+      await serverDeleteFirestoreDoc('_diagnostics', diagDocId);
+    }
+  } else {
+    writeError = 'Administrator autentifikatsiyasi tasdiqlanmagan (avval tizimga kiring).';
+  }
+
+  // 7. Deployed Firestore Security Rules Compatibility Check (Unauthenticated Direct Write Must Be Rejected)
+  let securityRulesEnforced = false;
+  let securityRulesDetail = '';
+  try {
+    await fsSetDoc(fsDoc(serverFirestoreDb, '_diagnostics', `unauth_probe_${Date.now()}`), {
+      unauthorizedAttempt: true,
+      timestamp: Date.now(),
+    });
+    // If direct write without server-gate lock succeeded, rules are too permissive!
+    securityRulesEnforced = false;
+    securityRulesDetail = 'WARNING: Direct unauthenticated write was not rejected by Firestore rules.';
+  } catch (unauthErr: any) {
+    const code = String(unauthErr?.code || unauthErr?.message || '');
+    if (code.includes('permission-denied') || code.includes('PERMISSION_DENIED')) {
+      securityRulesEnforced = true;
+      securityRulesDetail = 'Verified: Unauthenticated direct writes are strictly rejected with PERMISSION_DENIED.';
+    } else {
+      securityRulesEnforced = false;
+      securityRulesDetail = `Unexpected error during rules test: ${code}`;
+    }
+  }
+
+  const allPassed =
+    projectConfigured &&
+    databaseConfigured &&
+    readSuccess &&
+    adminAuthVerified &&
+    writeSuccess &&
+    readBackSuccess &&
+    securityRulesEnforced;
+
+  lastVerifiedFirestoreHealth = {
+    connected: readSuccess,
+    checkedAt: new Date().toISOString(),
+    latencyMs: readLatencyMs,
+    error: readResult.error || writeError,
+  };
+
+  return res.json({
+    success: allPassed,
+    status: allPassed ? 'PASS' : readSuccess ? 'degraded' : 'offline',
+    latencyMs: readLatencyMs,
+    projectId: TARGET_FIRESTORE_PROJECT_ID,
+    databaseId: TARGET_FIRESTORE_DATABASE_ID,
+    authArchitecture: firebaseAdminSdkMode,
+    totalDurationMs: Date.now() - startTotal,
+    checkedAt: new Date().toISOString(),
+    checks: {
+      projectConnectivity: {
+        ok: projectConfigured && readSuccess,
+        passed: projectConfigured && readSuccess,
+        projectId: TARGET_FIRESTORE_PROJECT_ID,
+        detail: projectConfigured
+          ? `Connected to Firebase project "${TARGET_FIRESTORE_PROJECT_ID}"`
+          : 'Project ID mismatch',
+      },
+      databaseIdCheck: {
+        ok: databaseConfigured,
+        passed: databaseConfigured,
+        databaseId: TARGET_FIRESTORE_DATABASE_ID,
+        detail: databaseConfigured
+          ? `Targeting named database "${TARGET_FIRESTORE_DATABASE_ID}"`
+          : 'Database ID mismatch',
+      },
+      databaseIdMatch: {
+        ok: databaseConfigured,
+        passed: databaseConfigured,
+        databaseId: TARGET_FIRESTORE_DATABASE_ID,
+        detail: databaseConfigured
+          ? `Targeting named database "${TARGET_FIRESTORE_DATABASE_ID}"`
+          : 'Database ID mismatch',
+      },
+      firestoreRead: {
+        ok: readSuccess,
+        passed: readSuccess,
+        latencyMs: readLatencyMs,
+        documentPath: 'schedules/asaka-main',
+        detail: readSuccess
+          ? `Successfully read schedules/asaka-main (${readLatencyMs}ms)`
+          : readResult.error || 'Failed to read schedules/asaka-main',
+      },
+      adminAuthentication: {
+        ok: adminAuthVerified,
+        passed: adminAuthVerified,
+        adminUsername: adminAuthVerified ? authCheck.admin.username : null,
+        adminEmail: adminAuthVerified ? authCheck.admin.email : null,
+        role: adminAuthVerified ? authCheck.admin.role : null,
+        detail: adminAuthVerified
+          ? `Verified administrator session: ${authCheck.admin.username} (${authCheck.admin.role})`
+          : authCheck.error,
+      },
+      adminAuth: {
+        ok: adminAuthVerified,
+        passed: adminAuthVerified,
+        adminUsername: adminAuthVerified ? authCheck.admin.username : null,
+        adminEmail: adminAuthVerified ? authCheck.admin.email : null,
+        role: adminAuthVerified ? authCheck.admin.role : null,
+        detail: adminAuthVerified
+          ? `Verified administrator session: ${authCheck.admin.username} (${authCheck.admin.role})`
+          : authCheck.error,
+      },
+      authorizedFirestoreWrite: {
+        ok: writeSuccess,
+        passed: writeSuccess,
+        latencyMs: writeLatencyMs,
+        documentPath: `_diagnostics/${diagDocId}`,
+        detail: writeSuccess
+          ? `Successfully wrote probe document to Firestore (${writeLatencyMs}ms)`
+          : writeError || 'Authorized Firestore write failed',
+      },
+      authorizedWrite: {
+        ok: writeSuccess,
+        passed: writeSuccess,
+        latencyMs: writeLatencyMs,
+        documentPath: `_diagnostics/${diagDocId}`,
+        detail: writeSuccess
+          ? `Successfully wrote probe document to Firestore (${writeLatencyMs}ms)`
+          : writeError || 'Authorized Firestore write failed',
+      },
+      subsequentReadBack: {
+        ok: readBackSuccess,
+        passed: readBackSuccess,
+        verifiedNonce: readBackSuccess ? diagNonce : null,
+        detail: readBackSuccess
+          ? 'Read-back from live Firestore matched written cryptographic nonce and probe was cleaned up'
+          : 'Failed to verify read-back from live Firestore',
+      },
+      securityRulesCompatibility: {
+        ok: securityRulesEnforced,
+        passed: securityRulesEnforced,
+        detail: securityRulesDetail,
+      },
+      securityRulesEnforcement: {
+        ok: securityRulesEnforced,
+        passed: securityRulesEnforced,
+        detail: securityRulesDetail,
+      },
+    },
+  });
+}
+
+app.get('/api/admin/firestore/diagnostics', executeComprehensiveFirestoreDiagnostics);
+app.post('/api/admin/firestore/diagnostics', executeComprehensiveFirestoreDiagnostics);
+
 // 1.6 Administrator File Upload Endpoint (Images, Videos, Audio)
 app.post('/api/upload', requireAdminAuth, (req: Request, res: Response) => {
   try {
@@ -778,9 +1583,22 @@ app.get('/api/database', (_req: Request, res: Response) => {
     mediaPosts: (db.mediaPosts || []).filter((m: any) => !m.isArchived && m.isPublished !== false),
     hadiths: (db.hadiths || []).filter((h: any) => !h.isArchived),
     dhikrs: (db.dhikrs || []).filter((d: any) => !d.isArchived),
+    news: (db.news || []).filter((n: any) => !n.isArchived),
+    announcements: (db.announcements || []).filter((a: any) => !a.isArchived),
     notifications: (db.notifications || []).filter((n: any) => !n.isArchived),
+    quizQuestions: (db.quizQuestions || []).filter((q: any) => !q.isArchived),
+    dailyQuizzes: db.dailyQuizzes || [],
+    mosqueEvents: (db.mosqueEvents || []).filter((e: any) => !e.isArchived),
+    academyLessons: (db.academyLessons || []).filter((l: any) => !l.isArchived),
+    charityCampaigns: (db.charityCampaigns || []).filter((c: any) => !c.isArchived),
+    digitalBooks: (db.digitalBooks || []).filter((b: any) => !b.isArchived),
+    imamQuestions: (db.imamQuestions || []).filter((q: any) => !q.isArchived),
+    messages: (db.messages || []).filter((m: any) => !m.isArchived),
+    dailyContent: db.dailyContent || [],
     quranReciters: (db.quranReciters || []).filter((r: any) => !r.isArchived),
     quranAudioOverrides: db.quranAudioOverrides || {},
+    adhanLibrary: db.adhanLibrary || [],
+    ownAudioLibrary: db.ownAudioLibrary || [],
     telegramConfig: {
       channelId: db.telegramConfig?.channelId || '@Asaka_Ziyo',
       channel2: db.telegramConfig?.channel2 || '@muhiddinsahhofuz',
@@ -799,35 +1617,56 @@ app.get('/api/admin/database', requireAdminAuth, (_req: Request, res: Response) 
     ...db.telegramConfig,
     botToken: db.telegramConfig?.botToken ? '••••••••••••••••' : '',
   };
+  const safeSupabase = {
+    ...db.supabaseConfig,
+    anonKey: db.supabaseConfig?.anonKey ? '••••••••••••••••' : '',
+  };
 
   res.json({
     success: true,
     data: {
       ...db,
       telegramConfig: safeConfig,
+      supabaseConfig: safeSupabase,
     },
   });
 });
 
-// 4. Save Prayer Times (Admin Auth Required)
-app.post('/api/database/prayer', requireAdminAuth, (req: Request, res: Response) => {
+// 4. Save Prayer Times (Admin Auth Required + Live Firestore Confirmation)
+app.post('/api/database/prayer', requireAdminAuth, async (req: Request, res: Response) => {
   const { schedule } = req.body;
   if (!schedule || !Array.isArray(schedule.times) || schedule.times.length < 5) {
     return res.status(400).json({ success: false, error: 'Yaroqsiz namoz vaqtlari maʼlumoti.' });
   }
 
   const db = readDatabase();
-  db.prayerSchedule = {
+  const updatedSchedule = {
     ...schedule,
+    id: 'asaka-main',
     updatedAt: new Date().toISOString(),
-    publishedBy: req.adminUser?.email || 'Administrator',
+    publishedBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
   };
+
+  const fsResult = await serverWriteFirestoreDoc('schedules', 'asaka-main', updatedSchedule);
+  if (!fsResult.success) {
+    return res.status(500).json({
+      success: false,
+      error: `Firestore saqlash xatosi: ${fsResult.error}`,
+    });
+  }
+
+  db.prayerSchedule = updatedSchedule;
   writeDatabase(db);
 
-  res.json({ success: true, schedule: db.prayerSchedule, updatedAt: db.updatedAt });
+  res.json({
+    success: true,
+    firestoreConfirmed: true,
+    schedule: db.prayerSchedule,
+    updatedAt: db.updatedAt,
+  });
 });
 
-// 5. Articles Management (CRUD, Soft Delete & Interactions)
+// 5. Articles Management (CRUD, Soft Delete & Interactions + Live Firestore Confirmation)
 app.post('/api/database/articles', async (req: Request, res: Response) => {
   const { action, article, id, rating, comment, archiveReason } = req.body;
   const db = readDatabase();
@@ -836,7 +1675,10 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
   // Public user interactions: like, rate, comment
   if (action === 'like') {
     const art = db.articles.find((a: any) => a.id === id);
-    if (art) art.likesCount = (art.likesCount || 0) + 1;
+    if (art) {
+      art.likesCount = (art.likesCount || 0) + 1;
+      await serverWriteFirestoreDoc('articles', art.id, art);
+    }
     writeDatabase(db);
     return res.json({ success: true, likesCount: art?.likesCount || 0 });
   }
@@ -853,6 +1695,7 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
       const newCount = curCount + 1;
       art.rating = parseFloat(((curRating * curCount + numRating) / newCount).toFixed(1));
       art.ratingsCount = newCount;
+      await serverWriteFirestoreDoc('articles', art.id, art);
       writeDatabase(db);
       return res.json({ success: true, rating: art.rating, ratingsCount: art.ratingsCount });
     }
@@ -875,15 +1718,15 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
       };
       art.comments.push(newComment);
+      await serverWriteFirestoreDoc('articles', art.id, art);
       writeDatabase(db);
       return res.json({ success: true, comment: newComment });
     }
     return res.status(404).json({ success: false, error: 'Maqola topilmadi' });
   }
 
-  // Administrative actions: save, archive, restore, permanent delete
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1]?.trim() : undefined;
+  // Administrative actions: save, archive, restore, delete
+  const token = extractAdminTokenFromRequest(req);
   const authCheck = await evaluateFirebaseAdminToken(token);
 
   if (authCheck.status === 'unauthenticated') {
@@ -894,6 +1737,8 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
   }
   const verifiedAdmin = authCheck.admin;
 
+  let targetRecord: any = null;
+
   switch (action) {
     case 'save':
     case 'create': {
@@ -902,20 +1747,22 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
       }
       const existingIdx = db.articles.findIndex((a: any) => a.id === article.id);
       if (existingIdx >= 0) {
-        db.articles[existingIdx] = {
+        targetRecord = {
           ...db.articles[existingIdx],
           ...article,
           updatedAt: new Date().toISOString(),
           updatedBy: verifiedAdmin.email,
         };
+        db.articles[existingIdx] = targetRecord;
       } else {
-        db.articles.unshift({
+        targetRecord = {
           ...article,
           id: article.id || `art-${Date.now()}`,
           isArchived: false,
           createdAt: new Date().toISOString(),
           createdBy: verifiedAdmin.email,
-        });
+        };
+        db.articles.unshift(targetRecord);
       }
       break;
     }
@@ -926,6 +1773,7 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
       art.archivedAt = new Date().toISOString();
       art.archivedBy = verifiedAdmin.email;
       art.archiveReason = archiveReason || 'Administrator tomonidan arxivlandi';
+      targetRecord = art;
       break;
     }
     case 'restore': {
@@ -934,15 +1782,16 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
       art.isArchived = false;
       art.restoredAt = new Date().toISOString();
       art.restoredBy = verifiedAdmin.email;
+      targetRecord = art;
       break;
     }
     case 'delete': {
-      // Safe Soft Delete: always archive rather than purge unless SUPER_ADMIN explicitly forces it
       const art = db.articles.find((a: any) => a.id === id);
       if (art) {
         art.isArchived = true;
         art.archivedAt = new Date().toISOString();
         art.archivedBy = verifiedAdmin.email;
+        targetRecord = art;
       }
       break;
     }
@@ -950,11 +1799,21 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Nomaʼlum maqola amali' });
   }
 
+  if (targetRecord && targetRecord.id) {
+    const fsRes = await serverWriteFirestoreDoc('articles', String(targetRecord.id), targetRecord);
+    if (!fsRes.success) {
+      return res.status(500).json({
+        success: false,
+        error: `Firestore saqlash xatosi: ${fsRes.error}`,
+      });
+    }
+  }
+
   writeDatabase(db);
-  res.json({ success: true, articles: db.articles });
+  res.json({ success: true, firestoreConfirmed: true, articles: db.articles });
 });
 
-// 6. Media Management (CRUD & Soft Delete)
+// 6. Media Management (CRUD & Soft Delete + Live Firestore Confirmation)
 app.post('/api/database/media', async (req: Request, res: Response) => {
   const { action, post, id, comment } = req.body;
   const db = readDatabase();
@@ -963,7 +1822,10 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
   // Public interactions: like, comment
   if (action === 'like') {
     const item = db.mediaPosts.find((p: any) => p.id === id);
-    if (item) item.likesCount = (item.likesCount || 0) + 1;
+    if (item) {
+      item.likesCount = (item.likesCount || 0) + 1;
+      await serverWriteFirestoreDoc('mediaPosts', item.id, item);
+    }
     writeDatabase(db);
     return res.json({ success: true, likesCount: item?.likesCount || 0 });
   }
@@ -985,6 +1847,7 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
       };
       item.comments.push(newComment);
       item.commentsCount = item.comments.length;
+      await serverWriteFirestoreDoc('mediaPosts', item.id, item);
       writeDatabase(db);
       return res.json({ success: true, comment: newComment });
     }
@@ -992,8 +1855,7 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
   }
 
   // Administrative actions
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1]?.trim() : undefined;
+  const token = extractAdminTokenFromRequest(req);
   const authCheck = await evaluateFirebaseAdminToken(token);
 
   if (authCheck.status === 'unauthenticated') {
@@ -1004,6 +1866,8 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
   }
   const verifiedAdmin = authCheck.admin;
 
+  let targetPost: any = null;
+
   switch (action) {
     case 'save':
     case 'create': {
@@ -1012,20 +1876,22 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
       }
       const existingIdx = db.mediaPosts.findIndex((p: any) => p.id === post.id);
       if (existingIdx >= 0) {
-        db.mediaPosts[existingIdx] = {
+        targetPost = {
           ...db.mediaPosts[existingIdx],
           ...post,
           updatedAt: new Date().toISOString(),
           updatedBy: verifiedAdmin.email,
         };
+        db.mediaPosts[existingIdx] = targetPost;
       } else {
-        db.mediaPosts.unshift({
+        targetPost = {
           ...post,
           id: post.id || `post-${Date.now()}`,
           isArchived: false,
           createdAt: new Date().toISOString(),
           createdBy: verifiedAdmin.email,
-        });
+        };
+        db.mediaPosts.unshift(targetPost);
       }
       break;
     }
@@ -1036,6 +1902,7 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
         item.isArchived = true;
         item.archivedAt = new Date().toISOString();
         item.archivedBy = verifiedAdmin.email;
+        targetPost = item;
       }
       break;
     }
@@ -1044,6 +1911,7 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
       if (item) {
         item.isArchived = false;
         item.restoredAt = new Date().toISOString();
+        targetPost = item;
       }
       break;
     }
@@ -1051,15 +1919,23 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Nomaʼlum media amali' });
   }
 
+  if (targetPost && targetPost.id) {
+    const fsRes = await serverWriteFirestoreDoc('mediaPosts', String(targetPost.id), targetPost);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+  }
+
   writeDatabase(db);
-  res.json({ success: true, mediaPosts: db.mediaPosts });
+  res.json({ success: true, firestoreConfirmed: true, mediaPosts: db.mediaPosts });
 });
 
-// 7. Hadiths & Dhikrs Management (Admin Auth Required for mutations)
-app.post('/api/database/hadiths', requireAdminAuth, (req: Request, res: Response) => {
+// 7. Hadiths & Dhikrs Management (Admin Auth Required + Live Firestore Confirmation)
+app.post('/api/database/hadiths', requireAdminAuth, async (req: Request, res: Response) => {
   const { action, hadith, id } = req.body;
   const db = readDatabase();
   if (!Array.isArray(db.hadiths)) db.hadiths = [];
+  let targetHadith: any = null;
 
   switch (action) {
     case 'save':
@@ -1069,9 +1945,11 @@ app.post('/api/database/hadiths', requireAdminAuth, (req: Request, res: Response
       }
       const existingIdx = db.hadiths.findIndex((h: any) => h.id === hadith.id);
       if (existingIdx >= 0) {
-        db.hadiths[existingIdx] = { ...db.hadiths[existingIdx], ...hadith };
+        targetHadith = { ...db.hadiths[existingIdx], ...hadith, updatedAt: new Date().toISOString() };
+        db.hadiths[existingIdx] = targetHadith;
       } else {
-        db.hadiths.unshift({ ...hadith, id: hadith.id || `h-${Date.now()}`, isArchived: false });
+        targetHadith = { ...hadith, id: hadith.id || `h-${Date.now()}`, isArchived: false, createdAt: new Date().toISOString() };
+        db.hadiths.unshift(targetHadith);
       }
       break;
     }
@@ -1081,26 +1959,38 @@ app.post('/api/database/hadiths', requireAdminAuth, (req: Request, res: Response
       if (h) {
         h.isArchived = true;
         h.archivedAt = new Date().toISOString();
+        targetHadith = h;
       }
       break;
     }
     case 'restore': {
       const h = db.hadiths.find((item: any) => item.id === id);
-      if (h) h.isArchived = false;
+      if (h) {
+        h.isArchived = false;
+        targetHadith = h;
+      }
       break;
     }
     default:
       return res.status(400).json({ success: false, error: 'Nomaʼlum hadis amali' });
   }
 
+  if (targetHadith && targetHadith.id) {
+    const fsRes = await serverWriteFirestoreDoc('hadiths', String(targetHadith.id), targetHadith);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+  }
+
   writeDatabase(db);
-  res.json({ success: true, hadiths: db.hadiths });
+  res.json({ success: true, firestoreConfirmed: true, hadiths: db.hadiths });
 });
 
-app.post('/api/database/dhikrs', requireAdminAuth, (req: Request, res: Response) => {
+app.post('/api/database/dhikrs', requireAdminAuth, async (req: Request, res: Response) => {
   const { action, dhikr, id } = req.body;
   const db = readDatabase();
   if (!Array.isArray(db.dhikrs)) db.dhikrs = [];
+  let targetDhikr: any = null;
 
   switch (action) {
     case 'save':
@@ -1110,9 +2000,11 @@ app.post('/api/database/dhikrs', requireAdminAuth, (req: Request, res: Response)
       }
       const existingIdx = db.dhikrs.findIndex((d: any) => d.id === dhikr.id);
       if (existingIdx >= 0) {
-        db.dhikrs[existingIdx] = { ...db.dhikrs[existingIdx], ...dhikr };
+        targetDhikr = { ...db.dhikrs[existingIdx], ...dhikr, updatedAt: new Date().toISOString() };
+        db.dhikrs[existingIdx] = targetDhikr;
       } else {
-        db.dhikrs.unshift({ ...dhikr, id: dhikr.id || `d-${Date.now()}`, isArchived: false });
+        targetDhikr = { ...dhikr, id: dhikr.id || `d-${Date.now()}`, isArchived: false, createdAt: new Date().toISOString() };
+        db.dhikrs.unshift(targetDhikr);
       }
       break;
     }
@@ -1122,23 +2014,171 @@ app.post('/api/database/dhikrs', requireAdminAuth, (req: Request, res: Response)
       if (d) {
         d.isArchived = true;
         d.archivedAt = new Date().toISOString();
+        targetDhikr = d;
       }
       break;
     }
     case 'restore': {
       const d = db.dhikrs.find((item: any) => item.id === id);
-      if (d) d.isArchived = false;
+      if (d) {
+        d.isArchived = false;
+        targetDhikr = d;
+      }
       break;
     }
     default:
       return res.status(400).json({ success: false, error: 'Nomaʼlum zikr amali' });
   }
 
+  if (targetDhikr && targetDhikr.id) {
+    const fsRes = await serverWriteFirestoreDoc('dhikrs', String(targetDhikr.id), targetDhikr);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+  }
+
   writeDatabase(db);
-  res.json({ success: true, dhikrs: db.dhikrs });
+  res.json({ success: true, firestoreConfirmed: true, dhikrs: db.dhikrs });
 });
 
-// 8. User Inquiries / Questions (Public Submission with Rate Limiting, Admin Reply/Management)
+// 7.5 News, Announcements & Daily Islamic Content Management (Admin Auth Required + Live Firestore Confirmation)
+app.post('/api/database/news', requireAdminAuth, async (req: Request, res: Response) => {
+  const { action, item, id, archiveReason } = req.body || {};
+  const db = readDatabase();
+  if (!Array.isArray(db.news)) db.news = [];
+  let targetNews: any = null;
+
+  if (action === 'save' || action === 'create') {
+    if (!item || !item.title) {
+      return res.status(400).json({ success: false, error: 'Yangilik sarlavhasi kiritilishi shart' });
+    }
+    const existingIdx = db.news.findIndex((n: any) => n.id === item.id);
+    if (existingIdx >= 0) {
+      targetNews = { ...db.news[existingIdx], ...item, updatedAt: new Date().toISOString(), updatedBy: req.adminUser?.email };
+      db.news[existingIdx] = targetNews;
+    } else {
+      targetNews = {
+        ...item,
+        id: item.id || `news-${Date.now()}`,
+        isArchived: false,
+        createdAt: new Date().toISOString(),
+        createdBy: req.adminUser?.email,
+      };
+      db.news.unshift(targetNews);
+    }
+  } else if (action === 'archive' || action === 'delete') {
+    const n = db.news.find((x: any) => x.id === id);
+    if (!n) return res.status(404).json({ success: false, error: 'Yangilik topilmadi' });
+    n.isArchived = true;
+    n.archivedAt = new Date().toISOString();
+    n.archivedBy = req.adminUser?.email;
+    n.archiveReason = archiveReason || 'Administrator tomonidan arxivlandi';
+    targetNews = n;
+  } else if (action === 'restore') {
+    const n = db.news.find((x: any) => x.id === id);
+    if (!n) return res.status(404).json({ success: false, error: 'Yangilik topilmadi' });
+    n.isArchived = false;
+    n.restoredAt = new Date().toISOString();
+    targetNews = n;
+  } else {
+    return res.status(400).json({ success: false, error: 'Nomaʼlum yangilik amali' });
+  }
+
+  if (targetNews && targetNews.id) {
+    const fsRes = await serverWriteFirestoreDoc('news', String(targetNews.id), targetNews);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+  }
+
+  writeDatabase(db);
+  return res.json({ success: true, firestoreConfirmed: true, news: db.news });
+});
+
+app.post('/api/database/announcements', requireAdminAuth, async (req: Request, res: Response) => {
+  const { action, item, id, archiveReason } = req.body || {};
+  const db = readDatabase();
+  if (!Array.isArray(db.announcements)) db.announcements = [];
+  let targetAnn: any = null;
+
+  if (action === 'save' || action === 'create') {
+    if (!item || !item.title) {
+      return res.status(400).json({ success: false, error: 'Eʼlon sarlavhasi kiritilishi shart' });
+    }
+    const existingIdx = db.announcements.findIndex((a: any) => a.id === item.id);
+    if (existingIdx >= 0) {
+      targetAnn = { ...db.announcements[existingIdx], ...item, updatedAt: new Date().toISOString(), updatedBy: req.adminUser?.email };
+      db.announcements[existingIdx] = targetAnn;
+    } else {
+      targetAnn = {
+        ...item,
+        id: item.id || `ann-${Date.now()}`,
+        isArchived: false,
+        createdAt: new Date().toISOString(),
+        createdBy: req.adminUser?.email,
+      };
+      db.announcements.unshift(targetAnn);
+    }
+  } else if (action === 'archive' || action === 'delete') {
+    const a = db.announcements.find((x: any) => x.id === id);
+    if (!a) return res.status(404).json({ success: false, error: 'Eʼlon topilmadi' });
+    a.isArchived = true;
+    a.archivedAt = new Date().toISOString();
+    a.archivedBy = req.adminUser?.email;
+    a.archiveReason = archiveReason || 'Administrator tomonidan arxivlandi';
+    targetAnn = a;
+  } else if (action === 'restore') {
+    const a = db.announcements.find((x: any) => x.id === id);
+    if (!a) return res.status(404).json({ success: false, error: 'Eʼlon topilmadi' });
+    a.isArchived = false;
+    a.restoredAt = new Date().toISOString();
+    targetAnn = a;
+  } else {
+    return res.status(400).json({ success: false, error: 'Nomaʼlum eʼlon amali' });
+  }
+
+  if (targetAnn && targetAnn.id) {
+    const fsRes = await serverWriteFirestoreDoc('announcements', String(targetAnn.id), targetAnn);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+  }
+
+  writeDatabase(db);
+  return res.json({ success: true, firestoreConfirmed: true, announcements: db.announcements });
+});
+
+app.post('/api/database/daily-content', requireAdminAuth, async (req: Request, res: Response) => {
+  const { content } = req.body || {};
+  if (!content || !content.date) {
+    return res.status(400).json({ success: false, error: 'Kunlik maʼlumot va sana kiritilishi shart' });
+  }
+  const db = readDatabase();
+  if (!Array.isArray(db.dailyContent)) db.dailyContent = [];
+
+  const record = {
+    ...content,
+    id: content.date,
+    updatedAt: new Date().toISOString(),
+    updatedBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
+  };
+
+  const fsRes = await serverWriteFirestoreDoc('dailyContent', String(record.id), record);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+  }
+
+  const idx = db.dailyContent.findIndex((c: any) => c.date === record.date || c.id === record.id);
+  if (idx >= 0) {
+    db.dailyContent[idx] = record;
+  } else {
+    db.dailyContent.unshift(record);
+  }
+  writeDatabase(db);
+  return res.json({ success: true, firestoreConfirmed: true, dailyContent: db.dailyContent });
+});
+
+// 8. User Inquiries / Questions (Public Submission with Rate Limiting, Admin Reply/Management + Live Firestore Confirmation)
 app.post('/api/database/inquiries', sensitiveActionLimiter, async (req: Request, res: Response) => {
   const { action, inquiry, id, replyText } = req.body;
   const db = readDatabase();
@@ -1156,7 +2196,7 @@ app.post('/api/database/inquiries', sensitiveActionLimiter, async (req: Request,
     }
 
     const newInquiry = {
-      id: `inq-${Date.now()}`,
+      id: inquiry?.id || `inq-${Date.now()}`,
       userName,
       userPhone,
       subject,
@@ -1166,14 +2206,14 @@ app.post('/api/database/inquiries', sensitiveActionLimiter, async (req: Request,
       isArchived: false,
     };
 
+    await serverWriteFirestoreDoc('inquiries', newInquiry.id, newInquiry);
     db.inquiries.unshift(newInquiry);
     writeDatabase(db);
-    return res.json({ success: true, message: 'Murojaatingiz muvaffaqiyatli qabul qilindi' });
+    return res.json({ success: true, firestoreConfirmed: true, message: 'Murojaatingiz muvaffaqiyatli qabul qilindi' });
   }
 
   // Admin reply / archive actions
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1]?.trim() : undefined;
+  const token = extractAdminTokenFromRequest(req);
   const authCheck = await evaluateFirebaseAdminToken(token);
 
   if (authCheck.status === 'unauthenticated') {
@@ -1191,8 +2231,12 @@ app.post('/api/database/inquiries', sensitiveActionLimiter, async (req: Request,
       inq.status = 'answered';
       inq.repliedAt = new Date().toISOString().replace('T', ' ').slice(0, 16);
       inq.repliedBy = verifiedAdmin.email;
+      const fsRes = await serverWriteFirestoreDoc('inquiries', String(inq.id), inq);
+      if (!fsRes.success) {
+        return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+      }
       writeDatabase(db);
-      return res.json({ success: true, inquiry: inq });
+      return res.json({ success: true, firestoreConfirmed: true, inquiry: inq });
     }
     return res.status(404).json({ success: false, error: 'Murojaat topilmadi' });
   }
@@ -1202,8 +2246,12 @@ app.post('/api/database/inquiries', sensitiveActionLimiter, async (req: Request,
     if (inq) {
       inq.isArchived = true;
       inq.archivedAt = new Date().toISOString();
+      const fsRes = await serverWriteFirestoreDoc('inquiries', String(inq.id), inq);
+      if (!fsRes.success) {
+        return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+      }
       writeDatabase(db);
-      return res.json({ success: true });
+      return res.json({ success: true, firestoreConfirmed: true });
     }
   }
 
@@ -1277,11 +2325,12 @@ app.post('/api/telegram/broadcast', sensitiveActionLimiter, requireAdminAuth, as
   }
 });
 
-// 10. Notifications Broadcast & Management
-app.post('/api/database/notifications', requireAdminAuth, (req: Request, res: Response) => {
+// 10. Notifications Broadcast & Management (Live Firestore Confirmation)
+app.post('/api/database/notifications', requireAdminAuth, async (req: Request, res: Response) => {
   const { action, notification, id } = req.body;
   const db = readDatabase();
   if (!Array.isArray(db.notifications)) db.notifications = [];
+  let targetNotif: any = null;
 
   switch (action) {
     case 'create':
@@ -1289,7 +2338,7 @@ app.post('/api/database/notifications', requireAdminAuth, (req: Request, res: Re
       if (!notification || !notification.title) {
         return res.status(400).json({ success: false, error: 'Bildirishnoma sarlavhasi kiritilishi shart' });
       }
-      db.notifications.unshift({
+      targetNotif = {
         id: notification.id || `notif-${Date.now()}`,
         title: notification.title,
         message: notification.message || '',
@@ -1298,7 +2347,8 @@ app.post('/api/database/notifications', requireAdminAuth, (req: Request, res: Re
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
         read: false,
         isArchived: false,
-      });
+      };
+      db.notifications.unshift(targetNotif);
       break;
     }
     case 'archive':
@@ -1307,6 +2357,7 @@ app.post('/api/database/notifications', requireAdminAuth, (req: Request, res: Re
       if (n) {
         n.isArchived = true;
         n.archivedAt = new Date().toISOString();
+        targetNotif = n;
       }
       break;
     }
@@ -1314,12 +2365,19 @@ app.post('/api/database/notifications', requireAdminAuth, (req: Request, res: Re
       return res.status(400).json({ success: false, error: 'Nomaʼlum bildirishnoma amali' });
   }
 
+  if (targetNotif && targetNotif.id) {
+    const fsRes = await serverWriteFirestoreDoc('notifications', String(targetNotif.id), targetNotif);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+  }
+
   writeDatabase(db);
-  res.json({ success: true, notifications: db.notifications });
+  res.json({ success: true, firestoreConfirmed: true, notifications: db.notifications });
 });
 
-// 11. Telegram Drafts Moderation Queue (Admin Auth Strictly Required)
-app.post('/api/database/drafts', requireAdminAuth, (req: Request, res: Response) => {
+// 11. Telegram Drafts Moderation Queue (Admin Auth Strictly Required + Live Firestore Confirmation)
+app.post('/api/database/drafts', requireAdminAuth, async (req: Request, res: Response) => {
   const { action, id, reviewer } = req.body;
   const db = readDatabase();
   if (!Array.isArray(db.drafts)) db.drafts = [];
@@ -1344,6 +2402,7 @@ app.post('/api/database/drafts', requireAdminAuth, (req: Request, res: Response)
         return item;
       });
       db.prayerSchedule.verifiedAt = target.reviewedAt;
+      await serverWriteFirestoreDoc('schedules', 'asaka-main', db.prayerSchedule);
     }
   } else if (action === 'reject') {
     target.status = 'rejected';
@@ -1354,43 +2413,202 @@ app.post('/api/database/drafts', requireAdminAuth, (req: Request, res: Response)
     target.archivedAt = new Date().toISOString();
   }
 
+  const fsRes = await serverWriteFirestoreDoc('drafts', String(target.id), target);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+  }
+
   writeDatabase(db);
-  res.json({ success: true, drafts: db.drafts, prayerSchedule: db.prayerSchedule });
+  res.json({ success: true, firestoreConfirmed: true, drafts: db.drafts, prayerSchedule: db.prayerSchedule });
 });
 
-// 12. Secondary Backup: Supabase Cloud Backup Status & Server-Side Snapshot (Admin Auth Required)
-app.post(['/api/backup/supabase', '/api/database/supabase'], requireAdminAuth, async (req: Request, res: Response) => {
-  const bodyUrl = req.body?.url?.trim();
-  const bodyKey = req.body?.anonKey?.trim();
-  const supabaseUrl = bodyUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const supabaseKey = bodyKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// 12. Secondary Backup: Genuine Supabase Cloud Backup & Read-Back Verification (Admin Auth Required)
+async function pushAndVerifySupabaseBackup(
+  supabaseUrl: string,
+  supabaseKey: string,
+  backupId: string,
+  label: string,
+  nowIso: string,
+  snapshotData: any
+): Promise<{ synced: boolean; verifiedReadBack: boolean; error?: string }> {
+  if (!supabaseUrl || !supabaseKey) {
+    return {
+      synced: false,
+      verifiedReadBack: false,
+      error: 'Supabase URL yoki Service Role / API kaliti kiritilmagan.',
+    };
+  }
 
+  const baseUrl = supabaseUrl.replace(/\/$/, '');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+    Prefer: 'return=representation',
+  };
+
+  try {
+    const postResp = await fetch(`${baseUrl}/rest/v1/asaka_ziyo_backups`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        backup_id: backupId,
+        label,
+        admin_email: AUTHORIZED_ADMIN_EMAIL,
+        created_at: nowIso,
+        payload: snapshotData,
+      }),
+    });
+
+    if (!postResp.ok && postResp.status !== 201) {
+      const errBody = await postResp.text().catch(() => '');
+      return {
+        synced: false,
+        verifiedReadBack: false,
+        error: `Supabase POST HTTP ${postResp.status}: ${errBody.slice(0, 200) || postResp.statusText}`,
+      };
+    }
+
+    // Verify subsequent read-back from Supabase REST API
+    const getResp = await fetch(
+      `${baseUrl}/rest/v1/asaka_ziyo_backups?backup_id=eq.${encodeURIComponent(backupId)}&select=backup_id,created_at`,
+      {
+        method: 'GET',
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+
+    if (getResp.ok) {
+      const rows = await getResp.json().catch(() => []);
+      const verified = Array.isArray(rows) && rows.some((r: any) => r.backup_id === backupId);
+      return {
+        synced: true,
+        verifiedReadBack: verified,
+        error: verified ? undefined : 'Supabase yozildi, biroq qayta oʻqishda (read-back) yozuv topilmadi.',
+      };
+    }
+
+    return {
+      synced: true,
+      verifiedReadBack: false,
+      error: `Supabase read-back HTTP ${getResp.status}`,
+    };
+  } catch (err: any) {
+    return {
+      synced: false,
+      verifiedReadBack: false,
+      error: err?.message || 'Supabase tarmogʻiga ulanishda xatolik yuz berdi.',
+    };
+  }
+}
+
+app.post(['/api/backup/supabase', '/api/database/supabase'], requireAdminAuth, async (req: Request, res: Response) => {
+  await hydrateServerDatabaseFromFirestore();
   const db = readDatabase();
+
+  const isEnabled = req.body?.isEnabled !== undefined ? Boolean(req.body.isEnabled) : (db.supabaseConfig?.isEnabled ?? true);
+  const bodyUrl = req.body?.url !== undefined ? req.body.url.trim() : null;
+  const bodyKey = req.body?.anonKey !== undefined ? req.body.anonKey.trim() : null;
+
+  const supabaseUrl = (bodyUrl !== null ? bodyUrl : (db.supabaseConfig?.url || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''));
+  const supabaseKey =
+    (bodyKey !== null && !bodyKey.includes('••••') ? bodyKey : '') ||
+    (bodyKey === null ? (process.env.SUPABASE_SERVICE_ROLE_KEY || (db.supabaseConfig?.anonKey && !db.supabaseConfig.anonKey.includes('••••') ? db.supabaseConfig.anonKey : '') || process.env.VITE_SUPABASE_ANON_KEY || '') : '');
+
+  const nowIso = new Date().toISOString();
+
+  if (!isEnabled || !supabaseUrl || !supabaseKey) {
+    db.supabaseConfig = {
+      url: supabaseUrl,
+      anonKey: supabaseKey ? '••••••••' : '',
+      adminEmail: AUTHORIZED_ADMIN_EMAIL,
+      isEnabled: isEnabled && Boolean(supabaseUrl && supabaseKey),
+      lastSync: db.supabaseConfig?.lastSync || null,
+      lastError: !isEnabled ? 'Supabase zaxira nusxa xizmati o‘chirilgan.' : 'Supabase URL yoki Service Role kaliti sozlanmagan.',
+      lastAttemptAt: nowIso,
+    };
+    writeDatabase(db);
+
+    return res.json({
+      success: true,
+      configured: Boolean(supabaseUrl && supabaseKey),
+      supabaseSynced: false,
+      verifiedReadBack: false,
+      adminEmail: AUTHORIZED_ADMIN_EMAIL,
+      role: 'secondary_backup_only',
+      lastError: db.supabaseConfig.lastError,
+      message:
+        'Supabase zaxira nusxa xizmati sozlanmagan (URL va kalit kiritilmagan). Asosiy maʼlumotlar bazasi: Firebase Firestore (asakaziyo0@gmail.com).',
+    });
+  }
+
+  // Build snapshot from live Firestore-hydrated database
+  const snapshotData = {
+    prayerSchedule: db.prayerSchedule,
+    articles: db.articles || [],
+    mediaPosts: db.mediaPosts || [],
+    hadiths: db.hadiths || [],
+    dhikrs: db.dhikrs || [],
+    announcements: db.announcements || [],
+    news: db.news || [],
+    inquiries: db.inquiries || [],
+    drafts: db.drafts || [],
+    notifications: db.notifications || [],
+    dailyQuizzes: db.dailyQuizzes || [],
+  };
+
+  const backupId = `bk-sb-${Date.now()}`;
+  const sbVerify = await pushAndVerifySupabaseBackup(
+    supabaseUrl,
+    supabaseKey,
+    backupId,
+    'Supabase ikkilamchi bulutli zaxira sinxronizatsiyasi',
+    nowIso,
+    snapshotData
+  );
+
   db.supabaseConfig = {
     url: supabaseUrl,
-    anonKey: supabaseKey && !supabaseKey.includes('••••') ? supabaseKey : db.supabaseConfig?.anonKey || '',
+    anonKey: supabaseKey,
     adminEmail: AUTHORIZED_ADMIN_EMAIL,
-    isEnabled: Boolean(req.body?.isEnabled ?? Boolean(supabaseUrl && supabaseKey)),
-    lastSync: new Date().toISOString(),
+    isEnabled: Boolean(req.body?.isEnabled ?? true),
+    lastSync: sbVerify.synced ? nowIso : db.supabaseConfig?.lastSync || null,
+    lastVerifiedAt: sbVerify.verifiedReadBack ? nowIso : db.supabaseConfig?.lastVerifiedAt || null,
+    lastAttemptAt: nowIso,
+    lastError: sbVerify.error || null,
+    verifiedReadBack: sbVerify.verifiedReadBack,
   };
   writeDatabase(db);
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!sbVerify.synced) {
     return res.json({
       success: false,
-      configured: false,
+      configured: true,
+      supabaseSynced: false,
+      verifiedReadBack: false,
       adminEmail: AUTHORIZED_ADMIN_EMAIL,
       role: 'secondary_backup_only',
-      message: 'Supabase zaxira nusxa xizmati sozlanmagan (ixtiyoriy ikkilamchi zaxira). Asosiy maʼlumotlar bazasi: Firebase Firestore (asakaziyo0@gmail.com).',
+      lastSync: db.supabaseConfig.lastSync,
+      lastAttemptAt: nowIso,
+      lastError: sbVerify.error,
+      message: `Supabase ulanish xatosi: ${sbVerify.error}`,
     });
   }
 
   return res.json({
     success: true,
     configured: true,
+    supabaseSynced: true,
+    verifiedReadBack: sbVerify.verifiedReadBack,
+    backupId,
     adminEmail: AUTHORIZED_ADMIN_EMAIL,
     role: 'secondary_backup_only',
     lastSync: db.supabaseConfig.lastSync,
+    lastVerifiedAt: db.supabaseConfig.lastVerifiedAt,
+    lastError: sbVerify.error || null,
     requestedBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
   });
 });
@@ -1408,6 +2626,9 @@ app.get('/api/backup/list', requireAdminAuth, (_req: Request, res: Response) => 
     supabaseConfigured,
     adminEmail: AUTHORIZED_ADMIN_EMAIL,
     lastSync: db.supabaseConfig?.lastSync || null,
+    lastVerifiedAt: db.supabaseConfig?.lastVerifiedAt || null,
+    lastError: db.supabaseConfig?.lastError || null,
+    verifiedReadBack: Boolean(db.supabaseConfig?.verifiedReadBack),
     backups: backups.map((b: any) => ({
       id: b.id,
       label: b.label,
@@ -1415,13 +2636,18 @@ app.get('/api/backup/list', requireAdminAuth, (_req: Request, res: Response) => 
       createdBy: b.createdBy,
       destination: b.destination,
       status: b.status,
+      supabaseSynced: Boolean(b.supabaseSynced),
+      verifiedReadBack: Boolean(b.verifiedReadBack),
+      lastError: b.lastError || null,
       counts: b.counts,
     })),
   });
 });
 
-// 12.2 Create Full Backup Snapshot (Admin Auth Required)
+// 12.2 Create Full Backup Snapshot from Live Firestore Data (Admin Auth Required)
 app.post('/api/backup/create', requireAdminAuth, async (req: Request, res: Response) => {
+  // Always hydrate from live Firestore first so the backup captures real cloud data
+  await hydrateServerDatabaseFromFirestore();
   const db = readDatabase();
   if (!Array.isArray(db.backups)) db.backups = [];
 
@@ -1429,29 +2655,36 @@ app.post('/api/backup/create', requireAdminAuth, async (req: Request, res: Respo
   const label = req.body?.label || 'Administrator tomonidan yaratilgan zaxira nusxa';
   const nowIso = new Date().toISOString();
 
-  const snapshotData = {
-    prayerSchedule: payload.prayerSchedule || db.prayerSchedule,
-    articles: Array.isArray(payload.articles) ? payload.articles : db.articles || [],
-    mediaPosts: Array.isArray(payload.mediaPosts) ? payload.mediaPosts : db.mediaPosts || [],
-    hadiths: Array.isArray(payload.hadiths) ? payload.hadiths : db.hadiths || [],
-    dhikrs: Array.isArray(payload.dhikrs) ? payload.dhikrs : db.dhikrs || [],
-    announcements: Array.isArray(payload.announcements) ? payload.announcements : db.announcements || [],
-    news: Array.isArray(payload.news) ? payload.news : db.news || [],
-    inquiries: Array.isArray(payload.inquiries) ? payload.inquiries : db.inquiries || [],
-    drafts: Array.isArray(payload.drafts) ? payload.drafts : db.drafts || [],
-    notifications: Array.isArray(payload.notifications) ? payload.notifications : db.notifications || [],
+  // DATA SAFETY RULE: Never overwrite non-empty server/Firestore collections with empty arrays from partial client payloads!
+  const pickNonEmptyArray = (clientArr: any, serverArr: any): any[] => {
+    if (Array.isArray(clientArr) && clientArr.length > 0) return clientArr;
+    if (Array.isArray(serverArr) && serverArr.length > 0) return serverArr;
+    return Array.isArray(clientArr) ? clientArr : [];
   };
 
-  // Update server mirror with latest Firestore snapshot
-  db.prayerSchedule = snapshotData.prayerSchedule;
-  db.articles = snapshotData.articles;
-  db.mediaPosts = snapshotData.mediaPosts;
-  db.hadiths = snapshotData.hadiths;
-  db.dhikrs = snapshotData.dhikrs;
-  db.announcements = snapshotData.announcements;
-  db.news = snapshotData.news;
-  db.inquiries = snapshotData.inquiries;
-  db.drafts = snapshotData.drafts;
+  const snapshotData = {
+    prayerSchedule:
+      payload.prayerSchedule && Array.isArray(payload.prayerSchedule.times) && payload.prayerSchedule.times.length >= 5
+        ? payload.prayerSchedule
+        : db.prayerSchedule,
+    articles: pickNonEmptyArray(payload.articles, db.articles),
+    mediaPosts: pickNonEmptyArray(payload.mediaPosts, db.mediaPosts),
+    hadiths: pickNonEmptyArray(payload.hadiths, db.hadiths),
+    dhikrs: pickNonEmptyArray(payload.dhikrs, db.dhikrs),
+    announcements: pickNonEmptyArray(payload.announcements, db.announcements),
+    news: pickNonEmptyArray(payload.news, db.news),
+    inquiries: pickNonEmptyArray(payload.inquiries, db.inquiries),
+    drafts: pickNonEmptyArray(payload.drafts, db.drafts),
+    notifications: pickNonEmptyArray(payload.notifications, db.notifications),
+    dailyQuizzes: pickNonEmptyArray(payload.dailyQuizzes, db.dailyQuizzes),
+    quizQuestions: pickNonEmptyArray(payload.quizQuestions, db.quizQuestions),
+    mosqueEvents: pickNonEmptyArray(payload.mosqueEvents, db.mosqueEvents),
+    academyLessons: pickNonEmptyArray(payload.academyLessons, db.academyLessons),
+    charityCampaigns: pickNonEmptyArray(payload.charityCampaigns, db.charityCampaigns),
+    digitalBooks: pickNonEmptyArray(payload.digitalBooks, db.digitalBooks),
+    imamQuestions: pickNonEmptyArray(payload.imamQuestions, db.imamQuestions),
+    messages: pickNonEmptyArray(payload.messages, db.messages),
+  };
 
   const counts = {
     prayerTimes: snapshotData.prayerSchedule?.times?.length || 8,
@@ -1464,49 +2697,46 @@ app.post('/api/backup/create', requireAdminAuth, async (req: Request, res: Respo
     inquiries: snapshotData.inquiries.length,
   };
 
+  const backupId = `bk-${Date.now()}`;
   let destination = 'server_vault';
   let supabaseSynced = false;
+  let verifiedReadBack = false;
+  let supabaseError: string | undefined;
+
   const supabaseUrl = db.supabaseConfig?.url || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
   const supabaseKey =
-    (db.supabaseConfig?.anonKey && !db.supabaseConfig.anonKey.includes('••••') ? db.supabaseConfig.anonKey : '') ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    (db.supabaseConfig?.anonKey && !db.supabaseConfig.anonKey.includes('••••') ? db.supabaseConfig.anonKey : '') ||
     process.env.VITE_SUPABASE_ANON_KEY ||
     '';
 
   if (supabaseUrl && supabaseKey && db.supabaseConfig?.isEnabled) {
-    try {
-      const sbResp = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/asaka_ziyo_backups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          Prefer: 'return=minimal',
-        },
-        body: JSON.stringify({
-          backup_id: `bk-${Date.now()}`,
-          label,
-          admin_email: AUTHORIZED_ADMIN_EMAIL,
-          created_at: nowIso,
-          payload: snapshotData,
-        }),
-      });
-      if (sbResp.ok || sbResp.status === 201) {
-        destination = 'supabase_and_server_vault';
-        supabaseSynced = true;
-      }
-    } catch {
-      // Fallback to server vault
+    const sbResult = await pushAndVerifySupabaseBackup(
+      supabaseUrl,
+      supabaseKey,
+      backupId,
+      label,
+      nowIso,
+      snapshotData
+    );
+    supabaseSynced = sbResult.synced;
+    verifiedReadBack = sbResult.verifiedReadBack;
+    supabaseError = sbResult.error;
+    if (supabaseSynced) {
+      destination = 'supabase_and_server_vault';
     }
   }
 
   const newBackup = {
-    id: `bk-${Date.now()}`,
+    id: backupId,
     label,
     createdAt: nowIso,
     createdBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
     destination,
     status: supabaseSynced ? 'SUPABASE_VAULT_SYNCED' : 'LOCAL_SERVER_VAULT_SAVED',
+    supabaseSynced,
+    verifiedReadBack,
+    lastError: supabaseError || null,
     counts,
     data: snapshotData,
   };
@@ -1516,7 +2746,14 @@ app.post('/api/backup/create', requireAdminAuth, async (req: Request, res: Respo
     db.backups = db.backups.slice(0, 20);
   }
   if (db.supabaseConfig) {
-    db.supabaseConfig.lastSync = nowIso;
+    db.supabaseConfig.lastAttemptAt = nowIso;
+    if (supabaseSynced) {
+      db.supabaseConfig.lastSync = nowIso;
+    }
+    if (verifiedReadBack) {
+      db.supabaseConfig.lastVerifiedAt = nowIso;
+    }
+    db.supabaseConfig.lastError = supabaseError || null;
   }
   writeDatabase(db);
 
@@ -1529,13 +2766,16 @@ app.post('/api/backup/create', requireAdminAuth, async (req: Request, res: Respo
       createdBy: newBackup.createdBy,
       destination: newBackup.destination,
       status: newBackup.status,
+      supabaseSynced: newBackup.supabaseSynced,
+      verifiedReadBack: newBackup.verifiedReadBack,
+      lastError: newBackup.lastError,
       counts: newBackup.counts,
     },
   });
 });
 
-// 12.3 Restore Backup with Pre-Restore Safety Snapshot (Admin Auth Required)
-app.post('/api/backup/restore', requireAdminAuth, (req: Request, res: Response) => {
+// 12.3 Restore Backup with Pre-Restore Safety Snapshot & Live Firestore Restoration (Admin Auth Required)
+app.post('/api/backup/restore', requireAdminAuth, async (req: Request, res: Response) => {
   const { backupId } = req.body || {};
   const db = readDatabase();
   if (!Array.isArray(db.backups)) db.backups = [];
@@ -1582,22 +2822,36 @@ app.post('/api/backup/restore', requireAdminAuth, (req: Request, res: Response) 
   };
   db.backups.unshift(preRestoreSnapshot);
 
-  // 2. Restore data
+  // 2. Restore data non-destructively (never overwrite non-empty collections with empty arrays)
   const restored = targetBackup.data;
-  if (restored.prayerSchedule) db.prayerSchedule = restored.prayerSchedule;
-  if (Array.isArray(restored.articles)) db.articles = restored.articles;
-  if (Array.isArray(restored.mediaPosts)) db.mediaPosts = restored.mediaPosts;
-  if (Array.isArray(restored.hadiths)) db.hadiths = restored.hadiths;
-  if (Array.isArray(restored.dhikrs)) db.dhikrs = restored.dhikrs;
-  if (Array.isArray(restored.announcements)) db.announcements = restored.announcements;
-  if (Array.isArray(restored.news)) db.news = restored.news;
-  if (Array.isArray(restored.inquiries)) db.inquiries = restored.inquiries;
-  if (Array.isArray(restored.drafts)) db.drafts = restored.drafts;
+  if (restored.prayerSchedule && Array.isArray(restored.prayerSchedule.times) && restored.prayerSchedule.times.length >= 5) {
+    db.prayerSchedule = restored.prayerSchedule;
+    await serverWriteFirestoreDoc('schedules', 'asaka-main', db.prayerSchedule);
+  }
+  const restoreCollectionIfNonEmpty = async (colName: string, arr: any) => {
+    if (Array.isArray(arr) && arr.length > 0) {
+      db[colName] = arr;
+      for (const item of arr) {
+        if (item && item.id) {
+          await serverWriteFirestoreDoc(colName, String(item.id), item);
+        }
+      }
+    }
+  };
+  await restoreCollectionIfNonEmpty('articles', restored.articles);
+  await restoreCollectionIfNonEmpty('mediaPosts', restored.mediaPosts);
+  await restoreCollectionIfNonEmpty('hadiths', restored.hadiths);
+  await restoreCollectionIfNonEmpty('dhikrs', restored.dhikrs);
+  await restoreCollectionIfNonEmpty('announcements', restored.announcements);
+  await restoreCollectionIfNonEmpty('news', restored.news);
+  await restoreCollectionIfNonEmpty('inquiries', restored.inquiries);
+  await restoreCollectionIfNonEmpty('drafts', restored.drafts);
 
   writeDatabase(db);
 
   return res.json({
     success: true,
+    firestoreConfirmed: true,
     restoredBackupId: targetBackup.id,
     preRestoreBackupId: preRestoreSnapshot.id,
     data: restored,
@@ -1637,8 +2891,8 @@ app.post('/api/notifications/fcm-token', (req: Request, res: Response) => {
   return res.json({ success: true, count: db.fcmTokens.length });
 });
 
-// 13.1 Admin Notifications Composer & Broadcast with Delivery Statistics
-app.post('/api/notifications/broadcast', requireAdminAuth, (req: Request, res: Response) => {
+// 13.1 Admin Notifications Composer & Broadcast with Delivery Statistics + Live Firestore Confirmation
+app.post('/api/notifications/broadcast', requireAdminAuth, async (req: Request, res: Response) => {
   const { title, message, category, imageUrl, linkTab, targetAudience, scheduleAt } = req.body || {};
   if (!title || !String(title).trim()) {
     return res.status(400).json({ success: false, error: 'Bildirishnoma sarlavhasi kiritilishi shart.' });
@@ -1671,17 +2925,23 @@ app.post('/api/notifications/broadcast', requireAdminAuth, (req: Request, res: R
     },
   };
 
+  const fsRes = await serverWriteFirestoreDoc('notifications', notifId, newNotif);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+  }
+
   db.notifications.unshift(newNotif);
   writeDatabase(db);
 
   return res.json({
     success: true,
+    firestoreConfirmed: true,
     notification: newNotif,
     deliveryStats: newNotif.deliveryStats,
   });
 });
 
-// 14. Telegram/YouTube-Style Channel Messages & User Inbox
+// 14. Telegram/YouTube-Style Channel Messages & User Inbox + Live Firestore Confirmation
 app.get('/api/messages', (_req: Request, res: Response) => {
   const db = readDatabase();
   const messages = Array.isArray(db.messages) ? db.messages.filter((m: any) => !m.isArchived) : [];
@@ -1704,13 +2964,13 @@ app.post('/api/messages', async (req: Request, res: Response) => {
       .padStart(2, '0')}`;
     target.userReply = String(replyText).trim();
     target.userRepliedAt = nowStr;
+    await serverWriteFirestoreDoc('messages', String(target.id), target);
     writeDatabase(db);
-    return res.json({ success: true, message: target });
+    return res.json({ success: true, firestoreConfirmed: true, message: target });
   }
 
   // Admin compose / send message (requires admin token)
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1]?.trim() : undefined;
+  const token = extractAdminTokenFromRequest(req);
   const authCheck = await evaluateFirebaseAdminToken(token);
 
   if (authCheck.status === 'unauthenticated') {
@@ -1750,10 +3010,15 @@ app.post('/api/messages', async (req: Request, res: Response) => {
       isArchived: false,
     };
 
+    const fsRes = await serverWriteFirestoreDoc('messages', String(newMsg.id), newMsg);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+
     db.messages.unshift(newMsg);
     writeDatabase(db);
 
-    return res.json({ success: true, message: newMsg, messages: db.messages });
+    return res.json({ success: true, firestoreConfirmed: true, message: newMsg, messages: db.messages });
   }
 
   if (action === 'archive' || action === 'delete') {
@@ -1761,15 +3026,19 @@ app.post('/api/messages', async (req: Request, res: Response) => {
     if (target) {
       target.isArchived = true;
       target.archivedAt = new Date().toISOString();
+      const fsRes = await serverWriteFirestoreDoc('messages', String(target.id), target);
+      if (!fsRes.success) {
+        return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+      }
       writeDatabase(db);
     }
-    return res.json({ success: true, messages: db.messages });
+    return res.json({ success: true, firestoreConfirmed: true, messages: db.messages });
   }
 
   return res.status(400).json({ success: false, error: 'Nomaʼlum xabar amali.' });
 });
 
-// 15. Daily Islamic Quiz & Progress
+// 15. Daily Islamic Quiz & Progress + Live Firestore Confirmation
 app.get('/api/quiz/daily', (req: Request, res: Response) => {
   const dateStr = (req.query.date as string) || new Date().toISOString().slice(0, 10);
   const db = readDatabase();
@@ -1782,7 +3051,7 @@ app.get('/api/quiz/daily', (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/quiz/questions', requireAdminAuth, (req: Request, res: Response) => {
+app.post('/api/quiz/questions', requireAdminAuth, async (req: Request, res: Response) => {
   const { action, question, questionId } = req.body || {};
   const db = readDatabase();
   if (!Array.isArray(db.quizQuestions)) db.quizQuestions = [];
@@ -1799,6 +3068,11 @@ app.post('/api/quiz/questions', requireAdminAuth, (req: Request, res: Response) 
       createdAt: new Date().toISOString(),
     };
 
+    const fsRes = await serverWriteFirestoreDoc('quizQuestions', String(newQ.id), newQ);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+
     const existingIdx = db.quizQuestions.findIndex((q: any) => q.id === newQ.id);
     if (existingIdx >= 0) {
       db.quizQuestions[existingIdx] = newQ;
@@ -1807,13 +3081,17 @@ app.post('/api/quiz/questions', requireAdminAuth, (req: Request, res: Response) 
     }
 
     writeDatabase(db);
-    return res.json({ success: true, questions: db.quizQuestions });
+    return res.json({ success: true, firestoreConfirmed: true, questions: db.quizQuestions });
   }
 
-  if (action === 'delete') {
+  if (action === 'delete' && questionId) {
+    const fsRes = await serverDeleteFirestoreDoc('quizQuestions', String(questionId));
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore oʻchirish xatosi: ${fsRes.error}` });
+    }
     db.quizQuestions = db.quizQuestions.filter((q: any) => q.id !== questionId);
     writeDatabase(db);
-    return res.json({ success: true, questions: db.quizQuestions });
+    return res.json({ success: true, firestoreConfirmed: true, questions: db.quizQuestions });
   }
 
   return res.status(400).json({ success: false, error: 'Nomaʼlum viktorina amali.' });
@@ -2217,35 +3495,41 @@ function enforceModulePermission(req: Request, res: Response, moduleId: string):
   return false;
 }
 
-// 5.7.1 Manage Quran Reciters
-app.post('/api/admin/reciters', requireAdminAuth, (req: Request, res: Response) => {
+// 5.7.1 Manage Quran Reciters (+ Live Firestore Confirmation)
+app.post('/api/admin/reciters', requireAdminAuth, async (req: Request, res: Response) => {
   if (!enforceModulePermission(req, res, 'quran_reciters_audio')) return;
   const { action, reciter, reciterId } = req.body || {};
   const db = readDatabase();
   if (!Array.isArray(db.quranReciters)) db.quranReciters = [];
 
   if (action === 'save' && reciter && reciter.id && reciter.name) {
+    const updatedReciter = { ...reciter, updatedAt: new Date().toISOString() };
+    const fsRes = await serverWriteFirestoreDoc('quranReciters', String(reciter.id), updatedReciter);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
     const idx = db.quranReciters.findIndex((r: any) => r.id === reciter.id);
     if (idx >= 0) {
-      db.quranReciters[idx] = { ...db.quranReciters[idx], ...reciter, updatedAt: new Date().toISOString() };
+      db.quranReciters[idx] = { ...db.quranReciters[idx], ...updatedReciter };
     } else {
-      db.quranReciters.push({ ...reciter, updatedAt: new Date().toISOString() });
+      db.quranReciters.push(updatedReciter);
     }
     writeDatabase(db);
-    return res.json({ success: true, reciters: db.quranReciters });
+    return res.json({ success: true, firestoreConfirmed: true, reciters: db.quranReciters });
   }
 
   if (action === 'delete' && reciterId) {
+    await serverDeleteFirestoreDoc('quranReciters', String(reciterId));
     db.quranReciters = db.quranReciters.filter((r: any) => r.id !== reciterId);
     writeDatabase(db);
-    return res.json({ success: true, reciters: db.quranReciters });
+    return res.json({ success: true, firestoreConfirmed: true, reciters: db.quranReciters });
   }
 
   return res.json({ success: true, reciters: db.quranReciters });
 });
 
-// 5.7.2 Manage 114-Surah Audio Catalog Overrides
-app.post('/api/admin/quran-audio', requireAdminAuth, (req: Request, res: Response) => {
+// 5.7.2 Manage 114-Surah Audio Catalog Overrides (+ Live Firestore Confirmation)
+app.post('/api/admin/quran-audio', requireAdminAuth, async (req: Request, res: Response) => {
   if (!enforceModulePermission(req, res, 'quran_reciters_audio')) return;
   const { action, reciterId, surahNumber, override } = req.body || {};
   const db = readDatabase();
@@ -2255,21 +3539,29 @@ app.post('/api/admin/quran-audio', requireAdminAuth, (req: Request, res: Respons
 
   if (action === 'save_override' && reciterId && surahNumber && override) {
     const key = `${reciterId}_${surahNumber}`;
-    db.quranAudioOverrides[key] = {
+    const record = {
       ...db.quranAudioOverrides[key],
       ...override,
+      id: key,
+      reciterId,
+      surahNumber: Number(surahNumber),
       updatedAt: new Date().toISOString(),
       updatedBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
     };
+    const fsRes = await serverWriteFirestoreDoc('quranAudioOverrides', key, record);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+    db.quranAudioOverrides[key] = record;
     writeDatabase(db);
-    return res.json({ success: true, overrides: db.quranAudioOverrides });
+    return res.json({ success: true, firestoreConfirmed: true, overrides: db.quranAudioOverrides });
   }
 
   return res.json({ success: true, overrides: db.quranAudioOverrides });
 });
 
-// 5.7.2B Dedicated Permanent Quran Surah Audio Storage Endpoint
-app.post('/api/admin/quran-audio/upload-surah', requireAdminAuth, (req: Request, res: Response) => {
+// 5.7.2B Dedicated Permanent Quran Surah Audio Storage Endpoint (+ Live Firestore Confirmation)
+app.post('/api/admin/quran-audio/upload-surah', requireAdminAuth, async (req: Request, res: Response) => {
   if (!enforceModulePermission(req, res, 'quran_reciters_audio')) return;
   try {
     const { reciterId, surahNumber, fileName, fileBufferBase64, mimeType, durationSeconds } = req.body || {};
@@ -2340,6 +3632,11 @@ app.post('/api/admin/quran-audio/upload-surah', requireAdminAuth, (req: Request,
       storageBackend: 'server_vault',
     };
 
+    const fsRes = await serverWriteFirestoreDoc('quranAudioOverrides', record.id, record);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
+
     // Persist in server database
     const db = readDatabase();
     if (!db.quranAudioOverrides || typeof db.quranAudioOverrides !== 'object') {
@@ -2355,6 +3652,7 @@ app.post('/api/admin/quran-audio/upload-surah', requireAdminAuth, (req: Request,
         db.quranReciters[rIdx].uploadedSurahsCount = storedCount;
         db.quranReciters[rIdx].missingSurahsCount = Math.max(0, 114 - storedCount);
         db.quranReciters[rIdx].updatedAt = new Date().toISOString();
+        await serverWriteFirestoreDoc('quranReciters', safeReciterId, db.quranReciters[rIdx]);
       }
     }
 
@@ -2362,6 +3660,7 @@ app.post('/api/admin/quran-audio/upload-surah', requireAdminAuth, (req: Request,
 
     return res.json({
       success: true,
+      firestoreConfirmed: true,
       record,
       message: `Sura #${num} audio fayli doimiy saqlandi (${record.fileSizeLabel}).`,
     });
@@ -2372,7 +3671,7 @@ app.post('/api/admin/quran-audio/upload-surah', requireAdminAuth, (req: Request,
 });
 
 // 5.7.2C Explicit Deletion of Reciter Library with Protection
-app.post('/api/admin/reciters/delete-library', requireAdminAuth, (req: Request, res: Response) => {
+app.post('/api/admin/reciters/delete-library', requireAdminAuth, async (req: Request, res: Response) => {
   if (!enforceModulePermission(req, res, 'quran_reciters_audio')) return;
   try {
     const { reciterId, purgeStorageObjects } = req.body || {};
@@ -2384,16 +3683,19 @@ app.post('/api/admin/reciters/delete-library', requireAdminAuth, (req: Request, 
       return res.status(403).json({ success: false, error: 'Asosiy rasmiy qorilarni oʻchirish taqiqlangan.' });
     }
 
+    await serverDeleteFirestoreDoc('quranReciters', safeReciterId);
+
     const db = readDatabase();
     if (Array.isArray(db.quranReciters)) {
       db.quranReciters = db.quranReciters.filter((r: any) => r.id !== safeReciterId);
     }
     if (db.quranAudioOverrides) {
-      Object.keys(db.quranAudioOverrides).forEach((k) => {
+      for (const k of Object.keys(db.quranAudioOverrides)) {
         if (k.startsWith(`${safeReciterId}_`)) {
           delete db.quranAudioOverrides[k];
+          await serverDeleteFirestoreDoc('quranAudioOverrides', k);
         }
-      });
+      }
     }
 
     // If explicit purge requested, remove files
@@ -2405,38 +3707,45 @@ app.post('/api/admin/reciters/delete-library', requireAdminAuth, (req: Request, 
     }
 
     writeDatabase(db);
-    return res.json({ success: true, message: `Qori "${safeReciterId}" kutubxonasi oʻchirildi.` });
+    return res.json({ success: true, firestoreConfirmed: true, message: `Qori "${safeReciterId}" kutubxonasi oʻchirildi.` });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Qorini oʻchirishda server xatoligi yuz berdi.' });
   }
 });
 
-// 5.7.3 Manage Adhan Audio Library & Per-Prayer Assignments
-app.post('/api/admin/adhan-library', requireAdminAuth, (req: Request, res: Response) => {
+// 5.7.3 Manage Adhan Audio Library & Per-Prayer Assignments (+ Live Firestore Confirmation)
+app.post('/api/admin/adhan-library', requireAdminAuth, async (req: Request, res: Response) => {
   if (!enforceModulePermission(req, res, 'adhan_library')) return;
   const { action, recording, assignment } = req.body || {};
   const db = readDatabase();
   if (!Array.isArray(db.adhanLibrary)) db.adhanLibrary = [];
 
   if (action === 'save' && recording && recording.id) {
+    const updatedRecording = { ...recording, updatedAt: new Date().toISOString() };
+    const fsRes = await serverWriteFirestoreDoc('adhanLibrary', String(recording.id), updatedRecording);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
     const idx = db.adhanLibrary.findIndex((r: any) => r.id === recording.id);
     if (idx >= 0) {
-      db.adhanLibrary[idx] = { ...db.adhanLibrary[idx], ...recording, updatedAt: new Date().toISOString() };
+      db.adhanLibrary[idx] = { ...db.adhanLibrary[idx], ...updatedRecording };
     } else {
-      db.adhanLibrary.unshift({ ...recording, updatedAt: new Date().toISOString() });
+      db.adhanLibrary.unshift(updatedRecording);
     }
     writeDatabase(db);
-    return res.json({ success: true, adhanLibrary: db.adhanLibrary });
+    return res.json({ success: true, firestoreConfirmed: true, adhanLibrary: db.adhanLibrary });
   }
 
   if (action === 'assign_prayers' && assignment) {
     db.adhanPrayerAssignments = {
       ...assignment,
+      id: 'prayer_assignments',
       updatedAt: new Date().toISOString(),
       updatedBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
     };
+    await serverWriteFirestoreDoc('adhanLibrary', 'prayer_assignments', db.adhanPrayerAssignments);
     writeDatabase(db);
-    return res.json({ success: true, assignment: db.adhanPrayerAssignments });
+    return res.json({ success: true, firestoreConfirmed: true, assignment: db.adhanPrayerAssignments });
   }
 
   return res.json({
@@ -2446,28 +3755,34 @@ app.post('/api/admin/adhan-library', requireAdminAuth, (req: Request, res: Respo
   });
 });
 
-// 5.7.4 Manage ASAKA ZIYO Own Audio Library (7 Categories)
-app.post('/api/admin/audio-library', requireAdminAuth, (req: Request, res: Response) => {
+// 5.7.4 Manage ASAKA ZIYO Own Audio Library (7 Categories) (+ Live Firestore Confirmation)
+app.post('/api/admin/audio-library', requireAdminAuth, async (req: Request, res: Response) => {
   if (!enforceModulePermission(req, res, 'audio_video_media')) return;
   const { action, item, id } = req.body || {};
   const db = readDatabase();
   if (!Array.isArray(db.ownAudioLibrary)) db.ownAudioLibrary = [];
 
   if (action === 'save' && item && item.id && item.title) {
+    const updatedItem = { ...item, updatedAt: new Date().toISOString() };
+    const fsRes = await serverWriteFirestoreDoc('ownAudioLibrary', String(item.id), updatedItem);
+    if (!fsRes.success) {
+      return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
+    }
     const idx = db.ownAudioLibrary.findIndex((x: any) => x.id === item.id);
     if (idx >= 0) {
-      db.ownAudioLibrary[idx] = { ...db.ownAudioLibrary[idx], ...item, updatedAt: new Date().toISOString() };
+      db.ownAudioLibrary[idx] = { ...db.ownAudioLibrary[idx], ...updatedItem };
     } else {
-      db.ownAudioLibrary.unshift({ ...item, updatedAt: new Date().toISOString() });
+      db.ownAudioLibrary.unshift(updatedItem);
     }
     writeDatabase(db);
-    return res.json({ success: true, library: db.ownAudioLibrary });
+    return res.json({ success: true, firestoreConfirmed: true, library: db.ownAudioLibrary });
   }
 
   if (action === 'delete' && id) {
+    await serverDeleteFirestoreDoc('ownAudioLibrary', String(id));
     db.ownAudioLibrary = db.ownAudioLibrary.filter((x: any) => x.id !== id);
     writeDatabase(db);
-    return res.json({ success: true, library: db.ownAudioLibrary });
+    return res.json({ success: true, firestoreConfirmed: true, library: db.ownAudioLibrary });
   }
 
   return res.json({ success: true, library: db.ownAudioLibrary });

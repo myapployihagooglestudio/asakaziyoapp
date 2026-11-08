@@ -3,10 +3,8 @@ import {
   getAuth,
   initializeAuth,
   inMemoryPersistence,
-  signInWithEmailAndPassword,
+  signInWithCustomToken,
   signOut,
-  updatePassword,
-  onAuthStateChanged,
   User,
   Auth,
 } from 'firebase/auth';
@@ -15,6 +13,7 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocFromServer,
   collection,
   getDocs,
   setDoc,
@@ -25,32 +24,6 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { AdminUser, UserRole } from '../types';
-
-// Suppress Firestore offline connection timeout warnings and errors in preview environments
-if (typeof window !== 'undefined') {
-  const origWarn = console.warn;
-  const origError = console.error;
-  console.warn = (...args: any[]) => {
-    const msg = args.map((a) => String(a)).join(' ');
-    if (
-      msg.includes('Could not reach Cloud Firestore backend') ||
-      msg.includes('Firestore')
-    ) {
-      return;
-    }
-    origWarn(...args);
-  };
-  console.error = (...args: any[]) => {
-    const msg = args.map((a) => String(a)).join(' ');
-    if (
-      msg.includes('Could not reach Cloud Firestore backend') ||
-      msg.includes('Firestore')
-    ) {
-      return;
-    }
-    origError(...args);
-  };
-}
 
 // Initialize Firebase App
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -92,6 +65,7 @@ export const auth: Auth = authInstance;
 export const AUTHORIZED_ADMIN_USERNAME = 'menageradmin';
 export const AUTHORIZED_ADMIN_EMAIL = 'asakaziyo0@gmail.com';
 export const AUTHORIZED_ADMIN_UID = 'admin-asakaziyo0';
+export const NAMED_FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId;
 const ADMIN_SESSION_STORAGE_KEY = 'asaka_ziyo_admin_session_v1';
 
 let activeAdminSession: AdminUser | null = null;
@@ -274,15 +248,13 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Startup connection verification
+// Startup connection verification against live Cloud Firestore server
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
-    await getDoc(doc(db, 'schedules', 'asaka-main'));
+    await getDocFromServer(doc(db, 'schedules', 'asaka-main'));
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('offline')) {
-      console.warn('Firebase client is in resilient offline mode.');
-    }
+    console.warn('[Firestore Connection Check] Live server read failed:', error instanceof Error ? error.message : error);
     return false;
   }
 }
@@ -364,9 +336,6 @@ export async function signInAdmin(
     throw new Error('Kirish rad etildi: Administrator foydalanuvchi nomi (login) notoʻgʻri.');
   }
 
-  let serverToken: string | null = null;
-  let serverAdminData: any = null;
-
   const resp = await fetch('/api/admin/auth', {
     method: 'POST',
     credentials: 'include',
@@ -387,8 +356,18 @@ export async function signInAdmin(
     throw new Error('Administrator sessiya tokenini olishda xatolik yuz berdi.');
   }
 
-  serverToken = json.token;
-  serverAdminData = json.admin || {};
+  const serverToken: string = json.token;
+  const serverAdminData: any = json.admin || {};
+
+  let signedInFirebaseUser: User | null = null;
+  if (json.firebaseCustomToken && typeof json.firebaseCustomToken === 'string') {
+    try {
+      const cred = await signInWithCustomToken(auth, json.firebaseCustomToken);
+      signedInFirebaseUser = cred.user;
+    } catch {
+      signedInFirebaseUser = null;
+    }
+  }
 
   const nowIso = new Date().toISOString();
   const adminProfile: AdminUser = {
@@ -416,7 +395,7 @@ export async function signInAdmin(
     // ignore storage errors
   }
 
-  return { user: null, admin: adminProfile };
+  return { user: signedInFirebaseUser, admin: adminProfile };
 }
 
 /**
@@ -454,10 +433,10 @@ export async function changeCurrentAdminPassword(newPass: string): Promise<{ suc
 }
 
 // ---------------------------------------------------------------------------
-// FIRESTORE GENERAL HELPERS
+// FIRESTORE GENERAL HELPERS (SERVER-AUTHENTICATED ADMIN WRITES + PUBLIC READS)
 // ---------------------------------------------------------------------------
 
-const ADMIN_WRITE_COLLECTIONS = new Set([
+export const ADMIN_WRITE_COLLECTIONS = new Set([
   'schedules',
   'articles',
   'mediaPosts',
@@ -467,6 +446,22 @@ const ADMIN_WRITE_COLLECTIONS = new Set([
   'notifications',
   'announcements',
   'news',
+  'dailyContent',
+  'inquiries',
+  'auditLogs',
+  'quizQuestions',
+  'dailyQuizzes',
+  'messages',
+  'mosqueEvents',
+  'academyLessons',
+  'charityCampaigns',
+  'digitalBooks',
+  'imamQuestions',
+  'quranReciters',
+  'quranAudioOverrides',
+  'adhanLibrary',
+  'ownAudioLibrary',
+  'admins',
   '_diagnostics',
   '_metadata',
 ]);
@@ -484,37 +479,99 @@ function sanitizeForFirestore(val: any): any {
   return cleaned;
 }
 
+function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http')) {
+    return window.location.origin;
+  }
+  return 'http://127.0.0.1:3000';
+}
+
 export async function syncDocToFirestore(
   collectionName: string,
   docId: string,
   data: any
 ): Promise<{ success: boolean; error?: string }> {
   const path = `${collectionName}/${docId}`;
+  const isAdminCol = ADMIN_WRITE_COLLECTIONS.has(collectionName);
+  const adminLoggedIn = isAdminAuthenticated();
+
+  // Public inquiry / Imam question creation exception: allowed for unauthenticated users only when status is pending/new/submitted
+  const isPublicSubmission =
+    !adminLoggedIn &&
+    (collectionName === 'inquiries' || collectionName === 'imamQuestions') &&
+    data &&
+    (data.status === 'pending' || data.status === 'new' || data.status === 'submitted') &&
+    !data.adminReply &&
+    !data.answerText &&
+    !data.answerUz;
 
   // Enforce strict admin authentication check for protected collections
-  if (ADMIN_WRITE_COLLECTIONS.has(collectionName) && !isAdminAuthenticated()) {
+  if (isAdminCol && !adminLoggedIn && !isPublicSubmission) {
     const permError = '7 PERMISSION_DENIED: Missing or insufficient permissions (Admin: asakaziyo0@gmail.com required).';
-    console.warn(`Firestore sync note for ${path}: ${permError}`);
+    console.warn(`Firestore sync rejected for ${path}: ${permError}`);
     return { success: false, error: permError };
   }
 
+  const nowIso = new Date().toISOString();
+  const cleanPayload = sanitizeForFirestore({
+    ...data,
+    id: data?.id || docId,
+    adminEmail: AUTHORIZED_ADMIN_EMAIL,
+    schemaVersion: 1,
+    createdAt: data?.createdAt || nowIso,
+    updatedAt: nowIso,
+    createdBy: data?.createdBy || (adminLoggedIn ? AUTHORIZED_ADMIN_USERNAME : 'public_user'),
+    updatedBy: adminLoggedIn ? AUTHORIZED_ADMIN_USERNAME : 'public_user',
+    syncedAt: nowIso,
+  });
+
+  // Route all privileged administrator writes through the authenticated backend gateway
+  if (adminLoggedIn) {
+    try {
+      const token = getActiveAdminToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      const resp = await fetch(`${getApiBaseUrl()}/api/admin/firestore/write`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          collectionName,
+          docId,
+          payload: cleanPayload,
+        }),
+      });
+      const resJson = await resp.json().catch(() => ({}));
+      if (!resp.ok || !resJson.success) {
+        const errMsg = resJson.error || `HTTP ${resp.status}: Firestore server write failed for ${path}`;
+        console.error(`[Firestore Admin Write Error] ${path}:`, errMsg);
+        return { success: false, error: errMsg };
+      }
+      return { success: true };
+    } catch (err: any) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[Firestore Admin Write Network Error] ${path}:`, errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  // If it's an admin collection and we aren't a permitted public submission, never attempt direct client write
+  if (isAdminCol && !isPublicSubmission) {
+    const permError = '7 PERMISSION_DENIED: Missing or insufficient permissions (Admin: asakaziyo0@gmail.com required).';
+    return { success: false, error: permError };
+  }
+
+  // Ordinary public user interactions (comments, ratings, userProgress, contentLikes, contentViews, pending inquiries)
   try {
-    const nowIso = new Date().toISOString();
-    const cleanPayload = sanitizeForFirestore({
-      ...data,
-      adminEmail: AUTHORIZED_ADMIN_EMAIL,
-      schemaVersion: 1,
-      createdAt: data.createdAt || nowIso,
-      updatedAt: nowIso,
-      createdBy: data.createdBy || (isAdminAuthenticated() ? AUTHORIZED_ADMIN_USERNAME : 'public_user'),
-      updatedBy: isAdminAuthenticated() ? AUTHORIZED_ADMIN_USERNAME : 'public_user',
-      syncedAt: nowIso,
-    });
     await setDoc(doc(db, collectionName, docId), cleanPayload, { merge: true });
     return { success: true };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`Firestore sync note for ${path}:`, errorMsg);
+    console.warn(`Firestore sync error for ${path}:`, errorMsg);
     return { success: false, error: errorMsg };
   }
 }
@@ -527,8 +584,46 @@ export async function deleteDocFromFirestore(
 
   if (ADMIN_WRITE_COLLECTIONS.has(collectionName) && !isAdminAuthenticated()) {
     const permError = '7 PERMISSION_DENIED: Missing or insufficient permissions (Admin: asakaziyo0@gmail.com required).';
-    console.warn(`Firestore delete note for ${path}: ${permError}`);
     return { success: false, error: permError };
+  }
+
+  if (isAdminAuthenticated()) {
+    try {
+      const token = getActiveAdminToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      const resp = await fetch(`${getApiBaseUrl()}/api/admin/firestore/delete`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          collectionName,
+          docId,
+        }),
+      });
+      const resJson = await resp.json().catch(() => ({}));
+      if (!resp.ok || !resJson.success) {
+        const errMsg = resJson.error || `HTTP ${resp.status}: Firestore server delete failed for ${path}`;
+        console.error(`[Firestore Admin Delete Error] ${path}:`, errMsg);
+        return { success: false, error: errMsg };
+      }
+      return { success: true };
+    } catch (err: any) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[Firestore Admin Delete Network Error] ${path}:`, errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  if (ADMIN_WRITE_COLLECTIONS.has(collectionName)) {
+    return {
+      success: false,
+      error: '7 PERMISSION_DENIED: Missing or insufficient permissions (Admin: asakaziyo0@gmail.com required).',
+    };
   }
 
   try {
@@ -536,7 +631,7 @@ export async function deleteDocFromFirestore(
     return { success: true };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`Firestore delete note for ${path}:`, errorMsg);
+    console.warn(`Firestore delete error for ${path}:`, errorMsg);
     return { success: false, error: errorMsg };
   }
 }
@@ -576,6 +671,36 @@ export function listenToFirestoreCollection<T = any>(
       },
       (error) => {
         console.warn(`[Firestore Real-time Listener Error] /${collectionName}:`, error);
+        if (onError) onError(error);
+      }
+    );
+  } catch (err) {
+    if (onError && err instanceof Error) onError(err);
+    return () => {};
+  }
+}
+
+/**
+ * Real-time single document listener using onSnapshot
+ */
+export function listenToFirestoreDoc<T = any>(
+  collectionName: string,
+  docId: string,
+  onData: (item: T | null) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    return onSnapshot(
+      doc(db, collectionName, docId),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          onData({ id: snapshot.id, ...snapshot.data() } as unknown as T);
+        } else {
+          onData(null);
+        }
+      },
+      (error) => {
+        console.warn(`[Firestore Real-time Doc Listener Error] /${collectionName}/${docId}:`, error);
         if (onError) onError(error);
       }
     );
@@ -648,4 +773,5 @@ export async function checkAdminRole(
 if (typeof window !== 'undefined') {
   testFirestoreConnection();
 }
+
 

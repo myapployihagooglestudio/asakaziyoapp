@@ -1,0 +1,2890 @@
+{
+  "timestamp": "2026-11-08T09:15:52.865Z",
+  "databaseId": "ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94",
+  "projectId": "basic-petal-001dl",
+  "collections": {
+    "schedules": [
+      {
+        "id": "asaka-main",
+        "qiblaAngleDeg": 241,
+        "xufton": "20:35",
+        "isRamadan": false,
+        "jumaImam": "",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "quyosh": "05:55",
+        "isAdministratorPublished": true,
+        "hijriDate": "22 Jumodul avval, 1448",
+        "asr": "17:15",
+        "region": "Asaka, Andijon",
+        "saharlikEnd": "04:20",
+        "jumaTime": "12:30",
+        "iftorlikStart": "19:10",
+        "times": [
+          {
+            "key": "tahajjud",
+            "id": "p-0",
+            "nameAr": "التَّهَجُّد",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi"
+          },
+          {
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "id": "p-01",
+            "key": "subh",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح",
+            "time": "05:35"
+          },
+          {
+            "iqamahTime": "06:15",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "time": "05:35",
+            "nameUz": "Bomdod",
+            "id": "p-1",
+            "key": "bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "nameAr": "الشُّرُوق",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "key": "quyosh"
+          },
+          {
+            "time": "12:45",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "nameAr": "الظُّهْر",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "nameUz": "Peshin",
+            "key": "peshin"
+          },
+          {
+            "nameUz": "Asr",
+            "nameAr": "العَصْر",
+            "time": "15:25",
+            "iqamahTime": "15:30",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha",
+            "key": "asr",
+            "id": "p-4"
+          },
+          {
+            "iqamahTime": "17:10",
+            "time": "17:10",
+            "nameUz": "Shom",
+            "key": "shom",
+            "nameAr": "المَغْرِب",
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "id": "p-5"
+          },
+          {
+            "id": "p-6",
+            "key": "xufton",
+            "time": "18:45",
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "nameAr": "العِشَاء",
+            "iqamahTime": "18:55",
+            "nameUz": "Xufton"
+          }
+        ],
+        "syncedAt": "2026-11-05T12:01:41.485Z",
+        "shom": "19:10",
+        "eidDate": "",
+        "updatedAt": "2026-11-05T03:42:34.451Z",
+        "jumaTopic": "",
+        "bomdod": "04:30",
+        "peshin": "12:30",
+        "disclaimer": "Ushbu namoz vaqtlari Asaka jome masjidi maʼmuriyati tomonidan rasman tasdiqlangan va joriy etilgan jadvaldir.",
+        "verifiedAt": "2026-11-05T12:01:40.567Z",
+        "location": "Asaka shahri, Andijon viloyati",
+        "publishedBy": "Tasdiqlandi: Asaka Jome Masjidi Maʼmuriyati",
+        "timezone": "Asia/Tashkent",
+        "eidTime": "06:30",
+        "date": "2026-11-02"
+      }
+    ],
+    "articles": [
+      {
+        "id": "art-1793856286465",
+        "authorRole": "Tahririyat Hayʼati",
+        "featuredImage": "/uploads/1793856237020_IMG_20261105_102210_496.jpg",
+        "author": "Asaka Masjidi Imomi",
+        "category": "Axloq",
+        "rating": 5,
+        "title": "Пайшанба – амаллар Аллоҳ ҳузурига кўтариладиган муборак кун!",
+        "createdAtIso": "2026-11-05T05:24:46.464Z",
+        "isArchived": false,
+        "publishedDate": "05/11/2026",
+        "updatedAt": "2026-11-05T05:24:46.467Z",
+        "publishMode": "published",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "mediaType": "image",
+        "readTimeMinutes": 3,
+        "mediaUrl": "/uploads/1793856237020_IMG_20261105_102210_496.jpg",
+        "excerpt": "🌙 Payshanba – amallar Alloh huzuriga ko‘tariladigan muborak kun!\n\nPayshanba – haftaning eng barakali kunlaridan biri, ertangi ulug‘ Juma kuniga tayyorgarlik va ruhni poklash pallasi. Bugungi kunimizni qanday o‘tkazishimiz esa juda muhim!\n\n Nima uchun payshanba alohida ahamiyatga ega?\n\n Rasululloh 🤍: «Bu ikki kun (dushanba va payshanba) – amallar olamlar Robbi huzuriga ko‘tariladigan kundir. Shuning uchun amalim ro‘za tutgan holatimda ko‘tarilishini istayman», dedilar (Nasaiy rivoyati 2358-hadis).\n\n Bu kuni Allohga shirk keltirmagan barcha bandalar kechiriladi. Faqat bir istisno bor: o‘rtasida adovat va gina bo‘lgan ikki kishining mag‘firati ular yarashguncha to‘xtatib turiladi (Muslim rivoyati 2565-hadis).\n\n Imkoningiz bo‘lsa, payshanba kuni ro‘za tutib qoling – toki amallaringiz Alloh huzuriga ro‘zador holatingizda ko‘tarilsin.\n\nO‘rtangizdagi gina-kudratlarni unuting, kechirimli bo‘ling. Kechirilishdan mahrum qoluvchilardan bo‘lib qolishdan ehtiyot bo'ling. Ertangi ulug‘ Juma kunining fayzini to‘liq his qilish uchun hozirdan ruhiy va jismoniy tayyorgarlikni boshlang.",
+        "comments": [],
+        "updatedBy": "Administrator",
+        "bodyParagraphs": [
+          "Пайшанба – амаллар Аллоҳ ҳузурига кўтариладиган муборак кун!",
+          "Пайшанба – ҳафтанинг энг баракали кунларидан бири, эртанги улуғЖума кунига тайёргарлик ва руҳни поклаш палласи. Бугунги кунимизни қандай ўтказишимиз эса жуда муҳим!",
+          "Нима учун пайшанба алоҳида аҳамиятга эга?",
+          "Расулуллоҳ : «Бу икки кун (душанба ва пайшанба) – амаллар оламлар Робби ҳузурига кўтариладиган кундир. Шунинг учун амалим рўза тутган ҳолатимда кўтарилишини истайман», дедилар (Насаий ривояти 2358-ҳадис).",
+          "Бу куни Аллоҳга ширк келтирмаган барча бандалар кечирилади. Фақат бир истисно бор: ўртасида адоват ва гина бўлган икки кишининг мағфирати улар ярашгунча тўхтатиб турилади (Муслим ривояти 2565-ҳадис).",
+          "Имконингиз бўлса, пайшанба куни рўза тутиб қолинг – токи амалларингиз Аллоҳ ҳузурига рўзадор ҳолатингизда кўтарилсин.",
+          "Ўртангиздаги гина-кудратларни унутинг, кечиримли бўлинг. Кечирилишдан маҳрум қолувчилардан бўлиб қолишдан эҳтиёт бўлинг. Эртанги улуғЖума кунининг файзини тўлиқ ҳис қилиш учун ҳозирдан руҳий ва жисмоний тайёргарликни бошланг."
+        ],
+        "subtitle": "Пайшанба – амаллар Аллоҳ ҳузурига кўтариладиган муборак кун!",
+        "ratingsCount": 1,
+        "likesCount": 1,
+        "syncedAt": "2026-11-05T11:49:05.458Z"
+      },
+      {
+        "id": "art-1793857435337",
+        "comments": [],
+        "updatedBy": "Administrator",
+        "subtitle": "Одамлар сени ёқтириши",
+        "createdAtIso": "2026-11-05T05:43:55.337Z",
+        "syncedAt": "2026-11-05T11:49:04.846Z",
+        "likesCount": 9,
+        "publishMode": "published",
+        "title": "Одамлар сени ёқтириши",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "mediaType": null,
+        "readTimeMinutes": 3,
+        "mediaUrl": null,
+        "updatedAt": "2026-11-05T05:43:55.338Z",
+        "rating": 4.8,
+        "bodyParagraphs": [
+          "Одамлар сени ёқтираётган бўлса, билгинки, улар Аллоҳ сенда зоҳир қилиб қўйган нарсаларни ёқтиришяпти, холос. Улар ҳали Аллоҳ сатр қилиб қўйган (бировлардан яширган) қабиҳликларингни билишмайди. ",
+          "Шундай экан, мағрур бўла кўрмаки, бу Аллоҳнинг гўзал сатридир. Аллоҳдан дунёю охиратда ушбу сатр ва офиятни сен учун бардавом қилишини сўра.",
+          "Расулуллоҳ соллаллоҳу алайҳи васаллам шундай дуо қилардилар:",
+          "اللَّهُمَّ اسْتُرْ عَوْرَتِي، وَآمِنْ رَوْعَتِي",
+          "«Аллооҳуммастур ъавротии ва аамин ровъатии» \n(«Аллоҳим! Уят ишларимни яшир, қўрқинчимни омонликка айлантир».",
+          "Абу Довуд, Насаий ва Ибн Можалар ривоят қилган."
+        ],
+        "author": "Asaka Masjidi Imomi",
+        "excerpt": "Одамлар сени ёқтириши",
+        "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+        "publishedDate": "05/11/2026",
+        "authorRole": "Tahririyat Hayʼati",
+        "category": "Axloq",
+        "isArchived": false,
+        "ratingsCount": 4
+      },
+      {
+        "id": "art-1793877968318",
+        "title": "Фарзандлар беш турли бўлади:",
+        "syncedAt": "2026-11-05T11:49:04.200Z",
+        "subtitle": "Фарзандлар беш турли бўлади:",
+        "authorRole": "Tahririyat Hayʼati",
+        "updatedAt": "2026-11-05T11:26:08.320Z",
+        "comments": [],
+        "isArchived": false,
+        "mediaUrl": null,
+        "publishMode": "published",
+        "ratingsCount": 1,
+        "rating": 5,
+        "author": "Asaka Masjidi Imomi",
+        "updatedBy": "Administrator",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "publishedDate": "05/11/2026",
+        "createdAtIso": "2026-11-05T11:26:08.318Z",
+        "bodyParagraphs": [
+          "1. Ота онаси буюрган нарсани бажармайди. Бундай фарзанд ота онасига оқ бўлиб қолиши мумкин.",
+          "2. Ота онаси буюрган нарсани ёқтирмай бажаради. Бундай фарзанд ажр ва савобга эришмайди.",
+          " 3. Буюрилган нарсани бажаради. Аммо, уни миннат, уф тортиш ва овозини баландлатиш билан бажаради. Бундай фарзанд гуноҳга ботади.",
+          "4. Буюрилган нарсани чин кўнгилдан бажаради. Фарзанд бунинг учун ажр савобни қўлга киритади. Бундай фарзандлар озчиликни ташкил қилади.",
+          " 5. Ота онаси ҳали буюрмай туриб, улар хоҳлаган нарсани бажаради. Мана шу фарзанд ота онага яхшилик қилувчилар, деган савобни қўлга киритади. Бундай фарзандлар ўта нодир бўлади.",
+          "Охирги икки тури, яъни тўртинчи ва бешинчи қисмдаги фарзандларнинг умрлари ва ризқларида барака, қалблари шод, ишлари ўнгидан келувчи кимсалар бўлади. Мана шу Аллоҳнинг фазли бўлиб, Аллоҳ хоҳлаган кишисига беради. Аллоҳ улуғ фазл эгасидир. ",
+          "Аллоҳим! Бизларни ҳам ана шу охирги икки турдаги фарзандлар қаторида қилгин!"
+        ],
+        "mediaType": null,
+        "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+        "excerpt": "Фарзандлар беш турли бўлади:",
+        "category": "Oila",
+        "readTimeMinutes": 3,
+        "likesCount": 0
+      },
+      {
+        "id": "art-1793878082289",
+        "readTimeMinutes": 3,
+        "publishMode": "published",
+        "category": "Oila",
+        "ratingsCount": 1,
+        "mediaType": null,
+        "excerpt": "Яхши кўриш...",
+        "bodyParagraphs": [
+          "Кимнидир гўзаллиги, чиройи учун яхши кўрсанг, бу севги эмас, шаҳватдир.",
+          " Кимнидир заковати учун яхши кўрсанг, бу муҳаббат эмас, ҳайратдир.",
+          "Кимнидир бойлиги учун яхши кўрсанг, бу ҳам муҳаббат эмас, балки моддапарастликдир.",
+          "Кимнидир ўз наздингда яхши бўлгани учун яхши кўрсанг, бу ҳам севги эмас, балки ҳис-туйғуларингдан миннатдорлигингдир. ",
+          "Аммо яхши кўрган кишингни нима учун яхши кўришингни ўзинг ҳам билмасанг, мана шу ҳақиқий севгидир."
+        ],
+        "authorRole": "Tahririyat Hayʼati",
+        "isArchived": false,
+        "updatedBy": "Administrator",
+        "title": "Яхши кўриш...",
+        "likesCount": 0,
+        "publishedDate": "05/11/2026",
+        "rating": 5,
+        "mediaUrl": null,
+        "author": "Asaka Masjidi Imomi",
+        "comments": [],
+        "adminEmail": "asakaziyo0@gmail.com",
+        "updatedAt": "2026-11-05T11:28:02.289Z",
+        "featuredImage": "/images/quran_illumination_art_1793634658336.jpg",
+        "subtitle": "Яхши кўриш...",
+        "createdAtIso": "2026-11-05T11:28:02.289Z",
+        "syncedAt": "2026-11-05T11:49:03.579Z"
+      }
+    ],
+    "mediaPosts": [],
+    "hadiths": [
+      {
+        "id": "h-1793878613983",
+        "updatedAt": "2026-11-05T11:36:53.984Z",
+        "reference": "bukhari, 1-hadis",
+        "mediaUrl": null,
+        "isArchived": false,
+        "syncedAt": "2026-11-05T11:49:07.410Z",
+        "collection": "bukhari",
+        "chapterUz": "Moʻtabar hadislar bobi",
+        "translationUz": "Albatta, amallar niyatlarga bog‘liqdir. Har bir kishiga niyat qilgan narsasi bo‘ladi.\nManba: Sahih al-Buxoriy, 1-hadis.",
+        "narratorUz": "Roviy: Umar ibn Xattob (r.a.)",
+        "number": 1,
+        "keywords": [
+          "hadis",
+          "hikmat",
+          "sunnat"
+        ],
+        "textAr": "Amallar niyatga bog‘liq\nإِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ",
+        "createdAtIso": "2026-11-05T11:36:53.983Z",
+        "collectionNameUz": "Sahihi Buxoriy",
+        "grade": "Sahih",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "publishMode": "published",
+        "mediaType": null
+      },
+      {
+        "id": "h-1793878758294",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "chapterUz": "Moʻtabar hadislar bobi",
+        "collectionNameUz": "Sahihi Buxoriy",
+        "grade": "Sahih",
+        "publishMode": "published",
+        "reference": "bukhari, 13-hadis",
+        "updatedAt": "2026-11-05T11:39:18.294Z",
+        "textAr": "لَا يُؤْمِنُ أَحَدُكُمْ حَتَّى يُحِبَّ لِأَخِيهِ مَا يُحِبُّ لِنَفْسِهِ",
+        "narratorUz": "Roviy: Anas ibn Molik (r.a.)",
+        "number": 13,
+        "keywords": [
+          "hadis",
+          "hikmat",
+          "sunnat"
+        ],
+        "collection": "bukhari",
+        "createdAtIso": "2026-11-05T11:39:18.294Z",
+        "isArchived": false,
+        "syncedAt": "2026-11-05T11:49:06.902Z",
+        "mediaType": null,
+        "translationUz": "Sizlardan biringiz o‘zi uchun yaxshi ko‘rgan narsani birodari uchun ham yaxshi ko‘rmagunicha komil mo‘min bo‘la olmaydi.\n\nManba: Sahih al-Buxoriy, 13; Sahih Muslim, 45.",
+        "mediaUrl": null
+      },
+      {
+        "id": "h-1793878860475",
+        "reference": "bukhari, 10-hadis",
+        "updatedAt": "2026-11-05T11:41:00.475Z",
+        "syncedAt": "2026-11-05T11:49:06.130Z",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "mediaUrl": null,
+        "number": 10,
+        "textAr": "الْمُسْلِمُ مَنْ سَلِمَ الْمُسْلِمُونَ مِنْ لِسَانِهِ وَيَدِهِ",
+        "chapterUz": "Moʻtabar hadislar bobi",
+        "narratorUz": "Roviy: Abdulloh ibn Amr (r.a.)",
+        "collection": "bukhari",
+        "translationUz": "Musulmon — boshqa musulmonlar uning tili va qo‘lidan omonda bo‘lgan kishidir.\n\nManba: Sahih al-Buxoriy, 10-hadis.",
+        "publishMode": "published",
+        "isArchived": false,
+        "collectionNameUz": "Sahihi Buxoriy",
+        "createdAtIso": "2026-11-05T11:41:00.475Z",
+        "keywords": [
+          "hadis",
+          "hikmat",
+          "sunnat"
+        ],
+        "grade": "Sahih",
+        "mediaType": null
+      }
+    ],
+    "dhikrs": [
+      {
+        "id": "d-1793878988701",
+        "updatedAt": "2026-11-05T11:43:08.702Z",
+        "syncedAt": "2026-11-05T11:49:08.444Z",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "textAr": "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي، فَاغْفِرْ لِي، فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ",
+        "mediaUrl": null,
+        "transliterationUz": "",
+        "virtueUz": "Qalbga xotirjamlik va ulugʻ ajr keltiruvchi muborak zikr.",
+        "isArchived": false,
+        "targetCount": 33,
+        "titleUz": "Sayyidul istig‘for",
+        "publishMode": "published",
+        "source": "Moʻtabar manbalardan",
+        "translationUz": "Ey Alloh! Sen mening Rabbimsan. Sendan boshqa iloh yo‘q. Meni Sen yaratding va men Sening bandangman. Imkonim boricha Senga bergan ahdim va va'damda turaman. Qilgan ishlarimning yomonligidan Sening panohingga qochaman. Menga bergan ne'matlaringni e'tirof etaman va gunohlarimni ham tan olaman. Meni mag‘firat qil. Albatta, gunohlarni Sendan boshqa hech kim kechirmaydi.",
+        "category": "sayyidul_istigfor",
+        "categoryTitleUz": "Zikr va Tasbeh",
+        "mediaType": null,
+        "createdAtIso": "2026-11-05T11:43:08.701Z"
+      },
+      {
+        "id": "d-1793879070726",
+        "mediaUrl": null,
+        "textAr": "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ",
+        "targetCount": 100,
+        "virtueUz": "Qalbga xotirjamlik va ulugʻ ajr keltiruvchi muborak zikr.",
+        "publishMode": "published",
+        "isArchived": false,
+        "mediaType": null,
+        "createdAtIso": "2026-11-05T11:44:30.726Z",
+        "syncedAt": "2026-11-05T11:49:07.911Z",
+        "categoryTitleUz": "Zikr va Tasbeh",
+        "translationUz": "Allohni hamd aytish bilan poklab yod etaman.",
+        "category": "namozdan_keyin",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "titleUz": "Subhanallohi va bihamdihi",
+        "updatedAt": "2026-11-05T11:44:30.727Z",
+        "transliterationUz": "",
+        "source": "Moʻtabar manbalardan"
+      }
+    ],
+    "news": [],
+    "announcements": [],
+    "notifications": [],
+    "quizQuestions": [],
+    "dailyQuizzes": [
+      {
+        "id": "2026-10-29",
+        "questions": [
+          {
+            "id": "q-017",
+            "questionUz": "Tahajjud namozi kechaning qaysi pallasida oʻqilishi eng fazilatli hisoblanadi?",
+            "sourceVerified": true,
+            "reference": "Buxoriy 1145-hadis; Muslim 758-hadis",
+            "publishedDate": "2026-11-03",
+            "category": "Fiqh",
+            "isApproved": true,
+            "explanationUz": "Kechaning oxirgi uchdan birida Alloh taoloning rahmati yer osmoniga tushib: «Kim duo qilsa, ijobat qilaman, kim magʻfirat soʻrasa, kechiraman», degan pallada tahajjud oʻqish eng fazilatlidir.",
+            "optionsUz": [
+              "Xufton namozidan soʻng darhol",
+              "Yarim kechadan oldin",
+              "Kechaning oxirgi uchdan birida (subhdan oldin)",
+              "Faqat quyosh chiqishiga 5 daqiqa qolganda"
+            ],
+            "status": "approved",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "difficulty": "orta",
+            "correctIndex": 2
+          },
+          {
+            "explanationUz": "Bomdod namozining sunnati sunnatlar ichida eng quvvatlisi (muakkada) boʻlib, Rasululloh (s.a.v.) uni safarda ham, muqimlikda ham deyarli tark qilmaganlar.",
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Sunnati muakkada (taʼkidlangan sunnat)",
+              "Vojib"
+            ],
+            "correctIndex": 2,
+            "questionUz": "Bomdod namozining farzidan oldin oʻqiladigan 2 rakat sunnat qanday hukmga ega?",
+            "difficulty": "orta",
+            "sourceVerified": true,
+            "category": "Fiqh",
+            "isApproved": true,
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "id": "q-007",
+            "status": "approved",
+            "publishedDate": "2026-11-01",
+            "reference": "Musofirlar namozi bobi, 725-hadis"
+          },
+          {
+            "correctIndex": 1,
+            "status": "approved",
+            "source": "Sahihi Termiziy; Tafsiri Hilol",
+            "difficulty": "oson",
+            "optionsUz": [
+              "Baqara surasi",
+              "Fotiha surasi",
+              "Yosin surasi",
+              "Ixlos surasi"
+            ],
+            "isApproved": true,
+            "explanationUz": "Fotiha surasi namozning har bir rakatida oʻqilishi va Qurʼon maʼnolarining asosini oʻz ichiga olgani uchun «Ummul Qurʼon» va «Ummul Kitob» deb nomlangan.",
+            "reference": "1-juz, Fotiha surasi muqaddimasi",
+            "publishedDate": "2026-11-01",
+            "id": "q-001",
+            "questionUz": "Qurʼoni Karimning qaysi surasi «Qurʼonning onasi» (Ummul Qurʼon) deb ataladi?",
+            "category": "Qurʼon",
+            "sourceVerified": true
+          },
+          {
+            "difficulty": "murakkab",
+            "category": "Aqoid",
+            "isApproved": true,
+            "reference": "Nubuvvat va Risolat bobi",
+            "explanationUz": "Ismat — Alloh taolo Oʻz paygʻambarlarini nubuvvatdan oldin ham, keyin ham har qanday gunoh va fahsh ishlardan saqlashidir.",
+            "status": "approved",
+            "id": "q-020",
+            "correctIndex": 2,
+            "sourceVerified": true,
+            "publishedDate": "2026-11-03",
+            "optionsUz": [
+              "Toʻgʻrisoʻzlik",
+              "Aqlli va ziyrak boʻlish",
+              "Gunoh va maʼsiyatlardan mutlaq saqlanganlik (maʼsumlik)",
+              "Omonatdorlik"
+            ],
+            "source": "Aqoidun Nasafiyya sharhi (Imom Taftazoniy)",
+            "questionUz": "Paygʻambarlarga xos boʻlgan sifatlar (sidq, omonat, fatonat, ismat, tabligh) ichida «ismat» nimani anglatadi?"
+          },
+          {
+            "sourceVerified": true,
+            "reference": "Baqara surasi, 282-oyat",
+            "questionUz": "Qurʼoni Karimdagi eng uzun oyat qaysi va u nima haqida?",
+            "publishedDate": "2026-11-01",
+            "id": "q-002",
+            "difficulty": "orta",
+            "optionsUz": [
+              "Oyatul Kursiy (Allohning sifati)",
+              "Mudoyana (qarz oldi-berdisi) oyati",
+              "Nur surasidagi hijob oyati",
+              "Moida surasidagi hukm oyati"
+            ],
+            "correctIndex": 1,
+            "explanationUz": "Baqara surasining 282-oyati Qurʼondagi eng uzun oyat boʻlib, u qarz va moliyaviy muomalalarni yozib borish hamda guvohlar tayinlash qoidalarini belgilaydi.",
+            "isApproved": true,
+            "source": "Qurʼoni Karim",
+            "category": "Qurʼon",
+            "status": "approved"
+          },
+          {
+            "isApproved": true,
+            "publishedDate": "2026-11-05",
+            "category": "Sahobalar",
+            "difficulty": "oson",
+            "status": "approved",
+            "reference": "Manoqibus Sahoba kitobi, 3684-hadis",
+            "source": "Sahihi Buxoriy",
+            "id": "q-034",
+            "optionsUz": [
+              "Hamza ibn Abdulmuttalib (r.a.)",
+              "Umar ibn Xattob (r.a.)",
+              "Saʼd ibn Abu Vaqqos (r.a.)",
+              "Abdurrahmon ibn Avf (r.a.)"
+            ],
+            "questionUz": "Islomni qabul qilishi bilan Makkadagi musulmonlar Kaʼba oldida ochiq namoz oʻqiy boshlagan va «Al-Foruq» unvonini olgan sahoba kim?",
+            "sourceVerified": true,
+            "explanationUz": "Abdulloh ibn Masʼud (r.a.) aytadilar: «Umar Islomga kirganidan beri biz hamisha aziz (quvvatli) boʻldik». U zot haq bilan botilni ajratuvchi «Al-Foruq» deb atalganlar.",
+            "correctIndex": 1
+          },
+          {
+            "optionsUz": [
+              "Barcha qarzlaridan qutiladi",
+              "Dengiz koʻpigicha boʻlsa ham gunohlari kechiriladi",
+              "Unga 100 ta qul ozod qilgan savobi yoziladi",
+              "Bir kechada Qurʼonni xatm qilgan hisoblanadi"
+            ],
+            "sourceVerified": true,
+            "questionUz": "«Subhanallohi va bihamdihi» zikrini bir kunda 100 marta aytgan insonning mukofoti qanday boʻlishi hadisda aytilgan?",
+            "explanationUz": "Abu Hurayra (r.a.) rivoyat qiladi: Rasululloh (s.a.v.): «Kim bir kunda yuz marta «Subhanallohi va bihamdihi» desa, uning xatolari dengiz koʻpigicha boʻlsa ham oʻchiriladi», deganlar.",
+            "correctIndex": 1,
+            "isApproved": true,
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "publishedDate": "2026-11-03",
+            "status": "approved",
+            "reference": "Buxoriy 6405-hadis; Muslim 2691-hadis",
+            "category": "Zikr va Duolar",
+            "difficulty": "oson",
+            "id": "q-019"
+          },
+          {
+            "id": "q-010",
+            "optionsUz": [
+              "Haj qilgan savobini oladi",
+              "Jannat ahlidan boʻladi",
+              "Shahid maqomiga yetadi",
+              "Qabr azobidan omonda boʻladi"
+            ],
+            "questionUz": "«Sayyidul istigʻfor» duosini ixlos bilan kechqurun oʻqib, tong otmasdan vafot etgan kishi haqida Paygʻambarimiz (s.a.v.) nima deganlar?",
+            "source": "Sahihi Buxoriy",
+            "explanationUz": "Shaddod ibn Avs roziyallohu anhudan rivoyat: Rasululloh (s.a.v.): «Kimki bu duoni kechqurun ishonch bilan aytsa va shu kechada vafot etsa, u jannat ahlidandir», deganlar.",
+            "status": "approved",
+            "correctIndex": 1,
+            "isApproved": true,
+            "publishedDate": "2026-11-01",
+            "sourceVerified": true,
+            "category": "Zikr va Duolar",
+            "difficulty": "orta",
+            "reference": "Daʼavot kitobi, 6306-hadis"
+          },
+          {
+            "difficulty": "oson",
+            "explanationUz": "Mashhur «Jabroil hadisi»ga binoan imonning ruknlari 6 tadir: Allohga, farishtalariga, kitoblariga, paygʻambarlariga, oxirat kuniga va qadarning yaxshiyu yomoni Allohdan ekaniga ishonish.",
+            "optionsUz": [
+              "3 ta",
+              "5 ta",
+              "6 ta",
+              "7 ta"
+            ],
+            "isApproved": true,
+            "status": "approved",
+            "reference": "Imon kitobi, 1-hadis (Jabroil hadisi)",
+            "id": "q-006",
+            "correctIndex": 2,
+            "source": "Sahihi Muslim",
+            "category": "Aqoid",
+            "sourceVerified": true,
+            "questionUz": "Islom eʼtiqodida imonning ruknlari nechta?",
+            "publishedDate": "2026-11-01"
+          },
+          {
+            "isApproved": true,
+            "optionsUz": [
+              "Isro surasi, 23-oyat",
+              "Luqmon surasi, 14-oyat",
+              "Niso surasi, 36-oyat",
+              "Ahqof surasi, 15-oyat"
+            ],
+            "difficulty": "oson",
+            "status": "approved",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-02",
+            "source": "Qurʼoni Karim",
+            "id": "q-014",
+            "category": "Axloq va Odob",
+            "correctIndex": 0,
+            "explanationUz": "Isro surasining 23-oyatida: «Parvardigoringiz faqat Oʻzigagina ibodat qilishingizni va ota-onaga yaxshilik qilishni amr etdi. Agar ulardan biri yoki ikkalasi huzuringizda qarilik yoshiga yetsa, ularga uf dema...», deb buyurilgan.",
+            "questionUz": "Islomda ota-onaga yaxshilik qilish va ularga «uf» ham demaslik qaysi surada buyurilgan?",
+            "reference": "Isro surasi, 23-oyat"
+          }
+        ],
+        "updatedBy": "menageradmin",
+        "createdBy": "menageradmin",
+        "syncedAt": "2026-11-07T08:55:42.815Z",
+        "isArchived": true,
+        "isScheduledByAdmin": false,
+        "questionIds": [
+          "q-017",
+          "q-007",
+          "q-001",
+          "q-020",
+          "q-002",
+          "q-034",
+          "q-019",
+          "q-010",
+          "q-006",
+          "q-014"
+        ],
+        "adminEmail": "asakaziyo0@gmail.com",
+        "dateStr": "2026-10-29",
+        "updatedAt": "2026-11-07T08:55:42.815Z",
+        "createdAt": "2026-11-07T08:55:42.812Z",
+        "schemaVersion": 1
+      },
+      {
+        "id": "2026-10-30",
+        "createdAt": "2026-11-07T08:55:42.804Z",
+        "updatedAt": "2026-11-07T08:55:42.807Z",
+        "syncedAt": "2026-11-07T08:55:42.807Z",
+        "isArchived": true,
+        "isScheduledByAdmin": false,
+        "schemaVersion": 1,
+        "adminEmail": "asakaziyo0@gmail.com",
+        "questionIds": [
+          "q-010",
+          "q-002",
+          "q-009",
+          "q-017",
+          "q-008",
+          "q-032",
+          "q-001",
+          "q-020",
+          "q-021",
+          "q-022"
+        ],
+        "createdBy": "menageradmin",
+        "updatedBy": "menageradmin",
+        "dateStr": "2026-10-30",
+        "questions": [
+          {
+            "questionUz": "«Sayyidul istigʻfor» duosini ixlos bilan kechqurun oʻqib, tong otmasdan vafot etgan kishi haqida Paygʻambarimiz (s.a.v.) nima deganlar?",
+            "category": "Zikr va Duolar",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Haj qilgan savobini oladi",
+              "Jannat ahlidan boʻladi",
+              "Shahid maqomiga yetadi",
+              "Qabr azobidan omonda boʻladi"
+            ],
+            "explanationUz": "Shaddod ibn Avs roziyallohu anhudan rivoyat: Rasululloh (s.a.v.): «Kimki bu duoni kechqurun ishonch bilan aytsa va shu kechada vafot etsa, u jannat ahlidandir», deganlar.",
+            "publishedDate": "2026-11-01",
+            "isApproved": true,
+            "id": "q-010",
+            "correctIndex": 1,
+            "status": "approved",
+            "source": "Sahihi Buxoriy",
+            "difficulty": "orta",
+            "reference": "Daʼavot kitobi, 6306-hadis"
+          },
+          {
+            "sourceVerified": true,
+            "publishedDate": "2026-11-01",
+            "reference": "Baqara surasi, 282-oyat",
+            "difficulty": "orta",
+            "status": "approved",
+            "isApproved": true,
+            "source": "Qurʼoni Karim",
+            "category": "Qurʼon",
+            "correctIndex": 1,
+            "id": "q-002",
+            "explanationUz": "Baqara surasining 282-oyati Qurʼondagi eng uzun oyat boʻlib, u qarz va moliyaviy muomalalarni yozib borish hamda guvohlar tayinlash qoidalarini belgilaydi.",
+            "questionUz": "Qurʼoni Karimdagi eng uzun oyat qaysi va u nima haqida?",
+            "optionsUz": [
+              "Oyatul Kursiy (Allohning sifati)",
+              "Mudoyana (qarz oldi-berdisi) oyati",
+              "Nur surasidagi hijob oyati",
+              "Moida surasidagi hukm oyati"
+            ]
+          },
+          {
+            "difficulty": "orta",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Hijriy 150 yili",
+              "Hijriy 194 yili (milodiy 810)",
+              "Hijriy 204 yili",
+              "Hijriy 256 yili"
+            ],
+            "explanationUz": "Imom Buxoriy hijriy 194-yil 13-shavvol (milodiy 810-yil 21-iyul) juma kuni Buxoro shahrida tavallud topganlar.",
+            "correctIndex": 1,
+            "isApproved": true,
+            "id": "q-009",
+            "category": "Islom tarixi",
+            "status": "approved",
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "reference": "12-juz, Imom Buxoriy tarjimai holi",
+            "questionUz": "Islom olamining eng mashhur muhaddisi Imom Abu Abdulloh Muhammad ibn Ismoil al-Buxoriy qaysi yili tavallud topganlar?",
+            "publishedDate": "2026-11-01"
+          },
+          {
+            "isApproved": true,
+            "difficulty": "orta",
+            "explanationUz": "Kechaning oxirgi uchdan birida Alloh taoloning rahmati yer osmoniga tushib: «Kim duo qilsa, ijobat qilaman, kim magʻfirat soʻrasa, kechiraman», degan pallada tahajjud oʻqish eng fazilatlidir.",
+            "optionsUz": [
+              "Xufton namozidan soʻng darhol",
+              "Yarim kechadan oldin",
+              "Kechaning oxirgi uchdan birida (subhdan oldin)",
+              "Faqat quyosh chiqishiga 5 daqiqa qolganda"
+            ],
+            "id": "q-017",
+            "correctIndex": 2,
+            "sourceVerified": true,
+            "category": "Fiqh",
+            "questionUz": "Tahajjud namozi kechaning qaysi pallasida oʻqilishi eng fazilatli hisoblanadi?",
+            "publishedDate": "2026-11-03",
+            "reference": "Buxoriy 1145-hadis; Muslim 758-hadis",
+            "status": "approved",
+            "source": "Sahihi Buxoriy; Sahihi Muslim"
+          },
+          {
+            "isApproved": true,
+            "sourceVerified": true,
+            "id": "q-008",
+            "reference": "Buxoriy 10-hadis; Muslim 40-hadis",
+            "category": "Hadis",
+            "correctIndex": 1,
+            "difficulty": "oson",
+            "publishedDate": "2026-11-01",
+            "optionsUz": [
+              "koʻzi va qulogʻi",
+              "tili va qoʻli",
+              "mol-mulki va obroʻsi",
+              "qalbi va niyati"
+            ],
+            "explanationUz": "Rasululloh sollallohu alayhi vasallam: «Haqiqiy musulmon — odamlar uning tili (gʻiybat, chaqimchilik, soʻkish) va qoʻli (zulm, zarar)dan omonda boʻlgan kishidir», deganlar.",
+            "questionUz": "«Musulmon — boshqa musulmonlar uning ... va ...dan omonda boʻlgan kishidir». Hadisdagi boʻsh oʻrinlarni toʻldiring.",
+            "status": "approved",
+            "source": "Sahihi Buxoriy; Sahihi Muslim"
+          },
+          {
+            "isApproved": true,
+            "optionsUz": [
+              "Abdulloh ibn Masʼud (r.a.)",
+              "Zayd ibn Sobit (r.a.)",
+              "Ubay ibn Kaʼb (r.a.)",
+              "Muoz ibn Jabal (r.a.)"
+            ],
+            "correctIndex": 1,
+            "publishedDate": "2026-11-05",
+            "difficulty": "orta",
+            "status": "approved",
+            "source": "Sahihi Buxoriy",
+            "questionUz": "Vahiy kotibi boʻlgan va Hazrati Abu Bakr hamda Usmon (r.a.) davrlarida Qurʼoni Karimni jamlash ishiga boshchilik qilgan sahoba kim?",
+            "category": "Sahobalar",
+            "id": "q-032",
+            "reference": "Fazoilul Qurʼon kitobi, 4986-hadis",
+            "explanationUz": "Zayd ibn Sobit roziyallohu anhu yosh va zukko vahiy kotibi boʻlib, Abu Bakr Siddiq (r.a.) buyrugʻi bilan Qurʼon sahifalarini birinchi bor jamlaganlar.",
+            "sourceVerified": true
+          },
+          {
+            "difficulty": "oson",
+            "publishedDate": "2026-11-01",
+            "source": "Sahihi Termiziy; Tafsiri Hilol",
+            "category": "Qurʼon",
+            "optionsUz": [
+              "Baqara surasi",
+              "Fotiha surasi",
+              "Yosin surasi",
+              "Ixlos surasi"
+            ],
+            "isApproved": true,
+            "id": "q-001",
+            "status": "approved",
+            "sourceVerified": true,
+            "reference": "1-juz, Fotiha surasi muqaddimasi",
+            "correctIndex": 1,
+            "questionUz": "Qurʼoni Karimning qaysi surasi «Qurʼonning onasi» (Ummul Qurʼon) deb ataladi?",
+            "explanationUz": "Fotiha surasi namozning har bir rakatida oʻqilishi va Qurʼon maʼnolarining asosini oʻz ichiga olgani uchun «Ummul Qurʼon» va «Ummul Kitob» deb nomlangan."
+          },
+          {
+            "id": "q-020",
+            "questionUz": "Paygʻambarlarga xos boʻlgan sifatlar (sidq, omonat, fatonat, ismat, tabligh) ichida «ismat» nimani anglatadi?",
+            "optionsUz": [
+              "Toʻgʻrisoʻzlik",
+              "Aqlli va ziyrak boʻlish",
+              "Gunoh va maʼsiyatlardan mutlaq saqlanganlik (maʼsumlik)",
+              "Omonatdorlik"
+            ],
+            "category": "Aqoid",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-03",
+            "source": "Aqoidun Nasafiyya sharhi (Imom Taftazoniy)",
+            "reference": "Nubuvvat va Risolat bobi",
+            "difficulty": "murakkab",
+            "status": "approved",
+            "explanationUz": "Ismat — Alloh taolo Oʻz paygʻambarlarini nubuvvatdan oldin ham, keyin ham har qanday gunoh va fahsh ishlardan saqlashidir.",
+            "correctIndex": 2,
+            "isApproved": true
+          },
+          {
+            "reference": "Qurʼondagi ismlar bobi",
+            "sourceVerified": true,
+            "status": "approved",
+            "publishedDate": "2026-11-03",
+            "source": "Al-Itqon fi Ulumil Qurʼon (Jaloliddin Suyutiy)",
+            "questionUz": "Qurʼoni Karimda ismi eng koʻp zikr qilingan paygʻambar kim?",
+            "difficulty": "orta",
+            "explanationUz": "Musa alayhissalomning muborak ismlari Qurʼoni Karimning turli suralarida jami 136 marta zikr etilgan.",
+            "optionsUz": [
+              "Ibrohim (a.s.)",
+              "Musa (a.s.)",
+              "Iso (a.s.)",
+              "Nuh (a.s.)"
+            ],
+            "category": "Qurʼon",
+            "isApproved": true,
+            "correctIndex": 1,
+            "id": "q-021"
+          },
+          {
+            "correctIndex": 2,
+            "source": "Mukhtasarul Viqoya",
+            "explanationUz": "Namozning oxirgi oʻtirishida «Tashahhud» duosini oʻqish miqdoricha oʻtirish hanafiy mazhabida namozning farzlaridandir, uni tark qilinsa namoz buziladi.",
+            "status": "approved",
+            "optionsUz": [
+              "Sunnat",
+              "Mustahab",
+              "Farz (rukn)",
+              "Vojib"
+            ],
+            "sourceVerified": true,
+            "id": "q-022",
+            "questionUz": "Namozda «Qaʼdaʼi oxir»da (oxirgi oʻtirishda) «Attahiyyot» miqdoricha oʻtirish qanday amal hisoblanadi?",
+            "difficulty": "orta",
+            "category": "Fiqh",
+            "publishedDate": "2026-11-04",
+            "isApproved": true,
+            "reference": "Namoz farzlari bobi"
+          }
+        ]
+      },
+      {
+        "id": "2026-10-31",
+        "schemaVersion": 1,
+        "questions": [
+          {
+            "difficulty": "orta",
+            "reference": "Daʼavot kitobi, 6306-hadis",
+            "explanationUz": "Shaddod ibn Avs roziyallohu anhudan rivoyat: Rasululloh (s.a.v.): «Kimki bu duoni kechqurun ishonch bilan aytsa va shu kechada vafot etsa, u jannat ahlidandir», deganlar.",
+            "sourceVerified": true,
+            "id": "q-010",
+            "isApproved": true,
+            "source": "Sahihi Buxoriy",
+            "correctIndex": 1,
+            "status": "approved",
+            "publishedDate": "2026-11-01",
+            "optionsUz": [
+              "Haj qilgan savobini oladi",
+              "Jannat ahlidan boʻladi",
+              "Shahid maqomiga yetadi",
+              "Qabr azobidan omonda boʻladi"
+            ],
+            "questionUz": "«Sayyidul istigʻfor» duosini ixlos bilan kechqurun oʻqib, tong otmasdan vafot etgan kishi haqida Paygʻambarimiz (s.a.v.) nima deganlar?",
+            "category": "Zikr va Duolar"
+          },
+          {
+            "optionsUz": [
+              "3 ta: yuz, qoʻllar, oyoqlar",
+              "4 ta: yuzni yuvish, qoʻllarni tirsak bilan yuvish, boshga mash tortish, oyoqlarni toʻpigʻi bilan yuvish",
+              "5 ta: ogʻiz, burun, yuz, qoʻl, oyoq",
+              "6 ta: niyat, yuz, qoʻl, bosh, quloq, oyoq"
+            ],
+            "questionUz": "Tahoratning farzlari nechta va ular qaysilar?",
+            "category": "Fiqh",
+            "explanationUz": "Moida surasining 6-oyatiga asosan hanafiy mazhabida tahoratning farzi toʻrttadir: yuzni bir marta toʻliq yuvish, ikki qoʻlni tirsaklari bilan yuvish, boshning toʻrtdan biriga mash tortish va ikki oyoqni toʻpiqlari bilan yuvish.",
+            "id": "q-004",
+            "status": "approved",
+            "source": "Mukhtasarul Viqoya",
+            "difficulty": "oson",
+            "publishedDate": "2026-11-01",
+            "correctIndex": 1,
+            "reference": "Tahorat bobi; Moida surasi, 6-oyat",
+            "sourceVerified": true,
+            "isApproved": true
+          },
+          {
+            "correctIndex": 1,
+            "questionUz": "Paygʻambarimiz (s.a.v.) ilk vahiy nozil boʻlganda qaysi gʻorda edilar va qaysi soʻz bilan boshlangan?",
+            "reference": "Badʼul Vahy kitobi, 3-hadis",
+            "source": "Sahihi Buxoriy",
+            "status": "approved",
+            "publishedDate": "2026-11-05",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Savr gʻori, «Qul huvalloh»",
+              "Hiro gʻori, «Iqroʼ» (Oʻqi)",
+              "Uhud gʻori, «Alhamdu lillah»",
+              "Qubo gʻori, «Subhanalloh»"
+            ],
+            "difficulty": "oson",
+            "explanationUz": "Ramazon oyining Qadr kechasida Jabroil alayhissalom Hiro gʻorida Paygʻambarimizga (s.a.v.) ilk bor Alaq surasining dastlabki 5 oyatini keltirganlar.",
+            "id": "q-028",
+            "isApproved": true,
+            "category": "Siyrat"
+          },
+          {
+            "questionUz": "Paygʻambarlarga xos boʻlgan sifatlar (sidq, omonat, fatonat, ismat, tabligh) ichida «ismat» nimani anglatadi?",
+            "id": "q-020",
+            "explanationUz": "Ismat — Alloh taolo Oʻz paygʻambarlarini nubuvvatdan oldin ham, keyin ham har qanday gunoh va fahsh ishlardan saqlashidir.",
+            "reference": "Nubuvvat va Risolat bobi",
+            "category": "Aqoid",
+            "source": "Aqoidun Nasafiyya sharhi (Imom Taftazoniy)",
+            "publishedDate": "2026-11-03",
+            "status": "approved",
+            "optionsUz": [
+              "Toʻgʻrisoʻzlik",
+              "Aqlli va ziyrak boʻlish",
+              "Gunoh va maʼsiyatlardan mutlaq saqlanganlik (maʼsumlik)",
+              "Omonatdorlik"
+            ],
+            "isApproved": true,
+            "sourceVerified": true,
+            "difficulty": "murakkab",
+            "correctIndex": 2
+          },
+          {
+            "id": "q-005",
+            "correctIndex": 2,
+            "sourceVerified": true,
+            "publishedDate": "2026-11-01",
+            "difficulty": "orta",
+            "optionsUz": [
+              "Abu Bakr Siddiq (r.a.)",
+              "Saʼd ibn Muoz (r.a.)",
+              "Abu Ayyub al-Ansoriy (r.a.)",
+              "Usmon ibn Affon (r.a.)"
+            ],
+            "isApproved": true,
+            "reference": "Hijrat bobi, 3906-hadis",
+            "status": "approved",
+            "category": "Siyrat",
+            "questionUz": "Paygʻambarimiz Muhammad sollallohu alayhi vasallam Madinaga hijrat qilganlarida ularni oʻz uylarida birinchi boʻlib kim kutib olgan?",
+            "explanationUz": "Paygʻambarimiz sollallohu alayhi vasallamning tuyalari Abu Ayyub al-Ansoriy roziyallohu anhuning uylari oldiga choʻkkan va u zot u yerda Masjidi Nabaviy qurilgunga qadar yashaganlar.",
+            "source": "Sahihi Buxoriy; Ar-Rahiqul Maxtum"
+          },
+          {
+            "category": "Sahobalar",
+            "isApproved": true,
+            "source": "Sahihi Buxoriy",
+            "reference": "Manoqibus Sahoba kitobi, 3684-hadis",
+            "status": "approved",
+            "correctIndex": 1,
+            "explanationUz": "Abdulloh ibn Masʼud (r.a.) aytadilar: «Umar Islomga kirganidan beri biz hamisha aziz (quvvatli) boʻldik». U zot haq bilan botilni ajratuvchi «Al-Foruq» deb atalganlar.",
+            "difficulty": "oson",
+            "id": "q-034",
+            "sourceVerified": true,
+            "questionUz": "Islomni qabul qilishi bilan Makkadagi musulmonlar Kaʼba oldida ochiq namoz oʻqiy boshlagan va «Al-Foruq» unvonini olgan sahoba kim?",
+            "optionsUz": [
+              "Hamza ibn Abdulmuttalib (r.a.)",
+              "Umar ibn Xattob (r.a.)",
+              "Saʼd ibn Abu Vaqqos (r.a.)",
+              "Abdurrahmon ibn Avf (r.a.)"
+            ],
+            "publishedDate": "2026-11-05"
+          },
+          {
+            "publishedDate": "2026-11-03",
+            "questionUz": "«Subhanallohi va bihamdihi» zikrini bir kunda 100 marta aytgan insonning mukofoti qanday boʻlishi hadisda aytilgan?",
+            "id": "q-019",
+            "optionsUz": [
+              "Barcha qarzlaridan qutiladi",
+              "Dengiz koʻpigicha boʻlsa ham gunohlari kechiriladi",
+              "Unga 100 ta qul ozod qilgan savobi yoziladi",
+              "Bir kechada Qurʼonni xatm qilgan hisoblanadi"
+            ],
+            "reference": "Buxoriy 6405-hadis; Muslim 2691-hadis",
+            "isApproved": true,
+            "explanationUz": "Abu Hurayra (r.a.) rivoyat qiladi: Rasululloh (s.a.v.): «Kim bir kunda yuz marta «Subhanallohi va bihamdihi» desa, uning xatolari dengiz koʻpigicha boʻlsa ham oʻchiriladi», deganlar.",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "correctIndex": 1,
+            "sourceVerified": true,
+            "status": "approved",
+            "difficulty": "oson",
+            "category": "Zikr va Duolar"
+          },
+          {
+            "category": "Aqoid",
+            "correctIndex": 2,
+            "isApproved": true,
+            "optionsUz": [
+              "3 ta",
+              "5 ta",
+              "6 ta",
+              "7 ta"
+            ],
+            "difficulty": "oson",
+            "publishedDate": "2026-11-01",
+            "questionUz": "Islom eʼtiqodida imonning ruknlari nechta?",
+            "reference": "Imon kitobi, 1-hadis (Jabroil hadisi)",
+            "source": "Sahihi Muslim",
+            "sourceVerified": true,
+            "id": "q-006",
+            "status": "approved",
+            "explanationUz": "Mashhur «Jabroil hadisi»ga binoan imonning ruknlari 6 tadir: Allohga, farishtalariga, kitoblariga, paygʻambarlariga, oxirat kuniga va qadarning yaxshiyu yomoni Allohdan ekaniga ishonish."
+          },
+          {
+            "status": "approved",
+            "reference": "Musofirlar namozi bobi, 725-hadis",
+            "explanationUz": "Bomdod namozining sunnati sunnatlar ichida eng quvvatlisi (muakkada) boʻlib, Rasululloh (s.a.v.) uni safarda ham, muqimlikda ham deyarli tark qilmaganlar.",
+            "isApproved": true,
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "difficulty": "orta",
+            "correctIndex": 2,
+            "category": "Fiqh",
+            "questionUz": "Bomdod namozining farzidan oldin oʻqiladigan 2 rakat sunnat qanday hukmga ega?",
+            "id": "q-007",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-01",
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Sunnati muakkada (taʼkidlangan sunnat)",
+              "Vojib"
+            ]
+          },
+          {
+            "source": "Sunani Bayhaqiy; Mustadraki Hokim",
+            "questionUz": "Rasululloh (s.a.v.) juma kunida qaysi surani oʻqishni tavsiya qilganlar va uning fazilati nima?",
+            "sourceVerified": true,
+            "status": "approved",
+            "explanationUz": "Abu Said al-Xudriy roziyallohu anhudan rivoyat: «Kim juma kuni Kahf surasini oʻqisa, uning uchun ikki juma orasi nurga toʻladi», deganlar.",
+            "category": "Hadis",
+            "optionsUz": [
+              "Kahf surasi (ikki juma oraligʻida nur boʻladi)",
+              "Mulk surasi (qabr azobidan saqlaydi)",
+              "Voqea surasi (faqirlikdan saqlaydi)",
+              "Sajda surasi (qalbni poklaydi)"
+            ],
+            "publishedDate": "2026-11-04",
+            "reference": "Juma kitobi, 5996-hadis",
+            "isApproved": true,
+            "id": "q-023",
+            "difficulty": "oson",
+            "correctIndex": 0
+          }
+        ],
+        "isScheduledByAdmin": false,
+        "createdBy": "menageradmin",
+        "updatedBy": "menageradmin",
+        "isArchived": true,
+        "syncedAt": "2026-11-07T08:55:42.793Z",
+        "dateStr": "2026-10-31",
+        "updatedAt": "2026-11-07T08:55:42.793Z",
+        "createdAt": "2026-11-07T08:55:42.789Z",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "questionIds": [
+          "q-010",
+          "q-004",
+          "q-028",
+          "q-020",
+          "q-005",
+          "q-034",
+          "q-019",
+          "q-006",
+          "q-007",
+          "q-023"
+        ]
+      },
+      {
+        "id": "2026-11-01",
+        "createdAt": "2026-11-07T08:55:42.778Z",
+        "updatedAt": "2026-11-07T08:55:42.780Z",
+        "schemaVersion": 1,
+        "syncedAt": "2026-11-07T08:55:42.780Z",
+        "questionIds": [
+          "q-003",
+          "q-005",
+          "q-016",
+          "q-013",
+          "q-030",
+          "q-009",
+          "q-027",
+          "q-011",
+          "q-008",
+          "q-021"
+        ],
+        "adminEmail": "asakaziyo0@gmail.com",
+        "isScheduledByAdmin": false,
+        "createdBy": "menageradmin",
+        "updatedBy": "menageradmin",
+        "dateStr": "2026-11-01",
+        "questions": [
+          {
+            "sourceVerified": true,
+            "correctIndex": 1,
+            "optionsUz": [
+              "Abu Hurayra (r.a.)",
+              "Umar ibn Xattob (r.a.)",
+              "Ali ibn Abu Tolib (r.a.)",
+              "Anas ibn Molik (r.a.)"
+            ],
+            "id": "q-003",
+            "publishedDate": "2026-11-01",
+            "questionUz": "«Albatta, amallar niyatlarga bogʻliqdir...» hadisini Rasulullohdan (s.a.v.) qaysi sahoba rivoyat qilgan?",
+            "explanationUz": "Bu mashhur va buyuk hadis Hazrati Umar ibn Xattob roziyallohu anhudan rivoyat qilingan boʻlib, Imom Buxoriy oʻz sahih toʻplamlarini aynan shu hadis bilan boshlaganlar.",
+            "difficulty": "oson",
+            "category": "Hadis",
+            "isApproved": true,
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "reference": "Buxoriy 1-hadis; Muslim 1907-hadis",
+            "status": "approved"
+          },
+          {
+            "publishedDate": "2026-11-01",
+            "id": "q-005",
+            "sourceVerified": true,
+            "questionUz": "Paygʻambarimiz Muhammad sollallohu alayhi vasallam Madinaga hijrat qilganlarida ularni oʻz uylarida birinchi boʻlib kim kutib olgan?",
+            "reference": "Hijrat bobi, 3906-hadis",
+            "isApproved": true,
+            "optionsUz": [
+              "Abu Bakr Siddiq (r.a.)",
+              "Saʼd ibn Muoz (r.a.)",
+              "Abu Ayyub al-Ansoriy (r.a.)",
+              "Usmon ibn Affon (r.a.)"
+            ],
+            "correctIndex": 2,
+            "difficulty": "orta",
+            "source": "Sahihi Buxoriy; Ar-Rahiqul Maxtum",
+            "category": "Siyrat",
+            "status": "approved",
+            "explanationUz": "Paygʻambarimiz sollallohu alayhi vasallamning tuyalari Abu Ayyub al-Ansoriy roziyallohu anhuning uylari oldiga choʻkkan va u zot u yerda Masjidi Nabaviy qurilgunga qadar yashaganlar."
+          },
+          {
+            "source": "Sahihi Buxoriy",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-02",
+            "reference": "Fazoilul Qurʼon kitobi, 5027-hadis",
+            "status": "approved",
+            "category": "Hadis",
+            "id": "q-016",
+            "questionUz": "«Sizlarning eng yaxshilaringiz — ... va uni boshqalarga oʻrgatganlaringizdir». Hadisni toʻldiring.",
+            "correctIndex": 1,
+            "difficulty": "oson",
+            "explanationUz": "Usmon ibn Affon roziyallohu anhudan rivoyat: Rasululloh sollallohu alayhi vasallam: «Sizlarning eng yaxshingiz Qurʼonni oʻrganib, soʻng uni boshqalarga oʻrgatgan kishidir», deganlar.",
+            "optionsUz": [
+              "ilm izlagan",
+              "Qurʼonni oʻrgangan",
+              "juda koʻp sadaqa bergan",
+              "namozni toʻliq oʻqigan"
+            ],
+            "isApproved": true
+          },
+          {
+            "difficulty": "murakkab",
+            "publishedDate": "2026-11-02",
+            "category": "Fiqh",
+            "isApproved": true,
+            "correctIndex": 1,
+            "optionsUz": [
+              "Faqat 1 kun qazo tutish",
+              "Bir qul ozod qilish, topolmasa ketma-ket 60 kun roʻza tutish, qodir boʻlmasa 60 miskinni toʻydirish",
+              "10 miskinni kiyintirish",
+              "Masjidga zakot berish"
+            ],
+            "source": "Sahihi Buxoriy; Mukhtasarul Viqoya",
+            "status": "approved",
+            "id": "q-013",
+            "reference": "Buxoriy 1936-hadis; Roʻza kafforati bobi",
+            "sourceVerified": true,
+            "explanationUz": "Qasddan oziqlanish yoki yaqinlik sababli roʻzasini buzgan kishi 1 kun qazo bilan birga buyurilgan tartibda kafforat (ketma-ket 60 kun roʻza) ado etishi vojib boʻladi.",
+            "questionUz": "Ramazon oyida uzrsiz roʻzani qasddan buzgan kishining kafforati qanday belgilanadi?"
+          },
+          {
+            "explanationUz": "Abu Humayd yoki Abu Usayd (r.a.) rivoyati: Rasululloh (s.a.v.): «Sizlardan birortangiz masjidga kirsa: «Allohummaftah liy abvaba rohmatik», deb aytsin», deganlar.",
+            "questionUz": "Masjidga kirayotganda oʻng oyoq bilan kirib qanday duo oʻqiladi?",
+            "reference": "Musofirlar namozi kitobi, 713-hadis",
+            "id": "q-030",
+            "category": "Zikr va Duolar",
+            "sourceVerified": true,
+            "correctIndex": 1,
+            "isApproved": true,
+            "publishedDate": "2026-11-05",
+            "source": "Sahihi Muslim",
+            "optionsUz": [
+              "Allohumma inniy asʼaluka min fazlik",
+              "Allohummaftah liy abvaba rohmatik (Allohim, menga rahmating eshiklarini ochgin)",
+              "Bismillahi tavakkaltu alalloh",
+              "Subhanallohi val hamdu lillah"
+            ],
+            "difficulty": "orta",
+            "status": "approved"
+          },
+          {
+            "sourceVerified": true,
+            "difficulty": "orta",
+            "status": "approved",
+            "publishedDate": "2026-11-01",
+            "correctIndex": 1,
+            "optionsUz": [
+              "Hijriy 150 yili",
+              "Hijriy 194 yili (milodiy 810)",
+              "Hijriy 204 yili",
+              "Hijriy 256 yili"
+            ],
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "isApproved": true,
+            "explanationUz": "Imom Buxoriy hijriy 194-yil 13-shavvol (milodiy 810-yil 21-iyul) juma kuni Buxoro shahrida tavallud topganlar.",
+            "reference": "12-juz, Imom Buxoriy tarjimai holi",
+            "category": "Islom tarixi",
+            "questionUz": "Islom olamining eng mashhur muhaddisi Imom Abu Abdulloh Muhammad ibn Ismoil al-Buxoriy qaysi yili tavallud topganlar?",
+            "id": "q-009"
+          },
+          {
+            "publishedDate": "2026-11-05",
+            "isApproved": true,
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Tahrimiy makruh (man qilingan)",
+              "Vojib"
+            ],
+            "difficulty": "orta",
+            "correctIndex": 2,
+            "category": "Fiqh",
+            "id": "q-027",
+            "questionUz": "Quyosh chiqayotgan, qiyomga kelgan va botayotgan paytlarda namoz oʻqish hukmi qanday?",
+            "explanationUz": "Uqba ibn Omir (r.a.) aytganlar: «Rasululloh sollallohu alayhi vasallam uch vaqtda namoz oʻqishimiz va janoza oʻqishimizdan qaytarganlar: quyosh chiqa boshlaganda, qiyomda tikkalaganda va botishga qarab egilganda».",
+            "status": "approved",
+            "reference": "Muslim 831-hadis; Namoz vaqtlari bobi",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "sourceVerified": true
+          },
+          {
+            "status": "approved",
+            "difficulty": "oson",
+            "category": "Qurʼon",
+            "sourceVerified": true,
+            "source": "Sahihi Termiziy; Tafsiri Jalolayn",
+            "isApproved": true,
+            "publishedDate": "2026-11-02",
+            "reference": "Tafsir kitobi, 3086-hadis",
+            "explanationUz": "Tavba (Baroat) surasi mushriklarga nisbatan qatʼiy ogohlantirish bilan boshlangani va Anfol surasining davomi sifatida tushgani sababli avvalida bismillah yozilmaydi.",
+            "id": "q-011",
+            "optionsUz": [
+              "Tavba surasi",
+              "Anfol surasi",
+              "Naml surasi",
+              "Kafirun surasi"
+            ],
+            "correctIndex": 0,
+            "questionUz": "Qurʼoni Karimdagi qaysi sura «Bismillahir Rohmanir Rohiym»siz boshlanadi?"
+          },
+          {
+            "difficulty": "oson",
+            "isApproved": true,
+            "reference": "Buxoriy 10-hadis; Muslim 40-hadis",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "status": "approved",
+            "publishedDate": "2026-11-01",
+            "sourceVerified": true,
+            "optionsUz": [
+              "koʻzi va qulogʻi",
+              "tili va qoʻli",
+              "mol-mulki va obroʻsi",
+              "qalbi va niyati"
+            ],
+            "explanationUz": "Rasululloh sollallohu alayhi vasallam: «Haqiqiy musulmon — odamlar uning tili (gʻiybat, chaqimchilik, soʻkish) va qoʻli (zulm, zarar)dan omonda boʻlgan kishidir», deganlar.",
+            "id": "q-008",
+            "correctIndex": 1,
+            "category": "Hadis",
+            "questionUz": "«Musulmon — boshqa musulmonlar uning ... va ...dan omonda boʻlgan kishidir». Hadisdagi boʻsh oʻrinlarni toʻldiring."
+          },
+          {
+            "explanationUz": "Musa alayhissalomning muborak ismlari Qurʼoni Karimning turli suralarida jami 136 marta zikr etilgan.",
+            "difficulty": "orta",
+            "isApproved": true,
+            "reference": "Qurʼondagi ismlar bobi",
+            "correctIndex": 1,
+            "optionsUz": [
+              "Ibrohim (a.s.)",
+              "Musa (a.s.)",
+              "Iso (a.s.)",
+              "Nuh (a.s.)"
+            ],
+            "category": "Qurʼon",
+            "id": "q-021",
+            "publishedDate": "2026-11-03",
+            "status": "approved",
+            "sourceVerified": true,
+            "questionUz": "Qurʼoni Karimda ismi eng koʻp zikr qilingan paygʻambar kim?",
+            "source": "Al-Itqon fi Ulumil Qurʼon (Jaloliddin Suyutiy)"
+          }
+        ],
+        "isArchived": true
+      },
+      {
+        "id": "2026-11-02",
+        "createdBy": "menageradmin",
+        "isArchived": true,
+        "updatedBy": "menageradmin",
+        "questions": [
+          {
+            "status": "approved",
+            "difficulty": "oson",
+            "source": "Sahihi Termiziy; Tafsiri Jalolayn",
+            "optionsUz": [
+              "Tavba surasi",
+              "Anfol surasi",
+              "Naml surasi",
+              "Kafirun surasi"
+            ],
+            "isApproved": true,
+            "publishedDate": "2026-11-02",
+            "reference": "Tafsir kitobi, 3086-hadis",
+            "explanationUz": "Tavba (Baroat) surasi mushriklarga nisbatan qatʼiy ogohlantirish bilan boshlangani va Anfol surasining davomi sifatida tushgani sababli avvalida bismillah yozilmaydi.",
+            "correctIndex": 0,
+            "sourceVerified": true,
+            "questionUz": "Qurʼoni Karimdagi qaysi sura «Bismillahir Rohmanir Rohiym»siz boshlanadi?",
+            "category": "Qurʼon",
+            "id": "q-011"
+          },
+          {
+            "correctIndex": 1,
+            "category": "Zikr va Duolar",
+            "sourceVerified": true,
+            "questionUz": "Masjidga kirayotganda oʻng oyoq bilan kirib qanday duo oʻqiladi?",
+            "source": "Sahihi Muslim",
+            "id": "q-030",
+            "optionsUz": [
+              "Allohumma inniy asʼaluka min fazlik",
+              "Allohummaftah liy abvaba rohmatik (Allohim, menga rahmating eshiklarini ochgin)",
+              "Bismillahi tavakkaltu alalloh",
+              "Subhanallohi val hamdu lillah"
+            ],
+            "explanationUz": "Abu Humayd yoki Abu Usayd (r.a.) rivoyati: Rasululloh (s.a.v.): «Sizlardan birortangiz masjidga kirsa: «Allohummaftah liy abvaba rohmatik», deb aytsin», deganlar.",
+            "status": "approved",
+            "publishedDate": "2026-11-05",
+            "reference": "Musofirlar namozi kitobi, 713-hadis",
+            "difficulty": "orta",
+            "isApproved": true
+          },
+          {
+            "explanationUz": "Hazrati Usmon ibn Affon roziyallohu anhu avval Ruqayya (r.a.)ga, u zot vafot etganlaridan keyin esa Ummu Kulsum (r.a.)ga uylanganlari uchun «Zunnurayn» deb nomlanganlar.",
+            "isApproved": true,
+            "optionsUz": [
+              "Ali ibn Abu Tolib (r.a.)",
+              "Usmon ibn Affon (r.a.)",
+              "Talha ibn Ubaydulloh (r.a.)",
+              "Zubayr ibn Avvom (r.a.)"
+            ],
+            "difficulty": "oson",
+            "status": "approved",
+            "id": "q-031",
+            "category": "Sahobalar",
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "questionUz": "Paygʻambarimizning (s.a.v.) ikki qizlariga (Ruqayya va Ummu Kulsumga) uylanganlari uchun «Zunnurayn» (ikki nur sohibi) unvonini olgan sahoba kim?",
+            "publishedDate": "2026-11-05",
+            "correctIndex": 1,
+            "sourceVerified": true,
+            "reference": "Xulafoyi Roshidin: Usmon ibn Affon bobi"
+          },
+          {
+            "reference": "Musofirlar namozi bobi, 725-hadis",
+            "category": "Fiqh",
+            "questionUz": "Bomdod namozining farzidan oldin oʻqiladigan 2 rakat sunnat qanday hukmga ega?",
+            "sourceVerified": true,
+            "explanationUz": "Bomdod namozining sunnati sunnatlar ichida eng quvvatlisi (muakkada) boʻlib, Rasululloh (s.a.v.) uni safarda ham, muqimlikda ham deyarli tark qilmaganlar.",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "status": "approved",
+            "correctIndex": 2,
+            "publishedDate": "2026-11-01",
+            "difficulty": "orta",
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Sunnati muakkada (taʼkidlangan sunnat)",
+              "Vojib"
+            ],
+            "id": "q-007",
+            "isApproved": true
+          },
+          {
+            "difficulty": "oson",
+            "correctIndex": 0,
+            "publishedDate": "2026-11-04",
+            "reference": "Juma kitobi, 5996-hadis",
+            "sourceVerified": true,
+            "isApproved": true,
+            "optionsUz": [
+              "Kahf surasi (ikki juma oraligʻida nur boʻladi)",
+              "Mulk surasi (qabr azobidan saqlaydi)",
+              "Voqea surasi (faqirlikdan saqlaydi)",
+              "Sajda surasi (qalbni poklaydi)"
+            ],
+            "category": "Hadis",
+            "source": "Sunani Bayhaqiy; Mustadraki Hokim",
+            "status": "approved",
+            "id": "q-023",
+            "questionUz": "Rasululloh (s.a.v.) juma kunida qaysi surani oʻqishni tavsiya qilganlar va uning fazilati nima?",
+            "explanationUz": "Abu Said al-Xudriy roziyallohu anhudan rivoyat: «Kim juma kuni Kahf surasini oʻqisa, uning uchun ikki juma orasi nurga toʻladi», deganlar."
+          },
+          {
+            "explanationUz": "Uqba ibn Omir (r.a.) aytganlar: «Rasululloh sollallohu alayhi vasallam uch vaqtda namoz oʻqishimiz va janoza oʻqishimizdan qaytarganlar: quyosh chiqa boshlaganda, qiyomda tikkalaganda va botishga qarab egilganda».",
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Tahrimiy makruh (man qilingan)",
+              "Vojib"
+            ],
+            "status": "approved",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "id": "q-027",
+            "sourceVerified": true,
+            "correctIndex": 2,
+            "category": "Fiqh",
+            "questionUz": "Quyosh chiqayotgan, qiyomga kelgan va botayotgan paytlarda namoz oʻqish hukmi qanday?",
+            "difficulty": "orta",
+            "publishedDate": "2026-11-05",
+            "isApproved": true,
+            "reference": "Muslim 831-hadis; Namoz vaqtlari bobi"
+          },
+          {
+            "publishedDate": "2026-11-03",
+            "isApproved": true,
+            "category": "Qurʼon",
+            "difficulty": "orta",
+            "reference": "Qurʼondagi ismlar bobi",
+            "sourceVerified": true,
+            "correctIndex": 1,
+            "id": "q-021",
+            "optionsUz": [
+              "Ibrohim (a.s.)",
+              "Musa (a.s.)",
+              "Iso (a.s.)",
+              "Nuh (a.s.)"
+            ],
+            "questionUz": "Qurʼoni Karimda ismi eng koʻp zikr qilingan paygʻambar kim?",
+            "status": "approved",
+            "explanationUz": "Musa alayhissalomning muborak ismlari Qurʼoni Karimning turli suralarida jami 136 marta zikr etilgan.",
+            "source": "Al-Itqon fi Ulumil Qurʼon (Jaloliddin Suyutiy)"
+          },
+          {
+            "isApproved": true,
+            "source": "Siyaru Aʼlomin Nubalo; Sahihi Buxoriy",
+            "status": "approved",
+            "optionsUz": [
+              "Salmon Forsiy (r.a.)",
+              "Bilol ibn Raboh al-Habashiy (r.a.)",
+              "Abdulloh ibn Ummu Maktum (r.a.)",
+              "Abu Mahzura (r.a.)"
+            ],
+            "difficulty": "oson",
+            "publishedDate": "2026-11-05",
+            "id": "q-029",
+            "sourceVerified": true,
+            "explanationUz": "Hazrati Bilol ibn Raboh roziyallohu anhu islom tarixidagi eng birinchi muazzin boʻlib, yoqimli va jarangdor ovozlari bilan azon aytganlar.",
+            "correctIndex": 1,
+            "questionUz": "Islomda ilk azon aytgan va Rasulullohning (s.a.v.) muazzinlari boʻlgan buyuk sahoba kim?",
+            "category": "Sahobalar",
+            "reference": "Azon kitobi, 604-hadis"
+          },
+          {
+            "difficulty": "oson",
+            "optionsUz": [
+              "Oli Imron surasi, 18-oyat",
+              "Baqara surasi, 255-oyat",
+              "Moida surasi, 55-oyat",
+              "Yosin surasi, 12-oyat"
+            ],
+            "publishedDate": "2026-11-04",
+            "id": "q-026",
+            "isApproved": true,
+            "sourceVerified": true,
+            "source": "Sahihi Muslim",
+            "status": "approved",
+            "correctIndex": 1,
+            "reference": "Musofirlar namozi kitobi, 810-hadis",
+            "questionUz": "«Oyatul Kursiy» Qurʼoni Karimning qaysi surasida joylashgan va nechanchi oyat?",
+            "category": "Qurʼon",
+            "explanationUz": "Oyatul Kursiy — Baqara surasining 255-oyati boʻlib, u Qurʼondagi eng ulugʻ oyat hisoblanadi."
+          },
+          {
+            "status": "approved",
+            "optionsUz": [
+              "koʻzi va qulogʻi",
+              "tili va qoʻli",
+              "mol-mulki va obroʻsi",
+              "qalbi va niyati"
+            ],
+            "publishedDate": "2026-11-01",
+            "questionUz": "«Musulmon — boshqa musulmonlar uning ... va ...dan omonda boʻlgan kishidir». Hadisdagi boʻsh oʻrinlarni toʻldiring.",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "sourceVerified": true,
+            "category": "Hadis",
+            "isApproved": true,
+            "correctIndex": 1,
+            "difficulty": "oson",
+            "id": "q-008",
+            "reference": "Buxoriy 10-hadis; Muslim 40-hadis",
+            "explanationUz": "Rasululloh sollallohu alayhi vasallam: «Haqiqiy musulmon — odamlar uning tili (gʻiybat, chaqimchilik, soʻkish) va qoʻli (zulm, zarar)dan omonda boʻlgan kishidir», deganlar."
+          }
+        ],
+        "schemaVersion": 1,
+        "adminEmail": "asakaziyo0@gmail.com",
+        "createdAt": "2026-11-07T08:55:42.768Z",
+        "updatedAt": "2026-11-07T08:55:42.772Z",
+        "syncedAt": "2026-11-07T08:55:42.772Z",
+        "isScheduledByAdmin": false,
+        "dateStr": "2026-11-02",
+        "questionIds": [
+          "q-011",
+          "q-030",
+          "q-031",
+          "q-007",
+          "q-023",
+          "q-027",
+          "q-021",
+          "q-029",
+          "q-026",
+          "q-008"
+        ]
+      },
+      {
+        "id": "2026-11-03",
+        "createdBy": "menageradmin",
+        "isArchived": true,
+        "updatedBy": "menageradmin",
+        "questions": [
+          {
+            "difficulty": "oson",
+            "explanationUz": "Isro surasining 23-oyatida: «Parvardigoringiz faqat Oʻzigagina ibodat qilishingizni va ota-onaga yaxshilik qilishni amr etdi. Agar ulardan biri yoki ikkalasi huzuringizda qarilik yoshiga yetsa, ularga uf dema...», deb buyurilgan.",
+            "correctIndex": 0,
+            "optionsUz": [
+              "Isro surasi, 23-oyat",
+              "Luqmon surasi, 14-oyat",
+              "Niso surasi, 36-oyat",
+              "Ahqof surasi, 15-oyat"
+            ],
+            "isApproved": true,
+            "category": "Axloq va Odob",
+            "reference": "Isro surasi, 23-oyat",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-02",
+            "source": "Qurʼoni Karim",
+            "questionUz": "Islomda ota-onaga yaxshilik qilish va ularga «uf» ham demaslik qaysi surada buyurilgan?",
+            "id": "q-014",
+            "status": "approved"
+          },
+          {
+            "publishedDate": "2026-11-01",
+            "sourceVerified": true,
+            "difficulty": "orta",
+            "status": "approved",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Sunnati muakkada (taʼkidlangan sunnat)",
+              "Vojib"
+            ],
+            "isApproved": true,
+            "id": "q-007",
+            "correctIndex": 2,
+            "reference": "Musofirlar namozi bobi, 725-hadis",
+            "questionUz": "Bomdod namozining farzidan oldin oʻqiladigan 2 rakat sunnat qanday hukmga ega?",
+            "category": "Fiqh",
+            "explanationUz": "Bomdod namozining sunnati sunnatlar ichida eng quvvatlisi (muakkada) boʻlib, Rasululloh (s.a.v.) uni safarda ham, muqimlikda ham deyarli tark qilmaganlar."
+          },
+          {
+            "difficulty": "oson",
+            "optionsUz": [
+              "Salmon Forsiy (r.a.)",
+              "Xolid ibn Valid (r.a.)",
+              "Bilol Habashiy (r.a.)",
+              "Abu Ubayda (r.a.)"
+            ],
+            "correctIndex": 0,
+            "isApproved": true,
+            "explanationUz": "Hijriy 5-yili Ahzob (Xandaq) jangi oldidan Salmon Forsiy roziyallohu anhu shaharni himoyalash uchun xandaq qazish tajribasini taklif qilganlar va bu gʻalaba sababchisi boʻlgan.",
+            "source": "Ibn Hishom, As-Siyratun Nabaviya",
+            "publishedDate": "2026-11-02",
+            "category": "Siyrat",
+            "sourceVerified": true,
+            "status": "approved",
+            "id": "q-015",
+            "questionUz": "Paygʻambarimiz (s.a.v.) Ahzob jangi oldidan Madinani himoya qilish uchun xandaq qazish fikrini qaysi sahobaning taklifi bilan qabul qilganlar?",
+            "reference": "Gʻazotul Xandaq bobi"
+          },
+          {
+            "sourceVerified": true,
+            "difficulty": "oson",
+            "id": "q-023",
+            "source": "Sunani Bayhaqiy; Mustadraki Hokim",
+            "publishedDate": "2026-11-04",
+            "status": "approved",
+            "category": "Hadis",
+            "isApproved": true,
+            "optionsUz": [
+              "Kahf surasi (ikki juma oraligʻida nur boʻladi)",
+              "Mulk surasi (qabr azobidan saqlaydi)",
+              "Voqea surasi (faqirlikdan saqlaydi)",
+              "Sajda surasi (qalbni poklaydi)"
+            ],
+            "explanationUz": "Abu Said al-Xudriy roziyallohu anhudan rivoyat: «Kim juma kuni Kahf surasini oʻqisa, uning uchun ikki juma orasi nurga toʻladi», deganlar.",
+            "correctIndex": 0,
+            "reference": "Juma kitobi, 5996-hadis",
+            "questionUz": "Rasululloh (s.a.v.) juma kunida qaysi surani oʻqishni tavsiya qilganlar va uning fazilati nima?"
+          },
+          {
+            "reference": "Hijrat bobi, 3906-hadis",
+            "sourceVerified": true,
+            "isApproved": true,
+            "explanationUz": "Paygʻambarimiz sollallohu alayhi vasallamning tuyalari Abu Ayyub al-Ansoriy roziyallohu anhuning uylari oldiga choʻkkan va u zot u yerda Masjidi Nabaviy qurilgunga qadar yashaganlar.",
+            "id": "q-005",
+            "difficulty": "orta",
+            "publishedDate": "2026-11-01",
+            "questionUz": "Paygʻambarimiz Muhammad sollallohu alayhi vasallam Madinaga hijrat qilganlarida ularni oʻz uylarida birinchi boʻlib kim kutib olgan?",
+            "status": "approved",
+            "optionsUz": [
+              "Abu Bakr Siddiq (r.a.)",
+              "Saʼd ibn Muoz (r.a.)",
+              "Abu Ayyub al-Ansoriy (r.a.)",
+              "Usmon ibn Affon (r.a.)"
+            ],
+            "category": "Siyrat",
+            "correctIndex": 2,
+            "source": "Sahihi Buxoriy; Ar-Rahiqul Maxtum"
+          },
+          {
+            "optionsUz": [
+              "3 ta: yuz, qoʻllar, oyoqlar",
+              "4 ta: yuzni yuvish, qoʻllarni tirsak bilan yuvish, boshga mash tortish, oyoqlarni toʻpigʻi bilan yuvish",
+              "5 ta: ogʻiz, burun, yuz, qoʻl, oyoq",
+              "6 ta: niyat, yuz, qoʻl, bosh, quloq, oyoq"
+            ],
+            "isApproved": true,
+            "source": "Mukhtasarul Viqoya",
+            "publishedDate": "2026-11-01",
+            "status": "approved",
+            "difficulty": "oson",
+            "correctIndex": 1,
+            "explanationUz": "Moida surasining 6-oyatiga asosan hanafiy mazhabida tahoratning farzi toʻrttadir: yuzni bir marta toʻliq yuvish, ikki qoʻlni tirsaklari bilan yuvish, boshning toʻrtdan biriga mash tortish va ikki oyoqni toʻpiqlari bilan yuvish.",
+            "questionUz": "Tahoratning farzlari nechta va ular qaysilar?",
+            "reference": "Tahorat bobi; Moida surasi, 6-oyat",
+            "sourceVerified": true,
+            "category": "Fiqh",
+            "id": "q-004"
+          },
+          {
+            "correctIndex": 1,
+            "difficulty": "murakkab",
+            "optionsUz": [
+              "Faqat 1 kun qazo tutish",
+              "Bir qul ozod qilish, topolmasa ketma-ket 60 kun roʻza tutish, qodir boʻlmasa 60 miskinni toʻydirish",
+              "10 miskinni kiyintirish",
+              "Masjidga zakot berish"
+            ],
+            "explanationUz": "Qasddan oziqlanish yoki yaqinlik sababli roʻzasini buzgan kishi 1 kun qazo bilan birga buyurilgan tartibda kafforat (ketma-ket 60 kun roʻza) ado etishi vojib boʻladi.",
+            "id": "q-013",
+            "isApproved": true,
+            "category": "Fiqh",
+            "source": "Sahihi Buxoriy; Mukhtasarul Viqoya",
+            "status": "approved",
+            "sourceVerified": true,
+            "questionUz": "Ramazon oyida uzrsiz roʻzani qasddan buzgan kishining kafforati qanday belgilanadi?",
+            "reference": "Buxoriy 1936-hadis; Roʻza kafforati bobi",
+            "publishedDate": "2026-11-02"
+          },
+          {
+            "publishedDate": "2026-11-02",
+            "reference": "Naml surasi, 30-oyat",
+            "sourceVerified": true,
+            "questionUz": "Qurʼoni Karimda ikki marta «Bismillahir Rohmanir Rohiym» kelgan sura qaysi?",
+            "difficulty": "orta",
+            "id": "q-012",
+            "status": "approved",
+            "explanationUz": "Naml surasining boshida va 30-oyatida Sulaymon alayhissalomning malika Bilqisga yozgan maktubi zikrida («Innahu min Sulaymana va innahu Bismillahir Rohmanir Rohiym») keladi.",
+            "optionsUz": [
+              "Yosin surasi",
+              "Naml surasi",
+              "Rahmon surasi",
+              "Fatx surasi"
+            ],
+            "isApproved": true,
+            "correctIndex": 1,
+            "category": "Qurʼon",
+            "source": "Qurʼoni Karim"
+          },
+          {
+            "correctIndex": 1,
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "status": "approved",
+            "reference": "Buxoriy 6405-hadis; Muslim 2691-hadis",
+            "explanationUz": "Abu Hurayra (r.a.) rivoyat qiladi: Rasululloh (s.a.v.): «Kim bir kunda yuz marta «Subhanallohi va bihamdihi» desa, uning xatolari dengiz koʻpigicha boʻlsa ham oʻchiriladi», deganlar.",
+            "questionUz": "«Subhanallohi va bihamdihi» zikrini bir kunda 100 marta aytgan insonning mukofoti qanday boʻlishi hadisda aytilgan?",
+            "sourceVerified": true,
+            "category": "Zikr va Duolar",
+            "publishedDate": "2026-11-03",
+            "difficulty": "oson",
+            "id": "q-019",
+            "optionsUz": [
+              "Barcha qarzlaridan qutiladi",
+              "Dengiz koʻpigicha boʻlsa ham gunohlari kechiriladi",
+              "Unga 100 ta qul ozod qilgan savobi yoziladi",
+              "Bir kechada Qurʼonni xatm qilgan hisoblanadi"
+            ],
+            "isApproved": true
+          },
+          {
+            "explanationUz": "Hazrati Bilol ibn Raboh roziyallohu anhu islom tarixidagi eng birinchi muazzin boʻlib, yoqimli va jarangdor ovozlari bilan azon aytganlar.",
+            "optionsUz": [
+              "Salmon Forsiy (r.a.)",
+              "Bilol ibn Raboh al-Habashiy (r.a.)",
+              "Abdulloh ibn Ummu Maktum (r.a.)",
+              "Abu Mahzura (r.a.)"
+            ],
+            "source": "Siyaru Aʼlomin Nubalo; Sahihi Buxoriy",
+            "id": "q-029",
+            "questionUz": "Islomda ilk azon aytgan va Rasulullohning (s.a.v.) muazzinlari boʻlgan buyuk sahoba kim?",
+            "status": "approved",
+            "difficulty": "oson",
+            "category": "Sahobalar",
+            "publishedDate": "2026-11-05",
+            "sourceVerified": true,
+            "correctIndex": 1,
+            "isApproved": true,
+            "reference": "Azon kitobi, 604-hadis"
+          }
+        ],
+        "schemaVersion": 1,
+        "adminEmail": "asakaziyo0@gmail.com",
+        "updatedAt": "2026-11-07T08:55:42.749Z",
+        "createdAt": "2026-11-07T08:55:42.743Z",
+        "syncedAt": "2026-11-07T08:55:42.749Z",
+        "isScheduledByAdmin": false,
+        "dateStr": "2026-11-03",
+        "questionIds": [
+          "q-014",
+          "q-007",
+          "q-015",
+          "q-023",
+          "q-005",
+          "q-004",
+          "q-013",
+          "q-012",
+          "q-019",
+          "q-029"
+        ]
+      },
+      {
+        "id": "2026-11-04",
+        "schemaVersion": 1,
+        "questions": [
+          {
+            "status": "approved",
+            "difficulty": "orta",
+            "explanationUz": "Bomdod namozining sunnati sunnatlar ichida eng quvvatlisi (muakkada) boʻlib, Rasululloh (s.a.v.) uni safarda ham, muqimlikda ham deyarli tark qilmaganlar.",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "isApproved": true,
+            "correctIndex": 2,
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Sunnati muakkada (taʼkidlangan sunnat)",
+              "Vojib"
+            ],
+            "sourceVerified": true,
+            "id": "q-007",
+            "reference": "Musofirlar namozi bobi, 725-hadis",
+            "category": "Fiqh",
+            "publishedDate": "2026-11-01",
+            "questionUz": "Bomdod namozining farzidan oldin oʻqiladigan 2 rakat sunnat qanday hukmga ega?"
+          },
+          {
+            "reference": "Nubuvvat va Risolat bobi",
+            "isApproved": true,
+            "explanationUz": "Ismat — Alloh taolo Oʻz paygʻambarlarini nubuvvatdan oldin ham, keyin ham har qanday gunoh va fahsh ishlardan saqlashidir.",
+            "difficulty": "murakkab",
+            "questionUz": "Paygʻambarlarga xos boʻlgan sifatlar (sidq, omonat, fatonat, ismat, tabligh) ichida «ismat» nimani anglatadi?",
+            "status": "approved",
+            "publishedDate": "2026-11-03",
+            "source": "Aqoidun Nasafiyya sharhi (Imom Taftazoniy)",
+            "correctIndex": 2,
+            "optionsUz": [
+              "Toʻgʻrisoʻzlik",
+              "Aqlli va ziyrak boʻlish",
+              "Gunoh va maʼsiyatlardan mutlaq saqlanganlik (maʼsumlik)",
+              "Omonatdorlik"
+            ],
+            "category": "Aqoid",
+            "id": "q-020",
+            "sourceVerified": true
+          },
+          {
+            "difficulty": "orta",
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "isApproved": true,
+            "publishedDate": "2026-11-01",
+            "status": "approved",
+            "reference": "12-juz, Imom Buxoriy tarjimai holi",
+            "correctIndex": 1,
+            "explanationUz": "Imom Buxoriy hijriy 194-yil 13-shavvol (milodiy 810-yil 21-iyul) juma kuni Buxoro shahrida tavallud topganlar.",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Hijriy 150 yili",
+              "Hijriy 194 yili (milodiy 810)",
+              "Hijriy 204 yili",
+              "Hijriy 256 yili"
+            ],
+            "category": "Islom tarixi",
+            "id": "q-009",
+            "questionUz": "Islom olamining eng mashhur muhaddisi Imom Abu Abdulloh Muhammad ibn Ismoil al-Buxoriy qaysi yili tavallud topganlar?"
+          },
+          {
+            "category": "Fiqh",
+            "isApproved": true,
+            "publishedDate": "2026-11-01",
+            "optionsUz": [
+              "3 ta: yuz, qoʻllar, oyoqlar",
+              "4 ta: yuzni yuvish, qoʻllarni tirsak bilan yuvish, boshga mash tortish, oyoqlarni toʻpigʻi bilan yuvish",
+              "5 ta: ogʻiz, burun, yuz, qoʻl, oyoq",
+              "6 ta: niyat, yuz, qoʻl, bosh, quloq, oyoq"
+            ],
+            "difficulty": "oson",
+            "questionUz": "Tahoratning farzlari nechta va ular qaysilar?",
+            "reference": "Tahorat bobi; Moida surasi, 6-oyat",
+            "source": "Mukhtasarul Viqoya",
+            "status": "approved",
+            "correctIndex": 1,
+            "id": "q-004",
+            "sourceVerified": true,
+            "explanationUz": "Moida surasining 6-oyatiga asosan hanafiy mazhabida tahoratning farzi toʻrttadir: yuzni bir marta toʻliq yuvish, ikki qoʻlni tirsaklari bilan yuvish, boshning toʻrtdan biriga mash tortish va ikki oyoqni toʻpiqlari bilan yuvish."
+          },
+          {
+            "reference": "Birr va Sila kitobi, 2699-hadis",
+            "id": "q-025",
+            "publishedDate": "2026-11-04",
+            "status": "approved",
+            "isApproved": true,
+            "source": "Sahihi Muslim",
+            "correctIndex": 1,
+            "difficulty": "oson",
+            "questionUz": "Islomda birodarining aybini berkitgan kishi haqida hadisda qanday bashorat berilgan?",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Unga 1000 tillo savob beriladi",
+              "Alloh qiyomat kunida uning aybini berkitadi",
+              "U barcha gunohlardan poklanadi",
+              "U doʻzax oʻtini koʻrmaydi"
+            ],
+            "category": "Axloq va Odob",
+            "explanationUz": "Abu Hurayra (r.a.) rivoyat qiladi: Rasululloh (s.a.v.): «Kim bir musulmonning aybini berkitsa, Alloh qiyomat kuni uning aybini berkitadi», deganlar."
+          },
+          {
+            "id": "q-017",
+            "reference": "Buxoriy 1145-hadis; Muslim 758-hadis",
+            "difficulty": "orta",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-03",
+            "isApproved": true,
+            "correctIndex": 2,
+            "status": "approved",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "explanationUz": "Kechaning oxirgi uchdan birida Alloh taoloning rahmati yer osmoniga tushib: «Kim duo qilsa, ijobat qilaman, kim magʻfirat soʻrasa, kechiraman», degan pallada tahajjud oʻqish eng fazilatlidir.",
+            "category": "Fiqh",
+            "questionUz": "Tahajjud namozi kechaning qaysi pallasida oʻqilishi eng fazilatli hisoblanadi?",
+            "optionsUz": [
+              "Xufton namozidan soʻng darhol",
+              "Yarim kechadan oldin",
+              "Kechaning oxirgi uchdan birida (subhdan oldin)",
+              "Faqat quyosh chiqishiga 5 daqiqa qolganda"
+            ]
+          },
+          {
+            "status": "approved",
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "publishedDate": "2026-11-05",
+            "correctIndex": 1,
+            "category": "Sahobalar",
+            "id": "q-031",
+            "reference": "Xulafoyi Roshidin: Usmon ibn Affon bobi",
+            "questionUz": "Paygʻambarimizning (s.a.v.) ikki qizlariga (Ruqayya va Ummu Kulsumga) uylanganlari uchun «Zunnurayn» (ikki nur sohibi) unvonini olgan sahoba kim?",
+            "explanationUz": "Hazrati Usmon ibn Affon roziyallohu anhu avval Ruqayya (r.a.)ga, u zot vafot etganlaridan keyin esa Ummu Kulsum (r.a.)ga uylanganlari uchun «Zunnurayn» deb nomlanganlar.",
+            "difficulty": "oson",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Ali ibn Abu Tolib (r.a.)",
+              "Usmon ibn Affon (r.a.)",
+              "Talha ibn Ubaydulloh (r.a.)",
+              "Zubayr ibn Avvom (r.a.)"
+            ],
+            "isApproved": true
+          },
+          {
+            "questionUz": "Qurʼoni Karimda ismi eng koʻp zikr qilingan paygʻambar kim?",
+            "correctIndex": 1,
+            "reference": "Qurʼondagi ismlar bobi",
+            "sourceVerified": true,
+            "category": "Qurʼon",
+            "explanationUz": "Musa alayhissalomning muborak ismlari Qurʼoni Karimning turli suralarida jami 136 marta zikr etilgan.",
+            "isApproved": true,
+            "id": "q-021",
+            "publishedDate": "2026-11-03",
+            "source": "Al-Itqon fi Ulumil Qurʼon (Jaloliddin Suyutiy)",
+            "status": "approved",
+            "optionsUz": [
+              "Ibrohim (a.s.)",
+              "Musa (a.s.)",
+              "Iso (a.s.)",
+              "Nuh (a.s.)"
+            ],
+            "difficulty": "orta"
+          },
+          {
+            "explanationUz": "Namozning oxirgi oʻtirishida «Tashahhud» duosini oʻqish miqdoricha oʻtirish hanafiy mazhabida namozning farzlaridandir, uni tark qilinsa namoz buziladi.",
+            "id": "q-022",
+            "status": "approved",
+            "questionUz": "Namozda «Qaʼdaʼi oxir»da (oxirgi oʻtirishda) «Attahiyyot» miqdoricha oʻtirish qanday amal hisoblanadi?",
+            "source": "Mukhtasarul Viqoya",
+            "optionsUz": [
+              "Sunnat",
+              "Mustahab",
+              "Farz (rukn)",
+              "Vojib"
+            ],
+            "sourceVerified": true,
+            "difficulty": "orta",
+            "reference": "Namoz farzlari bobi",
+            "correctIndex": 2,
+            "publishedDate": "2026-11-04",
+            "category": "Fiqh",
+            "isApproved": true
+          },
+          {
+            "correctIndex": 1,
+            "difficulty": "oson",
+            "isApproved": true,
+            "reference": "Fazoilul Qurʼon kitobi, 5027-hadis",
+            "category": "Hadis",
+            "status": "approved",
+            "publishedDate": "2026-11-02",
+            "source": "Sahihi Buxoriy",
+            "sourceVerified": true,
+            "optionsUz": [
+              "ilm izlagan",
+              "Qurʼonni oʻrgangan",
+              "juda koʻp sadaqa bergan",
+              "namozni toʻliq oʻqigan"
+            ],
+            "id": "q-016",
+            "explanationUz": "Usmon ibn Affon roziyallohu anhudan rivoyat: Rasululloh sollallohu alayhi vasallam: «Sizlarning eng yaxshingiz Qurʼonni oʻrganib, soʻng uni boshqalarga oʻrgatgan kishidir», deganlar.",
+            "questionUz": "«Sizlarning eng yaxshilaringiz — ... va uni boshqalarga oʻrgatganlaringizdir». Hadisni toʻldiring."
+          }
+        ],
+        "isScheduledByAdmin": false,
+        "updatedBy": "public_user",
+        "adminEmail": "asakaziyo0@gmail.com",
+        "createdBy": "public_user",
+        "syncedAt": "2026-11-06T13:24:31.407Z",
+        "dateStr": "2026-11-04",
+        "isArchived": true,
+        "questionIds": [
+          "q-007",
+          "q-020",
+          "q-009",
+          "q-004",
+          "q-025",
+          "q-017",
+          "q-031",
+          "q-021",
+          "q-022",
+          "q-016"
+        ],
+        "createdAt": "2026-11-06T13:24:31.407Z",
+        "updatedAt": "2026-11-06T13:24:31.407Z"
+      },
+      {
+        "id": "2026-11-05",
+        "questions": [
+          {
+            "explanationUz": "Bomdod namozining sunnati sunnatlar ichida eng quvvatlisi (muakkada) boʻlib, Rasululloh (s.a.v.) uni safarda ham, muqimlikda ham deyarli tark qilmaganlar.",
+            "correctIndex": 2,
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Sunnati muakkada (taʼkidlangan sunnat)",
+              "Vojib"
+            ],
+            "isApproved": true,
+            "id": "q-007",
+            "difficulty": "orta",
+            "sourceVerified": true,
+            "questionUz": "Bomdod namozining farzidan oldin oʻqiladigan 2 rakat sunnat qanday hukmga ega?",
+            "publishedDate": "2026-11-01",
+            "status": "approved",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "reference": "Musofirlar namozi bobi, 725-hadis",
+            "category": "Fiqh"
+          },
+          {
+            "status": "approved",
+            "id": "q-016",
+            "explanationUz": "Usmon ibn Affon roziyallohu anhudan rivoyat: Rasululloh sollallohu alayhi vasallam: «Sizlarning eng yaxshingiz Qurʼonni oʻrganib, soʻng uni boshqalarga oʻrgatgan kishidir», deganlar.",
+            "difficulty": "oson",
+            "source": "Sahihi Buxoriy",
+            "optionsUz": [
+              "ilm izlagan",
+              "Qurʼonni oʻrgangan",
+              "juda koʻp sadaqa bergan",
+              "namozni toʻliq oʻqigan"
+            ],
+            "isApproved": true,
+            "reference": "Fazoilul Qurʼon kitobi, 5027-hadis",
+            "correctIndex": 1,
+            "category": "Hadis",
+            "questionUz": "«Sizlarning eng yaxshilaringiz — ... va uni boshqalarga oʻrgatganlaringizdir». Hadisni toʻldiring.",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-02"
+          },
+          {
+            "difficulty": "oson",
+            "correctIndex": 0,
+            "isApproved": true,
+            "source": "Qurʼoni Karim",
+            "reference": "Isro surasi, 23-oyat",
+            "status": "approved",
+            "explanationUz": "Isro surasining 23-oyatida: «Parvardigoringiz faqat Oʻzigagina ibodat qilishingizni va ota-onaga yaxshilik qilishni amr etdi. Agar ulardan biri yoki ikkalasi huzuringizda qarilik yoshiga yetsa, ularga uf dema...», deb buyurilgan.",
+            "optionsUz": [
+              "Isro surasi, 23-oyat",
+              "Luqmon surasi, 14-oyat",
+              "Niso surasi, 36-oyat",
+              "Ahqof surasi, 15-oyat"
+            ],
+            "publishedDate": "2026-11-02",
+            "id": "q-014",
+            "questionUz": "Islomda ota-onaga yaxshilik qilish va ularga «uf» ham demaslik qaysi surada buyurilgan?",
+            "sourceVerified": true,
+            "category": "Axloq va Odob"
+          },
+          {
+            "optionsUz": [
+              "3 ta: yuz, qoʻllar, oyoqlar",
+              "4 ta: yuzni yuvish, qoʻllarni tirsak bilan yuvish, boshga mash tortish, oyoqlarni toʻpigʻi bilan yuvish",
+              "5 ta: ogʻiz, burun, yuz, qoʻl, oyoq",
+              "6 ta: niyat, yuz, qoʻl, bosh, quloq, oyoq"
+            ],
+            "isApproved": true,
+            "category": "Fiqh",
+            "status": "approved",
+            "source": "Mukhtasarul Viqoya",
+            "explanationUz": "Moida surasining 6-oyatiga asosan hanafiy mazhabida tahoratning farzi toʻrttadir: yuzni bir marta toʻliq yuvish, ikki qoʻlni tirsaklari bilan yuvish, boshning toʻrtdan biriga mash tortish va ikki oyoqni toʻpiqlari bilan yuvish.",
+            "id": "q-004",
+            "difficulty": "oson",
+            "correctIndex": 1,
+            "questionUz": "Tahoratning farzlari nechta va ular qaysilar?",
+            "publishedDate": "2026-11-01",
+            "reference": "Tahorat bobi; Moida surasi, 6-oyat",
+            "sourceVerified": true
+          },
+          {
+            "id": "q-013",
+            "optionsUz": [
+              "Faqat 1 kun qazo tutish",
+              "Bir qul ozod qilish, topolmasa ketma-ket 60 kun roʻza tutish, qodir boʻlmasa 60 miskinni toʻydirish",
+              "10 miskinni kiyintirish",
+              "Masjidga zakot berish"
+            ],
+            "questionUz": "Ramazon oyida uzrsiz roʻzani qasddan buzgan kishining kafforati qanday belgilanadi?",
+            "source": "Sahihi Buxoriy; Mukhtasarul Viqoya",
+            "explanationUz": "Qasddan oziqlanish yoki yaqinlik sababli roʻzasini buzgan kishi 1 kun qazo bilan birga buyurilgan tartibda kafforat (ketma-ket 60 kun roʻza) ado etishi vojib boʻladi.",
+            "status": "approved",
+            "correctIndex": 1,
+            "isApproved": true,
+            "publishedDate": "2026-11-02",
+            "sourceVerified": true,
+            "category": "Fiqh",
+            "difficulty": "murakkab",
+            "reference": "Buxoriy 1936-hadis; Roʻza kafforati bobi"
+          },
+          {
+            "optionsUz": [
+              "Tavba surasi",
+              "Anfol surasi",
+              "Naml surasi",
+              "Kafirun surasi"
+            ],
+            "sourceVerified": true,
+            "questionUz": "Qurʼoni Karimdagi qaysi sura «Bismillahir Rohmanir Rohiym»siz boshlanadi?",
+            "explanationUz": "Tavba (Baroat) surasi mushriklarga nisbatan qatʼiy ogohlantirish bilan boshlangani va Anfol surasining davomi sifatida tushgani sababli avvalida bismillah yozilmaydi.",
+            "correctIndex": 0,
+            "isApproved": true,
+            "publishedDate": "2026-11-02",
+            "source": "Sahihi Termiziy; Tafsiri Jalolayn",
+            "status": "approved",
+            "reference": "Tafsir kitobi, 3086-hadis",
+            "category": "Qurʼon",
+            "id": "q-011",
+            "difficulty": "oson"
+          },
+          {
+            "isApproved": true,
+            "publishedDate": "2026-11-02",
+            "category": "Siyrat",
+            "difficulty": "oson",
+            "status": "approved",
+            "reference": "Gʻazotul Xandaq bobi",
+            "source": "Ibn Hishom, As-Siyratun Nabaviya",
+            "id": "q-015",
+            "optionsUz": [
+              "Salmon Forsiy (r.a.)",
+              "Xolid ibn Valid (r.a.)",
+              "Bilol Habashiy (r.a.)",
+              "Abu Ubayda (r.a.)"
+            ],
+            "questionUz": "Paygʻambarimiz (s.a.v.) Ahzob jangi oldidan Madinani himoya qilish uchun xandaq qazish fikrini qaysi sahobaning taklifi bilan qabul qilganlar?",
+            "sourceVerified": true,
+            "explanationUz": "Hijriy 5-yili Ahzob (Xandaq) jangi oldidan Salmon Forsiy roziyallohu anhu shaharni himoyalash uchun xandaq qazish tajribasini taklif qilganlar va bu gʻalaba sababchisi boʻlgan.",
+            "correctIndex": 0
+          },
+          {
+            "sourceVerified": true,
+            "reference": "Birr va Sila kitobi, 2699-hadis",
+            "questionUz": "Islomda birodarining aybini berkitgan kishi haqida hadisda qanday bashorat berilgan?",
+            "id": "q-025",
+            "publishedDate": "2026-11-04",
+            "difficulty": "oson",
+            "optionsUz": [
+              "Unga 1000 tillo savob beriladi",
+              "Alloh qiyomat kunida uning aybini berkitadi",
+              "U barcha gunohlardan poklanadi",
+              "U doʻzax oʻtini koʻrmaydi"
+            ],
+            "correctIndex": 1,
+            "explanationUz": "Abu Hurayra (r.a.) rivoyat qiladi: Rasululloh (s.a.v.): «Kim bir musulmonning aybini berkitsa, Alloh qiyomat kuni uning aybini berkitadi», deganlar.",
+            "isApproved": true,
+            "source": "Sahihi Muslim",
+            "category": "Axloq va Odob",
+            "status": "approved"
+          },
+          {
+            "difficulty": "murakkab",
+            "category": "Aqoid",
+            "isApproved": true,
+            "reference": "Nubuvvat va Risolat bobi",
+            "explanationUz": "Ismat — Alloh taolo Oʻz paygʻambarlarini nubuvvatdan oldin ham, keyin ham har qanday gunoh va fahsh ishlardan saqlashidir.",
+            "status": "approved",
+            "id": "q-020",
+            "correctIndex": 2,
+            "sourceVerified": true,
+            "publishedDate": "2026-11-03",
+            "optionsUz": [
+              "Toʻgʻrisoʻzlik",
+              "Aqlli va ziyrak boʻlish",
+              "Gunoh va maʼsiyatlardan mutlaq saqlanganlik (maʼsumlik)",
+              "Omonatdorlik"
+            ],
+            "source": "Aqoidun Nasafiyya sharhi (Imom Taftazoniy)",
+            "questionUz": "Paygʻambarlarga xos boʻlgan sifatlar (sidq, omonat, fatonat, ismat, tabligh) ichida «ismat» nimani anglatadi?"
+          },
+          {
+            "correctIndex": 1,
+            "status": "approved",
+            "source": "Sahihi Muslim",
+            "difficulty": "orta",
+            "optionsUz": [
+              "Allohumma inniy asʼaluka min fazlik",
+              "Allohummaftah liy abvaba rohmatik (Allohim, menga rahmating eshiklarini ochgin)",
+              "Bismillahi tavakkaltu alalloh",
+              "Subhanallohi val hamdu lillah"
+            ],
+            "explanationUz": "Abu Humayd yoki Abu Usayd (r.a.) rivoyati: Rasululloh (s.a.v.): «Sizlardan birortangiz masjidga kirsa: «Allohummaftah liy abvaba rohmatik», deb aytsin», deganlar.",
+            "isApproved": true,
+            "reference": "Musofirlar namozi kitobi, 713-hadis",
+            "publishedDate": "2026-11-05",
+            "id": "q-030",
+            "category": "Zikr va Duolar",
+            "questionUz": "Masjidga kirayotganda oʻng oyoq bilan kirib qanday duo oʻqiladi?",
+            "sourceVerified": true
+          }
+        ],
+        "syncedAt": "2026-11-06T13:24:30.894Z",
+        "updatedBy": "public_user",
+        "questionIds": [
+          "q-007",
+          "q-016",
+          "q-014",
+          "q-004",
+          "q-013",
+          "q-011",
+          "q-015",
+          "q-025",
+          "q-020",
+          "q-030"
+        ],
+        "adminEmail": "asakaziyo0@gmail.com",
+        "createdBy": "public_user",
+        "dateStr": "2026-11-05",
+        "schemaVersion": 1,
+        "isArchived": true,
+        "updatedAt": "2026-11-06T13:24:30.894Z",
+        "createdAt": "2026-11-06T13:24:30.893Z",
+        "isScheduledByAdmin": false
+      },
+      {
+        "id": "2026-11-06",
+        "questions": [
+          {
+            "status": "approved",
+            "source": "Sahihi Buxoriy",
+            "questionUz": "Islomni qabul qilishi bilan Makkadagi musulmonlar Kaʼba oldida ochiq namoz oʻqiy boshlagan va «Al-Foruq» unvonini olgan sahoba kim?",
+            "publishedDate": "2026-11-05",
+            "correctIndex": 1,
+            "category": "Sahobalar",
+            "optionsUz": [
+              "Hamza ibn Abdulmuttalib (r.a.)",
+              "Umar ibn Xattob (r.a.)",
+              "Saʼd ibn Abu Vaqqos (r.a.)",
+              "Abdurrahmon ibn Avf (r.a.)"
+            ],
+            "isApproved": true,
+            "reference": "Manoqibus Sahoba kitobi, 3684-hadis",
+            "sourceVerified": true,
+            "id": "q-034",
+            "difficulty": "oson",
+            "explanationUz": "Abdulloh ibn Masʼud (r.a.) aytadilar: «Umar Islomga kirganidan beri biz hamisha aziz (quvvatli) boʻldik». U zot haq bilan botilni ajratuvchi «Al-Foruq» deb atalganlar."
+          },
+          {
+            "questionUz": "«Sayyidul istigʻfor» duosini ixlos bilan kechqurun oʻqib, tong otmasdan vafot etgan kishi haqida Paygʻambarimiz (s.a.v.) nima deganlar?",
+            "reference": "Daʼavot kitobi, 6306-hadis",
+            "explanationUz": "Shaddod ibn Avs roziyallohu anhudan rivoyat: Rasululloh (s.a.v.): «Kimki bu duoni kechqurun ishonch bilan aytsa va shu kechada vafot etsa, u jannat ahlidandir», deganlar.",
+            "sourceVerified": true,
+            "correctIndex": 1,
+            "status": "approved",
+            "publishedDate": "2026-11-01",
+            "category": "Zikr va Duolar",
+            "id": "q-010",
+            "source": "Sahihi Buxoriy",
+            "isApproved": true,
+            "optionsUz": [
+              "Haj qilgan savobini oladi",
+              "Jannat ahlidan boʻladi",
+              "Shahid maqomiga yetadi",
+              "Qabr azobidan omonda boʻladi"
+            ],
+            "difficulty": "orta"
+          },
+          {
+            "isApproved": true,
+            "source": "Sahihi Buxoriy; Ar-Rahiqul Maxtum",
+            "optionsUz": [
+              "Abu Bakr Siddiq (r.a.)",
+              "Saʼd ibn Muoz (r.a.)",
+              "Abu Ayyub al-Ansoriy (r.a.)",
+              "Usmon ibn Affon (r.a.)"
+            ],
+            "explanationUz": "Paygʻambarimiz sollallohu alayhi vasallamning tuyalari Abu Ayyub al-Ansoriy roziyallohu anhuning uylari oldiga choʻkkan va u zot u yerda Masjidi Nabaviy qurilgunga qadar yashaganlar.",
+            "correctIndex": 2,
+            "difficulty": "orta",
+            "category": "Siyrat",
+            "status": "approved",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-01",
+            "reference": "Hijrat bobi, 3906-hadis",
+            "id": "q-005",
+            "questionUz": "Paygʻambarimiz Muhammad sollallohu alayhi vasallam Madinaga hijrat qilganlarida ularni oʻz uylarida birinchi boʻlib kim kutib olgan?"
+          },
+          {
+            "source": "Kashfuz Zunun (Hoji Xalifa)",
+            "status": "approved",
+            "explanationUz": "Vodiy va butun Movarounnahrda Burhoniddin Margʻinoniy hazratlarining «Al-Hidoya» asari islom huquqi (fiqh) boʻyicha eng ishonchli va bosh qomus sifatida oʻrganilgan.",
+            "id": "q-018",
+            "reference": "Al-Hidoya fi sharhi Bidayatil Mubtadiy",
+            "correctIndex": 0,
+            "questionUz": "Movarounnahr va Fargʻona vodiysi faqihlari hanafiy mazhabida qaysi mashhur kitobni asosiy fatvo manbai sifatida oʻrganishgan?",
+            "optionsUz": [
+              "Al-Hidoya (Burhoniddin Margʻinoniy)",
+              "Al-Muvatto (Imom Molik)",
+              "Risolatul Qushayriy",
+              "Kitobul Um (Imom Shofeʼiy)"
+            ],
+            "difficulty": "orta",
+            "sourceVerified": true,
+            "isApproved": true,
+            "category": "Islom tarixi",
+            "publishedDate": "2026-11-03"
+          },
+          {
+            "explanationUz": "Baqara surasining 282-oyati Qurʼondagi eng uzun oyat boʻlib, u qarz va moliyaviy muomalalarni yozib borish hamda guvohlar tayinlash qoidalarini belgilaydi.",
+            "sourceVerified": true,
+            "category": "Qurʼon",
+            "reference": "Baqara surasi, 282-oyat",
+            "source": "Qurʼoni Karim",
+            "questionUz": "Qurʼoni Karimdagi eng uzun oyat qaysi va u nima haqida?",
+            "status": "approved",
+            "correctIndex": 1,
+            "difficulty": "orta",
+            "id": "q-002",
+            "publishedDate": "2026-11-01",
+            "isApproved": true,
+            "optionsUz": [
+              "Oyatul Kursiy (Allohning sifati)",
+              "Mudoyana (qarz oldi-berdisi) oyati",
+              "Nur surasidagi hijob oyati",
+              "Moida surasidagi hukm oyati"
+            ]
+          },
+          {
+            "isApproved": true,
+            "sourceVerified": true,
+            "id": "q-032",
+            "status": "approved",
+            "difficulty": "orta",
+            "correctIndex": 1,
+            "optionsUz": [
+              "Abdulloh ibn Masʼud (r.a.)",
+              "Zayd ibn Sobit (r.a.)",
+              "Ubay ibn Kaʼb (r.a.)",
+              "Muoz ibn Jabal (r.a.)"
+            ],
+            "source": "Sahihi Buxoriy",
+            "publishedDate": "2026-11-05",
+            "reference": "Fazoilul Qurʼon kitobi, 4986-hadis",
+            "explanationUz": "Zayd ibn Sobit roziyallohu anhu yosh va zukko vahiy kotibi boʻlib, Abu Bakr Siddiq (r.a.) buyrugʻi bilan Qurʼon sahifalarini birinchi bor jamlaganlar.",
+            "questionUz": "Vahiy kotibi boʻlgan va Hazrati Abu Bakr hamda Usmon (r.a.) davrlarida Qurʼoni Karimni jamlash ishiga boshchilik qilgan sahoba kim?",
+            "category": "Sahobalar"
+          },
+          {
+            "id": "q-006",
+            "optionsUz": [
+              "3 ta",
+              "5 ta",
+              "6 ta",
+              "7 ta"
+            ],
+            "questionUz": "Islom eʼtiqodida imonning ruknlari nechta?",
+            "publishedDate": "2026-11-01",
+            "status": "approved",
+            "reference": "Imon kitobi, 1-hadis (Jabroil hadisi)",
+            "sourceVerified": true,
+            "correctIndex": 2,
+            "difficulty": "oson",
+            "explanationUz": "Mashhur «Jabroil hadisi»ga binoan imonning ruknlari 6 tadir: Allohga, farishtalariga, kitoblariga, paygʻambarlariga, oxirat kuniga va qadarning yaxshiyu yomoni Allohdan ekaniga ishonish.",
+            "source": "Sahihi Muslim",
+            "category": "Aqoid",
+            "isApproved": true
+          },
+          {
+            "publishedDate": "2026-11-05",
+            "category": "Sahobalar",
+            "optionsUz": [
+              "Muoz ibn Jabal (r.a.)",
+              "Abu Muso al-Ashʼariy (r.a.)",
+              "Amr ibn Os (r.a.)",
+              "Huzayfa ibn Yamon (r.a.)"
+            ],
+            "isApproved": true,
+            "status": "approved",
+            "sourceVerified": true,
+            "difficulty": "orta",
+            "source": "Sahihi Buxoriy; Sunani Termiziy",
+            "id": "q-033",
+            "questionUz": "Rasululloh (s.a.v.) Yaman ahliga muallim va qozi qilib yuborgan, «ummatimning halol va haromni eng yaxshi biluvchisi» deb maqtagan sahoba kim?",
+            "explanationUz": "Muoz ibn Jabal roziyallohu anhuni Paygʻambarimiz (s.a.v.) Yamanga yuborayotib Qurʼon, Sunnat va ijtihod bilan hukm chiqarish haqida mashhur suhbat oʻtkazganlar.",
+            "correctIndex": 0,
+            "reference": "Buxoriy 1458-hadis; Termiziy 3790-hadis"
+          },
+          {
+            "source": "Sahihi Buxoriy",
+            "questionUz": "Paygʻambarimiz (s.a.v.) ilk vahiy nozil boʻlganda qaysi gʻorda edilar va qaysi soʻz bilan boshlangan?",
+            "publishedDate": "2026-11-05",
+            "status": "approved",
+            "sourceVerified": true,
+            "correctIndex": 1,
+            "category": "Siyrat",
+            "optionsUz": [
+              "Savr gʻori, «Qul huvalloh»",
+              "Hiro gʻori, «Iqroʼ» (Oʻqi)",
+              "Uhud gʻori, «Alhamdu lillah»",
+              "Qubo gʻori, «Subhanalloh»"
+            ],
+            "reference": "Badʼul Vahy kitobi, 3-hadis",
+            "isApproved": true,
+            "id": "q-028",
+            "explanationUz": "Ramazon oyining Qadr kechasida Jabroil alayhissalom Hiro gʻorida Paygʻambarimizga (s.a.v.) ilk bor Alaq surasining dastlabki 5 oyatini keltirganlar.",
+            "difficulty": "oson"
+          },
+          {
+            "sourceVerified": true,
+            "source": "Qurʼoni Karim; Sahihi Buxoriy",
+            "id": "q-024",
+            "correctIndex": 1,
+            "isApproved": true,
+            "status": "approved",
+            "explanationUz": "Tavba surasining 40-oyatida «Gʻordagi ikkining biri» deb taʼriflangan zot Hazrati Abu Bakr Siddiq roziyallohu anhudir.",
+            "reference": "Tavba surasi, 40-oyat; Buxoriy 3653-hadis",
+            "difficulty": "oson",
+            "publishedDate": "2026-11-04",
+            "questionUz": "Paygʻambarimiz (s.a.v.) Makkadan Madinaga hijrat qilganlarida Savr gʻorida hamroh boʻlgan va Qurʼonda «gʻordagi ikkining biri» deb zikr etilgan sahoba kim?",
+            "optionsUz": [
+              "Umar ibn Xattob (r.a.)",
+              "Abu Bakr Siddiq (r.a.)",
+              "Usmon ibn Affon (r.a.)",
+              "Ali ibn Abu Tolib (r.a.)"
+            ],
+            "category": "Sahobalar"
+          }
+        ],
+        "isArchived": true,
+        "createdBy": "menageradmin",
+        "updatedBy": "menageradmin",
+        "questionIds": [
+          "q-034",
+          "q-010",
+          "q-005",
+          "q-018",
+          "q-002",
+          "q-032",
+          "q-006",
+          "q-033",
+          "q-028",
+          "q-024"
+        ],
+        "syncedAt": "2026-11-07T08:55:42.480Z",
+        "schemaVersion": 1,
+        "isScheduledByAdmin": false,
+        "dateStr": "2026-11-06",
+        "createdAt": "2026-11-07T08:55:42.476Z",
+        "updatedAt": "2026-11-07T08:55:42.480Z",
+        "adminEmail": "asakaziyo0@gmail.com"
+      },
+      {
+        "id": "2026-11-07",
+        "questions": [
+          {
+            "explanationUz": "Baqara surasining 282-oyati Qurʼondagi eng uzun oyat boʻlib, u qarz va moliyaviy muomalalarni yozib borish hamda guvohlar tayinlash qoidalarini belgilaydi.",
+            "sourceVerified": true,
+            "isApproved": true,
+            "reference": "Baqara surasi, 282-oyat",
+            "id": "q-002",
+            "difficulty": "orta",
+            "questionUz": "Qurʼoni Karimdagi eng uzun oyat qaysi va u nima haqida?",
+            "source": "Qurʼoni Karim",
+            "category": "Qurʼon",
+            "status": "approved",
+            "publishedDate": "2026-11-01",
+            "optionsUz": [
+              "Oyatul Kursiy (Allohning sifati)",
+              "Mudoyana (qarz oldi-berdisi) oyati",
+              "Nur surasidagi hijob oyati",
+              "Moida surasidagi hukm oyati"
+            ],
+            "correctIndex": 1
+          },
+          {
+            "category": "Sahobalar",
+            "difficulty": "oson",
+            "status": "approved",
+            "source": "Qurʼoni Karim; Sahihi Buxoriy",
+            "isApproved": true,
+            "reference": "Tavba surasi, 40-oyat; Buxoriy 3653-hadis",
+            "publishedDate": "2026-11-04",
+            "optionsUz": [
+              "Umar ibn Xattob (r.a.)",
+              "Abu Bakr Siddiq (r.a.)",
+              "Usmon ibn Affon (r.a.)",
+              "Ali ibn Abu Tolib (r.a.)"
+            ],
+            "id": "q-024",
+            "explanationUz": "Tavba surasining 40-oyatida «Gʻordagi ikkining biri» deb taʼriflangan zot Hazrati Abu Bakr Siddiq roziyallohu anhudir.",
+            "correctIndex": 1,
+            "questionUz": "Paygʻambarimiz (s.a.v.) Makkadan Madinaga hijrat qilganlarida Savr gʻorida hamroh boʻlgan va Qurʼonda «gʻordagi ikkining biri» deb zikr etilgan sahoba kim?",
+            "sourceVerified": true
+          },
+          {
+            "correctIndex": 2,
+            "reference": "Muslim 831-hadis; Namoz vaqtlari bobi",
+            "difficulty": "orta",
+            "category": "Fiqh",
+            "id": "q-027",
+            "publishedDate": "2026-11-05",
+            "isApproved": true,
+            "explanationUz": "Uqba ibn Omir (r.a.) aytganlar: «Rasululloh sollallohu alayhi vasallam uch vaqtda namoz oʻqishimiz va janoza oʻqishimizdan qaytarganlar: quyosh chiqa boshlaganda, qiyomda tikkalaganda va botishga qarab egilganda».",
+            "source": "Sahihi Muslim; Mukhtasarul Viqoya",
+            "sourceVerified": true,
+            "status": "approved",
+            "questionUz": "Quyosh chiqayotgan, qiyomga kelgan va botayotgan paytlarda namoz oʻqish hukmi qanday?",
+            "optionsUz": [
+              "Muboh",
+              "Mustahab",
+              "Tahrimiy makruh (man qilingan)",
+              "Vojib"
+            ]
+          },
+          {
+            "reference": "Naml surasi, 30-oyat",
+            "questionUz": "Qurʼoni Karimda ikki marta «Bismillahir Rohmanir Rohiym» kelgan sura qaysi?",
+            "explanationUz": "Naml surasining boshida va 30-oyatida Sulaymon alayhissalomning malika Bilqisga yozgan maktubi zikrida («Innahu min Sulaymana va innahu Bismillahir Rohmanir Rohiym») keladi.",
+            "correctIndex": 1,
+            "category": "Qurʼon",
+            "publishedDate": "2026-11-02",
+            "id": "q-012",
+            "isApproved": true,
+            "sourceVerified": true,
+            "optionsUz": [
+              "Yosin surasi",
+              "Naml surasi",
+              "Rahmon surasi",
+              "Fatx surasi"
+            ],
+            "difficulty": "orta",
+            "status": "approved",
+            "source": "Qurʼoni Karim"
+          },
+          {
+            "isApproved": true,
+            "publishedDate": "2026-11-05",
+            "category": "Sahobalar",
+            "difficulty": "orta",
+            "optionsUz": [
+              "Abdulloh ibn Masʼud (r.a.)",
+              "Zayd ibn Sobit (r.a.)",
+              "Ubay ibn Kaʼb (r.a.)",
+              "Muoz ibn Jabal (r.a.)"
+            ],
+            "correctIndex": 1,
+            "questionUz": "Vahiy kotibi boʻlgan va Hazrati Abu Bakr hamda Usmon (r.a.) davrlarida Qurʼoni Karimni jamlash ishiga boshchilik qilgan sahoba kim?",
+            "reference": "Fazoilul Qurʼon kitobi, 4986-hadis",
+            "id": "q-032",
+            "sourceVerified": true,
+            "source": "Sahihi Buxoriy",
+            "explanationUz": "Zayd ibn Sobit roziyallohu anhu yosh va zukko vahiy kotibi boʻlib, Abu Bakr Siddiq (r.a.) buyrugʻi bilan Qurʼon sahifalarini birinchi bor jamlaganlar.",
+            "status": "approved"
+          },
+          {
+            "sourceVerified": true,
+            "reference": "Al-Hidoya fi sharhi Bidayatil Mubtadiy",
+            "explanationUz": "Vodiy va butun Movarounnahrda Burhoniddin Margʻinoniy hazratlarining «Al-Hidoya» asari islom huquqi (fiqh) boʻyicha eng ishonchli va bosh qomus sifatida oʻrganilgan.",
+            "correctIndex": 0,
+            "id": "q-018",
+            "questionUz": "Movarounnahr va Fargʻona vodiysi faqihlari hanafiy mazhabida qaysi mashhur kitobni asosiy fatvo manbai sifatida oʻrganishgan?",
+            "category": "Islom tarixi",
+            "difficulty": "orta",
+            "source": "Kashfuz Zunun (Hoji Xalifa)",
+            "isApproved": true,
+            "optionsUz": [
+              "Al-Hidoya (Burhoniddin Margʻinoniy)",
+              "Al-Muvatto (Imom Molik)",
+              "Risolatul Qushayriy",
+              "Kitobul Um (Imom Shofeʼiy)"
+            ],
+            "status": "approved",
+            "publishedDate": "2026-11-03"
+          },
+          {
+            "isApproved": true,
+            "explanationUz": "Muoz ibn Jabal roziyallohu anhuni Paygʻambarimiz (s.a.v.) Yamanga yuborayotib Qurʼon, Sunnat va ijtihod bilan hukm chiqarish haqida mashhur suhbat oʻtkazganlar.",
+            "difficulty": "orta",
+            "reference": "Buxoriy 1458-hadis; Termiziy 3790-hadis",
+            "source": "Sahihi Buxoriy; Sunani Termiziy",
+            "publishedDate": "2026-11-05",
+            "questionUz": "Rasululloh (s.a.v.) Yaman ahliga muallim va qozi qilib yuborgan, «ummatimning halol va haromni eng yaxshi biluvchisi» deb maqtagan sahoba kim?",
+            "category": "Sahobalar",
+            "optionsUz": [
+              "Muoz ibn Jabal (r.a.)",
+              "Abu Muso al-Ashʼariy (r.a.)",
+              "Amr ibn Os (r.a.)",
+              "Huzayfa ibn Yamon (r.a.)"
+            ],
+            "sourceVerified": true,
+            "status": "approved",
+            "id": "q-033",
+            "correctIndex": 0
+          },
+          {
+            "id": "q-029",
+            "isApproved": true,
+            "publishedDate": "2026-11-05",
+            "optionsUz": [
+              "Salmon Forsiy (r.a.)",
+              "Bilol ibn Raboh al-Habashiy (r.a.)",
+              "Abdulloh ibn Ummu Maktum (r.a.)",
+              "Abu Mahzura (r.a.)"
+            ],
+            "sourceVerified": true,
+            "difficulty": "oson",
+            "category": "Sahobalar",
+            "questionUz": "Islomda ilk azon aytgan va Rasulullohning (s.a.v.) muazzinlari boʻlgan buyuk sahoba kim?",
+            "reference": "Azon kitobi, 604-hadis",
+            "correctIndex": 1,
+            "status": "approved",
+            "explanationUz": "Hazrati Bilol ibn Raboh roziyallohu anhu islom tarixidagi eng birinchi muazzin boʻlib, yoqimli va jarangdor ovozlari bilan azon aytganlar.",
+            "source": "Siyaru Aʼlomin Nubalo; Sahihi Buxoriy"
+          },
+          {
+            "sourceVerified": true,
+            "publishedDate": "2026-11-04",
+            "optionsUz": [
+              "Kahf surasi (ikki juma oraligʻida nur boʻladi)",
+              "Mulk surasi (qabr azobidan saqlaydi)",
+              "Voqea surasi (faqirlikdan saqlaydi)",
+              "Sajda surasi (qalbni poklaydi)"
+            ],
+            "isApproved": true,
+            "source": "Sunani Bayhaqiy; Mustadraki Hokim",
+            "status": "approved",
+            "difficulty": "oson",
+            "id": "q-023",
+            "questionUz": "Rasululloh (s.a.v.) juma kunida qaysi surani oʻqishni tavsiya qilganlar va uning fazilati nima?",
+            "category": "Hadis",
+            "correctIndex": 0,
+            "explanationUz": "Abu Said al-Xudriy roziyallohu anhudan rivoyat: «Kim juma kuni Kahf surasini oʻqisa, uning uchun ikki juma orasi nurga toʻladi», deganlar.",
+            "reference": "Juma kitobi, 5996-hadis"
+          },
+          {
+            "reference": "Imon kitobi, 1-hadis (Jabroil hadisi)",
+            "id": "q-006",
+            "explanationUz": "Mashhur «Jabroil hadisi»ga binoan imonning ruknlari 6 tadir: Allohga, farishtalariga, kitoblariga, paygʻambarlariga, oxirat kuniga va qadarning yaxshiyu yomoni Allohdan ekaniga ishonish.",
+            "questionUz": "Islom eʼtiqodida imonning ruknlari nechta?",
+            "sourceVerified": true,
+            "correctIndex": 2,
+            "category": "Aqoid",
+            "status": "approved",
+            "isApproved": true,
+            "source": "Sahihi Muslim",
+            "difficulty": "oson",
+            "optionsUz": [
+              "3 ta",
+              "5 ta",
+              "6 ta",
+              "7 ta"
+            ],
+            "publishedDate": "2026-11-01"
+          }
+        ],
+        "questionIds": [
+          "q-002",
+          "q-024",
+          "q-027",
+          "q-012",
+          "q-032",
+          "q-018",
+          "q-033",
+          "q-029",
+          "q-023",
+          "q-006"
+        ],
+        "adminEmail": "asakaziyo0@gmail.com",
+        "dateStr": "2026-11-07",
+        "createdBy": "menageradmin",
+        "updatedBy": "menageradmin",
+        "isArchived": false,
+        "syncedAt": "2026-11-07T08:54:33.604Z",
+        "schemaVersion": 1,
+        "updatedAt": "2026-11-07T08:54:33.604Z",
+        "createdAt": "2026-11-07T08:54:33.601Z",
+        "isScheduledByAdmin": false
+      },
+      {
+        "id": "2026-11-08",
+        "dateStr": "2026-11-08",
+        "isArchived": false,
+        "questionIds": [
+          "q-003",
+          "q-008",
+          "q-021",
+          "q-019",
+          "q-022",
+          "q-009",
+          "q-026",
+          "q-001",
+          "q-031",
+          "q-017"
+        ],
+        "updatedAt": "2026-11-08T07:05:56.624Z",
+        "createdAt": "2026-11-08T07:05:56.609Z",
+        "schemaVersion": 1,
+        "isScheduledByAdmin": false,
+        "questions": [
+          {
+            "correctIndex": 1,
+            "questionUz": "«Albatta, amallar niyatlarga bogʻliqdir...» hadisini Rasulullohdan (s.a.v.) qaysi sahoba rivoyat qilgan?",
+            "publishedDate": "2026-11-01",
+            "reference": "Buxoriy 1-hadis; Muslim 1907-hadis",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "sourceVerified": true,
+            "isApproved": true,
+            "explanationUz": "Bu mashhur va buyuk hadis Hazrati Umar ibn Xattob roziyallohu anhudan rivoyat qilingan boʻlib, Imom Buxoriy oʻz sahih toʻplamlarini aynan shu hadis bilan boshlaganlar.",
+            "category": "Hadis",
+            "optionsUz": [
+              "Abu Hurayra (r.a.)",
+              "Umar ibn Xattob (r.a.)",
+              "Ali ibn Abu Tolib (r.a.)",
+              "Anas ibn Molik (r.a.)"
+            ],
+            "id": "q-003",
+            "status": "approved",
+            "difficulty": "oson"
+          },
+          {
+            "explanationUz": "Rasululloh sollallohu alayhi vasallam: «Haqiqiy musulmon — odamlar uning tili (gʻiybat, chaqimchilik, soʻkish) va qoʻli (zulm, zarar)dan omonda boʻlgan kishidir», deganlar.",
+            "reference": "Buxoriy 10-hadis; Muslim 40-hadis",
+            "category": "Hadis",
+            "questionUz": "«Musulmon — boshqa musulmonlar uning ... va ...dan omonda boʻlgan kishidir». Hadisdagi boʻsh oʻrinlarni toʻldiring.",
+            "difficulty": "oson",
+            "correctIndex": 1,
+            "id": "q-008",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "isApproved": true,
+            "publishedDate": "2026-11-01",
+            "sourceVerified": true,
+            "optionsUz": [
+              "koʻzi va qulogʻi",
+              "tili va qoʻli",
+              "mol-mulki va obroʻsi",
+              "qalbi va niyati"
+            ],
+            "status": "approved"
+          },
+          {
+            "difficulty": "orta",
+            "category": "Qurʼon",
+            "optionsUz": [
+              "Ibrohim (a.s.)",
+              "Musa (a.s.)",
+              "Iso (a.s.)",
+              "Nuh (a.s.)"
+            ],
+            "isApproved": true,
+            "id": "q-021",
+            "explanationUz": "Musa alayhissalomning muborak ismlari Qurʼoni Karimning turli suralarida jami 136 marta zikr etilgan.",
+            "status": "approved",
+            "source": "Al-Itqon fi Ulumil Qurʼon (Jaloliddin Suyutiy)",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-03",
+            "questionUz": "Qurʼoni Karimda ismi eng koʻp zikr qilingan paygʻambar kim?",
+            "reference": "Qurʼondagi ismlar bobi",
+            "correctIndex": 1
+          },
+          {
+            "explanationUz": "Abu Hurayra (r.a.) rivoyat qiladi: Rasululloh (s.a.v.): «Kim bir kunda yuz marta «Subhanallohi va bihamdihi» desa, uning xatolari dengiz koʻpigicha boʻlsa ham oʻchiriladi», deganlar.",
+            "source": "Sahihi Buxoriy; Sahihi Muslim",
+            "correctIndex": 1,
+            "category": "Zikr va Duolar",
+            "reference": "Buxoriy 6405-hadis; Muslim 2691-hadis",
+            "status": "approved",
+            "questionUz": "«Subhanallohi va bihamdihi» zikrini bir kunda 100 marta aytgan insonning mukofoti qanday boʻlishi hadisda aytilgan?",
+            "difficulty": "oson",
+            "sourceVerified": true,
+            "publishedDate": "2026-11-03",
+            "isApproved": true,
+            "id": "q-019",
+            "optionsUz": [
+              "Barcha qarzlaridan qutiladi",
+              "Dengiz koʻpigicha boʻlsa ham gunohlari kechiriladi",
+              "Unga 100 ta qul ozod qilgan savobi yoziladi",
+              "Bir kechada Qurʼonni xatm qilgan hisoblanadi"
+            ]
+          },
+          {
+            "id": "q-022",
+            "source": "Mukhtasarul Viqoya",
+            "status": "approved",
+            "category": "Fiqh",
+            "correctIndex": 2,
+            "reference": "Namoz farzlari bobi",
+            "isApproved": true,
+            "difficulty": "orta",
+            "explanationUz": "Namozning oxirgi oʻtirishida «Tashahhud» duosini oʻqish miqdoricha oʻtirish hanafiy mazhabida namozning farzlaridandir, uni tark qilinsa namoz buziladi.",
+            "sourceVerified": true,
+            "questionUz": "Namozda «Qaʼdaʼi oxir»da (oxirgi oʻtirishda) «Attahiyyot» miqdoricha oʻtirish qanday amal hisoblanadi?",
+            "publishedDate": "2026-11-04",
+            "optionsUz": [
+              "Sunnat",
+              "Mustahab",
+              "Farz (rukn)",
+              "Vojib"
+            ]
+          },
+          {
+            "category": "Islom tarixi",
+            "explanationUz": "Imom Buxoriy hijriy 194-yil 13-shavvol (milodiy 810-yil 21-iyul) juma kuni Buxoro shahrida tavallud topganlar.",
+            "questionUz": "Islom olamining eng mashhur muhaddisi Imom Abu Abdulloh Muhammad ibn Ismoil al-Buxoriy qaysi yili tavallud topganlar?",
+            "optionsUz": [
+              "Hijriy 150 yili",
+              "Hijriy 194 yili (milodiy 810)",
+              "Hijriy 204 yili",
+              "Hijriy 256 yili"
+            ],
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "status": "approved",
+            "reference": "12-juz, Imom Buxoriy tarjimai holi",
+            "difficulty": "orta",
+            "correctIndex": 1,
+            "sourceVerified": true,
+            "isApproved": true,
+            "id": "q-009",
+            "publishedDate": "2026-11-01"
+          },
+          {
+            "publishedDate": "2026-11-04",
+            "questionUz": "«Oyatul Kursiy» Qurʼoni Karimning qaysi surasida joylashgan va nechanchi oyat?",
+            "sourceVerified": true,
+            "source": "Sahihi Muslim",
+            "optionsUz": [
+              "Oli Imron surasi, 18-oyat",
+              "Baqara surasi, 255-oyat",
+              "Moida surasi, 55-oyat",
+              "Yosin surasi, 12-oyat"
+            ],
+            "id": "q-026",
+            "category": "Qurʼon",
+            "status": "approved",
+            "isApproved": true,
+            "reference": "Musofirlar namozi kitobi, 810-hadis",
+            "correctIndex": 1,
+            "difficulty": "oson",
+            "explanationUz": "Oyatul Kursiy — Baqara surasining 255-oyati boʻlib, u Qurʼondagi eng ulugʻ oyat hisoblanadi."
+          },
+          {
+            "isApproved": true,
+            "optionsUz": [
+              "Baqara surasi",
+              "Fotiha surasi",
+              "Yosin surasi",
+              "Ixlos surasi"
+            ],
+            "publishedDate": "2026-11-01",
+            "difficulty": "oson",
+            "correctIndex": 1,
+            "status": "approved",
+            "source": "Sahihi Termiziy; Tafsiri Hilol",
+            "id": "q-001",
+            "questionUz": "Qurʼoni Karimning qaysi surasi «Qurʼonning onasi» (Ummul Qurʼon) deb ataladi?",
+            "sourceVerified": true,
+            "category": "Qurʼon",
+            "reference": "1-juz, Fotiha surasi muqaddimasi",
+            "explanationUz": "Fotiha surasi namozning har bir rakatida oʻqilishi va Qurʼon maʼnolarining asosini oʻz ichiga olgani uchun «Ummul Qurʼon» va «Ummul Kitob» deb nomlangan."
+          },
+          {
+            "sourceVerified": true,
+            "publishedDate": "2026-11-05",
+            "questionUz": "Paygʻambarimizning (s.a.v.) ikki qizlariga (Ruqayya va Ummu Kulsumga) uylanganlari uchun «Zunnurayn» (ikki nur sohibi) unvonini olgan sahoba kim?",
+            "source": "Siyaru Aʼlomin Nubalo (Imom Zahabiy)",
+            "status": "approved",
+            "optionsUz": [
+              "Ali ibn Abu Tolib (r.a.)",
+              "Usmon ibn Affon (r.a.)",
+              "Talha ibn Ubaydulloh (r.a.)",
+              "Zubayr ibn Avvom (r.a.)"
+            ],
+            "isApproved": true,
+            "reference": "Xulafoyi Roshidin: Usmon ibn Affon bobi",
+            "category": "Sahobalar",
+            "id": "q-031",
+            "difficulty": "oson",
+            "explanationUz": "Hazrati Usmon ibn Affon roziyallohu anhu avval Ruqayya (r.a.)ga, u zot vafot etganlaridan keyin esa Ummu Kulsum (r.a.)ga uylanganlari uchun «Zunnurayn» deb nomlanganlar.",
+            "correctIndex": 1
+          },
+          {
+            "publishedDate": "2026-11-03",
+            "isApproved": true,
+            "difficulty": "orta",
+            "reference": "Buxoriy 1145-hadis; Muslim 758-hadis",
+            "id": "q-017",
+            "questionUz": "Tahajjud namozi kechaning qaysi pallasida oʻqilishi eng fazilatli hisoblanadi?",
+            "sourceVerified": true,
+            "optionsUz": [
+              "Xufton namozidan soʻng darhol",
+              "Yarim kechadan oldin",
+              "Kechaning oxirgi uchdan birida (subhdan oldin)",
+              "Faqat quyosh chiqishiga 5 daqiqa qolganda"
+            ],
+            "category": "Fiqh",
+            "status": "approved",
+            "explanationUz": "Kechaning oxirgi uchdan birida Alloh taoloning rahmati yer osmoniga tushib: «Kim duo qilsa, ijobat qilaman, kim magʻfirat soʻrasa, kechiraman», degan pallada tahajjud oʻqish eng fazilatlidir.",
+            "correctIndex": 2,
+            "source": "Sahihi Buxoriy; Sahihi Muslim"
+          }
+        ],
+        "updatedBy": "public_user",
+        "syncedAt": "2026-11-08T07:05:56.624Z",
+        "createdBy": "public_user",
+        "adminEmail": "asakaziyo0@gmail.com"
+      }
+    ],
+    "mosqueEvents": [],
+    "academyLessons": [],
+    "charityCampaigns": [],
+    "digitalBooks": [],
+    "imamQuestions": [],
+    "messages": [],
+    "dailyContent": [],
+    "admins": [
+      {
+        "id": "admin-asakaziyo0",
+        "role": "SUPER_ADMIN",
+        "isActive": true,
+        "uid": "admin-asakaziyo0",
+        "lastLoginAt": "2026-11-05T05:53:44.282Z",
+        "email": "asakaziyo0@gmail.com",
+        "username": "menageradmin",
+        "displayName": "Bosh Administrator (Asaka Ziyo)",
+        "createdAt": "2026-11-05T01:51:22.597Z",
+        "updatedAt": "2026-11-05T05:53:44.282Z"
+      }
+    ]
+  }
+}

@@ -107,7 +107,7 @@ import {
 interface WorkspaceProps {
   activeModule: EnterpriseModuleId;
   activeRole: UserRole;
-  onStatusMessage: (msg: string) => void;
+  onStatusMessage: (msg: string, isError?: boolean) => void;
 }
 
 export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
@@ -2010,9 +2010,9 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
               />
               <Button
                 variant="primary"
-                onClick={() => {
+                onClick={async () => {
                   if (!newEventTitle.trim()) return;
-                  saveStoredMosqueEvent({
+                  const res = await saveStoredMosqueEvent({
                     id: `event-${Date.now()}`,
                     title: newEventTitle.trim(),
                     type: 'friday_program',
@@ -2030,10 +2030,14 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                     createdBy: 'admin-asakaziyo0',
                     updatedAt: new Date().toISOString(),
                   });
+                  if (!res.success) {
+                    onStatusMessage(`Xatolik: ${res.error || 'Tadbirni saqlash rad etildi'}`, true);
+                    return;
+                  }
                   setEventsList(getStoredMosqueEvents());
                   setNewEventTitle('');
                   setNewEventDesc('');
-                  onStatusMessage('Yangi masjid tadbiri muvaffaqiyatli nashr etildi.');
+                  onStatusMessage('Yangi masjid tadbiri Firestore bulutiga muvaffaqiyatli nashr etildi.');
                 }}
               >
                 Tadbir Qoʻshish
@@ -2140,9 +2144,9 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
             <div className="flex justify-end">
               <Button
                 variant="primary"
-                onClick={() => {
+                onClick={async () => {
                   if (!newBookTitle.trim()) return;
-                  saveStoredDigitalBook({
+                  const res = await saveStoredDigitalBook({
                     id: `book-${Date.now()}`,
                     title: newBookTitle.trim(),
                     author: newBookAuthor.trim(),
@@ -2166,10 +2170,14 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                       },
                     ],
                   });
+                  if (!res.success) {
+                    onStatusMessage(`Xatolik: ${res.error || 'Kitobni saqlash rad etildi'}`, true);
+                    return;
+                  }
                   setDigitalBooks(getStoredDigitalBooks());
                   setNewBookTitle('');
                   setNewBookDesc('');
-                  onStatusMessage('Yangi kitob raqamli kutubxonaga qoʻshildi.');
+                  onStatusMessage('Yangi kitob Firestore buluti va raqamli kutubxonaga qoʻshildi.');
                 }}
               >
                 Kitobni Saqlash
@@ -2246,19 +2254,23 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                         />
                         <Button
                           variant="primary"
-                          onClick={() => {
+                          onClick={async () => {
                             if (!imamAnswerText.trim()) return;
-                            answerImamQuestion(
+                            const res = await answerImamQuestion(
                               q.id,
                               imamAnswerText.trim(),
                               'Asaka Jome Masjidi Imomi',
                               imamSourceRef.trim(),
                               true
                             );
+                            if (!res.success) {
+                              onStatusMessage(`Xatolik: ${res.error || 'Javobni saqlash rad etildi'}`, true);
+                              return;
+                            }
                             setImamQuestions(getStoredImamQuestions('admin'));
                             setReplyingImamId(null);
                             setImamAnswerText('');
-                            onStatusMessage('Ilmiy javob saqlandi va eʼlon qilindi.');
+                            onStatusMessage('Ilmiy javob Firestore bulutida saqlandi va eʼlon qilindi.');
                           }}
                         >
                           Javobni Tasdiqlash
@@ -2330,9 +2342,9 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
             <div className="flex justify-end">
               <Button
                 variant="primary"
-                onClick={() => {
+                onClick={async () => {
                   if (!newCharityTitle.trim()) return;
-                  saveStoredCharityCampaign({
+                  const res = await saveStoredCharityCampaign({
                     id: `campaign-${Date.now()}`,
                     title: newCharityTitle.trim(),
                     category: 'masjid_tamiri',
@@ -2354,10 +2366,14 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                     publishedAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   });
+                  if (!res.success) {
+                    onStatusMessage(`Xatolik: ${res.error || 'Xayriya loyihasini saqlash rad etildi'}`, true);
+                    return;
+                  }
                   setCharityCampaigns(getStoredCharityCampaigns());
                   setNewCharityTitle('');
                   setNewCharityDesc('');
-                  onStatusMessage('Yangi xayriya loyihasi yaratildi.');
+                  onStatusMessage('Yangi xayriya loyihasi Firestore bulutiga nashr etildi.');
                 }}
               >
                 Loyihani Nashr Etish

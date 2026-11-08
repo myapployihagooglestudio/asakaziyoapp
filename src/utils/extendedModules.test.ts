@@ -281,3 +281,4 @@ const fatihaMilestone = userAchievements.achievements.find((m) => m.id === 'mile
 assert(fatihaMilestone?.isUnlocked === true, 'Fotiha Nuri milestone unlocked upon starting');
 
 console.log('🎉 ALL 10 ASAKA ZIYO EXTENDED ISLAMIC MODULES TESTS PASSED SUCCESSFULLY!');
+process.exit(0);

@@ -1,0 +1,12 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94",
+      "rules": "firestore.rules"
+    },
+    {
+      "database": "(default)",
+      "rules": "firestore.rules"
+    }
+  ]
+}

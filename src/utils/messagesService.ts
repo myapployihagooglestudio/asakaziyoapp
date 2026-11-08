@@ -8,6 +8,7 @@ import { InboxMessageItem, MessageCategory } from '../types';
 import {
   syncDocToFirestore,
   fetchCollectionFromFirestore,
+  listenToFirestoreCollection,
   deleteDocFromFirestore,
   isAdminAuthenticated,
 } from './firebaseClient';
@@ -63,9 +64,11 @@ const CANONICAL_INITIAL_MESSAGES: InboxMessageItem[] = [
 
 let cachedMessages: InboxMessageItem[] | null = null;
 const subscribers = new Set<(messages: InboxMessageItem[]) => void>();
+let realtimeMessagesSubscribed = false;
 
 export function subscribeToMessages(callback: (messages: InboxMessageItem[]) => void): () => void {
   subscribers.add(callback);
+  ensureRealtimeMessagesSubscription();
   return () => subscribers.delete(callback);
 }
 
@@ -73,6 +76,27 @@ function notifySubscribers(list: InboxMessageItem[]) {
   subscribers.forEach((cb) => cb(list));
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('asaka-ziyo-messages-updated', { detail: list }));
+  }
+}
+
+function ensureRealtimeMessagesSubscription() {
+  if (typeof window === 'undefined' || realtimeMessagesSubscribed) return;
+  realtimeMessagesSubscribed = true;
+  try {
+    listenToFirestoreCollection<InboxMessageItem>('messages', (remoteDocs) => {
+      if (remoteDocs.length > 0) {
+        const local = getStoredInboxMessages();
+        const readMap = new Map(local.map((m) => [m.id, m.read]));
+        const merged = remoteDocs.map((remote) => ({
+          ...remote,
+          read: readMap.has(remote.id) ? (readMap.get(remote.id) as boolean) : remote.read,
+        }));
+        merged.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+        saveLocalMessages(merged);
+      }
+    });
+  } catch {
+    // non-blocking
   }
 }
 
@@ -114,6 +138,7 @@ export function saveLocalMessages(messages: InboxMessageItem[]): void {
  * Sync messages with Firestore Cloud
  */
 export async function syncMessagesWithFirestore(): Promise<InboxMessageItem[]> {
+  ensureRealtimeMessagesSubscription();
   try {
     const res = await fetchCollectionFromFirestore<InboxMessageItem>('messages');
     if (res.success && res.data.length > 0) {
@@ -138,6 +163,7 @@ export async function syncMessagesWithFirestore(): Promise<InboxMessageItem[]> {
 
 /**
  * Send a new broadcast or targeted message (Admin)
+ * Waits for server/Firestore confirmation before reporting success or updating localStorage.
  */
 export async function sendAdminMessage(params: {
   title: string;
@@ -176,15 +202,17 @@ export async function sendAdminMessage(params: {
     priority: params.priority || 'normal',
   };
 
-  // 1. Primary write to Firestore Cloud
-  if (isAdminAuthenticated()) {
-    const fsRes = await syncDocToFirestore('messages', newMsg.id, newMsg);
-    if (!fsRes.success) {
-      console.warn('[Messages] Firestore write returned:', fsRes.error);
-    }
+  // 1. Primary write to Firestore Cloud via authenticated admin endpoint — MUST succeed before updating local store
+  const fsRes = await syncDocToFirestore('messages', newMsg.id, newMsg);
+  if (!fsRes.success) {
+    return {
+      success: false,
+      message: newMsg,
+      error: fsRes.error || 'Firestore bazasiga xabarni saqlash rad etildi',
+    };
   }
 
-  // 2. Local store & notify
+  // 2. Local store & notify only after confirmed cloud persistence
   const current = getStoredInboxMessages();
   const updated = [newMsg, ...current.filter((m) => m.id !== newMsg.id)];
   saveLocalMessages(updated);
@@ -243,17 +271,16 @@ export function markAllMessagesAsRead(): InboxMessageItem[] {
 }
 
 export async function deleteMessage(id: string): Promise<InboxMessageItem[]> {
+  if (isAdminAuthenticated()) {
+    const delRes = await deleteDocFromFirestore('messages', id);
+    if (!delRes.success) {
+      return getStoredInboxMessages();
+    }
+  }
+
   const current = getStoredInboxMessages();
   const updated = current.filter((m) => m.id !== id);
   saveLocalMessages(updated);
-
-  if (isAdminAuthenticated()) {
-    try {
-      await deleteDocFromFirestore('messages', id);
-    } catch {
-      // ignore
-    }
-  }
 
   return updated;
 }
