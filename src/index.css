@@ -4,15 +4,73 @@
 
 @layer base {
   :root {
-    --color-gold-300: #e6ce8a;
-    --color-gold-400: #d4af37;
-    --color-gold-500: #c5a869;
-    --color-gold-600: #9e7f3c;
-    --color-emerald-deep: #022c22;
-    --color-forest-dark: #064e3b;
-    --color-canvas-dark: #071614;
-    --color-surface-dark: #0d211e;
-    --color-surface-dark-elevated: #132b27;
+    /* ASAKA ZIYO — 2026 Luxury Islamic Super App Color System (Light Mode: Warm Ivory & Deep Emerald) */
+    --bg-canvas: #F8F5EC;
+    --bg-surface: #FFFFFF;
+    --bg-surface-subtle: #F1EBDD;
+    --bg-surface-elevated: #FCFBF7;
+    --text-primary: #042B25;
+    --text-secondary: #2C4A42;
+    --text-muted: #5C746C;
+    --border-hairline: rgba(6, 61, 50, 0.11);
+    --border-gold: rgba(198, 164, 92, 0.35);
+
+    /* Primary & Secondary Brand Palette Tokens */
+    --color-emerald-deep: #063D32;
+    --color-emerald-royal: #075747;
+    --color-forest-dark: #042B25;
+    --color-ivory-warm: #F8F5EC;
+    --color-cream-soft: #F1EBDD;
+    --color-gold-champagne: #C6A45C;
+    --color-gold-muted: #DCC58C;
+    --color-gold-300: #DCC58C;
+    --color-gold-400: #C6A45C;
+    --color-gold-500: #B38F45;
+    --color-gold-600: #8F6F2B;
+
+    --color-canvas-dark: #031814;
+    --color-surface-dark: #06241E;
+    --color-surface-dark-elevated: #082E26;
+
+    /* Fluid Typography Scale (320px Mobile -> 3840px 4K Display) */
+    --font-fluid-hero: clamp(1.85rem, 2.8vw + 1rem, 3.5rem);
+    --font-fluid-h1: clamp(1.5rem, 2vw + 0.85rem, 2.75rem);
+    --font-fluid-h2: clamp(1.25rem, 1.4vw + 0.75rem, 2rem);
+    --font-fluid-body: clamp(0.875rem, 0.25vw + 0.8rem, 1.0625rem);
+    --font-fluid-arabic: clamp(1.55rem, 1.8vw + 1.1rem, 2.65rem);
+
+    /* Fluid Spacing & Container Dimension Tokens */
+    --space-fluid-sm: clamp(0.5rem, 1vw, 1rem);
+    --space-fluid-md: clamp(1rem, 2vw, 2rem);
+    --space-fluid-lg: clamp(1.5rem, 3vw, 3.5rem);
+    --container-max-width: 90rem;
+    --radius-card: 1.35rem;
+    --radius-hero: 1.75rem;
+
+    /* Elevation & Motion Tokens */
+    --shadow-card: 0 8px 28px -6px rgba(4, 43, 37, 0.07), 0 2px 6px -1px rgba(4, 43, 37, 0.04);
+    --shadow-elevated: 0 22px 48px -12px rgba(4, 43, 37, 0.16), 0 4px 12px -2px rgba(198, 164, 92, 0.08);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --duration-fast: 160ms;
+    --duration-normal: 260ms;
+  }
+
+  .dark {
+    /* ASAKA ZIYO — 2026 Dark Mode: Deep Midnight Green & Champagne Gold */
+    --bg-canvas: #031814;
+    --bg-surface: #06241E;
+    --bg-surface-subtle: #041D18;
+    --bg-surface-elevated: #082E26;
+    --text-primary: #F8F5EC;
+    --text-secondary: #D4CFC3;
+    --text-muted: #8FA69E;
+    --border-hairline: rgba(198, 164, 92, 0.16);
+    --border-gold: rgba(198, 164, 92, 0.34);
+
+    --color-gold-500: #C6A45C;
+    --color-gold-600: #DCC58C;
+    --shadow-card: 0 10px 32px -6px rgba(0, 0, 0, 0.55);
+    --shadow-elevated: 0 28px 60px -12px rgba(0, 0, 0, 0.72), 0 0 24px -4px rgba(198, 164, 92, 0.12);
   }
 
   html, body, #root {
@@ -30,7 +88,16 @@
 
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    background-color: var(--color-canvas-dark);
+    font-size: var(--font-fluid-body);
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 220ms ease, color 220ms ease;
+  }
+
+  h1, h2, h3, .headline-balance {
+    text-wrap: balance;
   }
 
   img, video, canvas, svg {
@@ -46,11 +113,17 @@
   button, input, select, textarea {
     touch-action: manipulation;
   }
+
+  /* Universal Keyboard & Smart TV Remote Focus Indicator */
+  :focus-visible {
+    outline: 2.5px solid #C6A45C !important;
+    outline-offset: 3px !important;
+  }
 }
 
 .font-arabic {
   font-family: 'Amiri', 'Traditional Arabic', serif;
-  line-height: 2.2;
+  line-height: 2.25;
 }
 
 .font-display {
@@ -66,11 +139,121 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Luxury animations & effects */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Luxury Architectural Surface Utilities */
+.surface-luxury-glass {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(241, 235, 221, 0.85));
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(198, 164, 92, 0.25);
+}
+
+.dark .surface-luxury-glass {
+  background: linear-gradient(145deg, rgba(8, 46, 38, 0.88), rgba(4, 29, 24, 0.92));
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(198, 164, 92, 0.24);
+}
+
+.surface-emerald-royal {
+  background: radial-gradient(circle at top right, #075747 0%, #063D32 55%, #042B25 100%);
+}
+
+/* ==========================================================================
+   ASAKA ZIYO — 5 DISTINCT DISPLAY PROFILES (DIMENSION ENGINEERING)
+   ========================================================================== */
+
+/* PROFILE A — SMARTPHONE (320px - 599px) */
+@media (max-width: 599px) {
+  :root {
+    --font-fluid-hero: 1.85rem;
+    --font-fluid-h1: 1.45rem;
+    --font-fluid-h2: 1.2rem;
+    --font-fluid-body: 0.875rem;
+  }
+  .max-w-7xl {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  button, input, select, textarea {
+    min-height: 44px;
+  }
+}
+
+/* PROFILE B — TABLET (600px - 1023px) */
+@media (min-width: 600px) and (max-width: 1023px) {
+  :root {
+    --font-fluid-hero: 2.35rem;
+    --font-fluid-h1: 1.85rem;
+    --font-fluid-h2: 1.45rem;
+    --font-fluid-body: 0.9375rem;
+  }
+  .max-w-7xl {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+}
+
+/* PROFILE C — LAPTOP (1024px - 1439px) */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  :root {
+    --font-fluid-hero: 2.85rem;
+    --font-fluid-h1: 2.15rem;
+    --font-fluid-h2: 1.65rem;
+    --font-fluid-body: 1rem;
+  }
+}
+
+/* PROFILE D — DESKTOP (1440px - 2559px) */
+@media (min-width: 1440px) and (max-width: 2559px) {
+  :root {
+    --font-fluid-hero: 3.35rem;
+    --font-fluid-h1: 2.45rem;
+    --font-fluid-h2: 1.85rem;
+    --font-fluid-body: 1.0625rem;
+  }
+  .max-w-7xl {
+    max-width: 90rem !important;
+  }
+}
+
+/* PROFILE E — SMART TV & ULTRA-WIDE DISPLAY (2560px and Above) */
+@media (min-width: 2560px) {
+  :root {
+    --font-fluid-hero: clamp(3.5rem, 2.5vw + 2rem, 5rem);
+    --font-fluid-h1: clamp(2.5rem, 1.8vw + 1.5rem, 3.75rem);
+    --font-fluid-h2: clamp(2rem, 1.2vw + 1.2rem, 2.75rem);
+    --font-fluid-body: clamp(1.125rem, 0.4vw + 1rem, 1.35rem);
+    --font-fluid-arabic: clamp(2.25rem, 2.2vw + 1.5rem, 3.75rem);
+  }
+  body {
+    font-size: var(--font-fluid-body);
+  }
+  .max-w-7xl {
+    max-width: 100rem !important;
+    padding-left: 3rem !important;
+    padding-right: 3rem !important;
+  }
+  :focus-visible {
+    outline: 4px solid #C6A45C !important;
+    outline-offset: 4px !important;
+  }
+}
+
+/* Compositor-only luxury transitions */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -81,29 +264,11 @@
 @keyframes scaleUp {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(10px);
+    transform: scale(0.97) translateY(6px);
   }
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(197, 168, 105, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(197, 168, 105, 0.5);
-  }
-}
-
-@keyframes floatSlow {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
   }
 }
 
@@ -116,43 +281,51 @@
   }
 }
 
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(2deg);
+  }
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-scale-up {
-  animation: scaleUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scaleUp 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.animate-pulse-glow {
-  animation: pulseGlow 3s infinite ease-in-out;
-}
-
-.animate-float {
-  animation: floatSlow 5s infinite ease-in-out;
+.animate-float-slow {
+  animation: floatSlow 7s ease-in-out infinite;
 }
 
 .shimmer-gold {
-  background: linear-gradient(90deg, #c5a869 0%, #ffefbc 50%, #c5a869 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(198, 164, 92, 0.06) 0%,
+    rgba(198, 164, 92, 0.2) 50%,
+    rgba(198, 164, 92, 0.06) 100%
+  );
   background-size: 200% 100%;
-  animation: shimmer 4s infinite linear;
+  animation: shimmer 2.4s infinite linear;
 }
 
-.glass-card {
-  background: rgba(7, 22, 20, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(197, 168, 105, 0.3);
-}
-
-.glass-card-hover {
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.glass-card-hover:hover {
-  border-color: rgba(197, 168, 105, 0.7);
-  transform: translateY(-4px);
-  box-shadow: 0 16px 40px -10px rgba(197, 168, 105, 0.3);
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-fade-in,
+  .animate-scale-up,
+  .animate-float-slow,
+  .shimmer-gold {
+    animation: none !important;
+  }
 }
 
 /* Subtle luxury scrollbar */
@@ -162,14 +335,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(3, 29, 23, 0.5);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(197, 168, 105, 0.3);
+  background: rgba(198, 164, 92, 0.32);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(197, 168, 105, 0.6);
+  background: rgba(198, 164, 92, 0.6);
 }

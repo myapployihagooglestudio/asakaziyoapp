@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HadithItem, NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { getStoredHadiths, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Search, Bookmark, Check, Share2, BookMarked } from 'lucide-react';
@@ -84,26 +84,30 @@ export const HadithView: React.FC<HadithViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white p-6 sm:p-10 shadow-xl">
+      {/* 2026 Luxury Architectural Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
         <img
           src="/images/islamic_scholarship_library_1793634659800.jpg"
           alt="Islamic Scholarship Library"
-          className="absolute inset-0 w-full h-full object-cover object-center brightness-75"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#031d17]/95 via-[#031d17]/85 to-transparent" />
-        <GeometricPattern opacity={0.05} />
-        <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <BookMarked className="w-3.5 h-3.5" />
-            <span>{t('hadith:sunnah')}</span>
-            <span aria-hidden="true">·</span>
-            <span>{t('hadith:sources')}</span>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
+        <GeometricPattern opacity={0.07} />
+        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
+        <div className="relative z-10 max-w-2xl space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CalligraphyBasmalahBadge />
+            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
+              <BookMarked className="w-3.5 h-3.5" />
+              <span>{t('hadith:sunnah')}</span>
+              <span aria-hidden="true">·</span>
+              <span>{t('hadith:sources')}</span>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
             {t('hadith:title')}
           </h1>
-          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
             {t('hadith:subtitle')}
           </p>
         </div>
@@ -120,8 +124,8 @@ export const HadithView: React.FC<HadithViewProps> = ({
                 onClick={() => setActiveCollection(c.id)}
                 className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border transition-all cursor-pointer ${
                   isSelected
-                    ? 'border-[#c5a869] bg-[#c5a869] text-[#071614] font-semibold shadow-sm'
-                    : 'border-stone-200/80 dark:border-emerald-950 bg-white dark:bg-[#0d211e]/70 text-stone-700 dark:text-stone-300 hover:border-[#c5a869]/40'
+                    ? 'border-[#C6A45C] bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#042B25] font-bold shadow-md'
+                    : 'border-[#E2D9C5] dark:border-[#124237] bg-[#F8F5EC] dark:bg-[#06241E]/85 text-stone-700 dark:text-stone-300 hover:border-[#C6A45C]/50'
                 }`}
               >
                 {c.label}

@@ -1,0 +1,38 @@
+// Top-level build file for ASAKA ZIYO Native Android Application (2026)
+buildscript {
+    ext {
+        kotlin_version = '1.9.24'
+        compileSdkVersion = 34
+        targetSdkVersion = 34
+        minSdkVersion = 24
+        androidxAppCompatVersion = '1.7.0'
+        androidxCoordinatorLayoutVersion = '1.2.0'
+        androidxCoreVersion = '1.13.1'
+        androidxActivityVersion = '1.9.2'
+        androidxFragmentVersion = '1.8.3'
+        coreSplashScreenVersion = '1.0.1'
+        androidxWebkitVersion = '1.12.1'
+        media3Version = '1.4.1'
+        workManagerVersion = '2.9.1'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.5.2'
+        classpath 'com.google.gms:google-services:4.4.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

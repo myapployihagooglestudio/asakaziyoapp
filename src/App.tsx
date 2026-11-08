@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { MotionConfig, AnimatePresence, motion } from 'motion/react';
 import {
   AppSettings,
   FavoriteItem,
@@ -48,6 +49,7 @@ import { ArticlesView } from './components/features/articles/ArticlesView';
 import { NewsView } from './components/features/news/NewsView';
 import { AnnouncementsView } from './components/features/announcements/AnnouncementsView';
 import { FavoritesView } from './components/features/favorites/FavoritesView';
+import { UserProfileView } from './components/features/profile/UserProfileView';
 import { SettingsView } from './components/features/settings/SettingsView';
 import { AdminPortal } from './components/features/admin/AdminPortal';
 import { NotificationsView } from './components/features/notifications/NotificationsView';
@@ -56,6 +58,22 @@ import { QuizView } from './components/features/quiz/QuizView';
 import { CalendarView } from './components/features/calendar/CalendarView';
 import { ReminderDashboard } from './components/features/prayer/ReminderDashboard';
 import { MessagesView } from './components/features/messages/MessagesView';
+import { KhatmPlannerView } from './components/features/quran/KhatmPlannerView';
+import { PrayerJournalView } from './components/features/prayer/PrayerJournalView';
+import { MosqueEventsView } from './components/features/calendar/MosqueEventsView';
+import { AcademyView } from './components/features/academy/AcademyView';
+import { CharityView } from './components/features/charity/CharityView';
+import { FastingView } from './components/features/fasting/FastingView';
+import { DigitalLibraryView } from './components/features/library/DigitalLibraryView';
+import { AskImamView } from './components/features/chat/AskImamView';
+import { AiAssistantView } from './components/features/chat/AiAssistantView';
+import { GlobalSearchView } from './components/features/search/GlobalSearchView';
+import { GlobalSearchModal } from './components/features/search/GlobalSearchModal';
+import { IslamicAchievementsView } from './components/features/profile/IslamicAchievementsView';
+import { SmartTvModal } from './components/features/tv/SmartTvModal';
+import { OnboardingModal } from './components/ui/OnboardingModal';
+import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
+import { pageTransitionVariants } from './utils/motionSystem';
 import {
   subscribeToMessages,
   getUnreadMessagesCount,
@@ -73,10 +91,25 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavigationTab>('home');
+  const [activeTab, setActiveTab] = useState<NavigationTab>(() => {
+    if (typeof window !== 'undefined') {
+      const pathName = (window.location.pathname || '').toLowerCase();
+      const hashVal = (window.location.hash || '').toLowerCase();
+      if (pathName.startsWith('/admin') || hashVal.includes('admin')) {
+        return 'admin';
+      }
+      if (pathName.startsWith('/ai') || hashVal.includes('ai_assistant')) {
+        return 'ai_assistant';
+      }
+    }
+    return 'home';
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isTvModalOpen, setIsTvModalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
 
   // Prayer schedule with central database service
   const [prayerSchedule, setPrayerSchedule] = useState<PrayerSchedule>(() =>
@@ -151,20 +184,48 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
-  // Synchronize Dark / Light Mode with <html> element per §1.F
+  // Synchronize Dark / Light / System Mode with <html> element
   useEffect(() => {
     const root = document.documentElement;
-    if (settings.theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    const applyTheme = () => {
+      const isSystemDark =
+        typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const shouldBeDark =
+        settings.theme === 'dark' || (settings.theme === 'system' && isSystemDark);
+
+      if (shouldBeDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+
+    let mediaQuery: MediaQueryList | null = null;
+    if (settings.theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener?.('change', applyTheme);
     }
+
     try {
       localStorage.setItem('asaka_ziyo_settings', JSON.stringify(settings));
     } catch (e) {
       // Storage policy
     }
+
+    return () => {
+      mediaQuery?.removeEventListener?.('change', applyTheme);
+    };
   }, [settings]);
+
+  const handleCycleTheme = () => {
+    const nextTheme: AppSettings['theme'] =
+      settings.theme === 'dark' ? 'light' : settings.theme === 'light' ? 'system' : 'dark';
+    setSettings((prev) => ({ ...prev, theme: nextTheme }));
+  };
 
   // Synchronize favorites
   useEffect(() => {
@@ -217,11 +278,52 @@ export default function App() {
 
   const handleNavigate = (tab: NavigationTab) => {
     setActiveTab(tab);
+    try {
+      if (typeof window !== 'undefined' && window.history?.pushState) {
+        window.history.pushState({ tab }, '', `#${tab}`);
+      }
+    } catch {
+      // ignore
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setIsMobileMenuOpen(false);
   };
 
-  // Background prayer time alert scheduler
+  // Preserve browser back/forward navigation history & global keyboard shortcuts (Ctrl+K, Shift+T)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const stateTab = e.state?.tab as NavigationTab | undefined;
+      if (stateTab) {
+        setActiveTab(stateTab);
+      } else if (window.location.hash) {
+        const hashTab = window.location.hash.replace('#', '') as NavigationTab;
+        if (hashTab) setActiveTab(hashTab);
+      } else {
+        setActiveTab('home');
+      }
+    };
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen((prev) => !prev);
+      } else if (!isInput && e.shiftKey && e.key.toUpperCase() === 'T') {
+        e.preventDefault();
+        setIsTvModalOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
+
+  // Background prayer time & real Adhan alert scheduler (Asia/Tashkent aware)
   useEffect(() => {
     const checkPrayerAlert = () => {
       try {
@@ -231,56 +333,99 @@ export default function App() {
         const nextInfo = getNextPrayerCalculation(prayerSchedule.times);
         if (!nextInfo.nextPrayer) return;
 
-        const minutesRemaining = Math.floor(nextInfo.secondsRemaining / 60);
-
-        if (minutesRemaining <= alertSettings.minutesBefore && minutesRemaining >= 0) {
-          const today = new Date().toISOString().slice(0, 10);
-          const alertKey = `alert_${today}_${nextInfo.nextPrayer.key}_${alertSettings.minutesBefore}`;
-          const alreadyAlerted = sessionStorage.getItem(alertKey);
-
-          if (!alreadyAlerted) {
-            sessionStorage.setItem(alertKey, 'true');
-            if (alertSettings.soundEnabled) {
-              playGentleChime();
-            }
-            triggerBrowserNotification(
-              `Namoz vaqti yaqinlashmoqda (${nextInfo.nextPrayer.nameUz})`,
-              `Asaka shahrida ${nextInfo.nextPrayer.nameUz} namoziga ${minutesRemaining} daqiqa qoldi. Vaqti: ${nextInfo.nextPrayer.time}`
-            );
+        const prayerKey = nextInfo.nextPrayer.key;
+        const isFiveDaily = ['bomdod', 'peshin', 'asr', 'shom', 'xufton'].includes(prayerKey);
+        if (isFiveDaily) {
+          const pKey = prayerKey as 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton';
+          if (
+            alertSettings.individualPrayerAlerts?.[pKey] === false ||
+            alertSettings.individualPrayerModes?.[pKey] === 'off'
+          ) {
+            return;
           }
         }
-      } catch (e) {
+
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
+        const minutesRemaining = Math.floor(nextInfo.secondsRemaining / 60);
+
+        // 1. Exact prayer time arrival (plays selected full Adhan recording)
+        if (nextInfo.secondsRemaining <= 45 && alertSettings.notifyOnExactTime !== false) {
+          const exactKey = `adhan_exact_${today}_${prayerKey}`;
+          if (!sessionStorage.getItem(exactKey)) {
+            sessionStorage.setItem(exactKey, 'true');
+            const newNotif = triggerBrowserNotification(
+              `${nextInfo.nextPrayer.nameUz} namozi vaqti kirdi (${nextInfo.nextPrayer.time})`,
+              `Asaka shahrida ${nextInfo.nextPrayer.nameUz} vaqti kirdi. Hayya 'alas-solah!`,
+              'prayer',
+              isFiveDaily ? (prayerKey as 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton') : undefined,
+              true
+            );
+            setNotifications((prev) => [newNotif, ...prev]);
+          }
+          return;
+        }
+
+        // 2. Pre-prayer advance reminder (gentle chime only, no full Adhan overlap)
+        if (minutesRemaining > 0 && minutesRemaining <= alertSettings.minutesBefore) {
+          const preKey = `alert_pre_${today}_${prayerKey}_${alertSettings.minutesBefore}`;
+          if (!sessionStorage.getItem(preKey)) {
+            sessionStorage.setItem(preKey, 'true');
+            const newNotif = triggerBrowserNotification(
+              `Namoz vaqti yaqinlashmoqda (${nextInfo.nextPrayer.nameUz})`,
+              `Asaka shahrida ${nextInfo.nextPrayer.nameUz} namoziga ${minutesRemaining} daqiqa qoldi. Vaqti: ${nextInfo.nextPrayer.time}`,
+              'prayer',
+              isFiveDaily ? (prayerKey as 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton') : undefined,
+              false
+            );
+            setNotifications((prev) => [newNotif, ...prev]);
+          }
+        }
+      } catch {
         // ignore
       }
     };
 
     checkPrayerAlert();
-    const interval = setInterval(checkPrayerAlert, 30000);
+    const interval = setInterval(checkPrayerAlert, 15000);
     return () => clearInterval(interval);
   }, [prayerSchedule.times]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-[#071614] text-stone-900 dark:text-stone-100 transition-colors duration-200 overflow-x-hidden max-w-full">
-      {/* Top Header conforming to Top Bar Contract */}
-      <Header
-        activeTab={activeTab}
-        onSelectTab={handleNavigate}
-        favoritesCount={favorites.length}
-        unreadNotificationsCount={unreadNotificationsCount}
-        unreadMessagesCount={unreadMessagesCount}
-        onOpenInstallModal={() => setIsInstallModalOpen(true)}
-        onOpenChatModal={() => setIsChatModalOpen(true)}
-      />
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen flex flex-col bg-[#F8F5EC] text-[#042B25] dark:bg-[#031814] dark:text-[#F8F5EC] transition-colors duration-200 overflow-x-hidden max-w-full">
+        {/* Top Header conforming to Top Bar Contract */}
+        <Header
+          activeTab={activeTab}
+          onSelectTab={handleNavigate}
+          favoritesCount={favorites.length}
+          unreadNotificationsCount={unreadNotificationsCount}
+          unreadMessagesCount={unreadMessagesCount}
+          theme={settings.theme}
+          onToggleTheme={handleCycleTheme}
+          onOpenInstallModal={() => setIsInstallModalOpen(true)}
+          onOpenChatModal={() => setIsChatModalOpen(true)}
+          onOpenSearch={() => setIsSearchModalOpen(true)}
+          onOpenTvMode={() => setIsTvModalOpen(true)}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        {/* Main Content Area */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 lg:pb-12">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              variants={pageTransitionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
         {activeTab === 'home' && (
           <HomeView
             prayerSchedule={prayerSchedule}
             dailyAyah={DAILY_FEATURED_AYAH}
             dailyHadith={FEATURED_DAILY_HADITH}
+            favorites={favorites}
             onNavigate={handleNavigate}
             onToggleFavorite={handleToggleFavorite}
             isFavorited={isFavorited}
@@ -370,6 +515,13 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'profile' && (
+          <UserProfileView
+            favorites={favorites}
+            onNavigate={handleNavigate}
+          />
+        )}
+
         {activeTab === 'settings' && (
           <SettingsView
             settings={settings}
@@ -386,7 +538,31 @@ export default function App() {
             onExitAdmin={() => handleNavigate('home')}
           />
         )}
-      </main>
+
+        {activeTab === 'khatm_planner' && <KhatmPlannerView />}
+
+        {activeTab === 'prayer_journal' && <PrayerJournalView />}
+
+        {activeTab === 'mosque_events' && <MosqueEventsView />}
+
+        {activeTab === 'academy' && <AcademyView />}
+
+        {activeTab === 'charity' && <CharityView />}
+
+        {activeTab === 'fasting' && <FastingView />}
+
+        {activeTab === 'library' && <DigitalLibraryView />}
+
+        {activeTab === 'ask_imam' && <AskImamView />}
+
+        {activeTab === 'ai_assistant' && <AiAssistantView />}
+
+        {activeTab === 'search' && <GlobalSearchView onNavigate={handleNavigate} />}
+
+        {activeTab === 'achievements' && <IslamicAchievementsView />}
+            </motion.div>
+          </AnimatePresence>
+        </main>
 
       {/* Institutional Editorial Footer */}
       <Footer onSelectTab={handleNavigate} />
@@ -439,6 +615,15 @@ export default function App() {
               { id: 'news', label: 'Yangiliklar' },
               { id: 'announcements', label: 'Eʼlonlar' },
               { id: 'calendar', label: 'Hijriy Taqvim' },
+              { id: 'khatm_planner', label: 'Qurʼon Xatmi Rejasi' },
+              { id: 'prayer_journal', label: 'Namoz Kundaligi' },
+              { id: 'mosque_events', label: 'Masjid Tadbirlari' },
+              { id: 'academy', label: 'Islomiy Akademiya' },
+              { id: 'charity', label: 'Ehson va Sadaqa' },
+              { id: 'fasting', label: 'Roʻza Yordamchisi' },
+              { id: 'library', label: 'Raqamli Kutubxona' },
+              { id: 'ask_imam', label: 'Imomga Savol' },
+              { id: 'achievements', label: 'Shaxsiy Yutuqlar' },
               { id: 'favorites', label: 'Sevimlilar' },
               { id: 'settings', label: 'Sozlamalar' },
               { id: 'admin', label: 'Maʼmuriyat konsoli' },
@@ -488,6 +673,34 @@ export default function App() {
         isOpen={isChatModalOpen}
         onClose={() => setIsChatModalOpen(false)}
       />
-    </div>
+
+      {/* Global Intelligent Search Modal */}
+      <GlobalSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onNavigate={handleNavigate}
+      />
+
+      {/* Smart TV & Mosque 10-Foot Display Modal */}
+      <SmartTvModal
+        isOpen={isTvModalOpen}
+        onClose={() => setIsTvModalOpen(false)}
+        schedule={prayerSchedule}
+        dailyAyah={DAILY_FEATURED_AYAH}
+        dailyHadith={FEATURED_DAILY_HADITH}
+      />
+
+      {/* First-Launch Skippable Onboarding & Personalization Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        settings={settings}
+        onUpdateSettings={handleUpdateSettings}
+      />
+
+      {/* Persistent Global Audio Mini/Expanded Player */}
+      <PersistentAudioPlayer />
+      </div>
+    </MotionConfig>
   );
 }

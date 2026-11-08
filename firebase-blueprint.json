@@ -234,6 +234,50 @@
         "categories": { "type": "array" }
       },
       "required": ["token", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with display preferences and favorites",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "locale": { "type": "string" },
+        "theme": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "favorites": { "type": "array" }
+      },
+      "required": ["id", "createdAt"]
+    },
+    "UserActivity": {
+      "title": "UserActivity",
+      "description": "User interaction and engagement telemetry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "eventType": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "eventType", "timestamp"]
+    },
+    "AIConversation": {
+      "title": "AIConversation",
+      "description": "Private per-user Islamic AI Assistant conversation history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "locale": { "type": "string" },
+        "messages": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "messages", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -293,6 +337,10 @@
       "schema": "QuizQuestion",
       "description": "Islamic quiz question bank"
     },
+    "/dailyQuizzes/{quizDate}": {
+      "schema": "DailyQuiz",
+      "description": "Persisted 10-question daily quiz sets and archive"
+    },
     "/quizAttempts/{attemptId}": {
       "schema": "QuizAttempt",
       "description": "Quiz completion and scores"
@@ -304,6 +352,18 @@
     "/fcmTokens/{tokenId}": {
       "schema": "FCMToken",
       "description": "Push notification device tokens"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and favorites"
+    },
+    "/userActivities/{activityId}": {
+      "schema": "UserActivity",
+      "description": "Aggregated anonymous app engagement metrics"
+    },
+    "/aiConversations/{conversationId}": {
+      "schema": "AIConversation",
+      "description": "Private user conversations with ASAKA ZIYO Gemini AI Assistant"
     }
   }
 }

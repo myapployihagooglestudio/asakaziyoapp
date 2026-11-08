@@ -25,16 +25,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   const btnOnClick = action?.onClick || onAction;
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-2xl border border-dashed border-stone-200 dark:border-emerald-950/80 bg-stone-50/50 dark:bg-[#091a18]/40">
+    <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-2xl border border-dashed border-stone-300/90 dark:border-emerald-950/90 bg-[#F6F2E9]/50 dark:bg-[#081815]/50">
       {icon && (
-        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-stone-100 dark:bg-emerald-950/60 text-[#c5a869] mb-4">
+        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-white dark:bg-[#0B1F1C] border border-stone-200/80 dark:border-[#c5a869]/25 text-[#9e7f3c] dark:text-[#c5a869] mb-4 shadow-xs">
           {icon}
         </div>
       )}
-      <h4 className="text-base font-semibold text-stone-900 dark:text-stone-100 mb-1">
+      <h4 className="text-base font-semibold text-[#14221B] dark:text-[#F4F1EA] mb-1.5 headline-balance">
         {title}
       </h4>
-      <p className="text-sm text-stone-500 dark:text-stone-400 max-w-sm mb-6 leading-relaxed">
+      <p className="text-sm text-[#4A5B52] dark:text-[#8FA199] max-w-sm mb-6 leading-relaxed">
         {description}
       </p>
       {btnLabel && btnOnClick && (

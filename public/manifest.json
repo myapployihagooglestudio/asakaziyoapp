@@ -1,0 +1,56 @@
+{
+  "id": "/",
+  "name": "ASAKA ZIYO",
+  "short_name": "ASAKA ZIYO",
+  "description": "Asaka shahri va mintaqa ahli uchun mo'ljallangan ilmiy-ma'rifiy islomiy raqamli platforma. Qur'oni Karim, hadislar, zikrlar va namoz vaqtlari.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071614",
+  "theme_color": "#071614",
+  "orientation": "portrait",
+  "categories": ["books", "lifestyle", "education"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Qur'oni Karim",
+      "short_name": "Qur'on",
+      "description": "Qur'on o'qish va tinglash",
+      "url": "/#quran",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Namoz vaqtlari",
+      "short_name": "Namoz",
+      "description": "Asaka shahri namoz vaqtlari",
+      "url": "/#prayer",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Tasbeh va Zikrlar",
+      "short_name": "Zikr",
+      "description": "Raqamli tasbeh va zikrlar",
+      "url": "/#dhikr",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

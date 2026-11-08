@@ -4,8 +4,12 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
+  if (command === 'build') {
+    process.env.NODE_ENV = 'production';
+  }
   return {
+    base: './',
     plugins: [
       {
         name: 'disable-vite-client-ws',
@@ -26,8 +30,9 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'icon.svg'],
         manifest: {
-          name: 'ASAKA ZIYO — Premium Islamic Digital Ecosystem',
-          short_name: 'Asaka Ziyo',
+          id: '/',
+          name: 'ASAKA ZIYO',
+          short_name: 'ASAKA ZIYO',
           description: "Asaka shahri va mintaqa ahli uchun ilmiy-ma'rifiy islomiy raqamli ekotizim.",
           theme_color: '#071614',
           background_color: '#071614',
@@ -128,7 +133,8 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: false,
+          enabled: true,
+          type: 'module',
         },
       }),
     ],

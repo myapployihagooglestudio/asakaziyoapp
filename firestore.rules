@@ -85,10 +85,11 @@ service cloud.firestore {
       allow create, update: if isValidId(adminId) &&
         incoming().email == 'asakaziyo0@gmail.com' &&
         incoming().username == 'menageradmin' &&
+        isSignedIn() &&
         (
-          adminId == 'admin-asakaziyo0' ||
+          request.auth.uid == adminId ||
           isSuperAdmin() ||
-          (isSignedIn() && request.auth.uid == adminId && request.auth.token.email == 'asakaziyo0@gmail.com')
+          request.auth.token.email == 'asakaziyo0@gmail.com'
         );
       allow delete: if false;
     }
@@ -193,9 +194,23 @@ service cloud.firestore {
       allow write: if isValidId(questionId) && isContentAdmin();
     }
 
+    // 15B. Daily 10-Question Quiz Sets & Permanent Archive
+    match /dailyQuizzes/{quizDate} {
+      allow read: if true;
+      allow create: if isValidId(quizDate) &&
+        incoming().dateStr == quizDate &&
+        incoming().questions is list &&
+        incoming().questions.size() == 10;
+      allow update, delete: if isValidId(quizDate) && isContentAdmin();
+    }
+
     // 16. Quiz Completion Attempts
     match /quizAttempts/{attemptId} {
-      allow read: if true;
+      allow read: if isValidId(attemptId) && (
+        isAnyAdmin() ||
+        (isSignedIn() && resource.data.userIdentifier == request.auth.uid) ||
+        (!isSignedIn() && resource.data.userIdentifier != null)
+      );
       allow create: if isValidId(attemptId) && incoming().score is number;
       allow update, delete: if isSuperAdmin();
     }
@@ -211,6 +226,141 @@ service cloud.firestore {
       allow read: if isNotificationAdmin();
       allow create, update: if isValidId(tokenId) && incoming().token is string;
       allow delete: if isNotificationAdmin();
+    }
+
+    // 19. User Profiles & Display Settings
+    match /users/{userId} {
+      allow read: if isValidId(userId);
+      allow create, update: if isValidId(userId) &&
+        (!isSignedIn() || request.auth.uid == userId || isSuperAdmin());
+      allow delete: if isSuperAdmin();
+    }
+
+    // 20. Anonymous User Engagement & Activity Telemetry
+    match /userActivities/{activityId} {
+      allow read: if isAnyAdmin();
+      allow create: if isValidId(activityId) && incoming().eventType is string;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // 21. Quran Khatm Plans (Private per-user, isolated)
+    match /khatmPlans/{planId} {
+      allow read, write: if isValidId(planId) && (
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+      );
+    }
+
+    // 22. Personal Prayer Journal (Strict owner-only privacy)
+    match /prayerJournal/{recordId} {
+      allow read, write: if isValidId(recordId) && (
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+      );
+    }
+
+    // 23. Smart Digital Tasbih Sessions
+    match /tasbihSessions/{sessionId} {
+      allow read, write: if isValidId(sessionId) && (
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+      );
+    }
+
+    // 24. Mosque Events & Community Programs
+    match /mosqueEvents/{eventId} {
+      allow read: if true;
+      allow create, delete: if isValidId(eventId) && isAnyAdmin();
+      allow update: if isValidId(eventId) && (
+        isAnyAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['registeredUserIds'])
+      );
+    }
+
+    // 25. Islamic Learning Academy (Lessons & Tracks)
+    match /academyLessons/{lessonId} {
+      allow read: if true;
+      allow write: if isValidId(lessonId) && isContentAdmin();
+    }
+
+    // 26. Student Academy Progress
+    match /studentProgress/{studentId} {
+      allow read, write: if isValidId(studentId) && (
+        !isSignedIn() || request.auth.uid == studentId || isAnyAdmin()
+      );
+    }
+
+    // 27. Charity Campaigns & Financial Reports
+    match /charityCampaigns/{campaignId} {
+      allow read: if true;
+      allow create, delete: if isValidId(campaignId) && isSuperAdmin();
+      allow update: if isValidId(campaignId) && (
+        isSuperAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs'])
+      );
+    }
+
+    // 28. Charity Pledges & Donations
+    match /charityPledges/{pledgeId} {
+      allow read: if isAnyAdmin() || (!isSignedIn() || request.auth.uid == resource.data.userId);
+      allow create: if isValidId(pledgeId) && incoming().amountUzs is number;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // 29. Ramadan & Voluntary Fasting Assistant
+    match /fastingJournals/{journalId} {
+      allow read, write: if isValidId(journalId) && (
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+      );
+    }
+
+    // 30. Islamic Digital Library Books & Bookmarks
+    match /digitalBooks/{bookId} {
+      allow read: if true;
+      allow write: if isValidId(bookId) && isContentAdmin();
+    }
+
+    match /bookBookmarks/{bookmarkId} {
+      allow read, write: if isValidId(bookmarkId) && (
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid)
+      );
+    }
+
+    // 31. Ask the Imam System (Private by default, public only when approved)
+    match /imamQuestions/{questionId} {
+      allow read: if resource.data.isPubliclyVisible == true ||
+        isContentAdmin() ||
+        isSuperAdmin() ||
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(questionId) && incoming().title is string && incoming().questionText is string;
+      allow update: if isValidId(questionId) && (
+        isContentAdmin() || isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid)
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 32. Personal Islamic Achievements & Milestones
+    match /userAchievements/{progressId} {
+      allow read, write: if isValidId(progressId) && (
+        !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin()
+      );
+    }
+
+    // 33. Private AI Assistant Conversations (Strict per-user isolation)
+    match /aiConversations/{conversationId} {
+      allow get: if isValidId(conversationId) && isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(conversationId) &&
+        isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().title is string && incoming().title.size() <= 200 &&
+        incoming().messages is list && incoming().messages.size() <= 200;
+      allow update: if isValidId(conversationId) &&
+        isSignedIn() &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == request.auth.uid &&
+        incoming().title is string && incoming().title.size() <= 200 &&
+        incoming().messages is list && incoming().messages.size() <= 200;
+      allow delete: if isValidId(conversationId) &&
+        isSignedIn() &&
+        existing().userId == request.auth.uid;
     }
   }
 }

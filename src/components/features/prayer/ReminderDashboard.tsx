@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppSettings, PrayerSchedule, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
@@ -11,9 +11,16 @@ import {
 } from '../../../data/adhanTracksData';
 import {
   playAdhanTrackById,
+  toggleAdhanAudio,
+  seekAdhanAudio,
+  setAdhanAudioVolume,
+  subscribeToAdhanPlayerState,
+  subscribeToPrayerAlertSettings,
   downloadAdhanTrackFile,
   getPrayerAlertSettings,
   savePrayerAlertSettings,
+  stopActiveAdhanAudio,
+  AdhanPlayerState,
 } from '../../../utils/notificationService';
 import {
   Bell,
@@ -30,8 +37,12 @@ import {
   Sunset,
   Download,
   Play,
+  Pause,
+  Square,
   Check,
   Music,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 interface ReminderDashboardProps {
@@ -39,6 +50,13 @@ interface ReminderDashboardProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onBack: () => void;
+}
+
+function formatAudioSeconds(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
 export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
@@ -50,10 +68,34 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
-  const [tracks, setTracks] = useState<AdhanTrack[]>(() => getStoredAdhanTracks());
+  const [tracks] = useState<AdhanTrack[]>(() => getStoredAdhanTracks());
   const [alertSettings, setAlertSettings] = useState(() => getPrayerAlertSettings());
-  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const [playerState, setPlayerState] = useState<AdhanPlayerState>({
+    playingTrackId: null,
+    track: null,
+    isPlaying: false,
+    isPaused: false,
+    isLoading: false,
+    currentTime: 0,
+    duration: 0,
+    progressPercent: 0,
+    volume: 0.85,
+    error: null,
+  });
   const [savedStatus, setSavedStatus] = useState(false);
+
+  useEffect(() => {
+    const unsubPlayer = subscribeToAdhanPlayerState((state) => {
+      setPlayerState(state);
+    });
+    const unsubSettings = subscribeToPrayerAlertSettings((updated) => {
+      setAlertSettings(updated);
+    });
+    return () => {
+      unsubPlayer();
+      unsubSettings();
+    };
+  }, []);
 
   const getLocalizedText = (text: string) => {
     if (currentLocale === 'uz-Latn-new') {
@@ -63,9 +105,7 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
   };
 
   const handlePreviewPlay = (track: AdhanTrack) => {
-    setPlayingTrackId(track.id);
-    playAdhanTrackById(track.id);
-    setTimeout(() => setPlayingTrackId(null), 4000);
+    toggleAdhanAudio(track.id, alertSettings.volume);
   };
 
   const handleSaveAlertSettings = () => {
@@ -122,28 +162,91 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
 
       {/* 1. ADHAN AUDIO LIBRARY & PLAYERS */}
       <Card elevated className="p-6 space-y-6 border-[#c5a869]/30 bg-stone-900/60 backdrop-blur-md">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-[#c5a869]" />
-              <span>Mavjud Azon Audio Variantlari (Shayx Mishariy Al-Afosiy)</span>
+              <span>Mavjud Azon Audio Kutubxonasi (Shayx Mishariy Rashid Al-Afosiy)</span>
             </h3>
             <p className="text-xs text-stone-400">
-              Muazzin nomi, davomiyligi va oflayn yuklab olish imkoniyati bilan
+              Muazzin, davomiyligi, qonuniy manbasi va oflayn yuklab olish imkoniyati bilan
             </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                toggleAdhanAudio(
+                  alertSettings.defaultAdhanTrackId || alertSettings.selectedAdhanTrackId,
+                  alertSettings.volume
+                )
+              }
+              className="text-xs gap-1.5 border-[#c5a869]/50 text-[#c5a869]"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>Azon Sinovi</span>
+            </Button>
+            {playerState.playingTrackId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => stopActiveAdhanAudio()}
+                className="text-xs gap-1.5 border-rose-500/50 text-rose-300"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Toʻxtatish</span>
+              </Button>
+            )}
           </div>
         </div>
 
+        {/* Live Progress Scrubber */}
+        {(playerState.playingTrackId || playerState.error) && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#04241d] to-[#061814] border border-[#c5a869]/50 space-y-2">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 font-bold text-[#e6ce8a]">
+                {playerState.isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#c5a869]" />
+                ) : (
+                  <Music className="w-4 h-4 text-[#c5a869]" />
+                )}
+                <span>{playerState.track?.titleUz || 'Azon tinglanmoqda'}</span>
+              </div>
+              <span className="font-mono-numbers text-stone-300">
+                {formatAudioSeconds(playerState.currentTime)} / {formatAudioSeconds(playerState.duration)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(1, Math.round(playerState.duration || 180))}
+              value={Math.round(playerState.currentTime || 0)}
+              onChange={(e) => seekAdhanAudio(Number(e.target.value))}
+              className="w-full accent-[#c5a869] cursor-pointer h-1.5 bg-white/20 rounded-lg"
+            />
+            {playerState.error && (
+              <div className="text-xs text-rose-300 flex items-center gap-1.5 pt-1">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>{playerState.error}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {tracks.map((track) => {
-            const isPlaying = playingTrackId === track.id;
+            const isPlaying =
+              playerState.playingTrackId === track.id &&
+              (playerState.isPlaying || playerState.isLoading);
 
             return (
               <div
                 key={track.id}
                 className="p-4 rounded-2xl border border-white/10 bg-black/40 flex flex-col justify-between gap-4 hover:border-[#c5a869]/50 transition-all"
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-sm text-white">{track.title}</span>
                     <span className="text-[10px] font-mono-numbers px-2 py-0.5 rounded bg-[#c5a869]/20 text-[#c5a869]">
@@ -151,17 +254,30 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-stone-400">{track.muazzin}</p>
+                  <div className="text-[11px] text-stone-400 flex items-center gap-1.5">
+                    <span className="text-[#c5a869]">Manba:</span>
+                    <span className="italic">{track.source}</span>
+                  </div>
+                  {track.descriptionUz && (
+                    <p className="text-[11px] text-stone-400 leading-relaxed pt-1">
+                      {track.descriptionUz}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                   <Button
-                    variant="primary"
+                    variant={isPlaying ? 'primary' : 'outline'}
                     size="sm"
                     onClick={() => handlePreviewPlay(track)}
                     className="text-xs gap-1.5 py-1 px-3"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>{isPlaying ? 'Tinglanmoqda...' : 'Tinglash'}</span>
+                    {isPlaying ? (
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                    ) : (
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    )}
+                    <span>{isPlaying ? 'Pause' : 'Tinglash'}</span>
                   </Button>
 
                   {track.url && (
@@ -183,13 +299,62 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
         </div>
       </Card>
 
-      {/* 2. GLOBAL & BOMDOD DEFAULT ADHAN SETTINGS */}
+      {/* 2. VOLUME & HARDWARE CONTROLS */}
       <Card elevated className="p-6 space-y-6 border-[#c5a869]/30 bg-stone-900/60 backdrop-blur-md">
-        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-4">
-          Asosiy Azon va Bomdod Azoni Tanlovi
+        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-4 flex items-center gap-2">
+          <Sliders className="w-5 h-5 text-[#c5a869]" />
+          <span>Azon Ovoz Balandligi va Uskuna Sozlamalari</span>
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-black/30">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-stone-200 flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-[#c5a869]" />
+                <span>Azon ovoz balandligi: {Math.round((alertSettings.volume ?? 0.85) * 100)}%</span>
+              </label>
+            </div>
+            <div className="flex items-center gap-3">
+              <VolumeX className="w-4 h-4 text-stone-500 shrink-0" />
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={alertSettings.volume ?? 0.85}
+                onChange={(e) => {
+                  const vol = parseFloat(e.target.value);
+                  setAlertSettings({ ...alertSettings, volume: vol });
+                }}
+                className="w-full accent-[#c5a869] cursor-pointer"
+              />
+              <Volume2 className="w-4 h-4 text-[#c5a869] shrink-0" />
+            </div>
+          </div>
+
+          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-black/30">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-200">Tebranish (Vibratsiya):</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={alertSettings.vibrationEnabled ?? true}
+                  onChange={(e) =>
+                    setAlertSettings({ ...alertSettings, vibrationEnabled: e.target.checked })
+                  }
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-stone-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#c5a869]"></div>
+              </label>
+            </div>
+            <p className="text-[11px] text-stone-400">
+              Namoz vaqti kirganda mobil qurilmada maxsus tebranish signali beriladi.
+            </p>
+          </div>
+        </div>
+
+        {/* Global Track Selections */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
           <div className="space-y-2">
             <label className="text-xs font-semibold text-stone-300 block">
               Barcha namozlar uchun standart Azon:
@@ -231,6 +396,17 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* PWA / Browser Background Limitations Reality Banner */}
+        <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-950/20 text-amber-200 text-xs space-y-2">
+          <div className="font-bold flex items-center gap-2 text-amber-300">
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span>Mobil Brauzer va PWA Fon Cheklovlari (Haqiqiy holat)</span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-stone-300">
+            Zamonaviy mobil operatsion tizimlar (iOS Safari va Android Chrome) batareyani tejash uchun fon rejimida turgan veb-ilovalarning audio ijrosini toʻxtatishi mumkin. Eng ishonchli azon eslatmasi uchun ilovani bosh ekranga oʻrnatib (PWA), bildirishnomalarga toʻliq ruxsat bering hamda ilova ochiq yoki fon rejimida minimallashtirilgan boʻlishini taʼminlang.
+          </p>
         </div>
       </Card>
 

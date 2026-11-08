@@ -128,7 +128,7 @@ export const QURAN_RECITERS: QuranReciter[] = [
     id: 'suwayd',
     name: 'Shayx Ayman Rushdiy Suvayd',
     subtext: 'Suriya · Tajvid va tartil ustozi (114 sura toʻliq)',
-    previewUrl: 'https://server9.mp3quran.net/souda/001.mp3',
+    previewUrl: 'https://everyayah.com/data/Ayman_Sowaid_64kbps/001001.mp3',
   },
   {
     id: 'hussary',
@@ -140,31 +140,31 @@ export const QURAN_RECITERS: QuranReciter[] = [
     id: 'dussary',
     name: 'Shayx Yosir ad-Davsariy',
     subtext: 'Saudiya Arabistoni · Masjidul Harom imomi (114 sura toʻliq)',
-    previewUrl: 'https://server11.mp3quran.net/yasser/001.mp3',
+    previewUrl: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps/001001.mp3',
   },
   {
     id: 'sudais',
     name: 'Shayx Abdurahmon as-Sudays',
     subtext: 'Saudiya Arabistoni · Masjidul Harom bosh imomi (114 sura toʻliq)',
-    previewUrl: 'https://server11.mp3quran.net/sds/001.mp3',
+    previewUrl: 'https://everyayah.com/data/Abdurrahmaan_As-Sudais_192kbps/001001.mp3',
   },
   {
     id: 'juhany',
     name: 'Shayx Abdulloh al-Juhaniy',
     subtext: 'Saudiya Arabistoni · Masjidul Harom imomi (114 sura toʻliq)',
-    previewUrl: 'https://server13.mp3quran.net/jhn/001.mp3',
+    previewUrl: 'https://everyayah.com/data/Abdullaah_3awwaad_Al-Juhaynee_128kbps/001001.mp3',
   },
   {
     id: 'ghamidi',
     name: 'Shayx Saʼd al-Gʻomidiy',
     subtext: 'Saudiya Arabistoni · Xushovoz qiroat (114 sura toʻliq)',
-    previewUrl: 'https://server7.mp3quran.net/s_gmd/001.mp3',
+    previewUrl: 'https://everyayah.com/data/Ghamadi_40kbps/001001.mp3',
   },
   {
     id: 'shatri',
     name: 'Shayx Abu Bakr ash-Shotiriy',
     subtext: 'Saudiya Arabistoni · Mayin qiroat (114 sura toʻliq)',
-    previewUrl: 'https://server11.mp3quran.net/shatri/001.mp3',
+    previewUrl: 'https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps/001001.mp3',
   },
 ];
 
@@ -173,13 +173,73 @@ export const padNumber = (num: number, digits: number = 3): string => {
 };
 
 /**
- * Returns full Surah MP3 URL for streaming across 8 canonical reciters
+ * Returns active reciters (combining canonical reciters and admin-managed reciters)
+ */
+export const getActiveQuranReciters = (): QuranReciter[] => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      // 1. Check permanent storage key first
+      const permSaved = window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
+        window.localStorage.getItem('asaka_ziyo_reciters_v1');
+      if (permSaved) {
+        const parsed = JSON.parse(permSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const activeList = parsed
+            .filter((r: any) => r.isActive !== false && !r.isArchived)
+            .map((r: any) => ({
+              id: r.id,
+              name: r.name,
+              subtext: r.subtext || `${r.country || 'Islom olami'} · ${r.style || 'Murattal'} (${r.uploadedSurahsCount || 114}/114 sura)`,
+              previewUrl: r.previewUrl || 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
+            }));
+          if (activeList.length > 0) return activeList;
+        }
+      }
+    }
+  } catch {
+    // fallback to canonical
+  }
+  return QURAN_RECITERS;
+};
+
+/**
+ * Returns full Surah MP3 URL for streaming across canonical & admin-managed reciters.
+ * Checks custom admin-uploaded or overridden Surah recordings first.
  */
 export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number): string => {
   const padded = padNumber(surahNumber, 3);
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      // 1. Check permanent storage override
+      const permAudioRaw = window.localStorage.getItem('asaka_ziyo_permanent_surah_audio_v2') ||
+        window.localStorage.getItem('asaka_ziyo_quran_audio_overrides_v1');
+      if (permAudioRaw) {
+        const overrides = JSON.parse(permAudioRaw);
+        const key = `${reciterId}_${surahNumber}`;
+        if (overrides && overrides[key] && overrides[key].audioUrl && overrides[key].publicationStatus !== 'archived') {
+          return overrides[key].audioUrl;
+        }
+      }
+      // 2. Check custom reciter base server URL
+      const recitersRaw = window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
+        window.localStorage.getItem('asaka_ziyo_reciters_v1');
+      if (recitersRaw) {
+        const reciters = JSON.parse(recitersRaw);
+        const found = Array.isArray(reciters) ? reciters.find((r: any) => r.id === reciterId) : null;
+        if (found && found.surahServerBaseUrl) {
+          const base = String(found.surahServerBaseUrl).replace(/\/$/, '');
+          return `${base}/${padded}.mp3`;
+        }
+      }
+    }
+  } catch {
+    // fallback to verified CDN
+  }
+
   switch (reciterId) {
     case 'suwayd':
-      return `https://server9.mp3quran.net/souda/${padded}.mp3`;
+      return `https://server15.mp3quran.net/a-rushdi/Almusshaf-Al-Mo-lim/${padded}.mp3`;
     case 'hussary':
       return `https://server13.mp3quran.net/husr/${padded}.mp3`;
     case 'dussary':
@@ -206,13 +266,85 @@ export const getSurahAudioUrl = (surahNumber: number): string => {
 };
 
 /**
- * Returns single Ayah MP3 URL
+ * Returns single Ayah MP3 URL based on reciter
  */
-export const getAyahAudioUrl = (surahNumber: number, ayahNumberInSurah: number): string => {
+export const getReciterAyahAudioUrl = (
+  reciterId: string,
+  surahNumber: number,
+  ayahNumberInSurah: number
+): string => {
   const s = padNumber(surahNumber, 3);
   const a = padNumber(ayahNumberInSurah, 3);
-  return `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  switch (reciterId) {
+    case 'suwayd':
+      return `https://everyayah.com/data/Ayman_Sowaid_64kbps/${s}${a}.mp3`;
+    case 'hussary':
+      return `https://everyayah.com/data/Husary_128kbps/${s}${a}.mp3`;
+    case 'dussary':
+      return `https://everyayah.com/data/Yasser_Ad-Dussary_128kbps/${s}${a}.mp3`;
+    case 'sudais':
+      return `https://everyayah.com/data/Abdurrahmaan_As-Sudais_192kbps/${s}${a}.mp3`;
+    case 'juhany':
+      return `https://everyayah.com/data/Abdullaah_3awwaad_Al-Juhaynee_128kbps/${s}${a}.mp3`;
+    case 'ghamidi':
+      return `https://everyayah.com/data/Ghamadi_40kbps/${s}${a}.mp3`;
+    case 'shatri':
+      return `https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps/${s}${a}.mp3`;
+    case 'mishary':
+    default:
+      return `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+  }
 };
+
+/**
+ * Default single Ayah MP3 URL
+ */
+export const getAyahAudioUrl = (surahNumber: number, ayahNumberInSurah: number): string => {
+  return getReciterAyahAudioUrl('mishary', surahNumber, ayahNumberInSurah);
+};
+
+export interface JuzInfo {
+  juzNumber: number;
+  nameAr: string;
+  nameUz: string;
+  startSurah: number;
+  startAyah: number;
+  endSurah: number;
+  endAyah: number;
+}
+
+export const JUZ_LIST: JuzInfo[] = [
+  { juzNumber: 1, nameAr: 'الم', nameUz: 'Alif Lam Mim', startSurah: 1, startAyah: 1, endSurah: 2, endAyah: 141 },
+  { juzNumber: 2, nameAr: 'سَيَقُولُ', nameUz: 'Sayaqul', startSurah: 2, startAyah: 142, endSurah: 2, endAyah: 252 },
+  { juzNumber: 3, nameAr: 'تِلْكَ الرُّسُلُ', nameUz: 'Tilkar Rusul', startSurah: 2, startAyah: 253, endSurah: 3, endAyah: 92 },
+  { juzNumber: 4, nameAr: 'لَنْ تَنَالُوا', nameUz: 'Lan Tanalu', startSurah: 3, startAyah: 93, endSurah: 4, endAyah: 23 },
+  { juzNumber: 5, nameAr: 'وَالْمُحْصَنَاتُ', nameUz: 'Val Muhsonat', startSurah: 4, startAyah: 24, endSurah: 4, endAyah: 147 },
+  { juzNumber: 6, nameAr: 'لَا يُحِبُّ اللَّهُ', nameUz: 'La Yuhibbulloh', startSurah: 4, startAyah: 148, endSurah: 5, endAyah: 81 },
+  { juzNumber: 7, nameAr: 'وَإِذَا سَمِعُوا', nameUz: 'Va Iza Samiʼu', startSurah: 5, startAyah: 82, endSurah: 6, endAyah: 110 },
+  { juzNumber: 8, nameAr: 'وَلَوْ أَنَّنَا', nameUz: 'Va Lav Annana', startSurah: 6, startAyah: 111, endSurah: 7, endAyah: 87 },
+  { juzNumber: 9, nameAr: 'قَالَ الْمَلَأُ', nameUz: 'Qolal Malaʼu', startSurah: 7, startAyah: 88, endSurah: 8, endAyah: 40 },
+  { juzNumber: 10, nameAr: 'وَاعْلَمُوا', nameUz: 'Vaʼlamu', startSurah: 8, startAyah: 41, endSurah: 9, endAyah: 92 },
+  { juzNumber: 11, nameAr: 'يَعْتَذِرُونَ', nameUz: 'Yaʼtazirun', startSurah: 9, startAyah: 93, endSurah: 11, endAyah: 5 },
+  { juzNumber: 12, nameAr: 'وَمَا مِنْ دَابَّةٍ', nameUz: 'Va Ma Min Dabbah', startSurah: 11, startAyah: 6, endSurah: 12, endAyah: 52 },
+  { juzNumber: 13, nameAr: 'وَمَا أُبَرِّئُ', nameUz: 'Va Ma Ubarriʼu', startSurah: 12, startAyah: 53, endSurah: 14, endAyah: 52 },
+  { juzNumber: 14, nameAr: 'رُبَمَا', nameUz: 'Rubama', startSurah: 15, startAyah: 1, endSurah: 16, endAyah: 128 },
+  { juzNumber: 15, nameAr: 'سُبْحَانَ الَّذِي', nameUz: 'Subhanallazi', startSurah: 17, startAyah: 1, endSurah: 18, endAyah: 74 },
+  { juzNumber: 16, nameAr: 'قَالَ أَلَمْ', nameUz: 'Qola Alam', startSurah: 18, startAyah: 75, endSurah: 20, endAyah: 135 },
+  { juzNumber: 17, nameAr: 'اقْتَرَبَ', nameUz: 'Iqtaraba', startSurah: 21, startAyah: 1, endSurah: 22, endAyah: 78 },
+  { juzNumber: 18, nameAr: 'قَدْ أَفْلَحَ', nameUz: 'Qad Aflaha', startSurah: 23, startAyah: 1, endSurah: 25, endAyah: 20 },
+  { juzNumber: 19, nameAr: 'وَقَالَ الَّذِينَ', nameUz: 'Va Qolallazina', startSurah: 25, startAyah: 21, endSurah: 27, endAyah: 55 },
+  { juzNumber: 20, nameAr: 'أَمَّنْ خَلَقَ', nameUz: 'Amman Xolaqa', startSurah: 27, startAyah: 56, endSurah: 29, endAyah: 45 },
+  { juzNumber: 21, nameAr: 'اتْلُ مَا أُوحِيَ', nameUz: 'Utlu Ma Uhiya', startSurah: 29, startAyah: 46, endSurah: 33, endAyah: 30 },
+  { juzNumber: 22, nameAr: 'وَمَنْ يَقْنُتْ', nameUz: 'Va Man Yaqnut', startSurah: 33, startAyah: 31, endSurah: 36, endAyah: 27 },
+  { juzNumber: 23, nameAr: 'وَمَا لِيَ', nameUz: 'Va Ma Liya', startSurah: 36, startAyah: 28, endSurah: 39, endAyah: 31 },
+  { juzNumber: 24, nameAr: 'فَمَنْ أَظْلَمُ', nameUz: 'Faman Azlamu', startSurah: 39, startAyah: 32, endSurah: 41, endAyah: 46 },
+  { juzNumber: 25, nameAr: 'إِلَيْهِ يُرَدُّ', nameUz: 'Ilayhi Yuraddu', startSurah: 41, startAyah: 47, endSurah: 45, endAyah: 37 },
+  { juzNumber: 26, nameAr: 'حم', nameUz: 'Ha Mim', startSurah: 46, startAyah: 1, endSurah: 51, endAyah: 30 },
+  { juzNumber: 27, nameAr: 'قَالَ فَمَا خَطْبُكُمْ', nameUz: 'Qola Fama Xatbukum', startSurah: 51, startAyah: 31, endSurah: 57, endAyah: 29 },
+  { juzNumber: 28, nameAr: 'قَدْ سَمِعَ اللَّهُ', nameUz: 'Qod Samiʼalloh', startSurah: 58, startAyah: 1, endSurah: 66, endAyah: 12 },
+  { juzNumber: 29, nameAr: 'تَبَارَكَ الَّذِي', nameUz: 'Tabarokallazi', startSurah: 67, startAyah: 1, endSurah: 77, endAyah: 50 },
+  { juzNumber: 30, nameAr: 'عَمَّ', nameUz: 'Amma (Juz Amma)', startSurah: 78, startAyah: 1, endSurah: 114, endAyah: 6 },
+];
 
 export const VERIFIED_AYAHS: Record<number, Ayah[]> = {
   1: [

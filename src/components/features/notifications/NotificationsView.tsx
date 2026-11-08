@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import {
   getStoredBroadcastNotifications,
   markAllNotificationsRead,
@@ -109,7 +109,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
       case 'prayer':
         return <Clock className="w-4 h-4 text-emerald-400" />;
       case 'announcement':
-        return <Radio className="w-4 h-4 text-[#c5a869]" />;
+        return <Radio className="w-4 h-4 text-[#C6A45C]" />;
       case 'news':
         return <BookOpen className="w-4 h-4 text-blue-400" />;
       default:
@@ -122,7 +122,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
       case 'prayer':
         return { label: 'Namoz / Kunlik', bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' };
       case 'announcement':
-        return { label: 'Muhim Eʼlon', bg: 'bg-[#c5a869]/15 text-[#c5a869] border-[#c5a869]/30' };
+        return { label: 'Muhim Eʼlon', bg: 'bg-[#C6A45C]/15 text-[#C6A45C] border-[#C6A45C]/30' };
       case 'news':
         return { label: 'Ilmiy Maqola', bg: 'bg-blue-500/15 text-blue-400 border-blue-500/30' };
       default:
@@ -132,24 +132,28 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
 
   return (
     <div className="space-y-6 pb-16 max-w-4xl mx-auto">
-      {/* Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] p-6 sm:p-8 text-white shadow-xl">
-        <GeometricPattern opacity={0.06} />
+      {/* 2026 Luxury Architectural Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] p-6 sm:p-8 text-white shadow-2xl">
+        <GeometricPattern opacity={0.07} />
+        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[240px] ml-auto hidden md:block" />
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] tracking-wider uppercase">
-              <Bell className="w-4 h-4" />
-              <span>ASAKA ZIYO Bildirishnomalar Markazi</span>
-              {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
-                  {unreadCount} ta yangi
-                </span>
-              )}
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <CalligraphyBasmalahBadge />
+              <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] tracking-wider uppercase">
+                <Bell className="w-4 h-4" />
+                <span>ASAKA ZIYO Bildirishnomalar Markazi</span>
+                {unreadCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                    {unreadCount} ta yangi
+                  </span>
+                )}
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-[#F8F5EC] tracking-wide">
               Xabarnomalar va Kunlik Yangiliklar
             </h1>
-            <p className="text-xs sm:text-sm text-stone-300 max-w-xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#DCC58C]/90 max-w-xl leading-relaxed">
               Asaka jome masjidi eʼlonlari, tasdiqlangan namoz vaqtlari oʻzgarishi, har kunlik oyat, hadis va zikrlar bildirishnomalari.
             </p>
           </div>
@@ -160,7 +164,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
                 variant="outline"
                 size="sm"
                 onClick={handleMarkAllRead}
-                className="text-xs border-[#c5a869]/40 text-[#c5a869] hover:bg-[#c5a869]/15"
+                className="text-xs border-[#C6A45C]/45 text-[#C6A45C] hover:bg-[#C6A45C]/15"
               >
                 <CheckCheck className="w-3.5 h-3.5 mr-1.5" />
                 <span>Barchasini oʻqilgan qilish</span>
@@ -172,16 +176,16 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
 
       {/* Web Push Permission Card */}
       {pushStatus !== 'granted' && (
-        <Card className="p-4 bg-gradient-to-r from-emerald-950/40 via-[#071614] to-emerald-950/30 border-[#c5a869]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <Card elevated className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#c5a869]/15 border border-[#c5a869]/40 flex items-center justify-center shrink-0">
-              <BellRing className="w-5 h-5 text-[#c5a869] animate-pulse" />
+            <div className="w-10 h-10 rounded-xl bg-[#064e3b] dark:bg-[#c5a869]/15 border border-[#9e7f3c]/30 dark:border-[#c5a869]/35 flex items-center justify-center shrink-0">
+              <BellRing className="w-5 h-5 text-[#d4af37] dark:text-[#c5a869]" />
             </div>
             <div className="text-xs space-y-0.5">
-              <div className="font-bold text-stone-900 dark:text-white">
+              <div className="font-semibold text-[#14221B] dark:text-[#F4F1EA]">
                 Brauzer va Smartfon Push Bildirishnomalari
               </div>
-              <p className="text-stone-500 dark:text-stone-300 text-[11px] leading-relaxed">
+              <p className="text-[#4A5B52] dark:text-[#8FA199] text-xs leading-relaxed">
                 Ertalabki Kun Oyati, kunduzgi Kun Hadisi va kechki Kun Zikrini oʻz vaqtida qabul qilish uchun push ruxsatini yoqing.
               </p>
             </div>
@@ -280,14 +284,18 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
                       {getCategoryIcon(notif.category)}
                     </div>
                     <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badge.bg}`}>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-semibold text-[#064e3b] dark:text-[#c5a869]">
                           {badge.label}
                         </span>
                         {!notif.read && (
-                          <span className="w-2 h-2 rounded-full bg-[#c5a869] animate-pulse" />
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-semibold text-amber-700 dark:text-[#e6ce8a]">Yangi</span>
+                          </>
                         )}
-                        <span className="text-[11px] text-stone-400 font-mono-numbers">
+                        <span aria-hidden="true">·</span>
+                        <span className="text-[#6C7C73] dark:text-[#8FA199] font-mono-numbers">
                           {notif.timestamp}
                         </span>
                       </div>

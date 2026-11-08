@@ -1,11 +1,14 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getAuth,
+  initializeAuth,
+  inMemoryPersistence,
   signInWithEmailAndPassword,
   signOut,
   updatePassword,
   onAuthStateChanged,
   User,
+  Auth,
 } from 'firebase/auth';
 import {
   initializeFirestore,
@@ -17,6 +20,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  runTransaction,
   Firestore,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -67,7 +71,22 @@ try {
 }
 
 export const db: Firestore = firestoreInstance;
-export const auth = getAuth(app);
+
+let authInstance: Auth;
+try {
+  if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
+    authInstance = initializeAuth(app, { persistence: inMemoryPersistence });
+  } else {
+    authInstance = getAuth(app);
+  }
+} catch {
+  try {
+    authInstance = getAuth(app);
+  } catch {
+    authInstance = { currentUser: null } as unknown as Auth;
+  }
+}
+export const auth: Auth = authInstance;
 
 // Standard Canonical Email Resolver for the Single Authorized Administrator
 export const AUTHORIZED_ADMIN_USERNAME = 'menageradmin';
@@ -86,9 +105,16 @@ function loadAdminSessionFromStorage(): AdminUser | null {
         (window.localStorage && window.localStorage.getItem(ADMIN_SESSION_STORAGE_KEY));
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.admin && parsed.admin.email === AUTHORIZED_ADMIN_EMAIL && parsed.admin.isActive) {
+        if (
+          parsed &&
+          parsed.admin &&
+          parsed.admin.username === AUTHORIZED_ADMIN_USERNAME &&
+          parsed.admin.isActive &&
+          typeof parsed.token === 'string' &&
+          parsed.token.startsWith('asaka_admin_')
+        ) {
           activeAdminSession = parsed.admin;
-          activeAdminServerToken = parsed.token || null;
+          activeAdminServerToken = parsed.token;
           return parsed.admin;
         }
       }
@@ -101,8 +127,26 @@ function loadAdminSessionFromStorage(): AdminUser | null {
 
 loadAdminSessionFromStorage();
 
+function clearLocalAdminSessionStorage(): void {
+  activeAdminSession = null;
+  activeAdminServerToken = null;
+  try {
+    if (typeof window !== 'undefined') {
+      if (window.sessionStorage) window.sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+      if (window.localStorage) window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function getActiveAdminSession(): AdminUser | null {
-  if (activeAdminSession && activeAdminSession.email === AUTHORIZED_ADMIN_EMAIL && activeAdminSession.isActive) {
+  if (
+    activeAdminSession &&
+    activeAdminSession.username === AUTHORIZED_ADMIN_USERNAME &&
+    activeAdminSession.isActive &&
+    activeAdminServerToken
+  ) {
     return activeAdminSession;
   }
   return loadAdminSessionFromStorage();
@@ -116,11 +160,57 @@ export function getActiveAdminToken(): string | null {
 }
 
 export function isAdminAuthenticated(): boolean {
-  if (auth.currentUser && auth.currentUser.email?.toLowerCase() === AUTHORIZED_ADMIN_EMAIL) {
-    return true;
-  }
   const session = getActiveAdminSession();
-  return Boolean(session && session.email === AUTHORIZED_ADMIN_EMAIL && session.isActive);
+  const token = getActiveAdminToken();
+  return Boolean(
+    session &&
+      session.username === AUTHORIZED_ADMIN_USERNAME &&
+      session.isActive &&
+      token &&
+      token.startsWith('asaka_admin_')
+  );
+}
+
+/**
+ * Verifies the active administrator session with the backend server (/api/admin/session)
+ * using HttpOnly session cookies and/or Bearer token.
+ */
+export async function verifyAdminSessionWithServer(): Promise<AdminUser | null> {
+  try {
+    const token = getActiveAdminToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const resp = await fetch('/api/admin/session', {
+      method: 'GET',
+      credentials: 'include',
+      headers,
+    });
+    if (!resp.ok) {
+      clearLocalAdminSessionStorage();
+      return null;
+    }
+    const data = await resp.json();
+    if (!data?.authenticated || !data?.admin || data.admin.username !== AUTHORIZED_ADMIN_USERNAME) {
+      clearLocalAdminSessionStorage();
+      return null;
+    }
+    const verifiedAdmin: AdminUser = {
+      uid: data.admin.uid || AUTHORIZED_ADMIN_UID,
+      email: data.admin.email || AUTHORIZED_ADMIN_EMAIL,
+      username: AUTHORIZED_ADMIN_USERNAME,
+      displayName: data.admin.displayName || 'Asaka Ziyo Bosh Maʼmuri',
+      role: 'SUPER_ADMIN',
+      isActive: true,
+      createdAt: activeAdminSession?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    activeAdminSession = verifiedAdmin;
+    return verifiedAdmin;
+  } catch {
+    return getActiveAdminSession();
+  }
 }
 
 export function resolveLoginToEmail(loginOrEmail: string): string {
@@ -197,17 +287,18 @@ export async function testFirestoreConnection(): Promise<boolean> {
   }
 }
 
-// Firebase Auth: Sign Out
+// Administrator & Firebase Sign Out
 export async function signOutFirebase(): Promise<void> {
-  activeAdminSession = null;
-  activeAdminServerToken = null;
+  const token = activeAdminServerToken;
+  clearLocalAdminSessionStorage();
   try {
-    if (typeof window !== 'undefined') {
-      if (window.sessionStorage) window.sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-      if (window.localStorage) window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-    }
+    await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
   } catch {
-    // ignore
+    // ignore network failure during logout
   }
   try {
     await signOut(auth);
@@ -256,118 +347,61 @@ function normalizeRole(role: string): UserRole {
 }
 
 /**
- * Authenticates the single authorized administrator via username ("menageradmin" -> "asakaziyo0@gmail.com")
- * and password. Attempts Firebase Authentication Email/Password first, and when AI Studio's hosted project
- * returns PASSWORD_LOGIN_DISABLED, verifies credentials via /api/admin/auth and Firestore /admins/admin-asakaziyo0.
+ * Authenticates the single authorized administrator exclusively via username ("menageradmin")
+ * and password against the secure backend endpoint POST /api/admin/auth.
+ * Ordinary users, email-based logins, and Google Sign-In are strictly rejected.
  */
 export async function signInAdmin(
-  loginOrEmail: string,
+  usernameInput: string,
   pass: string
 ): Promise<{ user: User | null; admin: AdminUser }> {
-  if (!loginOrEmail.trim() || !pass.trim()) {
-    throw new Error('Login va parol kiritilishi shart.');
+  const cleanUsername = usernameInput.trim().toLowerCase();
+  if (!cleanUsername || !pass) {
+    throw new Error('Administrator logini va paroli kiritilishi shart.');
   }
 
-  const email = resolveLoginToEmail(loginOrEmail);
-  if (email !== AUTHORIZED_ADMIN_EMAIL) {
-    throw new Error('Login yoki parol notoʻgʻri kiritildi.');
+  if (cleanUsername !== AUTHORIZED_ADMIN_USERNAME) {
+    throw new Error('Kirish rad etildi: Administrator foydalanuvchi nomi (login) notoʻgʻri.');
   }
 
-  let firebaseUser: User | null = null;
-  let targetUid = AUTHORIZED_ADMIN_UID;
   let serverToken: string | null = null;
+  let serverAdminData: any = null;
 
-  // 1. Attempt Firebase Authentication Email/Password
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-    firebaseUser = userCredential.user;
-    targetUid = firebaseUser.uid;
-    serverToken = await firebaseUser.getIdToken();
-  } catch (authErr: any) {
-    const code = authErr?.code || '';
-    const msg = authErr?.message || '';
-    const isPasswordProviderDisabled =
-      code === 'auth/operation-not-allowed' ||
-      code === 'auth/admin-restricted-operation' ||
-      msg.includes('PASSWORD_LOGIN_DISABLED') ||
-      code === 'auth/user-not-found';
+  const resp = await fetch('/api/admin/auth', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: cleanUsername,
+      password: pass,
+    }),
+  });
 
-    if (!isPasswordProviderDisabled) {
-      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-        throw new Error('Login yoki parol notoʻgʻri kiritildi.');
-      }
-      if (code === 'auth/too-many-requests') {
-        throw new Error('Xavfsizlik yuzasidan vaqtincha bloklandi. Bir ozdan keyin qayta urinib ko‘ring.');
-      }
-      throw new Error(authErr?.message || 'Autentifikatsiya xatosi yuz berdi.');
-    }
-
-    // Hosted AI Studio Firebase project has PASSWORD_LOGIN_DISABLED; verify via secure backend endpoint
-    let verifiedByServer = false;
-    try {
-      const resp = await fetch('/api/admin/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: AUTHORIZED_ADMIN_USERNAME, email: AUTHORIZED_ADMIN_EMAIL, password: pass }),
-      });
-      if (resp.ok) {
-        const json = await resp.json();
-        if (json.success && json.token) {
-          verifiedByServer = true;
-          serverToken = json.token;
-        }
-      } else {
-        const errJson = await resp.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Login yoki parol notoʻgʻri kiritildi.');
-      }
-    } catch (serverErr: any) {
-      throw new Error(serverErr?.message || 'Login yoki parol notoʻgʻri kiritildi.');
-    }
-
-    if (!verifiedByServer) {
-      throw new Error('Login yoki parol notoʻgʻri kiritildi.');
-    }
+  if (!resp.ok) {
+    const errJson = await resp.json().catch(() => ({}));
+    throw new Error(errJson.error || 'Administrator foydalanuvchi nomi (login) yoki parol notoʻgʻri kiritildi.');
   }
 
-  // 2. Verify and ensure /admins/{uid} exists in Firestore with email = asakaziyo0@gmail.com
+  const json = await resp.json();
+  if (!json.success || !json.token) {
+    throw new Error('Administrator sessiya tokenini olishda xatolik yuz berdi.');
+  }
+
+  serverToken = json.token;
+  serverAdminData = json.admin || {};
+
   const nowIso = new Date().toISOString();
-  let adminProfile = await fetchAdminProfile(targetUid);
-  if (!adminProfile) {
-    adminProfile = {
-      uid: targetUid,
-      email: AUTHORIZED_ADMIN_EMAIL,
-      username: AUTHORIZED_ADMIN_USERNAME,
-      displayName: 'Bosh Administrator (Asaka Ziyo)',
-      role: 'SUPER_ADMIN',
-      isActive: true,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      lastLoginAt: nowIso,
-    };
-  } else {
-    adminProfile = {
-      ...adminProfile,
-      email: AUTHORIZED_ADMIN_EMAIL,
-      username: AUTHORIZED_ADMIN_USERNAME,
-      role: 'SUPER_ADMIN',
-      isActive: true,
-      updatedAt: nowIso,
-      lastLoginAt: nowIso,
-    };
-  }
-
-  try {
-    await setDoc(doc(db, 'admins', targetUid), adminProfile, { merge: true });
-    if (targetUid !== AUTHORIZED_ADMIN_UID) {
-      await setDoc(
-        doc(db, 'admins', AUTHORIZED_ADMIN_UID),
-        { ...adminProfile, uid: AUTHORIZED_ADMIN_UID },
-        { merge: true }
-      );
-    }
-  } catch (saveErr) {
-    console.warn('Firestore /admins profile sync warning:', saveErr);
-  }
+  const adminProfile: AdminUser = {
+    uid: serverAdminData.uid || AUTHORIZED_ADMIN_UID,
+    email: AUTHORIZED_ADMIN_EMAIL,
+    username: AUTHORIZED_ADMIN_USERNAME,
+    displayName: serverAdminData.displayName || 'Asaka Ziyo Bosh Maʼmuri',
+    role: 'SUPER_ADMIN',
+    isActive: true,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    lastLoginAt: serverAdminData.lastLoginAt || nowIso,
+  };
 
   activeAdminSession = adminProfile;
   activeAdminServerToken = serverToken;
@@ -379,10 +413,10 @@ export async function signInAdmin(
       if (window.localStorage) window.localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, serialized);
     }
   } catch {
-    // ignore
+    // ignore storage errors
   }
 
-  return { user: firebaseUser, admin: adminProfile };
+  return { user: null, admin: adminProfile };
 }
 
 /**
@@ -396,23 +430,22 @@ export async function changeCurrentAdminPassword(newPass: string): Promise<{ suc
     return { success: false, error: 'Parol kamida 8 ta belgidan iborat bo‘lishi lozim' };
   }
   try {
-    if (auth.currentUser) {
-      await updatePassword(auth.currentUser, newPass);
-    }
     const token = getActiveAdminToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
     if (token) {
-      const resp = await fetch('/api/admin/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ newPassword: newPass }),
-      });
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        return { success: false, error: errData.error || 'Parolni yangilashda xatolik' };
-      }
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const resp = await fetch('/api/admin/change-password', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({ newPassword: newPass }),
+    });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      return { success: false, error: errData.error || 'Parolni yangilashda xatolik' };
     }
     return { success: true };
   } catch (err: any) {
@@ -466,10 +499,16 @@ export async function syncDocToFirestore(
   }
 
   try {
+    const nowIso = new Date().toISOString();
     const cleanPayload = sanitizeForFirestore({
       ...data,
       adminEmail: AUTHORIZED_ADMIN_EMAIL,
-      syncedAt: new Date().toISOString(),
+      schemaVersion: 1,
+      createdAt: data.createdAt || nowIso,
+      updatedAt: nowIso,
+      createdBy: data.createdBy || (isAdminAuthenticated() ? AUTHORIZED_ADMIN_USERNAME : 'public_user'),
+      updatedBy: isAdminAuthenticated() ? AUTHORIZED_ADMIN_USERNAME : 'public_user',
+      syncedAt: nowIso,
     });
     await setDoc(doc(db, collectionName, docId), cleanPayload, { merge: true });
     return { success: true };
@@ -499,6 +538,50 @@ export async function deleteDocFromFirestore(
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.warn(`Firestore delete note for ${path}:`, errorMsg);
     return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Execute a safe atomic Firestore transaction
+ */
+export async function runFirestoreTransaction<T>(
+  updateFunction: (transaction: any) => Promise<T>
+): Promise<{ success: boolean; data?: T; error?: string }> {
+  try {
+    const result = await runTransaction(db, updateFunction);
+    return { success: true, data: result };
+  } catch (err: any) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Real-time collection listener using onSnapshot
+ */
+export function listenToFirestoreCollection<T = any>(
+  collectionName: string,
+  onData: (items: T[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    return onSnapshot(
+      collection(db, collectionName),
+      (snapshot) => {
+        const items: T[] = [];
+        snapshot.forEach((d) => {
+          items.push({ id: d.id, ...d.data() } as unknown as T);
+        });
+        onData(items);
+      },
+      (error) => {
+        console.warn(`[Firestore Real-time Listener Error] /${collectionName}:`, error);
+        if (onError) onError(error);
+      }
+    );
+  } catch (err) {
+    if (onError && err instanceof Error) onError(err);
+    return () => {};
   }
 }
 
@@ -561,5 +644,8 @@ export async function checkAdminRole(
   }
 }
 
-// Initial connection test
-testFirestoreConnection();
+// Initial connection test in browser/WebView runtime
+if (typeof window !== 'undefined') {
+  testFirestoreConnection();
+}
+

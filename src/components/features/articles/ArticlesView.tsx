@@ -12,7 +12,7 @@ import {
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import { getLocalizedField, getLocalizedParagraphs } from '../../../utils/localizedContent';
 import {
   getStoredArticles,
@@ -330,26 +330,30 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 1. Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] p-6 sm:p-10 text-white shadow-xl">
+      {/* 1. 2026 Luxury Architectural Header Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] p-6 sm:p-10 text-white shadow-2xl">
         <img
           src="/images/islamic_scholarship_library_1793634659800.jpg"
           alt="Islamic Scholarship Library"
-          className="absolute inset-0 w-full h-full object-cover object-center brightness-75"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#031d17]/95 via-[#031d17]/85 to-transparent" />
-        <GeometricPattern opacity={0.06} />
-        <div className="relative z-10 max-w-3xl space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <BookOpen className="w-4 h-4" />
-            <span>Asaka Ziyo Maʼrifiy Ekotizimi</span>
-            <span aria-hidden="true">·</span>
-            <span>Ilm, Axloq va Hikmat Maskani</span>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
+        <GeometricPattern opacity={0.07} />
+        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[280px] ml-auto hidden md:block" />
+        <div className="relative z-10 max-w-3xl space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CalligraphyBasmalahBadge />
+            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
+              <BookOpen className="w-4 h-4" />
+              <span>Asaka Ziyo Maʼrifiy Ekotizimi</span>
+              <span aria-hidden="true">·</span>
+              <span>Ilm, Axloq va Hikmat Maskani</span>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
             Maqolalar, Eʼlonlar, Manbalar va Arxiv
           </h1>
-          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-2xl">
             Asaka jome masjidi maʼmuriyati tomonidan tasdiqlangan yangiliklar, haftalik juma maʼruzalari eʼlonlari, moʻtabar maqolalar, sahih hadislar, zikrlar va sanalar boʻyicha toʻliq arxiv.
           </p>
         </div>
@@ -491,7 +495,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                         {isVideoUrl(mediaSrc, ann.mediaType) ? (
                           <video src={mediaSrc} className="w-full h-full object-cover" muted playsInline />
                         ) : (
-                          <img src={mediaSrc} alt={ann.title} className="w-full h-full object-cover" />
+                          <img src={mediaSrc} alt={ann.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                         )}
                       </div>
                     )}
@@ -998,8 +1002,8 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
 
             {/* Subtitle / Key Quote */}
             {readingArticle.keyQuote && (
-              <blockquote className="p-4 rounded-xl border-l-4 border-[#c5a869] bg-[#c5a869]/10 text-[#c5a869] font-editorial italic text-sm">
-                {readingArticle.keyQuote}
+              <blockquote className="py-4 px-5 rounded-xl border-y border-[#9e7f3c]/30 dark:border-[#c5a869]/30 bg-[#F3EFE6]/60 dark:bg-[#081815]/70 text-[#064e3b] dark:text-[#e6ce8a] font-editorial italic text-base sm:text-lg leading-relaxed">
+                «{readingArticle.keyQuote}»
               </blockquote>
             )}
 
@@ -1253,7 +1257,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                 {isVideoUrl(readingHadith.mediaUrl, readingHadith.mediaType) ? (
                   <video src={readingHadith.mediaUrl} controls className="w-full max-h-64" />
                 ) : (
-                  <img src={readingHadith.mediaUrl} alt="Hadis tasviri" className="w-full h-full object-cover" />
+                  <img src={readingHadith.mediaUrl} alt="Hadis tasviri" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 )}
               </div>
             )}
@@ -1294,7 +1298,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                 {isVideoUrl(readingDhikr.mediaUrl, readingDhikr.mediaType) ? (
                   <video src={readingDhikr.mediaUrl} controls className="w-full max-h-64" />
                 ) : (
-                  <img src={readingDhikr.mediaUrl} alt={readingDhikr.titleUz} className="w-full h-full object-cover" />
+                  <img src={readingDhikr.mediaUrl} alt={readingDhikr.titleUz} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 )}
               </div>
             )}

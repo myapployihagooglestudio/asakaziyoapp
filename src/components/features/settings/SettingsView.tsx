@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { AppSettings, SupportedLocale } from '../../../types';
 import { QURAN_RECITERS } from '../../../data/quranData';
 import { Card } from '../../ui/Card';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import { LanguageSelector } from '../../ui/LanguageSelector';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
   Settings as SettingsIcon,
   Moon,
   Sun,
+  Monitor,
   Type,
   Volume2,
   Bell,
@@ -50,20 +51,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16 max-w-4xl mx-auto">
-      {/* Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white p-6 sm:p-10">
-        <GeometricPattern opacity={0.05} />
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <SettingsIcon className="w-3.5 h-3.5" />
-            <span>{t('settings:systemCustomization')}</span>
-            <span aria-hidden="true">·</span>
-            <span>{t('settings:configuration')}</span>
+      {/* 2026 Luxury Architectural Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
+        <GeometricPattern opacity={0.07} />
+        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
+        <div className="relative z-10 space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CalligraphyBasmalahBadge />
+            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
+              <SettingsIcon className="w-3.5 h-3.5" />
+              <span>{t('settings:systemCustomization')}</span>
+              <span aria-hidden="true">·</span>
+              <span>{t('settings:configuration')}</span>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
             {t('settings:title')}
           </h1>
-          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
             {t('settings:subtitle')}
           </p>
         </div>
@@ -71,9 +76,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       <div className="space-y-6">
         {/* 1. Language & Writing System (5 Distinct Locales) */}
-        <Card elevated className="p-6 space-y-4 border-[#c5a869]/30">
+        <Card elevated className="p-6 space-y-4 border-[#C6A45C]/30">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-950/20 flex items-center justify-center text-[#c5a869]">
+            <div className="w-9 h-9 rounded-xl bg-[#063D32]/10 dark:bg-[#C6A45C]/15 flex items-center justify-center text-[#063D32] dark:text-[#C6A45C]">
               <Languages className="w-4 h-4" />
             </div>
             <div>
@@ -94,7 +99,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* 2. Visual Theme */}
         <Card elevated className="p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-950/20 flex items-center justify-center text-[#c5a869]">
+            <div className="w-9 h-9 rounded-xl bg-[#063D32]/10 dark:bg-[#C6A45C]/15 flex items-center justify-center text-[#063D32] dark:text-[#C6A45C]">
               {settings.theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </div>
             <div>
@@ -107,29 +112,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <button
               onClick={() => onUpdateSettings({ theme: 'dark' })}
-              className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                 settings.theme === 'dark'
-                  ? 'border-[#c5a869] bg-[#071614] text-[#c5a869] shadow-sm'
-                  : 'border-stone-200 dark:border-emerald-950 text-stone-600 dark:text-stone-400'
+                  ? 'border-[#C6A45C] bg-[#031814] text-[#C6A45C] shadow-md'
+                  : 'border-[#E2D9C5] dark:border-[#124237] text-[#3E524B] dark:text-[#9BB5AC] hover:border-[#C6A45C]/50'
               }`}
             >
-              <Moon className="w-4 h-4" />
-              <span>{t('settings:darkTheme')}</span>
+              <Moon className="w-4 h-4 shrink-0" />
+              <span>{t('settings:darkTheme', 'Qorongʻi (#031814)')}</span>
             </button>
 
             <button
               onClick={() => onUpdateSettings({ theme: 'light' })}
-              className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                 settings.theme === 'light'
-                  ? 'border-[#c5a869] bg-stone-100 text-[#071614] shadow-sm'
-                  : 'border-stone-200 dark:border-emerald-950 text-stone-600 dark:text-stone-400'
+                  ? 'border-[#063D32] bg-[#F8F5EC] text-[#063D32] shadow-md'
+                  : 'border-[#E2D9C5] dark:border-[#124237] text-[#3E524B] dark:text-[#9BB5AC] hover:border-[#063D32]/50'
               }`}
             >
-              <Sun className="w-4 h-4" />
-              <span>{t('settings:lightTheme')}</span>
+              <Sun className="w-4 h-4 shrink-0" />
+              <span>{t('settings:lightTheme', 'Yorugʻ (Warm Ivory)')}</span>
+            </button>
+
+            <button
+              onClick={() => onUpdateSettings({ theme: 'system' })}
+              className={`flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                settings.theme === 'system'
+                  ? 'border-[#C6A45C] bg-[#C6A45C]/15 text-[#063D32] dark:text-[#C6A45C] shadow-md'
+                  : 'border-[#E2D9C5] dark:border-[#124237] text-[#3E524B] dark:text-[#9BB5AC] hover:border-[#C6A45C]/50'
+              }`}
+            >
+              <Monitor className="w-4 h-4 shrink-0" />
+              <span>{t('settings:systemTheme', 'Tizim (Avto)')}</span>
             </button>
           </div>
         </Card>

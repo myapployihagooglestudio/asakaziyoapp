@@ -5,39 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <script>
       (function() {
-        // Intercept all Vite HMR WebSocket connections in AI Studio preview where HMR is disabled
+        // Intercept only Vite HMR WebSocket connections in AI Studio preview where HMR is disabled
         try {
-          const OrigWebSocket = window.WebSocket;
+          var OrigWebSocket = window.WebSocket;
           if (OrigWebSocket) {
             window.WebSocket = function(url, protocols) {
-              const isViteHmr = (typeof url === 'string' && (url.includes('vite') || url.includes('hmr') || url.includes('ws'))) ||
-                (Array.isArray(protocols) ? protocols.includes('vite-hmr') : protocols === 'vite-hmr');
-              
+              var isViteHmr =
+                (typeof url === 'string' && (url.indexOf('vite-hmr') !== -1 || url.indexOf('__vite') !== -1)) ||
+                (Array.isArray(protocols) ? protocols.indexOf('vite-hmr') !== -1 : protocols === 'vite-hmr');
+
               if (isViteHmr) {
-                const target = new EventTarget();
-                target.url = url;
-                target.protocols = protocols;
-                target.CONNECTING = 0;
-                target.OPEN = 1;
-                target.CLOSING = 2;
-                target.CLOSED = 3;
-                target.readyState = 1; // OPEN
-                target.binaryType = 'blob';
-                target.bufferedAmount = 0;
-                target.extensions = '';
-                target.protocol = Array.isArray(protocols) ? (protocols[0] || '') : (protocols || '');
-                target.send = function() {};
-                target.close = function() { target.readyState = 3; };
-                setTimeout(() => {
-                  try {
-                    const openEvt = new Event('open');
-                    if (typeof target.onopen === 'function') target.onopen(openEvt);
-                    target.dispatchEvent(openEvt);
-                  } catch (_) {}
-                }, 0);
-                return target;
+                try {
+                  var target = new EventTarget();
+                  target.url = url;
+                  target.protocols = protocols;
+                  target.CONNECTING = 0;
+                  target.OPEN = 1;
+                  target.CLOSING = 2;
+                  target.CLOSED = 3;
+                  target.readyState = 1;
+                  target.binaryType = 'blob';
+                  target.bufferedAmount = 0;
+                  target.extensions = '';
+                  target.protocol = Array.isArray(protocols) ? (protocols[0] || '') : (protocols || '');
+                  target.send = function() {};
+                  target.close = function() { target.readyState = 3; };
+                  setTimeout(function() {
+                    try {
+                      var openEvt = new Event('open');
+                      if (typeof target.onopen === 'function') target.onopen(openEvt);
+                      target.dispatchEvent(openEvt);
+                    } catch (_) {}
+                  }, 0);
+                  return target;
+                } catch (_) {
+                  return {
+                    url: url,
+                    readyState: 1,
+                    send: function() {},
+                    close: function() {},
+                    addEventListener: function() {},
+                    removeEventListener: function() {}
+                  };
+                }
               }
-              return new OrigWebSocket(url, protocols);
+              return protocols !== undefined ? new OrigWebSocket(url, protocols) : new OrigWebSocket(url);
             };
             window.WebSocket.prototype = OrigWebSocket.prototype;
             window.WebSocket.CONNECTING = 0;
@@ -48,7 +60,7 @@
         } catch (_) {}
 
         window.addEventListener('error', function(e) {
-          if (e && (e.message?.includes('WebSocket') || e.filename?.includes('@vite/client'))) {
+          if (e && ((e.message && e.message.indexOf('WebSocket') !== -1 && e.filename && e.filename.indexOf('client') !== -1) || (e.filename && e.filename.indexOf('@vite/client') !== -1))) {
             e.stopImmediatePropagation();
             e.preventDefault();
             return true;
@@ -56,7 +68,7 @@
         }, true);
 
         window.addEventListener('unhandledrejection', function(e) {
-          if (e && e.reason && String(e.reason).includes('WebSocket')) {
+          if (e && e.reason && String(e.reason).indexOf('vite-hmr') !== -1) {
             e.preventDefault();
             return true;
           }
@@ -69,26 +81,56 @@
     <meta property="og:description" content="Asaka shahri va mintaqa ahli uchun mo'ljallangan ilmiy-ma'rifiy islomiy raqamli platforma. Qur'oni Karim, hadislar, zikrlar, Asaka namoz vaqtlari va ma'muriyat konsoli." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#071614" />
+    <meta name="theme-color" content="#031814" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Asaka Ziyo" />
+    <meta name="apple-mobile-web-app-title" content="ASAKA ZIYO" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="Asaka Ziyo" />
+    <meta name="application-name" content="ASAKA ZIYO" />
 
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="alternate" type="application/manifest+json" href="./manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./pwa-512x512.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
 
-    <!-- Google Fonts: Plus Jakarta Sans (UI), Cinzel & Cormorant Garamond (Editorial Titles), Amiri (Traditional Arabic Calligraphy), JetBrains Mono (Tabular numerals) -->
+    <!-- Google Fonts loaded non-blocking so offline mobile APK startup never hangs -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    </noscript>
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('asaka_ziyo_settings');
+          var theme = raw ? JSON.parse(raw).theme : 'dark';
+          var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          if (isDark) {
+            root.classList.add('dark');
+            root.style.colorScheme = 'dark';
+          } else {
+            root.classList.remove('dark');
+            root.style.colorScheme = 'light';
+          }
+        } catch (_) {}
+      })();
+    </script>
   </head>
-  <body class="bg-stone-50 text-stone-900 dark:bg-[#071614] dark:text-stone-100 antialiased selection:bg-[#c5a869]/30 selection:text-white min-h-screen">
-    <div id="root"></div>
+  <body class="bg-[#F8F5EC] text-[#042B25] dark:bg-[#031814] dark:text-[#F8F5EC] antialiased selection:bg-[#c5a869]/30 selection:text-[#14221B] dark:selection:text-white min-h-screen">
+    <div id="root">
+      <!-- Pre-mount shell automatically replaced by React createRoot().render() -->
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#031814;color:#F8F5EC;font-family:system-ui,-apple-system,sans-serif;padding:24px;text-align:center;">
+        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#075747,#042B25);border:1px solid rgba(198,164,92,0.55);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 12px 32px rgba(0,0,0,0.35);">
+          <span style="color:#DCC58C;font-size:24px;line-height:1;">۞</span>
+        </div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:0.14em;color:#F8F5EC;margin-bottom:6px;">ASAKA ZIYO</div>
+        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#C6A45C;">Islomiy Raqamli Ekotizim</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -3,9 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { DhikrItem, NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
-import { getStoredDhikrs, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
+import {
+  getStoredDhikrs,
+  subscribeToDatabase,
+  isPubliclyPublished,
+  getStoredTasbihStats,
+  recordTasbihCount,
+} from '../../../utils/databaseService';
 import {
   Sparkles,
   RotateCcw,
@@ -133,11 +139,18 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
     }
   };
 
+  const [stats, setStats] = useState<any>(() => getStoredTasbihStats('asaka_user_current'));
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   const handleIncrement = () => {
     playClickSound();
     triggerHaptic();
 
     const nextCount = count + 1;
+    // Record to persistent tasbih stats engine
+    const updatedStats = recordTasbihCount('asaka_user_current', 1, activeDhikr.titleUz);
+    setStats(updatedStats);
+
     if (nextCount >= activeDhikr.targetCount) {
       setCount(0);
       setTotalCompletedRounds((prev) => prev + 1);
@@ -155,7 +168,16 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
   };
 
   const handleReset = () => {
+    if (count > 0) {
+      setShowResetConfirm(true);
+    } else {
+      setCount(0);
+    }
+  };
+
+  const confirmReset = () => {
     setCount(0);
+    setShowResetConfirm(false);
   };
 
   const isCurrentSaved = isFavorited(activeDhikr.id);
@@ -166,20 +188,24 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] to-[#071614] text-white p-6 sm:p-10">
-        <GeometricPattern opacity={0.05} />
-        <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{t('dhikr:bannerPretitle')}</span>
-            <span aria-hidden="true">·</span>
-            <span>{t('dhikr:bannerSource')}</span>
+      {/* 2026 Luxury Architectural Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
+        <GeometricPattern opacity={0.07} />
+        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
+        <div className="relative z-10 max-w-2xl space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CalligraphyBasmalahBadge />
+            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{t('dhikr:bannerPretitle')}</span>
+              <span aria-hidden="true">·</span>
+              <span>{t('dhikr:bannerSource')}</span>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
             {t('dhikr:title')}
           </h1>
-          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
             {t('dhikr:subtitle')}
           </p>
         </div>
@@ -248,11 +274,42 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
               </button>
             </div>
 
+            {/* Total Rounds Finished & Smart Tasbih Persistent Stats */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-200/80 dark:border-white/10 text-center">
+              <div className="p-2 rounded-xl bg-stone-50 dark:bg-[#071614] border border-stone-200 dark:border-white/5">
+                <span className="text-[10px] text-stone-500 dark:text-stone-400 block">Bugungi Jami Zikr:</span>
+                <span className="text-xs font-bold font-mono-numbers text-[#9E7F3C] dark:text-[#c5a869]">
+                  {stats?.todayTotal || 0} marta
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-stone-50 dark:bg-[#071614] border border-stone-200 dark:border-white/5">
+                <span className="text-[10px] text-stone-500 dark:text-stone-400 block">Barcha Vaqtlar:</span>
+                <span className="text-xs font-bold font-mono-numbers text-emerald-600 dark:text-emerald-400">
+                  {stats?.allTimeTotal || 0} marta
+                </span>
+              </div>
+            </div>
+
             {/* Total Rounds Finished */}
             <div className="flex items-center justify-center gap-2 text-xs text-stone-500 dark:text-stone-400 font-mono-numbers">
               <Award className="w-4 h-4 text-[#c5a869]" />
               <span>{t('dhikr:roundsCompleted')}: <strong className="text-stone-800 dark:text-stone-200">{totalCompletedRounds}</strong></span>
             </div>
+
+            {/* Reset Confirmation Dialog */}
+            {showResetConfirm && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 text-stone-800 dark:text-stone-200">
+                <p className="font-semibold text-center">Hisoblagichni nolga tushirishni tasdiqlaysizmi?</p>
+                <div className="flex justify-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setShowResetConfirm(false)} className="text-xs">
+                    Bekor qilish
+                  </Button>
+                  <Button size="sm" variant="primary" onClick={confirmReset} className="text-xs bg-rose-600 hover:bg-rose-700 text-white">
+                    Nollash
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Active Dhikr Summary */}
             <div className="pt-4 border-t border-stone-100 dark:border-emerald-950/60 text-left space-y-2">

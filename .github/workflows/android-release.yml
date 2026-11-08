@@ -1,0 +1,52 @@
+name: Build & Publish Signed ASAKA ZIYO Android APK & AAB
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Compile, Sign & Verify Android Release (APK + AAB)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK 34
+        uses: android-actions/setup-android@v3
+
+      - name: Install Frontend Dependencies & Build Production Bundle
+        run: |
+          npm install
+          npm run build
+
+      - name: Copy Web Assets to Android Asset Directory
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -r dist/* android/app/src/main/assets/public/
+
+      - name: Generate Signed Standalone APK & Verify Binary Structure
+        run: |
+          node scripts/build-android-apk.cjs
+
+      - name: Upload Signed Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Asaka-Ziyo-v2.0.0-Release-APK
+          path: |
+            public/Asaka-Ziyo-v2.0.0.apk
+            public/Asaka-Ziyo-v1.0.0.apk

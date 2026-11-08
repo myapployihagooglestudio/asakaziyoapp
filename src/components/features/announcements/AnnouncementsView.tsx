@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { SupportedLocale, AnnouncementItem } from '../../../types';
 import { getStoredAnnouncements, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { Calendar, MapPin, Clock, User, Phone, Megaphone } from 'lucide-react';
 
@@ -30,26 +30,30 @@ export const AnnouncementsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] text-white p-6 sm:p-10 shadow-xl">
+      {/* 2026 Luxury Architectural Banner */}
+      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
         <img
           src="/images/asaka_islamic_architecture_1793634657962.jpg"
           alt="Asaka Islamic Architecture"
-          className="absolute inset-0 w-full h-full object-cover object-center brightness-75"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#031d17]/95 via-[#031d17]/85 to-transparent" />
-        <GeometricPattern opacity={0.05} />
-        <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <Megaphone className="w-3.5 h-3.5" />
-            <span>{t('announcements:communityNews', 'Jome Masjidi Eʼlonlari')}</span>
-            <span aria-hidden="true">·</span>
-            <span>{t('announcements:mosqueLife', 'Masjid hayoti')}</span>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
+        <GeometricPattern opacity={0.07} />
+        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
+        <div className="relative z-10 max-w-2xl space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CalligraphyBasmalahBadge />
+            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
+              <Megaphone className="w-3.5 h-3.5" />
+              <span>{t('announcements:communityNews', 'Jome Masjidi Eʼlonlari')}</span>
+              <span aria-hidden="true">·</span>
+              <span>{t('announcements:mosqueLife', 'Masjid hayoti')}</span>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
             {t('announcements:title', 'Rasmiy Eʼlonlar va Tadbirlar')}
           </h1>
-          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
             {t('announcements:subtitle', 'Asaka markaziy jome masjidi va maʼmuriyati tomonidan eʼlon qilinadigan juma maʼruzalari, darslar va muhim tadbirlar.')}
           </p>
         </div>

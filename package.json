@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
+    "build:apk": "node scripts/build-android-apk.cjs",
+    "build:all": "vite build && node scripts/build-android-apk.cjs",
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/databaseService.test.ts",
+    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/databaseService.test.ts && tsx src/utils/quran.test.ts && tsx src/utils/extendedModules.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
+    "@google/genai": "^3.0.0",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",

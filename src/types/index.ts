@@ -20,7 +20,19 @@ export type NavigationTab =
   | 'daily_archive'
   | 'quiz'
   | 'calendar'
-  | 'reminder_dashboard';
+  | 'reminder_dashboard'
+  | 'profile'
+  | 'khatm_planner'
+  | 'prayer_journal'
+  | 'mosque_events'
+  | 'academy'
+  | 'charity'
+  | 'fasting'
+  | 'library'
+  | 'ask_imam'
+  | 'achievements'
+  | 'ai_assistant'
+  | 'search';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 
@@ -59,6 +71,16 @@ export interface PrayerTimeEntry {
   descriptionUz: string;
 }
 
+export interface ScheduleHistoryRecord {
+  id: string;
+  publishedAt: string;
+  publishedBy: string;
+  date: string;
+  formattedDateUz: string;
+  notes?: string;
+  times: PrayerTimeEntry[];
+}
+
 export interface PrayerSchedule {
   date: string; // e.g. "2026-11-02"
   formattedDateUz: string; // e.g. "2-Noyabr, Dushanba"
@@ -71,6 +93,8 @@ export interface PrayerSchedule {
   verifiedAt?: string;
   disclaimer: string;
   times: PrayerTimeEntry[];
+  version?: number;
+  publicationHistory?: ScheduleHistoryRecord[];
 }
 
 export interface Surah {
@@ -81,6 +105,40 @@ export interface Surah {
   numberOfAyahs: number;
   revelationType: 'Makkah' | 'Madina';
   pageNumber: number;
+  juzNumber?: number;
+}
+
+export interface QuranBookmark {
+  id: string;
+  surahNumber: number;
+  ayahNumberInSurah: number;
+  surahNameUz: string;
+  snippet: string;
+  snippetAr?: string;
+  snippetUz?: string;
+  createdAt: string;
+}
+
+export interface QuranNote {
+  id: string;
+  surahNumber: number;
+  ayahNumberInSurah: number;
+  surahNameUz: string;
+  ayahSnippet: string;
+  noteText: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuranReadingProgress {
+  lastReadSurah: number;
+  lastReadAyah: number;
+  lastReadAt: string;
+  dailyGoalAyahs: number;
+  todayAyahsRead: number;
+  todayDateStr: string;
+  khatmCompletedSurahs: number[]; // array of completed surah numbers
+  khatmCompletionDate?: string;
 }
 
 export interface AyahTranslationMetadata {
@@ -98,6 +156,7 @@ export interface Ayah {
   numberInSurah: number;
   surahNumber: number;
   surahNameUz: string;
+  juzNumber?: number;
   textAr: string; // Arabic source text — NEVER modified during locale changes
   translationUz: string;
   transliterationUz: string;
@@ -177,6 +236,7 @@ export interface MediaPost extends Archivable {
   publishedDate: string;
   category: string;
   likesCount: number;
+  viewsCount?: number;
   commentsCount: number;
   comments?: CommentItem[];
   isPublished: boolean;
@@ -211,6 +271,7 @@ export interface Article extends Archivable {
   keyQuote?: string;
   isFeatured?: boolean;
   likesCount?: number;
+  viewsCount?: number;
   rating?: number; // 1-5 stars
   ratingsCount?: number;
   comments?: CommentItem[];
@@ -227,6 +288,7 @@ export interface NewsItem extends Archivable {
   source: string;
   imageUrl?: string;
   isImportant?: boolean;
+  viewsCount?: number;
   translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
@@ -244,14 +306,21 @@ export interface AnnouncementItem extends Archivable {
   contact?: string;
   contactPhone?: string;
   isPinned?: boolean;
+  viewsCount?: number;
   translations?: Partial<Record<SupportedLocale, LocalizedContentEntry>>;
 }
 
 export type UserRole =
   | 'SUPER_ADMIN'
+  | 'ADMIN'
+  | 'CONTENT_MANAGER'
+  | 'QURAN_AUDIO_MANAGER'
+  | 'PRAYER_TIMES_MANAGER'
+  | 'EDITOR'
+  | 'MODERATOR'
+  | 'ANALYST'
   | 'CONTENT_ADMIN'
   | 'PRAYER_ADMIN'
-  | 'EDITOR'
   | 'NOTIFICATION_ADMIN'
   | 'VIEWER';
 
@@ -260,6 +329,8 @@ export interface AdminRoleConfig {
   labelUz: string;
   descriptionUz: string;
   permissions: string[];
+  allowedModules?: string[];
+  allowedActions?: ('view' | 'create' | 'edit' | 'publish' | 'archive' | 'delete' | 'manage_permissions')[];
 }
 
 export interface AdminUser {
@@ -298,7 +369,7 @@ export interface FavoriteItem {
 }
 
 export interface AppSettings {
-  theme: 'dark' | 'light';
+  theme: 'dark' | 'light' | 'system';
   arabicFontSize: 'standard' | 'large' | 'huge';
   showTransliteration: boolean;
   activeReciterId: string;
@@ -376,4 +447,312 @@ export interface QuizAttemptItem {
   answers: { questionId: string; selectedIndex: number; isCorrect: boolean }[];
   streakDays?: number;
 }
+
+// ---------------------------------------------------------------------------
+// 1. QURAN KHATM PLANNER INTERFACES
+// ---------------------------------------------------------------------------
+export type KhatmDurationType = '30_days' | '60_days' | '90_days' | 'custom';
+
+export interface KhatmPlan {
+  id: string;
+  userId: string;
+  title: string;
+  durationType: KhatmDurationType;
+  totalDays: number;
+  startDate: string; // ISO date YYYY-MM-DD
+  targetEndDate: string; // ISO date
+  totalPages: number; // 604 standard Madinah Mushaf
+  completedPages: number;
+  completedAyahs: number;
+  completedJuz: number[]; // 1..30
+  status: 'active' | 'paused' | 'completed';
+  remindersEnabled: boolean;
+  reminderTime: string; // "06:30"
+  pagesPerDay: number;
+  lastReadDate?: string;
+  lastReadPage?: number;
+  missedPagesAdjustment: number; // auto-recalculated when behind
+  dailyLog: Record<string, { pagesRead: number; completedAt: string }>;
+  completionHistory?: { completedAt: string; daysTaken: number; notes?: string }[];
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 2. PERSONAL PRAYER JOURNAL INTERFACES
+// ---------------------------------------------------------------------------
+export type PrayerStatus = 'completed' | 'missed' | 'not_recorded';
+
+export interface DailyPrayerRecord {
+  date: string; // YYYY-MM-DD
+  userId: string;
+  prayers: Record<PrayerKey, { status: PrayerStatus; loggedAt?: string; inCongregation?: boolean }>;
+  notes?: string;
+  dailyGoalMet: boolean;
+  updatedAt: string;
+}
+
+export interface PrayerJournalPreferences {
+  userId: string;
+  enableReminders: boolean;
+  targetDailyPrayers: number; // usually 5
+  trackTahajjud: boolean;
+  isPrivate: boolean;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 3. SMART DIGITAL TASBIH INTERFACES
+// ---------------------------------------------------------------------------
+export interface TasbihSession {
+  id: string;
+  userId: string;
+  dhikrId: string;
+  dhikrTitleUz: string;
+  dhikrTextAr: string;
+  count: number;
+  targetCount: number;
+  completedRounds: number;
+  date: string; // YYYY-MM-DD
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TasbihStats {
+  todayTotal: number;
+  monthTotal: number;
+  allTimeTotal: number;
+  favoriteDhikrId?: string;
+  dailyTarget: number;
+  vibrationIntensity: 'light' | 'medium' | 'strong' | 'off';
+  clickSound: 'click' | 'subtle' | 'off';
+  history: { date: string; totalCount: number }[];
+}
+
+// ---------------------------------------------------------------------------
+// 4. MOSQUE EVENTS & ISLAMIC CALENDAR
+// ---------------------------------------------------------------------------
+export type MosqueEventType = 'lecture' | 'quran_class' | 'tajwid' | 'friday_program' | 'charity_drive' | 'community';
+
+export interface MosqueEventItem extends Archivable {
+  id: string;
+  title: string;
+  type: MosqueEventType;
+  date: string; // YYYY-MM-DD
+  time: string; // "14:30"
+  location: string;
+  instructor: string;
+  instructorTitle?: string;
+  description: string;
+  imageUrl?: string;
+  capacity?: number;
+  registeredUserIds: string[];
+  isPublished: boolean;
+  publishedAt: string;
+  createdBy: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 5. ISLAMIC LEARNING ACADEMY
+// ---------------------------------------------------------------------------
+export type AcademyTrackKey = 'aqida' | 'fiqh' | 'tajwid' | 'hadith' | 'seerah' | 'history';
+
+export interface AcademyLesson {
+  id: string;
+  trackId: AcademyTrackKey;
+  trackTitleUz: string;
+  order: number;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  instructor: string;
+  verifiedSource: string;
+  audioUrl?: string;
+  videoUrl?: string;
+  contentMarkdown: string;
+  quizQuestions?: {
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+    sourceReference: string;
+  }[];
+}
+
+export interface StudentProgress {
+  userId: string;
+  completedLessons: string[]; // lesson IDs
+  trackProgress: Record<AcademyTrackKey, { completedCount: number; examScore?: number }>;
+  enrolledDate: string;
+  lastActiveDate: string;
+  certificatesEarned: string[];
+}
+
+// ---------------------------------------------------------------------------
+// 6. CHARITY & SADAQAH MODULE
+// ---------------------------------------------------------------------------
+export type CampaignStatus = 'active' | 'completed' | 'urgent';
+
+export interface CharityCampaign extends Archivable {
+  id: string;
+  title: string;
+  category: 'masjid_tamiri' | 'muhtojlar' | 'talabalar' | 'ramazon_ehson' | 'iftorlik';
+  description: string;
+  targetAmountUzs: number;
+  collectedAmountUzs: number;
+  pledgedAmountUzs: number;
+  deadlineDate: string;
+  beneficiaryLocation: string;
+  supportingDocuments: { title: string; docUrl: string }[];
+  isVerified: boolean;
+  status: CampaignStatus;
+  paymentInstructions: {
+    providerName: string; // Click / Payme / Bank Transfer (Non-credentialed standard payment flow)
+    accountReference: string;
+    legalEntityName: string;
+    officialInvoiceUrl?: string;
+  };
+  financialAuditRecords: {
+    recordId: string;
+    date: string;
+    amountUzs: number;
+    purpose: string;
+    receiptUrl?: string;
+    verifiedBy: string;
+  }[];
+  publishedAt: string;
+  updatedAt: string;
+}
+
+export interface UserDonationPledge {
+  id: string;
+  userId: string;
+  campaignId: string;
+  campaignTitle: string;
+  amountUzs: number;
+  status: 'pledged' | 'confirmed';
+  transactionReference?: string;
+  donatedAt: string;
+  isAnonymous: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// 7. RAMADAN & VOLUNTARY FASTING ASSISTANT
+// ---------------------------------------------------------------------------
+export type FastingPlanType = 'ramadan' | 'monday_thursday' | 'ayamul_beed' | 'ashura' | 'arafah' | 'qazo';
+
+export interface FastingDayEntry {
+  date: string; // YYYY-MM-DD
+  hijriDate: string;
+  imsakTime: string; // 10 minutes prior to subh/fajr
+  fajrTime: string;
+  iftarTime: string; // Maghrib prayer time
+  suhoorDuaAr: string;
+  suhoorDuaUz: string;
+  iftarDuaAr: string;
+  iftarDuaUz: string;
+  isCompleted?: boolean;
+  notes?: string;
+}
+
+export interface UserFastingJournal {
+  userId: string;
+  completedFasts: string[]; // dates YYYY-MM-DD
+  qazoFastsTotal: number;
+  qazoFastsCompleted: number;
+  activePlan: FastingPlanType;
+  reminderMinutesBeforeImsak: number;
+  reminderMinutesBeforeIftar: number;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 8. ISLAMIC DIGITAL LIBRARY
+// ---------------------------------------------------------------------------
+export type BookCategory = 'quran' | 'hadith' | 'aqida' | 'fiqh' | 'tarbiya' | 'tarix';
+
+export interface DigitalBookItem extends Archivable {
+  id: string;
+  title: string;
+  author: string;
+  category: BookCategory;
+  categoryTitleUz: string;
+  publisher: string;
+  year: number;
+  pagesCount: number;
+  coverImageUrl?: string;
+  description: string;
+  isCopyrightCleared: boolean;
+  permissionNote?: string;
+  pdfUrl?: string;
+  sampleChapters?: { title: string; contentText: string }[];
+  isPublished: boolean;
+  publishedAt: string;
+  viewsCount: number;
+  readsCount: number;
+}
+
+export interface UserReadingBookmark {
+  userId: string;
+  bookId: string;
+  bookTitle: string;
+  lastPage: number;
+  totalPages: number;
+  percent: number;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 9. ASK THE IMAM SYSTEM
+// ---------------------------------------------------------------------------
+export type QuestionCategory = 'ibodat' | 'oilaviy' | 'muomala' | 'aqida' | 'ramazon' | 'umumiy';
+export type QuestionStatus = 'submitted' | 'assigned' | 'answered' | 'archived';
+
+export interface ImamQuestionItem {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  isAnonymous: boolean;
+  category: QuestionCategory;
+  title: string;
+  questionText: string;
+  supportingInfo?: string;
+  submittedAt: string;
+  status: QuestionStatus;
+  assignedScholarName?: string;
+  answerText?: string;
+  sourceReferences?: string;
+  answeredAt?: string;
+  isPubliclyVisible: boolean; // Only if approved for public Q&A
+  adminModerationNotes?: string;
+}
+
+// ---------------------------------------------------------------------------
+// 10. PERSONAL ISLAMIC ACHIEVEMENTS
+// ---------------------------------------------------------------------------
+export interface IslamicAchievementMilestone {
+  id: string;
+  category: 'quran' | 'prayer' | 'dhikr' | 'academy' | 'quiz' | 'fasting';
+  titleUz: string;
+  descriptionUz: string;
+  iconName: string;
+  unlockedAt?: string;
+  targetCount: number;
+  currentCount: number;
+  isUnlocked: boolean;
+}
+
+export interface PersonalProgressSummary {
+  userId: string;
+  streakDays: number;
+  quranPagesReadTotal: number;
+  prayersCompletedTotal: number;
+  dhikrsCountTotal: number;
+  quizzesCompletedTotal: number;
+  academyLessonsCompleted: number;
+  isPrivate: boolean;
+  achievements: IslamicAchievementMilestone[];
+  updatedAt: string;
+}
+
 

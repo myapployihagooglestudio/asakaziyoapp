@@ -72,12 +72,37 @@ const ISLAMIC_EVENTS: IslamicEvent[] = [
   },
 ];
 
+const CALENDAR_REMINDERS_KEY = 'asaka_ziyo_calendar_reminders_v1';
+
 export const CalendarView: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [reminders, setReminders] = useState<Record<string, boolean>>({});
+  const [reminders, setReminders] = useState<Record<string, boolean>>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem(CALENDAR_REMINDERS_KEY);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {
+      // fallback
+    }
+    return {};
+  });
 
   const toggleReminder = (id: string) => {
-    setReminders((prev) => ({ ...prev, [id]: !prev[id] }));
+    setReminders((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem(CALENDAR_REMINDERS_KEY, JSON.stringify(next));
+        }
+      } catch {
+        // ignore
+      }
+      if (next[id] && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+      return next;
+    });
   };
 
   const filteredEvents = ISLAMIC_EVENTS.filter(
@@ -114,10 +139,10 @@ export const CalendarView: React.FC = () => {
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`px-4 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
               selectedCategory === cat.id
                 ? 'bg-[#c5a869] text-[#071614] shadow-md'
-                : 'bg-stone-900/60 text-stone-300 hover:bg-stone-800 border border-white/10'
+                : 'bg-white dark:bg-[#0B1F1C] text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-emerald-950/60 border border-stone-200 dark:border-[#c5a869]/20'
             }`}
           >
             {cat.label}
@@ -134,40 +159,40 @@ export const CalendarView: React.FC = () => {
             <Card
               key={ev.id}
               elevated
-              className="p-6 space-y-4 border-[#c5a869]/30 bg-stone-900/50 backdrop-blur-md hover:border-[#c5a869] transition-all"
+              className="p-6 space-y-4 border-stone-200/90 dark:border-[#c5a869]/30 bg-white dark:bg-[#0B1F1C] hover:border-[#c5a869] transition-all"
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <span className="px-3 py-1 rounded-full bg-[#c5a869]/20 text-[#c5a869] text-xs font-bold font-mono-numbers">
+              <div className="flex items-center justify-between border-b border-stone-200/80 dark:border-white/10 pb-3">
+                <span className="px-3 py-1 rounded-full bg-[#c5a869]/15 dark:bg-[#c5a869]/20 text-[#9E7F3C] dark:text-[#c5a869] text-xs font-bold font-mono-numbers">
                   {ev.hijriDate}
                 </span>
-                <span className="text-xs text-stone-400 font-mono-numbers">
+                <span className="text-xs text-stone-500 dark:text-stone-400 font-mono-numbers">
                   {ev.gregorianDate}
                 </span>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Star className="w-4 h-4 text-[#c5a869]" />
+                <h3 className="text-lg font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                  <Star className="w-4 h-4 text-[#9E7F3C] dark:text-[#c5a869] shrink-0" />
                   <span>{ev.titleUz}</span>
                 </h3>
-                <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
                   {ev.descriptionUz}
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#051d18] border border-[#c5a869]/30 text-xs text-stone-300 space-y-1">
-                <div className="font-bold text-[#c5a869]">Fazilati va Tavsiya:</div>
+              <div className="p-3.5 rounded-xl bg-[#F3EFE6]/70 dark:bg-[#051d18] border border-stone-200/80 dark:border-[#c5a869]/30 text-xs text-stone-700 dark:text-stone-300 space-y-1">
+                <div className="font-bold text-[#9E7F3C] dark:text-[#c5a869]">Fazilati va Tavsiya:</div>
                 <p className="italic leading-relaxed">{ev.virtueUz}</p>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                <span className="text-stone-400">Eslatma oʻrnatish:</span>
+              <div className="flex items-center justify-between pt-2 border-t border-stone-200/80 dark:border-white/10 text-xs">
+                <span className="text-stone-500 dark:text-stone-400">Eslatma oʻrnatish:</span>
                 <button
                   onClick={() => toggleReminder(ev.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-lg font-bold transition-all cursor-pointer ${
                     isReminded
-                      ? 'bg-emerald-500 text-black shadow'
-                      : 'bg-white/10 text-stone-300 hover:bg-white/20'
+                      ? 'bg-emerald-600 dark:bg-emerald-500 text-white dark:text-black shadow'
+                      : 'bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-white/20'
                   }`}
                 >
                   <Bell className="w-3.5 h-3.5" />

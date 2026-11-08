@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -35,8 +36,6 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const maxWidthClasses: Record<string, string> = {
     sm: 'max-w-sm',
     md: 'max-w-md',
@@ -46,36 +45,51 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <div
-        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-white dark:bg-[#0d211e] border border-stone-200 dark:border-[#c5a869]/30 rounded-2xl shadow-2xl z-10 overflow-hidden my-auto`}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 dark:border-emerald-950/80">
-          <div>
-            <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 font-editorial">
-              {title}
-            </h3>
-            {subtitle && (
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">{subtitle}</p>
-            )}
-          </div>
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 bg-black/65 backdrop-blur-sm"
             onClick={onClose}
-            className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-white/5 transition-colors"
-            aria-label="Yopish"
+            aria-hidden="true"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97, y: 14 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 10 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-[#FBF9F5] dark:bg-[#0B1F1C] border border-stone-200 dark:border-[#c5a869]/30 rounded-t-3xl sm:rounded-2xl shadow-2xl z-10 overflow-hidden sm:my-auto`}
+            role="dialog"
+            aria-modal="true"
           >
-            <X className="w-5 h-5" />
-          </button>
+            {/* Mobile drag indicator */}
+            <div className="sm:hidden w-10 h-1 bg-stone-300 dark:bg-emerald-900 rounded-full mx-auto mt-3" />
+
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-200/80 dark:border-emerald-950/80">
+              <div className="pr-3">
+                <h3 className="text-lg font-semibold text-[#14221B] dark:text-[#F4F1EA] font-editorial">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="text-xs text-[#6C7C73] dark:text-[#8FA199] mt-0.5">{subtitle}</p>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[#6C7C73] hover:text-[#14221B] dark:text-[#8FA199] dark:hover:text-[#F4F1EA] rounded-xl hover:bg-stone-200/60 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                aria-label="Yopish"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 sm:p-6 max-h-[82vh] overflow-y-auto">{children}</div>
+          </motion.div>
         </div>
-        <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
