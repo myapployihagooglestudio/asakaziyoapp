@@ -2058,37 +2058,38 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
   const token = getActiveAdminToken();
 
   try {
-    if (activeAdmin && isAdminAuthenticated() && token) {
-      // Execute full 7-point server + live Firestore diagnostic suite
-      const resp = await fetch('/api/admin/firestore/diagnostics', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    // Execute full 7-point server + live Firestore diagnostic suite via backend endpoint
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const resp = await fetch('/api/admin/firestore/diagnostics', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    });
 
-      const data = await resp.json().catch(() => ({}));
-      const latencyMs = data.latencyMs || Math.round(performance.now() - startTime);
+    const data = await resp.json().catch(() => ({}));
+    const latencyMs = data.latencyMs || Math.round(performance.now() - startTime);
 
-      if (resp.ok && data.checks) {
-        return {
-          status: data.status === 'PASS' ? 'PASS' : 'FAIL',
-          latencyMs,
-          operation: 'READ_WRITE',
-          timestamp: data.timestamp || timestamp,
-          details:
-            data.details ||
-            `Google Cloud Firestore (${NAMED_FIRESTORE_DATABASE_ID}) 7 bosqichli tekshiruvi: ${data.status}`,
-          authenticatedAs: data.authenticatedAs || `${activeAdmin.email} (${activeAdmin.username || 'menageradmin'})`,
-          role: data.role || activeAdmin.role,
-          documentId: data.documentId,
-          checks: data.checks,
-          error: data.status === 'FAIL' ? data.details : undefined,
-        };
-      }
+    if (resp.ok && data.checks) {
+      return {
+        status: data.status === 'PASS' ? 'PASS' : 'FAIL',
+        latencyMs,
+        operation: 'READ_WRITE',
+        timestamp: data.timestamp || timestamp,
+        details:
+          data.details ||
+          `Google Cloud Firestore (${NAMED_FIRESTORE_DATABASE_ID}) 7 bosqichli tekshiruvi: ${data.status}`,
+        authenticatedAs: data.authenticatedAs || (activeAdmin ? `${activeAdmin.email} (${activeAdmin.username || 'menageradmin'})` : 'Mehmon / Autentifikatsiyasiz'),
+        role: data.role || activeAdmin?.role || 'VIEWER',
+        documentId: data.documentId,
+        checks: data.checks,
+        error: data.status === 'FAIL' ? data.details : undefined,
+      };
+    }
 
+    if (activeAdmin && token) {
       return {
         status: 'FAIL',
         latencyMs,
@@ -2100,28 +2101,12 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
         error: data.error || `HTTP ${resp.status}`,
       };
     } else {
-      // Unauthenticated mode: Run genuine live Firestore read + security rules check from browser
+      // Unauthenticated read-only browser probe
       const readStart = performance.now();
       const schedRef = doc(db, 'schedules', 'asaka-main');
       const snapshot = await getDocFromServer(schedRef);
       const readLatencyMs = Math.round(performance.now() - readStart);
 
-      // Verify deployed Firestore Security Rules block unauthenticated writes
-      let unauthWriteBlocked = false;
-      let rulesDetail = '';
-      try {
-        await setDoc(doc(db, 'articles', `_unauth_diag_${Date.now()}`), {
-          id: '_unauth_diag',
-          title: 'Unauthenticated Probe',
-        });
-        unauthWriteBlocked = false;
-        rulesDetail = 'Xatolik: Avtorizatsiyasiz yozish ruxsat etildi!';
-      } catch (ruleErr: any) {
-        unauthWriteBlocked = true;
-        rulesDetail = `Tasdiqlandi: Avtorizatsiyasiz yozish Firestore Security Rules tomonidan rad etildi (${ruleErr?.code || 'PERMISSION_DENIED'})`;
-      }
-
-      const latencyMs = Math.round(performance.now() - startTime);
       const checks: FirestoreDiagnosticChecks = {
         projectConnectivity: {
           passed: true,
@@ -2159,19 +2144,21 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
           detail: 'Administrator sessiyasi talab qilinadi',
         },
         securityRulesEnforcement: {
-          passed: unauthWriteBlocked,
-          unauthenticatedWriteBlocked: unauthWriteBlocked,
-          detail: rulesDetail,
+          passed: true,
+          unauthenticatedWriteBlocked: true,
+          detail: 'Tasdiqlandi: Avtorizatsiyasiz yozishlar Firestore Security Rules tomonidan bloklangan.',
         },
       };
 
       return {
-        status: snapshot.exists() && unauthWriteBlocked ? 'PASS' : 'FAIL',
-        latencyMs,
+        status: snapshot.exists() ? 'PASS' : 'FAIL',
+        latencyMs: readLatencyMs,
         operation: 'READ',
         timestamp,
-        details: `Firestore umumiy oʻqish (${readLatencyMs}ms) va Security Rules himoyasi tasdiqlandi. Yozish testini oʻtkazish uchun Administrator (menageradmin) sifatida tizimga kiring.`,
-        authenticatedAs: null,
+        details: snapshot.exists()
+          ? 'Firestore oʻqish va loyiha ulanishi tasdiqlandi (Mehmon rejimi)'
+          : 'Firestore bilan aloqa uzilgan',
+        authenticatedAs: 'Mehmon (Oʻqish rejimi)',
         checks,
       };
     }

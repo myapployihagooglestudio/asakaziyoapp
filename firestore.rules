@@ -401,7 +401,8 @@ service cloud.firestore {
       allow update: if isValidId(eventId) && (
         isAnyAdmin() ||
         isVerifiedServerWrite('mosqueEvents', eventId) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['registeredUserIds'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['registeredUserIds']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['registeredUserIds', 'updatedAt'])
       );
     }
 
@@ -425,7 +426,8 @@ service cloud.firestore {
       allow update: if isValidId(campaignId) && (
         isSuperAdmin() ||
         isVerifiedServerWrite('charityCampaigns', campaignId) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs']) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs', 'updatedAt'])
       );
     }
 
