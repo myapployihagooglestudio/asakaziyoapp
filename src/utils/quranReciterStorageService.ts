@@ -295,23 +295,24 @@ function dispatchReciterStorageEvent(type: 'QURAN_RECITERS_UPDATED' | 'QURAN_AUD
   }
 }
 
+function computeCountsFor(r: Partial<ReciterProfile> & { id: string }, overrides: Record<string, Partial<SurahAudioFileRecord>>): { uploaded: number; missing: number } {
+  const isCanonical = CANONICAL_ENTERPRISE_RECITERS.some((c) => c.id === r.id);
+  if (isCanonical || (r.surahServerBaseUrl && String(r.surahServerBaseUrl).trim())) {
+    return { uploaded: 114, missing: 0 };
+  }
+  let count = 0;
+  for (let s = 1; s <= 114; s++) {
+    const ov = overrides[`${r.id}_${s}`];
+    if (ov && ov.audioUrl && ov.status !== 'missing') {
+      count++;
+    }
+  }
+  return { uploaded: count, missing: Math.max(0, 114 - count) };
+}
+
 // Helper to get all reciters with canonical merge and accurate counts
 export function getStoredPermanentReciters(): ReciterProfile[] {
   const overrides = getStoredSurahAudioOverrides();
-  const computeCountsFor = (r: Partial<ReciterProfile> & { id: string }): { uploaded: number; missing: number } => {
-    const isCanonical = CANONICAL_ENTERPRISE_RECITERS.some((c) => c.id === r.id);
-    if (isCanonical || (r.surahServerBaseUrl && String(r.surahServerBaseUrl).trim())) {
-      return { uploaded: 114, missing: 0 };
-    }
-    let count = 0;
-    for (let s = 1; s <= 114; s++) {
-      const ov = overrides[`${r.id}_${s}`];
-      if (ov && ov.audioUrl && ov.status !== 'missing') {
-        count++;
-      }
-    }
-    return { uploaded: count, missing: Math.max(0, 114 - count) };
-  };
 
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -326,7 +327,7 @@ export function getStoredPermanentReciters(): ReciterProfile[] {
           for (const item of parsed) {
             if (item && item.id && !item.isArchived) {
               const existing = byId.get(item.id);
-              const counts = computeCountsFor(item);
+              const counts = computeCountsFor(item, overrides);
               byId.set(item.id, {
                 ...(existing || {}),
                 ...item,
@@ -365,15 +366,19 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
   reciters: ReciterProfile[];
   overrides: Record<string, Partial<SurahAudioFileRecord>>;
 }> {
+  let recitersList: ReciterProfile[] = [];
+  let overridesMap: Record<string, Partial<SurahAudioFileRecord>> = getStoredSurahAudioOverrides();
+
   try {
     const [recitersRes, overridesRes] = await Promise.all([
       fetchCollectionFromFirestore<ReciterProfile>('quranReciters'),
       fetchCollectionFromFirestore<SurahAudioFileRecord>('quranAudioOverrides'),
     ]);
 
-    let currentOverrides = getStoredSurahAudioOverrides();
+    const firestoreFailed = !recitersRes.success || !overridesRes.success;
+
     if (overridesRes.success && Array.isArray(overridesRes.data) && overridesRes.data.length > 0) {
-      const nextOverrides: Record<string, Partial<SurahAudioFileRecord>> = { ...currentOverrides };
+      const nextOverrides: Record<string, Partial<SurahAudioFileRecord>> = { ...overridesMap };
       for (const docItem of overridesRes.data) {
         if (docItem && docItem.id) {
           nextOverrides[docItem.id] = docItem;
@@ -381,9 +386,9 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
           nextOverrides[`${docItem.reciterId}_${docItem.surahNumber}`] = docItem;
         }
       }
-      currentOverrides = nextOverrides;
-      saveStoredSurahAudioOverrides(currentOverrides);
-      dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', currentOverrides);
+      overridesMap = nextOverrides;
+      saveStoredSurahAudioOverrides(overridesMap);
+      dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', overridesMap);
     }
 
     if (recitersRes.success && Array.isArray(recitersRes.data) && recitersRes.data.length > 0) {
@@ -391,6 +396,13 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
       for (const c of CANONICAL_ENTERPRISE_RECITERS) {
         byId.set(c.id, { ...c });
       }
+      // Also include existing local cached custom reciters so empty remote doesn't wipe them
+      for (const loc of getStoredPermanentReciters()) {
+        if (loc && loc.id && !CANONICAL_ENTERPRISE_RECITERS.some((c) => c.id === loc.id)) {
+          byId.set(loc.id, loc);
+        }
+      }
+
       for (const remoteRec of recitersRes.data) {
         if (
           remoteRec &&
@@ -407,7 +419,7 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
             uploaded = 114;
           } else {
             for (let s = 1; s <= 114; s++) {
-              const ov = currentOverrides[`${remoteRec.id}_${s}`];
+              const ov = overridesMap[`${remoteRec.id}_${s}`];
               if (ov && ov.audioUrl && ov.status !== 'missing') {
                 uploaded++;
               }
@@ -421,32 +433,47 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
           } as ReciterProfile);
         }
       }
-      const mergedReciters = Array.from(byId.values());
-      saveStoredPermanentReciters(mergedReciters);
-      dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', mergedReciters);
-      return { reciters: mergedReciters, overrides: currentOverrides };
+      recitersList = Array.from(byId.values());
+      saveStoredPermanentReciters(recitersList);
+      dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', recitersList);
+    }
+
+    if (firestoreFailed || (recitersRes.success && recitersRes.data.length === 0)) {
+      throw new Error('Firestore sync incomplete or empty, triggering backend API fallback');
     }
   } catch {
-    // Fallback to backend API if direct client read encountered transient network issue
+    // Fallback to backend API (/api/database) when direct Firestore read fails or is incomplete
     try {
       const resp = await fetch('/api/database');
       if (resp.ok) {
         const json = await resp.json();
-        if (json?.data?.quranAudioOverrides && typeof json.data.quranAudioOverrides === 'object') {
-          saveStoredSurahAudioOverrides(json.data.quranAudioOverrides);
-          dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', json.data.quranAudioOverrides);
+        const pubData = json?.data || json || {};
+        if (pubData.quranAudioOverrides && typeof pubData.quranAudioOverrides === 'object') {
+          overridesMap = { ...overridesMap, ...pubData.quranAudioOverrides };
+          saveStoredSurahAudioOverrides(overridesMap);
+          dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', overridesMap);
         }
-        if (Array.isArray(json?.data?.quranReciters) && json.data.quranReciters.length > 0) {
+        if (Array.isArray(pubData.quranReciters) && pubData.quranReciters.length > 0) {
           const byId = new Map<string, ReciterProfile>();
           for (const c of CANONICAL_ENTERPRISE_RECITERS) byId.set(c.id, { ...c });
-          for (const r of json.data.quranReciters) {
+          for (const r of getStoredPermanentReciters()) {
+            if (r && r.id) byId.set(r.id, r);
+          }
+          for (const r of pubData.quranReciters) {
             if (r && r.id && !r.isArchived) {
-              byId.set(r.id, { ...(byId.get(r.id) || {}), ...r });
+              const existing = byId.get(r.id);
+              const counts = computeCountsFor(r, overridesMap);
+              byId.set(r.id, {
+                ...(existing || {}),
+                ...r,
+                uploadedSurahsCount: counts.uploaded,
+                missingSurahsCount: counts.missing,
+              } as ReciterProfile);
             }
           }
-          const merged = Array.from(byId.values());
-          saveStoredPermanentReciters(merged);
-          dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', merged);
+          recitersList = Array.from(byId.values());
+          saveStoredPermanentReciters(recitersList);
+          dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', recitersList);
         }
       }
     } catch {
@@ -454,9 +481,16 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
     }
   }
 
+  if (recitersList.length === 0) {
+    recitersList = getStoredPermanentReciters();
+    if (recitersList.length === 0) {
+      recitersList = CANONICAL_ENTERPRISE_RECITERS;
+    }
+  }
+
   return {
-    reciters: getStoredPermanentReciters(),
-    overrides: getStoredSurahAudioOverrides(),
+    reciters: recitersList,
+    overrides: overridesMap,
   };
 }
 
