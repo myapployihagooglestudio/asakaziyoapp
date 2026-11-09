@@ -208,12 +208,13 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [fetchedAyahs, setFetchedAyahs] = useState<Ayah[] | null>(null);
   const [isLoadingAyahs, setIsLoadingAyahs] = useState(false);
 
-  // Sync Reciters & 114 Surah Audio Overrides from Firestore in real time
+  // Sync Reciters & 114 Surah Audio Overrides & Alignments from Firestore in real time
   useEffect(() => {
     let mounted = true;
     syncRecitersAndAudioFromFirestore().then(() => {
       if (!mounted) return;
       setAvailableReciters(getActiveQuranReciters());
+      setAudioAlignments(getStoredQuranAudioAlignments());
       setAudioCatalogVersion((v) => v + 1);
       setHasCompletedInitialReciterSync(true);
     });
@@ -224,6 +225,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
         event.type === 'QURAN_AUDIO_UPDATED'
       ) {
         setAvailableReciters(getActiveQuranReciters());
+        setAudioAlignments(getStoredQuranAudioAlignments());
         setAudioCatalogVersion((v) => v + 1);
       }
     });
@@ -233,6 +235,16 @@ export const QuranView: React.FC<QuranViewProps> = ({
       unsub();
     };
   }, []);
+
+  // Auto scroll active synced ayah into center view
+  useEffect(() => {
+    if (activeAyahSyncNumber !== null) {
+      const el = document.getElementById(`ayah-${selectedSurahNumber}-${activeAyahSyncNumber}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [activeAyahSyncNumber, selectedSurahNumber]);
 
   // Ensure selectedReciterId falls back gracefully if deactivated by admin
   useEffect(() => {
@@ -1427,24 +1439,31 @@ export const QuranView: React.FC<QuranViewProps> = ({
                     (n) => n.surahNumber === ayah.surahNumber && n.ayahNumberInSurah === ayah.numberInSurah
                   );
                   const isHighlighted = highlightedAyahNumber === ayah.numberInSurah;
+                  const isSyncedAyah = activeAyahSyncNumber === ayah.numberInSurah;
 
                   return (
                     <Card
                       id={`ayah-${ayah.surahNumber}-${ayah.numberInSurah}`}
                       key={ayah.id}
-                      elevated={isPlayingThisAyah || isHighlighted}
+                      elevated={isPlayingThisAyah || isSyncedAyah || isHighlighted}
                       className={`p-5 sm:p-6 space-y-4 transition-all ${
                         nightReadingMode
                           ? 'bg-[#061714] border-emerald-900/40 text-stone-200'
                           : ''
                       } ${
-                        isPlayingThisAyah
-                          ? 'border-[#c5a869] ring-2 ring-[#c5a869]/40 bg-[#c5a869]/10'
+                        isPlayingThisAyah || isSyncedAyah
+                          ? 'border-[#c5a869] ring-2 ring-[#c5a869]/50 bg-[#c5a869]/15 shadow-lg'
                           : isHighlighted
                           ? 'border-[#c5a869]/70 ring-1 ring-[#c5a869]/30 bg-[#c5a869]/5'
                           : ''
                       }`}
                     >
+                      {isSyncedAyah && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#c5a869] uppercase tracking-wider bg-[#c5a869]/20 px-2.5 py-1 rounded-md w-fit">
+                          <Sparkles className="w-3 h-3 animate-pulse" />
+                          <span>AI Sinxron Oyat (Joriy Tilovat)</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between border-b border-stone-100 dark:border-emerald-950/60 pb-3">
                         <div className="flex items-center gap-2">
                           <span className="font-mono-numbers px-2.5 py-0.5 rounded-lg bg-stone-100 dark:bg-emerald-950 text-xs font-bold text-[#c5a869]">
