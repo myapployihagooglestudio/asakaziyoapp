@@ -743,9 +743,13 @@ export async function fetchCollectionFromFirestore<T = any>(
   collectionName: string
 ): Promise<FetchCollectionResult<T>> {
   try {
-    const snapshot = await getDocs(collection(db, collectionName));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore connection timeout (3.5s)')), 3500)
+    );
+    const docsPromise = getDocs(collection(db, collectionName));
+    const snapshot = await Promise.race([docsPromise, timeoutPromise]);
     const items: T[] = [];
-    snapshot.forEach((d) => {
+    (snapshot as any).forEach((d: any) => {
       items.push({ id: d.id, ...d.data() } as unknown as T);
     });
     return { success: true, data: items };
