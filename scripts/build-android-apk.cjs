@@ -483,13 +483,15 @@ console.log('  [PASS] Cryptographic v1 + v2 + v3 signatures, 4-byte alignment, a
 
 // Step 5: Publish APK and update metadata
 console.log('[5/6] Publishing signed APK and updating release metadata...');
+const finalApkV21 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.1.0.apk');
 const finalApkV2 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.0.0.apk');
 const finalApkV1 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v1.0.0.apk');
+fs.copyFileSync(outputTempApk, finalApkV21);
 fs.copyFileSync(outputTempApk, finalApkV2);
 fs.copyFileSync(outputTempApk, finalApkV1);
 
-const finalStat = fs.statSync(finalApkV2);
-const finalSha256 = crypto.createHash('sha256').update(fs.readFileSync(finalApkV2)).digest('hex');
+const finalStat = fs.statSync(finalApkV21);
+const finalSha256 = crypto.createHash('sha256').update(fs.readFileSync(finalApkV21)).digest('hex');
 const sizeMb = (finalStat.size / (1024 * 1024)).toFixed(2);
 const releaseDate = new Date().toISOString().slice(0, 10);
 
@@ -497,8 +499,8 @@ const metaPath = path.join(DATA_DIR, 'apk_release_metadata.json');
 const metaData = {
   appName: 'ASAKA ZIYO',
   packageId: 'uz.asakaziyo.app',
-  version: '2.0.0',
-  buildCode: 200,
+  version: '2.1.0',
+  buildCode: 210,
   minSdk: 21,
   targetSdk: 34,
   minAndroid: 'Android 5.0+ (API 21 – API 34)',
@@ -513,7 +515,7 @@ const metaData = {
   resourcesArscVerified: true,
   pkcs7Signed: true,
   downloadUrl: '/api/apk/download',
-  directUrl: '/Asaka-Ziyo-v2.0.0.apk',
+  directUrl: '/Asaka-Ziyo-v2.1.0.apk',
   releaseDate,
   verifiedAt: new Date().toISOString(),
 };
@@ -524,6 +526,8 @@ const apkPackageTsPath = path.join(ROOT_DIR, 'src', 'utils', 'apkPackage.ts');
 if (fs.existsSync(apkPackageTsPath)) {
   let apkPkgTs = fs.readFileSync(apkPackageTsPath, 'utf-8');
   apkPkgTs = apkPkgTs
+    .replace(/version:\s*'[^']*'/, `version: '2.1.0'`)
+    .replace(/buildCode:\s*\d+/, `buildCode: 210`)
     .replace(/fileSizeDisplay:\s*'[^']*'/, `fileSizeDisplay: '${sizeMb} MB'`)
     .replace(/sizeBytes:\s*\d+/, `sizeBytes: ${finalStat.size}`)
     .replace(/sha256Checksum:\s*'[^']*'/, `sha256Checksum: '${finalSha256}'`);

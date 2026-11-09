@@ -50,24 +50,56 @@ function handleOfflineNativeApiRequest(path: string, init?: RequestInit): Respon
 
   if (cleanPath === '/api/database') {
     let savedSchedule = INITIAL_ASAKA_PRAYER_SCHEDULE;
+    let savedArticles: unknown[] = [];
+    let savedMedia: unknown[] = [];
+    let savedHadiths: unknown[] = [];
+    let savedDhikrs: unknown[] = [];
+    let savedNotifications: unknown[] = [];
+
     try {
-      const raw = localStorage.getItem('asaka_ziyo_db_prayer_v5_admin') || localStorage.getItem('asaka_ziyo_prayer_schedule');
-      if (raw) {
-        const parsed = JSON.parse(raw);
+      const rawSchedule = localStorage.getItem('asaka_ziyo_db_prayer_v5_admin') || localStorage.getItem('asaka_ziyo_prayer_schedule');
+      if (rawSchedule) {
+        const parsed = JSON.parse(rawSchedule);
         if (parsed && Array.isArray(parsed.times)) savedSchedule = parsed;
       }
+      const rawArticles = localStorage.getItem('asaka_ziyo_db_articles_v5_admin');
+      if (rawArticles) {
+        const parsed = JSON.parse(rawArticles);
+        if (Array.isArray(parsed)) savedArticles = parsed;
+      }
+      const rawMedia = localStorage.getItem('asaka_ziyo_db_media_posts_v5_admin');
+      if (rawMedia) {
+        const parsed = JSON.parse(rawMedia);
+        if (Array.isArray(parsed)) savedMedia = parsed;
+      }
+      const rawHadiths = localStorage.getItem('asaka_ziyo_db_hadiths_v5_admin');
+      if (rawHadiths) {
+        const parsed = JSON.parse(rawHadiths);
+        if (Array.isArray(parsed)) savedHadiths = parsed;
+      }
+      const rawDhikrs = localStorage.getItem('asaka_ziyo_db_dhikrs_v5_admin');
+      if (rawDhikrs) {
+        const parsed = JSON.parse(rawDhikrs);
+        if (Array.isArray(parsed)) savedDhikrs = parsed;
+      }
+      const rawNotifications = localStorage.getItem('asaka_ziyo_db_notifications_v5_admin');
+      if (rawNotifications) {
+        const parsed = JSON.parse(rawNotifications);
+        if (Array.isArray(parsed)) savedNotifications = parsed;
+      }
     } catch {
-      // use initial
+      // fallback to initial
     }
+
     return createJsonResponse({
       success: true,
       data: {
         prayerSchedule: savedSchedule,
-        articles: [],
-        mediaPosts: [],
-        hadiths: [],
-        dhikrs: [],
-        notifications: [],
+        articles: savedArticles,
+        mediaPosts: savedMedia,
+        hadiths: savedHadiths,
+        dhikrs: savedDhikrs,
+        notifications: savedNotifications,
         updatedAt: new Date().toISOString(),
       },
     });
@@ -265,13 +297,14 @@ if (
   window.location.protocol.startsWith('http')
 ) {
   try {
-    registerSW({
+    const updateSW = registerSW({
       immediate: true,
       onOfflineReady() {
         console.log('[PWA] ASAKA ZIYO offline cache ready');
       },
       onNeedRefresh() {
-        console.log('[PWA] ASAKA ZIYO update ready');
+        console.log('[PWA] ASAKA ZIYO new update detected — refreshing to latest bundle');
+        updateSW(true);
       },
     });
   } catch {

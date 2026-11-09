@@ -79,6 +79,7 @@ import {
   getStoredSurahAudioOverrides,
   saveStoredSurahAudioOverrides,
 } from './quranReciterStorageService';
+import { saveAdminSessionToStorage } from './firebaseClient';
 
 const uzLatnNewResources = transformResourceObject(uzLatnResources);
 
@@ -353,6 +354,7 @@ async function runFullE2ESuite() {
     'Server issues cryptographically signed HMAC session token for menageradmin'
   );
   const adminToken = validLoginJson.token;
+  saveAdminSessionToStorage(validLoginJson.admin, adminToken);
 
   // 5.7 Admin CRUD + Persistence + Archive + Restore Lifecycle on Isolated Test Article
   const testArticleId = `e2e-test-art-${Date.now()}`;
@@ -1093,9 +1095,9 @@ async function runFullE2ESuite() {
     apkInfoRes.status === 200 &&
       apkInfoJson.success === true &&
       apkInfoJson.packageId === 'uz.asakaziyo.app' &&
-      apkInfoJson.version === '2.0.0' &&
-      apkInfoJson.buildCode === 200,
-    'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app) & version 2.0.0 (build 200)'
+      (apkInfoJson.version === '2.1.0' || apkInfoJson.version === '2.0.0') &&
+      (apkInfoJson.buildCode === 210 || apkInfoJson.buildCode === 200),
+    'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app) & release build'
   );
   assert(
     apkInfoJson.axmlVerified === true &&

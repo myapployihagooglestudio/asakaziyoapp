@@ -14,6 +14,7 @@
 import { SURAHS_LIST, padNumber } from '../data/quranData';
 import { getActiveAdminToken, fetchCollectionFromFirestore } from './firebaseClient';
 import { recordAdminAuditLog, broadcastEvent } from './databaseService';
+import { VERIFIED_MISHARY_FATIHA_ALIGNMENT } from './quranAudioSyncEngine';
 
 export interface ReciterProfile {
   id: string; // e.g. "mishary", "suwayd", "reciter-1741234567"
@@ -734,8 +735,9 @@ export async function createOrUpdateReciter(
     };
 
     // Persist to Firebase Firestore via authenticated backend API FIRST
+    const baseUrl = typeof window !== 'undefined' && window.location?.origin ? '' : 'http://localhost:3000';
     const token = getActiveAdminToken();
-    const res = await fetch('/api/admin/reciters', {
+    const res = await fetch(`${baseUrl}/api/admin/reciters`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -1263,17 +1265,23 @@ export interface QuranAudioAlignmentRecord {
 const STORAGE_KEY_ALIGNMENTS = 'asaka_ziyo_quran_alignments_v1';
 
 export function getStoredQuranAudioAlignments(): Record<string, QuranAudioAlignmentRecord> {
+  const baseAlignments: Record<string, QuranAudioAlignmentRecord> = {
+    mishary_1: VERIFIED_MISHARY_FATIHA_ALIGNMENT,
+  };
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const raw = window.localStorage.getItem(STORAGE_KEY_ALIGNMENTS);
       if (raw) {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return { ...baseAlignments, ...parsed };
+        }
       }
     }
   } catch {
     // ignore
   }
-  return {};
+  return baseAlignments;
 }
 
 export function saveStoredQuranAudioAlignments(alignments: Record<string, QuranAudioAlignmentRecord>): void {
@@ -1292,8 +1300,9 @@ export async function triggerGeminiAiAlignment(params: {
 }): Promise<{ success: boolean; alignment?: QuranAudioAlignmentRecord; error?: string }> {
   try {
     const { reciterId, surahNumber } = params;
+    const baseUrl = typeof window !== 'undefined' && window.location?.origin ? '' : 'http://localhost:3000';
     const token = getActiveAdminToken();
-    const res = await fetch('/api/admin/quran-audio/ai-align', {
+    const res = await fetch(`${baseUrl}/api/admin/quran-audio/ai-align`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -1304,7 +1313,7 @@ export async function triggerGeminiAiAlignment(params: {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success || !data.alignment) {
-      return { success: false, error: data.error || 'Gemini AI orqali sinxronlashda xatolik yuz berdi.' };
+      return { success: false, error: data.error || 'Audio vaqt xaritasini shakllantirishda xatolik yuz berdi.' };
     }
     const alignments = getStoredQuranAudioAlignments();
     alignments[data.alignment.id] = data.alignment;

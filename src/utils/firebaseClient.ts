@@ -101,6 +101,20 @@ function loadAdminSessionFromStorage(): AdminUser | null {
 
 loadAdminSessionFromStorage();
 
+export function saveAdminSessionToStorage(adminProfile: AdminUser, serverToken: string): void {
+  activeAdminSession = adminProfile;
+  activeAdminServerToken = serverToken;
+  try {
+    if (typeof window !== 'undefined') {
+      const serialized = JSON.stringify({ admin: adminProfile, token: serverToken });
+      if (window.sessionStorage) window.sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEY, serialized);
+      if (window.localStorage) window.localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, serialized);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function clearLocalAdminSessionStorage(): void {
   activeAdminSession = null;
   activeAdminServerToken = null;

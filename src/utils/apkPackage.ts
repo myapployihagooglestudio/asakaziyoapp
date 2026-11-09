@@ -28,14 +28,14 @@ export interface APKReleaseInfo {
 }
 
 export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
-  version: '2.0.0',
-  buildCode: 200,
+  version: '2.1.0',
+  buildCode: 210,
   packageId: 'uz.asakaziyo.app',
   appName: 'ASAKA ZIYO',
   releaseDate: '2026-yil, Noyabr',
-  sizeBytes: 4424949,
-  fileSizeDisplay: '4.22 MB',
-  sha256Checksum: '8c05e7020c994d4eb59a742aeae2b923a7b932c56caefe53f21c647e5fe227e7',
+  sizeBytes: 4379894,
+  fileSizeDisplay: '4.18 MB',
+  sha256Checksum: '1c35174f28c627ab363a48aa8172ab76e08a097b719ea8428c3f403c7bb7e199',
   targetAndroid: 'Android 14 / 15 (API 34)',
   minAndroid: 'Android 8.0+ (API 24)',
   downloadUrl: '/api/apk/download',

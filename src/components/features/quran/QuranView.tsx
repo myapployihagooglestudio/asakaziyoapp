@@ -44,6 +44,8 @@ import {
   getStoredQuranAudioAlignments,
   QuranAudioAlignmentRecord,
 } from '../../../utils/quranReciterStorageService';
+import { resolveActiveAyahFromIntervals } from '../../../utils/quranAudioSyncEngine';
+import { stopActiveAdhanAudio } from '../../../utils/notificationService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
@@ -163,7 +165,9 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [surahAudioFilter, setSurahAudioFilter] = useState<'all' | 'available' | 'missing'>('all');
   const [hasCompletedInitialReciterSync, setHasCompletedInitialReciterSync] = useState<boolean>(false);
   const [audioAlignments, setAudioAlignments] = useState<Record<string, QuranAudioAlignmentRecord>>(() => getStoredQuranAudioAlignments());
+  const audioAlignmentsRef = useRef<Record<string, QuranAudioAlignmentRecord>>(audioAlignments);
   const [activeAyahSyncNumber, setActiveAyahSyncNumber] = useState<number | null>(null);
+  const lastAutoScrolledAyahRef = useRef<number | null>(null);
 
   const [selectedReciterId, setSelectedReciterId] = useState<string>(() => {
     try {
@@ -213,8 +217,11 @@ export const QuranView: React.FC<QuranViewProps> = ({
     let mounted = true;
     syncRecitersAndAudioFromFirestore().then(() => {
       if (!mounted) return;
-      setAvailableReciters(getActiveQuranReciters());
-      setAudioAlignments(getStoredQuranAudioAlignments());
+      const reciters = getActiveQuranReciters();
+      const alignments = getStoredQuranAudioAlignments();
+      setAvailableReciters(reciters);
+      setAudioAlignments(alignments);
+      audioAlignmentsRef.current = alignments;
       setAudioCatalogVersion((v) => v + 1);
       setHasCompletedInitialReciterSync(true);
     });
@@ -224,8 +231,11 @@ export const QuranView: React.FC<QuranViewProps> = ({
         event.type === 'QURAN_RECITERS_UPDATED' ||
         event.type === 'QURAN_AUDIO_UPDATED'
       ) {
-        setAvailableReciters(getActiveQuranReciters());
-        setAudioAlignments(getStoredQuranAudioAlignments());
+        const reciters = getActiveQuranReciters();
+        const alignments = getStoredQuranAudioAlignments();
+        setAvailableReciters(reciters);
+        setAudioAlignments(alignments);
+        audioAlignmentsRef.current = alignments;
         setAudioCatalogVersion((v) => v + 1);
       }
     });
@@ -236,15 +246,23 @@ export const QuranView: React.FC<QuranViewProps> = ({
     };
   }, []);
 
-  // Auto scroll active synced ayah into center view
+  // Synchronize audioAlignmentsRef on state update
   useEffect(() => {
-    if (activeAyahSyncNumber !== null) {
-      const el = document.getElementById(`ayah-${selectedSurahNumber}-${activeAyahSyncNumber}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    audioAlignmentsRef.current = audioAlignments;
+  }, [audioAlignments]);
+
+  // Clean auto-scroll active synced ayah into center view without jitter
+  useEffect(() => {
+    if (activeAyahSyncNumber !== null && isSurahAudioPlaying) {
+      if (lastAutoScrolledAyahRef.current !== activeAyahSyncNumber) {
+        lastAutoScrolledAyahRef.current = activeAyahSyncNumber;
+        const el = document.getElementById(`ayah-${selectedSurahNumber}-${activeAyahSyncNumber}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     }
-  }, [activeAyahSyncNumber, selectedSurahNumber]);
+  }, [activeAyahSyncNumber, selectedSurahNumber, isSurahAudioPlaying]);
 
   // Ensure selectedReciterId falls back gracefully if deactivated by admin
   useEffect(() => {
@@ -388,12 +406,31 @@ export const QuranView: React.FC<QuranViewProps> = ({
     }
   };
 
+  const updateActiveSyncedAyah = (timeSeconds: number) => {
+    const alignKey = `${activeReciter.id}_${selectedSurahNumber}`;
+    const alignmentRecord = audioAlignmentsRef.current[alignKey];
+    if (alignmentRecord && Array.isArray(alignmentRecord.ayahAlignments) && alignmentRecord.ayahAlignments.length > 0) {
+      const activeAyahNum = resolveActiveAyahFromIntervals(alignmentRecord.ayahAlignments, timeSeconds);
+      setActiveAyahSyncNumber(activeAyahNum);
+    } else {
+      setActiveAyahSyncNumber(null);
+    }
+  };
+
   const handleToggleSurahAudio = async () => {
     setAudioError(null);
     if (isSurahAudioPlaying && surahAudioRef.current) {
       surahAudioRef.current.pause();
       setIsSurahAudioPlaying(false);
       return;
+    }
+
+    // Stop adhan audio and single-ayah player to enforce single active audio player
+    stopActiveAdhanAudio();
+    if (ayahAudioRef.current) {
+      ayahAudioRef.current.pause();
+      ayahAudioRef.current = null;
+      setPlayingAyahId(null);
     }
 
     if (!surahAudioRef.current) {
@@ -418,22 +455,17 @@ export const QuranView: React.FC<QuranViewProps> = ({
           setCurrentTimeSec(Math.round(audio.currentTime));
           setDurationSec(Math.round(audio.duration));
           updateNativeMediaPositionState(audio.duration, audio.currentTime, audio.playbackRate);
-
-          const currentMs = audio.currentTime * 1000;
-          const alignKey = `${activeReciter.id}_${selectedSurahNumber}`;
-          const alignmentRecord = audioAlignments[alignKey];
-          if (alignmentRecord && Array.isArray(alignmentRecord.ayahAlignments)) {
-            const matched = alignmentRecord.ayahAlignments.find(
-              (a) => currentMs >= a.startTimeMs && currentMs <= a.endTimeMs
-            );
-            setActiveAyahSyncNumber(matched ? matched.ayahNumberInSurah : null);
-          } else {
-            setActiveAyahSyncNumber(null);
-          }
+          updateActiveSyncedAyah(audio.currentTime);
         }
       };
 
+      audio.onseeked = () => {
+        updateActiveSyncedAyah(audio.currentTime);
+      };
+
       audio.onended = () => {
+        setActiveAyahSyncNumber(null);
+        lastAutoScrolledAyahRef.current = null;
         if (!isLooping) {
           setIsSurahAudioPlaying(false);
           setSurahAudioProgress(0);
@@ -461,6 +493,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
           `${activeReciter.name} qiroati audio manbasini oʻqishda xatolik yuz berdi (${audioUrl}).`
         );
         setIsSurahAudioPlaying(false);
+        setActiveAyahSyncNumber(null);
       };
 
       updateNativeMediaSession(
@@ -486,6 +519,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
           },
           onSeekTo: (sec) => {
             audio.currentTime = sec;
+            updateActiveSyncedAyah(sec);
           },
         },
         'playing'
@@ -559,7 +593,9 @@ export const QuranView: React.FC<QuranViewProps> = ({
     const val = parseFloat(e.target.value);
     setSurahAudioProgress(val);
     if (surahAudioRef.current && surahAudioRef.current.duration) {
-      surahAudioRef.current.currentTime = (val / 100) * surahAudioRef.current.duration;
+      const targetSec = (val / 100) * surahAudioRef.current.duration;
+      surahAudioRef.current.currentTime = targetSec;
+      updateActiveSyncedAyah(targetSec);
     }
   };
 
@@ -570,6 +606,14 @@ export const QuranView: React.FC<QuranViewProps> = ({
       setPlayingAyahId(null);
       return;
     }
+
+    // Stop adhan audio and surah audio to guarantee mutual exclusivity
+    stopActiveAdhanAudio();
+    if (surahAudioRef.current) {
+      surahAudioRef.current.pause();
+      setIsSurahAudioPlaying(false);
+    }
+    setActiveAyahSyncNumber(null);
 
     if (ayahAudioRef.current) {
       ayahAudioRef.current.pause();

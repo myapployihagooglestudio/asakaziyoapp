@@ -1,15 +1,15 @@
 {
   "appName": "ASAKA ZIYO",
   "packageId": "uz.asakaziyo.app",
-  "version": "2.0.0",
-  "buildCode": 200,
+  "version": "2.1.0",
+  "buildCode": 210,
   "minSdk": 21,
   "targetSdk": 34,
   "minAndroid": "Android 5.0+ (API 21 – API 34)",
   "targetAndroid": "Android 14 / 15 (API 34)",
-  "sizeBytes": 4424949,
-  "fileSizeDisplay": "4.22 MB",
-  "sha256Checksum": "8c05e7020c994d4eb59a742aeae2b923a7b932c56caefe53f21c647e5fe227e7",
+  "sizeBytes": 4379894,
+  "fileSizeDisplay": "4.18 MB",
+  "sha256Checksum": "1c35174f28c627ab363a48aa8172ab76e08a097b719ea8428c3f403c7bb7e199",
   "signatureScheme": "JAR v1 + APK Signature Scheme v2 & v3 (RSA-2048 SHA-256)",
   "certificateSubject": "CN=ASAKA ZIYO, OU=Mobile, O=ASAKA ZIYO, L=Asaka, ST=Andijan, C=UZ",
   "axmlVerified": true,
@@ -17,7 +17,7 @@
   "resourcesArscVerified": true,
   "pkcs7Signed": true,
   "downloadUrl": "/api/apk/download",
-  "directUrl": "/Asaka-Ziyo-v2.0.0.apk",
-  "releaseDate": "2026-11-08",
-  "verifiedAt": "2026-11-08T05:30:11.815Z"
+  "directUrl": "/Asaka-Ziyo-v2.1.0.apk",
+  "releaseDate": "2026-11-09",
+  "verifiedAt": "2026-11-09T11:37:35.064Z"
 }

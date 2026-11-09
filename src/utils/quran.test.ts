@@ -108,7 +108,10 @@ assert(baqaraAyah255Url.includes('002255.mp3'), `Ayatul Kursi URL formatted: ${b
 
 // Test Surah Audio URL formatting
 const fatihaSurahAudioUrl = getReciterSurahAudioUrl('mishary', 1);
-assert(fatihaSurahAudioUrl.includes('001.mp3'), `Surah audio URL correctly formatted: ${fatihaSurahAudioUrl}`);
+assert(
+  fatihaSurahAudioUrl.includes('1.mp3') || fatihaSurahAudioUrl.includes('001.mp3'),
+  `Surah audio URL correctly formatted: ${fatihaSurahAudioUrl}`
+);
 
 // -----------------------------------------------------------------------------
 // Test 4: Offline Verified Ayahs Integrity

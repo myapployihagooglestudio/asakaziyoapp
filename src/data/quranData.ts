@@ -435,22 +435,22 @@ export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number):
   }
 
   switch (reciterId) {
+    case 'mishary':
+      return `https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/${surahNumber}.mp3`;
+    case 'dussary':
+      return `https://download.quranicaudio.com/qdc/yasser_ad-dussary/murattal/${surahNumber}.mp3`;
+    case 'sudais':
+      return `https://download.quranicaudio.com/qdc/abdurrahmaan_as-sudais/murattal/${surahNumber}.mp3`;
+    case 'shatri':
+      return `https://download.quranicaudio.com/qdc/abu_bakr_ash-shaatree/murattal/${surahNumber}.mp3`;
+    case 'hussary':
+      return `https://download.quranicaudio.com/qdc/khalil_al-husary/murattal/${surahNumber}.mp3`;
     case 'suwayd':
       return `https://server15.mp3quran.net/a-rushdi/Almusshaf-Al-Mo-lim/${padded}.mp3`;
-    case 'hussary':
-      return `https://server13.mp3quran.net/husr/${padded}.mp3`;
-    case 'dussary':
-      return `https://server11.mp3quran.net/yasser/${padded}.mp3`;
-    case 'sudais':
-      return `https://server11.mp3quran.net/sds/${padded}.mp3`;
     case 'juhany':
       return `https://server13.mp3quran.net/jhn/${padded}.mp3`;
     case 'ghamidi':
       return `https://server7.mp3quran.net/s_gmd/${padded}.mp3`;
-    case 'shatri':
-      return `https://server11.mp3quran.net/shatri/${padded}.mp3`;
-    case 'mishary':
-      return `https://server8.mp3quran.net/afs/${padded}.mp3`;
     default:
       // Custom reciter without uploaded surah audio or base server URL
       return '';
