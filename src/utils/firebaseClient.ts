@@ -670,6 +670,10 @@ export function listenToFirestoreCollection<T = any>(
         onData(items);
       },
       (error) => {
+        const msg = error.message || '';
+        if (msg.includes('CANCELLED') || msg.includes('idle stream') || msg.includes('Timed out') || msg.includes('Code: 1')) {
+          return;
+        }
         console.warn(`[Firestore Real-time Listener Error] /${collectionName}:`, error);
         if (onError) onError(error);
       }
@@ -700,6 +704,10 @@ export function listenToFirestoreDoc<T = any>(
         }
       },
       (error) => {
+        const msg = error.message || '';
+        if (msg.includes('CANCELLED') || msg.includes('idle stream') || msg.includes('Timed out') || msg.includes('Code: 1')) {
+          return;
+        }
         console.warn(`[Firestore Real-time Doc Listener Error] /${collectionName}/${docId}:`, error);
         if (onError) onError(error);
       }
