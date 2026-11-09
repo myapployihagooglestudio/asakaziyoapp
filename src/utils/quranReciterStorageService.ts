@@ -12,8 +12,8 @@
  */
 
 import { SURAHS_LIST, padNumber } from '../data/quranData';
-import { getActiveAdminToken } from './firebaseClient';
-import { recordAdminAuditLog } from './databaseService';
+import { getActiveAdminToken, fetchCollectionFromFirestore } from './firebaseClient';
+import { recordAdminAuditLog, broadcastEvent } from './databaseService';
 
 export interface ReciterProfile {
   id: string; // e.g. "mishary", "suwayd", "reciter-1741234567"
@@ -287,23 +287,55 @@ export const CANONICAL_ENTERPRISE_RECITERS: ReciterProfile[] = [
   },
 ];
 
-// Helper to get all reciters with server sync
+function dispatchReciterStorageEvent(type: 'QURAN_RECITERS_UPDATED' | 'QURAN_AUDIO_UPDATED', payload?: unknown) {
+  try {
+    broadcastEvent(type, payload);
+  } catch {
+    // ignore
+  }
+}
+
+// Helper to get all reciters with canonical merge and accurate counts
 export function getStoredPermanentReciters(): ReciterProfile[] {
+  const overrides = getStoredSurahAudioOverrides();
+  const computeCountsFor = (r: Partial<ReciterProfile> & { id: string }): { uploaded: number; missing: number } => {
+    const isCanonical = CANONICAL_ENTERPRISE_RECITERS.some((c) => c.id === r.id);
+    if (isCanonical || (r.surahServerBaseUrl && String(r.surahServerBaseUrl).trim())) {
+      return { uploaded: 114, missing: 0 };
+    }
+    let count = 0;
+    for (let s = 1; s <= 114; s++) {
+      const ov = overrides[`${r.id}_${s}`];
+      if (ov && ov.audioUrl && ov.status !== 'missing') {
+        count++;
+      }
+    }
+    return { uploaded: count, missing: Math.max(0, 114 - count) };
+  };
+
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const raw = window.localStorage.getItem(STORAGE_KEY_RECITERS);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge to ensure canonicals remain present
-          const existingIds = new Set(parsed.map((r: any) => r.id));
-          const merged = [...parsed];
-          CANONICAL_ENTERPRISE_RECITERS.forEach((c) => {
-            if (!existingIds.has(c.id)) {
-              merged.push(c);
+          const byId = new Map<string, ReciterProfile>();
+          for (const c of CANONICAL_ENTERPRISE_RECITERS) {
+            byId.set(c.id, { ...c });
+          }
+          for (const item of parsed) {
+            if (item && item.id && !item.isArchived) {
+              const existing = byId.get(item.id);
+              const counts = computeCountsFor(item);
+              byId.set(item.id, {
+                ...(existing || {}),
+                ...item,
+                uploadedSurahsCount: counts.uploaded,
+                missingSurahsCount: counts.missing,
+              } as ReciterProfile);
             }
-          });
-          return merged;
+          }
+          return Array.from(byId.values());
         }
       }
     }
@@ -316,11 +348,116 @@ export function getStoredPermanentReciters(): ReciterProfile[] {
 export function saveStoredPermanentReciters(reciters: ReciterProfile[]): void {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(STORAGE_KEY_RECITERS, JSON.stringify(reciters));
+      const serialized = JSON.stringify(reciters);
+      window.localStorage.setItem(STORAGE_KEY_RECITERS, serialized);
+      window.localStorage.setItem('asaka_ziyo_reciters_v1', serialized);
     }
   } catch {
     // ignore
   }
+}
+
+/**
+ * Synchronizes reciters and 114-surah audio overrides directly from Firestore (`quranReciters` & `quranAudioOverrides`),
+ * with fallback to `/api/database` if needed. Updates local cache and notifies all active UI components.
+ */
+export async function syncRecitersAndAudioFromFirestore(): Promise<{
+  reciters: ReciterProfile[];
+  overrides: Record<string, Partial<SurahAudioFileRecord>>;
+}> {
+  try {
+    const [recitersRes, overridesRes] = await Promise.all([
+      fetchCollectionFromFirestore<ReciterProfile>('quranReciters'),
+      fetchCollectionFromFirestore<SurahAudioFileRecord>('quranAudioOverrides'),
+    ]);
+
+    let currentOverrides = getStoredSurahAudioOverrides();
+    if (overridesRes.success && Array.isArray(overridesRes.data) && overridesRes.data.length > 0) {
+      const nextOverrides: Record<string, Partial<SurahAudioFileRecord>> = { ...currentOverrides };
+      for (const docItem of overridesRes.data) {
+        if (docItem && docItem.id) {
+          nextOverrides[docItem.id] = docItem;
+        } else if (docItem && docItem.reciterId && docItem.surahNumber) {
+          nextOverrides[`${docItem.reciterId}_${docItem.surahNumber}`] = docItem;
+        }
+      }
+      currentOverrides = nextOverrides;
+      saveStoredSurahAudioOverrides(currentOverrides);
+      dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', currentOverrides);
+    }
+
+    if (recitersRes.success && Array.isArray(recitersRes.data) && recitersRes.data.length > 0) {
+      const byId = new Map<string, ReciterProfile>();
+      for (const c of CANONICAL_ENTERPRISE_RECITERS) {
+        byId.set(c.id, { ...c });
+      }
+      for (const remoteRec of recitersRes.data) {
+        if (
+          remoteRec &&
+          remoteRec.id &&
+          !remoteRec.isArchived &&
+          !String(remoteRec.id).startsWith('e2e-test-') &&
+          !String(remoteRec.id).startsWith('diag-')
+        ) {
+          const existing = byId.get(remoteRec.id);
+          const isCanonical = CANONICAL_ENTERPRISE_RECITERS.some((c) => c.id === remoteRec.id);
+          const hasBaseCdn = Boolean(remoteRec.surahServerBaseUrl && String(remoteRec.surahServerBaseUrl).trim());
+          let uploaded = 0;
+          if (isCanonical || hasBaseCdn) {
+            uploaded = 114;
+          } else {
+            for (let s = 1; s <= 114; s++) {
+              const ov = currentOverrides[`${remoteRec.id}_${s}`];
+              if (ov && ov.audioUrl && ov.status !== 'missing') {
+                uploaded++;
+              }
+            }
+          }
+          byId.set(remoteRec.id, {
+            ...(existing || {}),
+            ...remoteRec,
+            uploadedSurahsCount: uploaded,
+            missingSurahsCount: Math.max(0, 114 - uploaded),
+          } as ReciterProfile);
+        }
+      }
+      const mergedReciters = Array.from(byId.values());
+      saveStoredPermanentReciters(mergedReciters);
+      dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', mergedReciters);
+      return { reciters: mergedReciters, overrides: currentOverrides };
+    }
+  } catch {
+    // Fallback to backend API if direct client read encountered transient network issue
+    try {
+      const resp = await fetch('/api/database');
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json?.data?.quranAudioOverrides && typeof json.data.quranAudioOverrides === 'object') {
+          saveStoredSurahAudioOverrides(json.data.quranAudioOverrides);
+          dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', json.data.quranAudioOverrides);
+        }
+        if (Array.isArray(json?.data?.quranReciters) && json.data.quranReciters.length > 0) {
+          const byId = new Map<string, ReciterProfile>();
+          for (const c of CANONICAL_ENTERPRISE_RECITERS) byId.set(c.id, { ...c });
+          for (const r of json.data.quranReciters) {
+            if (r && r.id && !r.isArchived) {
+              byId.set(r.id, { ...(byId.get(r.id) || {}), ...r });
+            }
+          }
+          const merged = Array.from(byId.values());
+          saveStoredPermanentReciters(merged);
+          dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', merged);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return {
+    reciters: getStoredPermanentReciters(),
+    overrides: getStoredSurahAudioOverrides(),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -339,7 +476,7 @@ export function getStoredSurahAudioRecords(reciterId: string): SurahAudioFileRec
     const padded = padNumber(surah.number, 3);
     const standardStoragePath = `quran-reciter-audio/${reciter.id}/surah-${padded}.mp3`;
 
-    if (custom && custom.audioUrl) {
+    if (custom && custom.audioUrl && custom.status !== 'missing') {
       return {
         id: key,
         reciterId: reciter.id,
@@ -350,7 +487,11 @@ export function getStoredSurahAudioRecords(reciterId: string): SurahAudioFileRec
         numberOfAyahs: surah.numberOfAyahs,
         storagePath: custom.storagePath || standardStoragePath,
         audioUrl: custom.audioUrl,
-        durationLabel: custom.durationLabel || `${Math.floor((surah.numberOfAyahs * 14) / 60)}:${((surah.numberOfAyahs * 14) % 60).toString().padStart(2, '0')}`,
+        durationLabel:
+          custom.durationLabel ||
+          `${Math.floor((surah.numberOfAyahs * 14) / 60)}:${((surah.numberOfAyahs * 14) % 60)
+            .toString()
+            .padStart(2, '0')}`,
         durationSeconds: custom.durationSeconds || Math.max(45, surah.numberOfAyahs * 14),
         fileSizeBytes: custom.fileSizeBytes || Math.round(surah.numberOfAyahs * 14 * 16000),
         fileSizeLabel: custom.fileSizeLabel || `${((surah.numberOfAyahs * 14 * 16) / 1024).toFixed(1)} MB`,
@@ -359,21 +500,49 @@ export function getStoredSurahAudioRecords(reciterId: string): SurahAudioFileRec
         uploadTimestamp: custom.uploadTimestamp || custom.updatedAt || '2026-11-07T00:00:00Z',
         updatedAt: custom.updatedAt || '2026-11-07T00:00:00Z',
         rightsStatus: 'custom_uploaded',
-        sourceProvider: 'ASAKA ZIYO Permanent Storage Vault',
+        sourceProvider: custom.sourceProvider || 'ASAKA ZIYO Permanent Storage Vault',
         isCustomOverride: true,
         storageBackend: 'server_vault',
       };
     }
 
-    // Default canonical stream
-    const defaultUrl = reciter.surahServerBaseUrl
-      ? `${reciter.surahServerBaseUrl.replace(/\/$/, '')}/${padded}.mp3`
-      : '';
+    // Default canonical or custom CDN stream (only if surahServerBaseUrl is genuinely configured)
+    const defaultUrl =
+      reciter.surahServerBaseUrl && reciter.surahServerBaseUrl.trim()
+        ? `${reciter.surahServerBaseUrl.trim().replace(/\/$/, '')}/${padded}.mp3`
+        : '';
 
     const estSeconds = Math.max(45, surah.numberOfAyahs * 14);
     const mins = Math.floor(estSeconds / 60);
     const secs = estSeconds % 60;
     const estSizeMb = Math.max(0.8, (estSeconds * 16) / 1024).toFixed(1);
+
+    if (!defaultUrl) {
+      // Missing audio file: never report fake ready duration/size
+      return {
+        id: key,
+        reciterId: reciter.id,
+        reciterName: reciter.name,
+        surahNumber: surah.number,
+        surahNameUz: surah.nameUz,
+        surahNameAr: surah.nameAr,
+        numberOfAyahs: surah.numberOfAyahs,
+        storagePath: standardStoragePath,
+        audioUrl: '',
+        durationLabel: '—',
+        durationSeconds: 0,
+        fileSizeBytes: 0,
+        fileSizeLabel: 'Yuklanmagan',
+        fileFormat: 'audio/mpeg',
+        status: 'missing',
+        uploadTimestamp: '',
+        updatedAt: reciter.updatedAt,
+        rightsStatus: 'custom_uploaded',
+        sourceProvider: 'Audio fayl kiritilmagan',
+        isCustomOverride: false,
+        storageBackend: 'server_vault',
+      };
+    }
 
     return {
       id: key,
@@ -390,7 +559,7 @@ export function getStoredSurahAudioRecords(reciterId: string): SurahAudioFileRec
       fileSizeBytes: Math.round(parseFloat(estSizeMb) * 1024 * 1024),
       fileSizeLabel: `${estSizeMb} MB`,
       fileFormat: 'audio/mpeg',
-      status: defaultUrl ? 'external_cdn' : 'missing',
+      status: 'external_cdn',
       uploadTimestamp: '2026-11-01T00:00:00Z',
       updatedAt: reciter.updatedAt,
       rightsStatus: 'verified_public_waqf',
@@ -404,7 +573,9 @@ export function getStoredSurahAudioRecords(reciterId: string): SurahAudioFileRec
 export function getStoredSurahAudioOverrides(): Record<string, Partial<SurahAudioFileRecord>> {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const raw = window.localStorage.getItem(STORAGE_KEY_SURAH_AUDIO);
+      const raw =
+        window.localStorage.getItem(STORAGE_KEY_SURAH_AUDIO) ||
+        window.localStorage.getItem('asaka_ziyo_quran_audio_overrides_v1');
       if (raw) return JSON.parse(raw);
     }
   } catch {
@@ -418,7 +589,9 @@ export function saveStoredSurahAudioOverrides(
 ): void {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(STORAGE_KEY_SURAH_AUDIO, JSON.stringify(overrides));
+      const serialized = JSON.stringify(overrides);
+      window.localStorage.setItem(STORAGE_KEY_SURAH_AUDIO, serialized);
+      window.localStorage.setItem('asaka_ziyo_quran_audio_overrides_v1', serialized);
     }
   } catch {
     // ignore
@@ -430,41 +603,80 @@ export function saveStoredSurahAudioOverrides(
 // ---------------------------------------------------------------------------
 
 /**
- * Creates or updates a reciter profile permanently.
+ * Creates or updates a reciter profile permanently in Firebase Firestore (`quranReciters/{id}`).
+ * Strictly verifies server and Firestore write before reporting success.
  */
 export async function createOrUpdateReciter(
   reciter: Partial<ReciterProfile> & { name: string }
 ): Promise<{ success: boolean; reciter?: ReciterProfile; error?: string }> {
   try {
+    if (!reciter.name || !reciter.name.trim()) {
+      return { success: false, error: 'Qori F.I.Sh. kiritilishi shart.' };
+    }
+
     const reciters = getStoredPermanentReciters();
     const cleanId = (
       reciter.id ||
       `reciter-${Date.now()}-${reciter.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10)}`
     ).replace(/[^a-zA-Z0-9_-]/g, '');
 
+    if (!cleanId) {
+      return { success: false, error: 'Yaroqsiz Qori ID.' };
+    }
+
     const existingIndex = reciters.findIndex((r) => r.id === cleanId);
     const existing = existingIndex >= 0 ? reciters[existingIndex] : null;
+    const isCanonical = CANONICAL_ENTERPRISE_RECITERS.some((c) => c.id === cleanId);
+
+    const surahBase = reciter.surahServerBaseUrl !== undefined
+      ? reciter.surahServerBaseUrl.trim()
+      : existing?.surahServerBaseUrl || '';
+    const ayahBase = reciter.ayahServerBaseUrl !== undefined
+      ? reciter.ayahServerBaseUrl.trim()
+      : existing?.ayahServerBaseUrl || '';
+
+    // Calculate accurate uploaded / missing counts
+    const overrides = getStoredSurahAudioOverrides();
+    let uploadedCount = 0;
+    if (isCanonical || Boolean(surahBase)) {
+      uploadedCount = 114;
+    } else {
+      for (let s = 1; s <= 114; s++) {
+        const ov = overrides[`${cleanId}_${s}`];
+        if (ov && ov.audioUrl && ov.status !== 'missing') {
+          uploadedCount++;
+        }
+      }
+    }
+    const missingCount = Math.max(0, 114 - uploadedCount);
+
+    const firstOverrideUrl = overrides[`${cleanId}_1`]?.audioUrl || '';
+    const computedPreviewUrl =
+      reciter.previewUrl?.trim() ||
+      existing?.previewUrl ||
+      firstOverrideUrl ||
+      (surahBase ? `${surahBase.replace(/\/$/, '')}/001.mp3` : '');
 
     const fullProfile: ReciterProfile = {
       id: cleanId,
       name: reciter.name.trim(),
-      nameAr: reciter.nameAr?.trim() || '',
-      country: reciter.country?.trim() || 'Oʻzbekiston / Islom olami',
-      style: reciter.style?.trim() || 'Murattal (Hafs an Osim)',
-      rewaya: reciter.rewaya?.trim() || 'Hafs Aʼn Assem',
-      biographyUz: reciter.biographyUz?.trim() || '',
-      language: reciter.language?.trim() || 'Arab tili',
+      nameAr: reciter.nameAr?.trim() ?? existing?.nameAr ?? '',
+      country: reciter.country?.trim() || existing?.country || 'Oʻzbekiston / Islom olami',
+      style: reciter.style?.trim() || existing?.style || 'Murattal (Hafs an Osim)',
+      rewaya: reciter.rewaya?.trim() || existing?.rewaya || 'Hafs Aʼn Assem',
+      biographyUz: reciter.biographyUz?.trim() ?? existing?.biographyUz ?? '',
+      language: reciter.language?.trim() || existing?.language || 'Arab tili',
       profileImageUrl:
-        reciter.profileImageUrl ||
+        reciter.profileImageUrl?.trim() ||
         existing?.profileImageUrl ||
         '/images/quran_illumination_art_1793634658336.jpg',
-      surahServerBaseUrl: reciter.surahServerBaseUrl?.trim() || existing?.surahServerBaseUrl || '',
-      ayahServerBaseUrl: reciter.ayahServerBaseUrl?.trim() || existing?.ayahServerBaseUrl || '',
-      previewUrl: reciter.previewUrl?.trim() || existing?.previewUrl || '',
-      isActive: reciter.isActive !== undefined ? reciter.isActive : true,
-      isCustomUploaded: true,
-      uploadedSurahsCount: existing?.uploadedSurahsCount || 0,
-      missingSurahsCount: existing?.missingSurahsCount || 114,
+      surahServerBaseUrl: surahBase,
+      ayahServerBaseUrl: ayahBase,
+      previewUrl: computedPreviewUrl,
+      isActive: reciter.isActive !== undefined ? reciter.isActive : (existing ? existing.isActive : true),
+      isCustomUploaded: !isCanonical,
+      uploadedSurahsCount: uploadedCount,
+      missingSurahsCount: missingCount,
       failedSurahsCount: 0,
       totalSurahsCount: 114,
       storageBasePath: `quran-reciter-audio/${cleanId}`,
@@ -473,41 +685,148 @@ export async function createOrUpdateReciter(
       isArchived: false,
     };
 
+    // Persist to Firebase Firestore via authenticated backend API FIRST
+    const token = getActiveAdminToken();
+    const res = await fetch('/api/admin/reciters', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action: 'save', reciter: fullProfile }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.firestoreConfirmed) {
+      const errMsg =
+        data.error ||
+        `Firestore bazasiga saqlash rad etildi (HTTP ${res.status}). Administrator tizimga kirganligini tekshiring.`;
+      return { success: false, error: errMsg };
+    }
+
     const updatedList =
       existingIndex >= 0
         ? reciters.map((r, i) => (i === existingIndex ? fullProfile : r))
         : [...reciters, fullProfile];
 
     saveStoredPermanentReciters(updatedList);
-
-    // Sync to backend REST API
-    try {
-      const token = getActiveAdminToken();
-      const res = await fetch('/api/admin/reciters', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ action: 'save', reciter: fullProfile }),
-      });
-      if (!res.ok) {
-        console.warn('Backend /api/admin/reciters sync returned HTTP', res.status);
-      }
-    } catch {
-      // offline resilience
-    }
+    dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', updatedList);
 
     recordAdminAuditLog({
       action: existingIndex >= 0 ? 'QURAN_RECITER_UPDATED' : 'QURAN_RECITER_CREATED',
       resource: `Qori: ${fullProfile.name} (${fullProfile.id})`,
-      detailsUz: `Qurʼon qorisi profili va saqlash katalogi (${fullProfile.storageBasePath}) muvaffaqiyatli saqlandi.`,
+      detailsUz: `Qurʼon qorisi profili Firestore (quranReciters/${fullProfile.id}) bazasiga muvaffaqiyatli saqlandi.`,
       status: 'SUCCESS',
     });
 
     return { success: true, reciter: fullProfile };
   } catch (err: any) {
-    return { success: false, error: err?.message || 'Qorini saqlashda xatolik yuz berdi.' };
+    return { success: false, error: err?.message || 'Qorini saqlashda tarmoq xatoligi yuz berdi.' };
+  }
+}
+
+/**
+ * Permanently saves a single Surah audio URL override to Firestore (`quranAudioOverrides/{reciterId}_{surahNumber}`).
+ */
+export async function saveSurahAudioOverrideRecord(params: {
+  reciterId: string;
+  surahNumber: number;
+  audioUrl: string;
+  sourceProvider?: string;
+  storagePath?: string;
+  durationLabel?: string;
+  durationSeconds?: number;
+  fileSizeBytes?: number;
+  fileSizeLabel?: string;
+  fileFormat?: string;
+}): Promise<{ success: boolean; record?: Partial<SurahAudioFileRecord>; error?: string }> {
+  try {
+    const {
+      reciterId,
+      surahNumber,
+      audioUrl,
+      sourceProvider,
+      storagePath,
+      durationLabel,
+      durationSeconds,
+      fileSizeBytes,
+      fileSizeLabel,
+      fileFormat,
+    } = params;
+    const cleanUrl = audioUrl.trim();
+    if (!cleanUrl) {
+      return { success: false, error: 'Audio URL manzili kiritilishi shart.' };
+    }
+    if (surahNumber < 1 || surahNumber > 114) {
+      return { success: false, error: 'Sura raqami 1 va 114 oraligʻida boʻlishi shart.' };
+    }
+
+    const key = `${reciterId}_${surahNumber}`;
+    const surahMeta = SURAHS_LIST.find((s) => s.number === surahNumber);
+    const padded = padNumber(surahNumber, 3);
+
+    const overridePayload: Partial<SurahAudioFileRecord> = {
+      id: key,
+      reciterId,
+      surahNumber,
+      surahNameUz: surahMeta?.nameUz || `Sura #${surahNumber}`,
+      surahNameAr: surahMeta?.nameAr || '',
+      numberOfAyahs: surahMeta?.numberOfAyahs || 7,
+      storagePath: `quran-reciter-audio/${reciterId}/surah-${padded}.mp3`,
+      audioUrl: cleanUrl,
+      durationLabel: durationLabel || '02:30',
+      fileSizeLabel: fileSizeLabel || '2.4 MB',
+      fileFormat: 'audio/mpeg',
+      status: 'verified_stored',
+      sourceProvider: sourceProvider || 'Administrator tomonidan biriktirilgan',
+      rightsStatus: 'custom_uploaded',
+      isCustomOverride: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const token = getActiveAdminToken();
+    const res = await fetch('/api/admin/quran-audio', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        action: 'save_override',
+        reciterId,
+        surahNumber,
+        override: overridePayload,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.firestoreConfirmed) {
+      return {
+        success: false,
+        error: data.error || `Firestore bazasiga audio yozuvni saqlashda xatolik (HTTP ${res.status}).`,
+      };
+    }
+
+    const overrides = getStoredSurahAudioOverrides();
+    overrides[key] = overridePayload;
+    saveStoredSurahAudioOverrides(overrides);
+    recalculateReciterSurahCounts(reciterId);
+
+    dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', overrides);
+    dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', getStoredPermanentReciters());
+
+    recordAdminAuditLog({
+      action: 'SURAH_AUDIO_UPDATED',
+      resource: `Sura #${surahNumber} (${reciterId})`,
+      detailsUz: `Sura #${surahNumber} audio manzili Firestore (quranAudioOverrides/${key}) bazasiga saqlandi: ${cleanUrl}`,
+      status: 'SUCCESS',
+    });
+
+    return { success: true, record: overridePayload };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Audio manzilni saqlashda xatolik yuz berdi.' };
   }
 }
 
@@ -532,6 +851,7 @@ export async function uploadSingleSurahAudio(params: {
     const token = getActiveAdminToken();
     const res = await fetch('/api/admin/quran-audio/upload-surah', {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -546,9 +866,9 @@ export async function uploadSingleSurahAudio(params: {
       }),
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Server audio faylni saqlashni rad etdi.');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.firestoreConfirmed) {
+      throw new Error(data.error || 'Server yoki Firestore audio faylni saqlashni rad etdi.');
     }
 
     const savedRecord: SurahAudioFileRecord = data.record;
@@ -560,6 +880,9 @@ export async function uploadSingleSurahAudio(params: {
 
     // Update reciter count
     recalculateReciterSurahCounts(reciterId);
+
+    dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', overrides);
+    dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', getStoredPermanentReciters());
 
     recordAdminAuditLog({
       action: 'SURAH_AUDIO_PERMANENTLY_STORED',
@@ -583,8 +906,10 @@ export function recalculateReciterSurahCounts(reciterId: string): ReciterProfile
   if (index < 0) return null;
 
   const catalog = getStoredSurahAudioRecords(reciterId);
-  const uploaded = catalog.filter((s) => s.status === 'verified_stored' || s.status === 'external_cdn').length;
-  const missing = 114 - uploaded;
+  const uploaded = catalog.filter(
+    (s) => (s.status === 'verified_stored' || s.status === 'external_cdn') && Boolean(s.audioUrl)
+  ).length;
+  const missing = Math.max(0, 114 - uploaded);
 
   const updated: ReciterProfile = {
     ...reciters[index],
@@ -817,17 +1142,21 @@ export async function deleteReciterLibrary(params: {
   try {
     const baseUrl = typeof window !== 'undefined' && window.location?.origin ? '' : 'http://localhost:3000';
     const token = getActiveAdminToken();
-    try {
-      await fetch(`${baseUrl}/api/admin/reciters/delete-library`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ reciterId, purgeStorageObjects }),
-      });
-    } catch {
-      // Offline fallback
+    const res = await fetch(`${baseUrl}/api/admin/reciters/delete-library`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ reciterId, purgeStorageObjects }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.firestoreConfirmed) {
+      return {
+        success: false,
+        error: data.error || `Firestore bazasidan qorini oʻchirishda xatolik (HTTP ${res.status}).`,
+      };
     }
 
     // Remove locally
@@ -843,10 +1172,13 @@ export async function deleteReciterLibrary(params: {
     });
     saveStoredSurahAudioOverrides(overrides);
 
+    dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', reciters);
+    dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', overrides);
+
     recordAdminAuditLog({
       action: 'RECITER_LIBRARY_DELETED',
       resource: `Qori ID: ${reciterId}`,
-      detailsUz: `Qori va audio kutubxonasi oʻchirildi. Saqlash obʼyektlari tozalangan: ${purgeStorageObjects ? 'Ha' : 'Yoʻq (Arxivda)'}`,
+      detailsUz: `Qori va audio kutubxonasi Firestore bazasidan oʻchirildi. Saqlash obʼyektlari tozalangan: ${purgeStorageObjects ? 'Ha' : 'Yoʻq (Arxivda)'}`,
       status: 'WARNING',
     });
 

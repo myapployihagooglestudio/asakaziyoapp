@@ -121,77 +121,250 @@ export const QURAN_RECITERS: QuranReciter[] = [
   {
     id: 'mishary',
     name: 'Shayx Mishariy Roshid al-Afosiy',
+    nameAr: 'مشاري راشد العفاسي',
+    country: 'Kuvayt',
+    style: 'Murattal (Hafs an Osim)',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Kuvaytlik mashhur qori va imom. Masjid al-Kabir imomi, xalqaro Qurʼoni Karim qiroati ustozi.',
+    profileImageUrl: '/images/quran_illumination_art_1793634658336.jpg',
+    surahServerBaseUrl: 'https://server8.mp3quran.net/afs',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Alafasy_128kbps',
     subtext: 'Kuvayt · Murattal uslubi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'suwayd',
     name: 'Shayx Ayman Rushdiy Suvayd',
+    nameAr: 'أيمن رشدي سويد',
+    country: 'Suriya / Saudiya Arabistoni',
+    style: 'Al-Mushaf Al-Muallim (Tajvid ustozi)',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Qiroat va tajvid ilmi boʻyicha zamonamizning eng yirik olimlaridan biri, «At-Tajvidul Musavvar» muallifi.',
+    profileImageUrl: '/images/islamic_scholarship_library_1793634659800.jpg',
+    surahServerBaseUrl: 'https://server15.mp3quran.net/a-rushdi/Almusshaf-Al-Mo-lim',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Ayman_Sowaid_64kbps',
     subtext: 'Suriya · Tajvid va tartil ustozi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Ayman_Sowaid_64kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'hussary',
     name: 'Shayx Mahmud Xalil al-Husariy',
+    nameAr: 'محمود خليل الحصري',
+    country: 'Misr',
+    style: 'Mumtoz Tartil Maktabi',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Misr qorilar shayxi. Dunyoda birinchi boʻlib Qurʼoni Karimni toʻliq ovozli tarzda yozib qoldirgan moʻtabar ustoz.',
+    profileImageUrl: '/images/quran_illumination_art_1793634658336.jpg',
+    surahServerBaseUrl: 'https://server13.mp3quran.net/husr',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Husary_128kbps',
     subtext: 'Misr · Mumtoz tartil maktabi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Husary_128kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'dussary',
     name: 'Shayx Yosir ad-Davsariy',
+    nameAr: 'ياسر الدوسري',
+    country: 'Saudiya Arabistoni',
+    style: 'Masjidul Harom qiroati',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Makkai Mukarramadagi Masjidul Haromning rasmiy imom-xatibi va xushovoz qorisi.',
+    profileImageUrl: '/images/asaka_islamic_architecture_1793634657962.jpg',
+    surahServerBaseUrl: 'https://server11.mp3quran.net/yasser',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps',
     subtext: 'Saudiya Arabistoni · Masjidul Harom imomi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'sudais',
     name: 'Shayx Abdurahmon as-Sudays',
+    nameAr: 'عبدالرحمن السديس',
+    country: 'Saudiya Arabistoni',
+    style: 'Masjidul Harom bosh imomi',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Ikki Muqaddas Masjid ishlari boʻyicha bosh rahbar va Masjidul Harom bosh imomi.',
+    profileImageUrl: '/images/asaka_islamic_architecture_1793634657962.jpg',
+    surahServerBaseUrl: 'https://server11.mp3quran.net/sds',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Abdurrahmaan_As-Sudais_192kbps',
     subtext: 'Saudiya Arabistoni · Masjidul Harom bosh imomi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Abdurrahmaan_As-Sudais_192kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'juhany',
     name: 'Shayx Abdulloh al-Juhaniy',
+    nameAr: 'عبدالله عواد الجهني',
+    country: 'Saudiya Arabistoni',
+    style: 'Masjidul Harom imomi qiroati',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Masjidul Harom imomi, Madina Islom universiteti qiroat fakulteti doktori.',
+    profileImageUrl: '/images/asaka_dawn_spiritual_1793634658872.jpg',
+    surahServerBaseUrl: 'https://server13.mp3quran.net/jhn',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Abdullaah_3awwaad_Al-Juhaynee_128kbps',
     subtext: 'Saudiya Arabistoni · Masjidul Harom imomi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Abdullaah_3awwaad_Al-Juhaynee_128kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'ghamidi',
     name: 'Shayx Saʼd al-Gʻomidiy',
+    nameAr: 'سعد الغامدي',
+    country: 'Saudiya Arabistoni',
+    style: 'Xushovoz va sokin murattal',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Masjid an-Nabaviyda imomlik qilgan taniqli qori va islom olimi.',
+    profileImageUrl: '/images/quran_illumination_art_1793634658336.jpg',
+    surahServerBaseUrl: 'https://server7.mp3quran.net/s_gmd',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Ghamadi_40kbps',
     subtext: 'Saudiya Arabistoni · Xushovoz qiroat (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Ghamadi_40kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
   {
     id: 'shatri',
     name: 'Shayx Abu Bakr ash-Shotiriy',
+    nameAr: 'أبو بكر الشاطري',
+    country: 'Saudiya Arabistoni',
+    style: 'Mayin va taʼsirchan murattal',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Jidda shahridagi al-Furqon masjidi imomi, butun dunyoda sevimli qorilardan biri.',
+    profileImageUrl: '/images/islamic_scholarship_library_1793634659800.jpg',
+    surahServerBaseUrl: 'https://server11.mp3quran.net/shatri',
+    ayahServerBaseUrl: 'https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps',
     subtext: 'Saudiya Arabistoni · Mayin qiroat (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps/001001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
   },
 ];
+
+export const CANONICAL_RECITER_IDS = new Set(QURAN_RECITERS.map((r) => r.id));
 
 export const padNumber = (num: number, digits: number = 3): string => {
   return num.toString().padStart(digits, '0');
 };
 
+function readCachedAudioOverridesMap(): Record<string, any> {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const permRaw = window.localStorage.getItem('asaka_ziyo_permanent_surah_audio_v2');
+      const legRaw = window.localStorage.getItem('asaka_ziyo_quran_audio_overrides_v1');
+      const permMap = permRaw ? JSON.parse(permRaw) : {};
+      const legMap = legRaw ? JSON.parse(legRaw) : {};
+      return { ...legMap, ...permMap };
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function computeReciterSurahCounts(reciterId: string, surahServerBaseUrl?: string, overridesMap?: Record<string, any>): {
+  uploaded: number;
+  missing: number;
+} {
+  if ((surahServerBaseUrl && surahServerBaseUrl.trim()) || CANONICAL_RECITER_IDS.has(reciterId)) {
+    return { uploaded: 114, missing: 0 };
+  }
+  const map = overridesMap || readCachedAudioOverridesMap();
+  let count = 0;
+  for (let s = 1; s <= 114; s++) {
+    const entry = map[`${reciterId}_${s}`];
+    if (entry && entry.audioUrl && entry.status !== 'missing' && entry.publicationStatus !== 'archived') {
+      count++;
+    }
+  }
+  return { uploaded: count, missing: Math.max(0, 114 - count) };
+}
+
 /**
- * Returns active reciters (combining canonical reciters and admin-managed reciters)
+ * Returns active reciters (combining canonical reciters and Firestore/admin-managed reciters)
  */
 export const getActiveQuranReciters = (): QuranReciter[] => {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // 1. Check permanent storage key first
-      const permSaved = window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
+      const overridesMap = readCachedAudioOverridesMap();
+      const permSaved =
+        window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
         window.localStorage.getItem('asaka_ziyo_reciters_v1');
+
       if (permSaved) {
         const parsed = JSON.parse(permSaved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const activeList = parsed
+          // Ensure canonical reciters are included unless explicitly archived/deactivated in parsed
+          const byId = new Map<string, any>();
+          for (const c of QURAN_RECITERS) {
+            byId.set(c.id, { ...c });
+          }
+          for (const r of parsed) {
+            if (r && r.id) {
+              const existing = byId.get(r.id) || {};
+              byId.set(r.id, { ...existing, ...r });
+            }
+          }
+
+          const activeList: QuranReciter[] = Array.from(byId.values())
             .filter((r: any) => r.isActive !== false && !r.isArchived)
-            .map((r: any) => ({
-              id: r.id,
-              name: r.name,
-              subtext: r.subtext || `${r.country || 'Islom olami'} · ${r.style || 'Murattal'} (${r.uploadedSurahsCount || 114}/114 sura)`,
-              previewUrl: r.previewUrl || 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
-            }));
+            .map((r: any) => {
+              const counts = computeReciterSurahCounts(r.id, r.surahServerBaseUrl, overridesMap);
+              const firstOverrideUrl = overridesMap[`${r.id}_1`]?.audioUrl || '';
+              const basePreview = r.surahServerBaseUrl
+                ? `${String(r.surahServerBaseUrl).replace(/\/$/, '')}/001.mp3`
+                : '';
+              return {
+                id: r.id,
+                name: r.name,
+                nameAr: r.nameAr || '',
+                country: r.country || 'Islom olami',
+                style: r.style || 'Murattal (Hafs an Osim)',
+                rewaya: r.rewaya || 'Hafs Aʼn Assem',
+                biographyUz: r.biographyUz || '',
+                profileImageUrl: r.profileImageUrl || '/images/quran_illumination_art_1793634658336.jpg',
+                surahServerBaseUrl: r.surahServerBaseUrl || '',
+                ayahServerBaseUrl: r.ayahServerBaseUrl || '',
+                subtext:
+                  r.subtext ||
+                  `${r.country || 'Islom olami'} · ${r.style || 'Murattal'} (${counts.uploaded}/114 sura)`,
+                previewUrl:
+                  r.previewUrl ||
+                  firstOverrideUrl ||
+                  basePreview ||
+                  (CANONICAL_RECITER_IDS.has(r.id)
+                    ? 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3'
+                    : ''),
+                isCustomUploaded: Boolean(r.isCustomUploaded || !CANONICAL_RECITER_IDS.has(r.id)),
+                uploadedSurahsCount: counts.uploaded,
+                missingSurahsCount: counts.missing,
+                isActive: r.isActive !== false,
+              };
+            });
+
           if (activeList.length > 0) return activeList;
         }
       }
@@ -203,38 +376,62 @@ export const getActiveQuranReciters = (): QuranReciter[] => {
 };
 
 /**
+ * Checks whether a specific Surah has a custom admin-uploaded audio override for the given reciter.
+ */
+export const isCustomSurahAudioOverride = (reciterId: string, surahNumber: number): boolean => {
+  try {
+    const overrides = readCachedAudioOverridesMap();
+    const key = `${reciterId}_${surahNumber}`;
+    return Boolean(
+      overrides &&
+        overrides[key] &&
+        overrides[key].audioUrl &&
+        overrides[key].status !== 'missing' &&
+        overrides[key].publicationStatus !== 'archived'
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Returns full Surah MP3 URL for streaming across canonical & admin-managed reciters.
  * Checks custom admin-uploaded or overridden Surah recordings first.
+ * Never returns a fake URL for custom reciters if the surah audio was not uploaded.
  */
 export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number): string => {
   const padded = padNumber(surahNumber, 3);
 
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // 1. Check permanent storage override
-      const permAudioRaw = window.localStorage.getItem('asaka_ziyo_permanent_surah_audio_v2') ||
-        window.localStorage.getItem('asaka_ziyo_quran_audio_overrides_v1');
-      if (permAudioRaw) {
-        const overrides = JSON.parse(permAudioRaw);
-        const key = `${reciterId}_${surahNumber}`;
-        if (overrides && overrides[key] && overrides[key].audioUrl && overrides[key].publicationStatus !== 'archived') {
-          return overrides[key].audioUrl;
-        }
+      // 1. Check permanent storage override first (Firestore-synced cache)
+      const overrides = readCachedAudioOverridesMap();
+      const key = `${reciterId}_${surahNumber}`;
+      if (
+        overrides &&
+        overrides[key] &&
+        overrides[key].audioUrl &&
+        overrides[key].status !== 'missing' &&
+        overrides[key].publicationStatus !== 'archived'
+      ) {
+        return String(overrides[key].audioUrl).trim();
       }
+
       // 2. Check custom reciter base server URL
-      const recitersRaw = window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
+      const recitersRaw =
+        window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
         window.localStorage.getItem('asaka_ziyo_reciters_v1');
       if (recitersRaw) {
         const reciters = JSON.parse(recitersRaw);
         const found = Array.isArray(reciters) ? reciters.find((r: any) => r.id === reciterId) : null;
-        if (found && found.surahServerBaseUrl) {
-          const base = String(found.surahServerBaseUrl).replace(/\/$/, '');
+        if (found && found.surahServerBaseUrl && String(found.surahServerBaseUrl).trim()) {
+          const base = String(found.surahServerBaseUrl).trim().replace(/\/$/, '');
           return `${base}/${padded}.mp3`;
         }
       }
     }
   } catch {
-    // fallback to verified CDN
+    // fallback to canonical check
   }
 
   switch (reciterId) {
@@ -253,9 +450,19 @@ export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number):
     case 'shatri':
       return `https://server11.mp3quran.net/shatri/${padded}.mp3`;
     case 'mishary':
-    default:
       return `https://server8.mp3quran.net/afs/${padded}.mp3`;
+    default:
+      // Custom reciter without uploaded surah audio or base server URL
+      return '';
   }
+};
+
+/**
+ * Checks whether a specific Surah audio is genuinely available for the given reciter.
+ */
+export const isSurahAudioAvailableForReciter = (reciterId: string, surahNumber: number): boolean => {
+  const url = getReciterSurahAudioUrl(reciterId, surahNumber);
+  return Boolean(url && url.trim().length > 0);
 };
 
 /**
@@ -275,6 +482,25 @@ export const getReciterAyahAudioUrl = (
 ): string => {
   const s = padNumber(surahNumber, 3);
   const a = padNumber(ayahNumberInSurah, 3);
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const recitersRaw =
+        window.localStorage.getItem('asaka_ziyo_permanent_reciters_v2') ||
+        window.localStorage.getItem('asaka_ziyo_reciters_v1');
+      if (recitersRaw) {
+        const reciters = JSON.parse(recitersRaw);
+        const found = Array.isArray(reciters) ? reciters.find((r: any) => r.id === reciterId) : null;
+        if (found && found.ayahServerBaseUrl && String(found.ayahServerBaseUrl).trim()) {
+          const base = String(found.ayahServerBaseUrl).trim().replace(/\/$/, '');
+          return `${base}/${s}${a}.mp3`;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   switch (reciterId) {
     case 'suwayd':
       return `https://everyayah.com/data/Ayman_Sowaid_64kbps/${s}${a}.mp3`;

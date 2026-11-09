@@ -1014,6 +1014,29 @@ async function hydrateServerDatabaseFromFirestore(): Promise<void> {
       }
     }
 
+    // Hydrate quranAudioOverrides (stored as object dictionary keyed by `${reciterId}_${surahNumber}`)
+    const remoteAudioOverrides = await serverReadFirestoreCollection('quranAudioOverrides');
+    if (remoteAudioOverrides.length > 0) {
+      if (!db.quranAudioOverrides || typeof db.quranAudioOverrides !== 'object') {
+        db.quranAudioOverrides = {};
+      }
+      for (const item of remoteAudioOverrides) {
+        const key = String(item?.id || (item?.reciterId && item?.surahNumber ? `${item.reciterId}_${item.surahNumber}` : ''));
+        if (
+          key &&
+          !key.startsWith('e2e-test-') &&
+          !key.startsWith('diag-') &&
+          !key.startsWith('audit-test-')
+        ) {
+          db.quranAudioOverrides[key] = {
+            ...(db.quranAudioOverrides[key] || {}),
+            ...item,
+            id: key,
+          };
+        }
+      }
+    }
+
     writeDatabase(db);
     lastVerifiedFirestoreHealth = {
       connected: true,
@@ -3553,8 +3576,24 @@ app.post('/api/admin/quran-audio', requireAdminAuth, async (req: Request, res: R
       return res.status(500).json({ success: false, error: `Firestore saqlash xatosi: ${fsRes.error}` });
     }
     db.quranAudioOverrides[key] = record;
+
+    // Also update reciter uploaded/missing surah counts in db and Firestore
+    if (Array.isArray(db.quranReciters)) {
+      const rIdx = db.quranReciters.findIndex((r: any) => r.id === reciterId);
+      if (rIdx >= 0) {
+        const storedCount = Object.values(db.quranAudioOverrides).filter(
+          (ov: any) => ov && ov.reciterId === reciterId && ov.audioUrl && ov.status !== 'missing'
+        ).length;
+        const hasBaseCdn = Boolean(db.quranReciters[rIdx].surahServerBaseUrl);
+        db.quranReciters[rIdx].uploadedSurahsCount = hasBaseCdn ? 114 : storedCount;
+        db.quranReciters[rIdx].missingSurahsCount = hasBaseCdn ? 0 : Math.max(0, 114 - storedCount);
+        db.quranReciters[rIdx].updatedAt = new Date().toISOString();
+        await serverWriteFirestoreDoc('quranReciters', String(reciterId), db.quranReciters[rIdx]);
+      }
+    }
+
     writeDatabase(db);
-    return res.json({ success: true, firestoreConfirmed: true, overrides: db.quranAudioOverrides });
+    return res.json({ success: true, firestoreConfirmed: true, overrides: db.quranAudioOverrides, record });
   }
 
   return res.json({ success: true, overrides: db.quranAudioOverrides });

@@ -69,6 +69,7 @@ import {
   generateDeterministicDailyQuiz,
   isQuestionPublishable,
 } from '../data/quizQuestionsData';
+import { QURAN_RECITERS } from '../data/quranData';
 
 // Storage Keys (v5_admin: strictly admin-approved Firestore records only, zero sample/demo data)
 const KEYS = {
@@ -267,7 +268,9 @@ export type DBEventType =
   | 'DIGITAL_BOOKS_UPDATED'
   | 'IMAM_QUESTION_SUBMITTED'
   | 'IMAM_QUESTION_ANSWERED'
-  | 'DAILY_CONTENT_UPDATED';
+  | 'DAILY_CONTENT_UPDATED'
+  | 'QURAN_RECITERS_UPDATED'
+  | 'QURAN_AUDIO_UPDATED';
 
 export interface DBMessage {
   type: DBEventType;
@@ -293,7 +296,7 @@ export function subscribeToDatabase(callback: (event: DBMessage) => void): () =>
   };
 }
 
-function broadcastEvent(type: DBEventType, payload?: unknown) {
+export function broadcastEvent(type: DBEventType, payload?: unknown) {
   const message: DBMessage = { type, payload, timestamp: Date.now() };
 
   // Dispatch to local subscribers
@@ -354,6 +357,12 @@ if (typeof window !== 'undefined') {
       if (e.key === KEYS.NOTIFICATIONS) broadcastEvent('NOTIFICATIONS_UPDATED');
       if (e.key === KEYS.ANNOUNCEMENTS) broadcastEvent('ANNOUNCEMENTS_UPDATED');
       if (e.key === KEYS.NEWS) broadcastEvent('NEWS_UPDATED');
+    }
+    if (e.key === 'asaka_ziyo_permanent_reciters_v2' || e.key === 'asaka_ziyo_reciters_v1') {
+      broadcastEvent('QURAN_RECITERS_UPDATED');
+    }
+    if (e.key === 'asaka_ziyo_permanent_surah_audio_v2' || e.key === 'asaka_ziyo_quran_audio_overrides_v1') {
+      broadcastEvent('QURAN_AUDIO_UPDATED');
     }
   });
 }
@@ -645,6 +654,77 @@ export async function syncWithFirestore(force = false): Promise<void> {
       broadcastEvent('DAILY_CONTENT_UPDATED', dailyDocRes.data);
     }
 
+    // 9E. Fetch Quran Reciters & 114-Surah Audio Overrides directly from Firestore (Primary Database)
+    const [recitersRes, audioOverridesRes] = await Promise.all([
+      fetchCollectionFromFirestore<any>('quranReciters'),
+      fetchCollectionFromFirestore<any>('quranAudioOverrides'),
+    ]);
+
+    if (audioOverridesRes.success && Array.isArray(audioOverridesRes.data)) {
+      const overridesMap: Record<string, any> = safeGetLocalCache('asaka_ziyo_permanent_surah_audio_v2', {});
+      for (const item of audioOverridesRes.data) {
+        if (item && item.id) {
+          overridesMap[item.id] = item;
+        } else if (item && item.reciterId && item.surahNumber) {
+          overridesMap[`${item.reciterId}_${item.surahNumber}`] = item;
+        }
+      }
+      safeSetLocalCache('asaka_ziyo_permanent_surah_audio_v2', overridesMap);
+      safeSetLocalCache('asaka_ziyo_quran_audio_overrides_v1', overridesMap);
+      broadcastEvent('QURAN_AUDIO_UPDATED', overridesMap);
+    }
+
+    if (recitersRes.success && Array.isArray(recitersRes.data)) {
+      const currentOverrides: Record<string, any> = safeGetLocalCache('asaka_ziyo_permanent_surah_audio_v2', {});
+      const reciterById = new Map<string, any>();
+      for (const c of QURAN_RECITERS) {
+        reciterById.set(c.id, {
+          ...c,
+          isActive: true,
+          isCustomUploaded: false,
+          uploadedSurahsCount: 114,
+          missingSurahsCount: 0,
+          failedSurahsCount: 0,
+          totalSurahsCount: 114,
+          storageBasePath: `quran-reciter-audio/${c.id}`,
+        });
+      }
+      for (const remoteRec of recitersRes.data) {
+        if (
+          remoteRec &&
+          remoteRec.id &&
+          !remoteRec.isArchived &&
+          !String(remoteRec.id).startsWith('e2e-test-') &&
+          !String(remoteRec.id).startsWith('diag-')
+        ) {
+          const existing = reciterById.get(remoteRec.id) || {};
+          const isCanonical = QURAN_RECITERS.some((c) => c.id === remoteRec.id);
+          const hasBaseUrl = Boolean(remoteRec.surahServerBaseUrl && String(remoteRec.surahServerBaseUrl).trim());
+          let uploaded = 0;
+          if (isCanonical || hasBaseUrl) {
+            uploaded = 114;
+          } else {
+            for (let s = 1; s <= 114; s++) {
+              const ov = currentOverrides[`${remoteRec.id}_${s}`];
+              if (ov && ov.audioUrl && ov.status !== 'missing') {
+                uploaded++;
+              }
+            }
+          }
+          reciterById.set(remoteRec.id, {
+            ...existing,
+            ...remoteRec,
+            uploadedSurahsCount: uploaded,
+            missingSurahsCount: Math.max(0, 114 - uploaded),
+          });
+        }
+      }
+      const mergedReciters = Array.from(reciterById.values());
+      safeSetLocalCache('asaka_ziyo_permanent_reciters_v2', mergedReciters);
+      safeSetLocalCache('asaka_ziyo_reciters_v1', mergedReciters);
+      broadcastEvent('QURAN_RECITERS_UPDATED', mergedReciters);
+    }
+
     // 10. Fetch Inquiries & Drafts via authenticated server endpoint (since Firestore Rules protect private user inquiries)
     if (isAdminAuthenticated()) {
       try {
@@ -754,6 +834,71 @@ export function startRealtimeFirestoreListeners(): void {
         safeSetLocalCache(MOSQUE_EVENTS_KEY, sorted);
         broadcastEvent('MOSQUE_EVENTS_UPDATED', sorted);
       }
+    });
+
+    listenToFirestoreCollection<any>('quranAudioOverrides', (docs) => {
+      const overridesMap: Record<string, any> = {};
+      for (const item of docs) {
+        if (item && item.id) {
+          overridesMap[item.id] = item;
+        } else if (item && item.reciterId && item.surahNumber) {
+          overridesMap[`${item.reciterId}_${item.surahNumber}`] = item;
+        }
+      }
+      safeSetLocalCache('asaka_ziyo_permanent_surah_audio_v2', overridesMap);
+      safeSetLocalCache('asaka_ziyo_quran_audio_overrides_v1', overridesMap);
+      broadcastEvent('QURAN_AUDIO_UPDATED', overridesMap);
+    });
+
+    listenToFirestoreCollection<any>('quranReciters', (docs) => {
+      const currentOverrides: Record<string, any> = safeGetLocalCache('asaka_ziyo_permanent_surah_audio_v2', {});
+      const reciterById = new Map<string, any>();
+      for (const c of QURAN_RECITERS) {
+        reciterById.set(c.id, {
+          ...c,
+          isActive: true,
+          isCustomUploaded: false,
+          uploadedSurahsCount: 114,
+          missingSurahsCount: 0,
+          failedSurahsCount: 0,
+          totalSurahsCount: 114,
+          storageBasePath: `quran-reciter-audio/${c.id}`,
+        });
+      }
+      for (const remoteRec of docs) {
+        if (
+          remoteRec &&
+          remoteRec.id &&
+          !remoteRec.isArchived &&
+          !String(remoteRec.id).startsWith('e2e-test-') &&
+          !String(remoteRec.id).startsWith('diag-')
+        ) {
+          const existing = reciterById.get(remoteRec.id) || {};
+          const isCanonical = QURAN_RECITERS.some((c) => c.id === remoteRec.id);
+          const hasBaseUrl = Boolean(remoteRec.surahServerBaseUrl && String(remoteRec.surahServerBaseUrl).trim());
+          let uploaded = 0;
+          if (isCanonical || hasBaseUrl) {
+            uploaded = 114;
+          } else {
+            for (let s = 1; s <= 114; s++) {
+              const ov = currentOverrides[`${remoteRec.id}_${s}`];
+              if (ov && ov.audioUrl && ov.status !== 'missing') {
+                uploaded++;
+              }
+            }
+          }
+          reciterById.set(remoteRec.id, {
+            ...existing,
+            ...remoteRec,
+            uploadedSurahsCount: uploaded,
+            missingSurahsCount: Math.max(0, 114 - uploaded),
+          });
+        }
+      }
+      const mergedReciters = Array.from(reciterById.values());
+      safeSetLocalCache('asaka_ziyo_permanent_reciters_v2', mergedReciters);
+      safeSetLocalCache('asaka_ziyo_reciters_v1', mergedReciters);
+      broadcastEvent('QURAN_RECITERS_UPDATED', mergedReciters);
     });
   } catch (err) {
     console.warn('[Firestore Realtime Listeners] Notice:', err);

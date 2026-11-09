@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppSettings, SupportedLocale } from '../../../types';
-import { QURAN_RECITERS } from '../../../data/quranData';
+import { AppSettings, QuranReciter, SupportedLocale } from '../../../types';
+import { getActiveQuranReciters } from '../../../data/quranData';
+import { subscribeToDatabase } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
 import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
 import { LanguageSelector } from '../../ui/LanguageSelector';
@@ -41,6 +42,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const { isInstalled, isStandalone } = usePWAInstall();
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
+  const [availableReciters, setAvailableReciters] = useState<QuranReciter[]>(() => getActiveQuranReciters());
+
+  useEffect(() => {
+    const unsub = subscribeToDatabase((event) => {
+      if (event.type === 'QURAN_RECITERS_UPDATED' || event.type === 'QURAN_AUDIO_UPDATED') {
+        setAvailableReciters(getActiveQuranReciters());
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const getLocalizedText = (text: string) => {
     if (currentLocale === 'uz-Latn-new') {
@@ -231,12 +242,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="space-y-2 pt-2">
-            {QURAN_RECITERS.map((reciter) => {
+            {availableReciters.map((reciter) => {
               const isSelected = settings.activeReciterId === reciter.id;
               return (
                 <button
                   key={reciter.id}
-                  onClick={() => onUpdateSettings({ activeReciterId: reciter.id })}
+                  onClick={() => {
+                    onUpdateSettings({ activeReciterId: reciter.id });
+                    try {
+                      localStorage.setItem('asaka_ziyo_reciter', reciter.id);
+                    } catch {
+                      // ignore
+                    }
+                  }}
                   className={`w-full flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                     isSelected
                       ? 'border-[#c5a869] bg-[#c5a869]/10 text-stone-900 dark:text-white'

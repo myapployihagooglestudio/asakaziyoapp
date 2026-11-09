@@ -8,6 +8,7 @@ import {
   QuranBookmark,
   QuranNote,
   QuranReadingProgress,
+  QuranReciter,
 } from '../../../types';
 import {
   SURAHS_LIST,
@@ -15,9 +16,12 @@ import {
   QURAN_RECITERS,
   JUZ_LIST,
   JuzInfo,
+  getActiveQuranReciters,
   getReciterSurahAudioUrl,
   getReciterAyahAudioUrl,
   getAyahAudioUrl,
+  isSurahAudioAvailableForReciter,
+  isCustomSurahAudioOverride,
 } from '../../../data/quranData';
 import {
   TAFSIRI_HILOL_ENTRIES,
@@ -33,7 +37,9 @@ import {
   getStoredQuranNotes,
   saveStoredQuranNote,
   deleteStoredQuranNote,
+  subscribeToDatabase,
 } from '../../../utils/databaseService';
+import { syncRecitersAndAudioFromFirestore } from '../../../utils/quranReciterStorageService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
@@ -147,12 +153,17 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [savedItemsSubTab, setSavedItemsSubTab] = useState<'bookmarks' | 'notes'>('bookmarks');
   const [khatmFilter, setKhatmFilter] = useState<'all' | 'completed' | 'uncompleted'>('all');
 
-  // 8 Canonical Reciters
+  // Dynamic Reciters from Firestore + Canonical Reciters
+  const [availableReciters, setAvailableReciters] = useState<QuranReciter[]>(() => getActiveQuranReciters());
+  const [audioCatalogVersion, setAudioCatalogVersion] = useState<number>(0);
+  const [surahAudioFilter, setSurahAudioFilter] = useState<'all' | 'available' | 'missing'>('all');
+  const [hasCompletedInitialReciterSync, setHasCompletedInitialReciterSync] = useState<boolean>(false);
+
   const [selectedReciterId, setSelectedReciterId] = useState<string>(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const saved = localStorage.getItem('asaka_ziyo_reciter');
-        if (saved && QURAN_RECITERS.some((r) => r.id === saved)) return saved;
+        if (saved && saved.trim()) return saved.trim();
       }
     } catch {
       // fallback
@@ -168,6 +179,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isLooping, setIsLooping] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const shouldAutoPlayNextSurahRef = useRef<boolean>(false);
 
   // Single Ayah playback & Repeat options
   const [playingAyahId, setPlayingAyahId] = useState<string | null>(null);
@@ -190,11 +202,58 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [fetchedAyahs, setFetchedAyahs] = useState<Ayah[] | null>(null);
   const [isLoadingAyahs, setIsLoadingAyahs] = useState(false);
 
+  // Sync Reciters & 114 Surah Audio Overrides from Firestore in real time
+  useEffect(() => {
+    let mounted = true;
+    syncRecitersAndAudioFromFirestore().then(() => {
+      if (!mounted) return;
+      setAvailableReciters(getActiveQuranReciters());
+      setAudioCatalogVersion((v) => v + 1);
+      setHasCompletedInitialReciterSync(true);
+    });
+
+    const unsub = subscribeToDatabase((event) => {
+      if (
+        event.type === 'QURAN_RECITERS_UPDATED' ||
+        event.type === 'QURAN_AUDIO_UPDATED'
+      ) {
+        setAvailableReciters(getActiveQuranReciters());
+        setAudioCatalogVersion((v) => v + 1);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, []);
+
+  // Ensure selectedReciterId falls back gracefully if deactivated by admin
+  useEffect(() => {
+    if (!hasCompletedInitialReciterSync) return;
+    if (availableReciters.length > 0 && !availableReciters.some((r) => r.id === selectedReciterId)) {
+      const fallbackId = availableReciters[0].id || 'mishary';
+      setSelectedReciterId(fallbackId);
+      try {
+        localStorage.setItem('asaka_ziyo_reciter', fallbackId);
+      } catch {
+        // ignore
+      }
+    }
+  }, [availableReciters, selectedReciterId, hasCompletedInitialReciterSync]);
+
   const selectedSurah =
     SURAHS_LIST.find((s) => s.number === selectedSurahNumber) || SURAHS_LIST[0];
 
   const activeReciter =
-    QURAN_RECITERS.find((r) => r.id === selectedReciterId) || QURAN_RECITERS[0];
+    availableReciters.find((r) => r.id === selectedReciterId) ||
+    availableReciters[0] ||
+    QURAN_RECITERS[0];
+
+  const isCurrentSurahAudioReady = isSurahAudioAvailableForReciter(
+    activeReciter.id,
+    selectedSurahNumber
+  );
 
   // Remember last surah in localStorage and reading progress
   useEffect(() => {
@@ -243,7 +302,16 @@ export const QuranView: React.FC<QuranViewProps> = ({
       setFetchedAyahs(null);
       setIsLoadingAyahs(false);
     }
-  }, [selectedSurahNumber, selectedReciterId]);
+
+    if (shouldAutoPlayNextSurahRef.current) {
+      shouldAutoPlayNextSurahRef.current = false;
+      setTimeout(() => {
+        if (isSurahAudioAvailableForReciter(activeReciter.id, selectedSurahNumber)) {
+          handleToggleSurahAudio();
+        }
+      }, 150);
+    }
+  }, [selectedSurahNumber, selectedReciterId, audioCatalogVersion]);
 
   const fetchSurahAyahs = async (surahNum: number) => {
     setIsLoadingAyahs(true);
@@ -311,8 +379,17 @@ export const QuranView: React.FC<QuranViewProps> = ({
     }
 
     if (!surahAudioRef.current) {
-      const offlineBlobUrl = await getOfflineAudioBlobUrl(selectedReciterId, selectedSurahNumber);
-      const audioUrl = offlineBlobUrl || getReciterSurahAudioUrl(selectedReciterId, selectedSurahNumber);
+      const offlineBlobUrl = await getOfflineAudioBlobUrl(activeReciter.id, selectedSurahNumber);
+      const audioUrl = offlineBlobUrl || getReciterSurahAudioUrl(activeReciter.id, selectedSurahNumber);
+
+      if (!audioUrl || !audioUrl.trim()) {
+        setAudioError(
+          `Ushbu sura (${selectedSurah.number}. ${selectedSurah.nameUz}) uchun «${activeReciter.name}» qiroati audio fayli hali yuklanmagan.`
+        );
+        setIsSurahAudioPlaying(false);
+        return;
+      }
+
       const audio = new Audio(audioUrl);
       audio.playbackRate = playbackSpeed;
       audio.loop = isLooping;
@@ -338,14 +415,21 @@ export const QuranView: React.FC<QuranViewProps> = ({
             });
             setReadingProgress(updated);
           }
-          if (selectedSurahNumber < 114) {
-            setSelectedSurahNumber((prev) => prev + 1);
+          // Find next surah with available audio for continuous playback
+          for (let nextNum = selectedSurahNumber + 1; nextNum <= 114; nextNum++) {
+            if (isSurahAudioAvailableForReciter(activeReciter.id, nextNum)) {
+              shouldAutoPlayNextSurahRef.current = true;
+              setSelectedSurahNumber(nextNum);
+              break;
+            }
           }
         }
       };
 
       audio.onerror = () => {
-        setAudioError(`${activeReciter.name} qiroatini yuklashda tarmoq xatoligi yuz berdi. Oflayn yuklab olish yoki boshqa qorini tanlash mumkin.`);
+        setAudioError(
+          `${activeReciter.name} qiroati audio manbasini oʻqishda xatolik yuz berdi (${audioUrl}).`
+        );
         setIsSurahAudioPlaying(false);
       };
 
@@ -354,7 +438,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
           title: `${selectedSurah.number}. ${selectedSurah.nameUz} surasi`,
           artist: activeReciter.name,
           album: 'ASAKA ZIYO — Qurʼoni Karim Tilovati',
-          artworkUrl: '/pwa-512x512.png',
+          artworkUrl: activeReciter.profileImageUrl || '/pwa-512x512.png',
         },
         {
           onPlay: () => {
@@ -384,7 +468,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
       .play()
       .then(() => setIsSurahAudioPlaying(true))
       .catch(() => {
-        setAudioError('Audio ijrosini boshlashda xatolik yuz berdi. Brauzer ovoz siyosatini tekshiring.');
+        setAudioError('Audio ijrosini boshlashda xatolik yuz berdi. Audio manzili yoki brauzer ovoz ruxsatini tekshiring.');
         setIsSurahAudioPlaying(false);
       });
   };
@@ -417,16 +501,22 @@ export const QuranView: React.FC<QuranViewProps> = ({
   };
 
   const handleDownloadSurahAudio = async () => {
-    const audioUrl = getReciterSurahAudioUrl(selectedReciterId, selectedSurahNumber);
+    const audioUrl = getReciterSurahAudioUrl(activeReciter.id, selectedSurahNumber);
+    if (!audioUrl || !audioUrl.trim()) {
+      setAudioError(
+        `Ushbu sura (${selectedSurah.number}. ${selectedSurah.nameUz}) uchun «${activeReciter.name}» audio fayli hali yuklanmagan.`
+      );
+      return;
+    }
     const filename = `${selectedSurah.number}_${selectedSurah.nameUz}_${activeReciter.id}.mp3`;
     try {
       startOfflineDownload({
-        id: `surah_${selectedReciterId}_${selectedSurahNumber}`,
+        id: `surah_${activeReciter.id}_${selectedSurahNumber}`,
         type: 'quran_audio',
         title: `${String(selectedSurah.number).padStart(3, '0')}. ${selectedSurah.nameUz} surasi — ${activeReciter.name}`,
         subtitle: 'Oflayn tinglash uchun saqlangan tilovat',
         sourceUrl: audioUrl,
-        reciterId: selectedReciterId,
+        reciterId: activeReciter.id,
         surahNumber: selectedSurahNumber,
       }).catch(() => {});
     } catch {
@@ -645,17 +735,30 @@ export const QuranView: React.FC<QuranViewProps> = ({
     return surah.meaningUz;
   };
 
-  // Search by Surah Name, Meaning, Number OR Ayah Text (Arabic / Translation)
+  const availableSurahsCountForReciter = SURAHS_LIST.filter((s) =>
+    isSurahAudioAvailableForReciter(activeReciter.id, s.number)
+  ).length;
+  const missingSurahsCountForReciter = Math.max(0, 114 - availableSurahsCountForReciter);
+
+  // Search by Surah Name, Meaning, Number OR Ayah Text (Arabic / Translation) + Audio Filter
   const filteredSurahs = SURAHS_LIST.filter((s) => {
     const locName = getLocalizedSurahName(s).toLowerCase();
     const locMeaning = getLocalizedSurahMeaning(s).toLowerCase();
     const query = searchQuery.toLowerCase().trim();
-    return (
+    const matchesQuery =
+      !query ||
       locName.includes(query) ||
       locMeaning.includes(query) ||
       s.number.toString().includes(query) ||
-      s.nameAr.includes(query)
-    );
+      s.nameAr.includes(query);
+    if (!matchesQuery) return false;
+    if (surahAudioFilter === 'available') {
+      return isSurahAudioAvailableForReciter(activeReciter.id, s.number);
+    }
+    if (surahAudioFilter === 'missing') {
+      return !isSurahAudioAvailableForReciter(activeReciter.id, s.number);
+    }
+    return true;
   });
 
   const getArabicFontClass = () => {
@@ -692,14 +795,14 @@ export const QuranView: React.FC<QuranViewProps> = ({
               <BookOpen className="w-4 h-4" />
               <span>Kalomulloh Ekotizimi</span>
               <span aria-hidden="true">·</span>
-              <span>114 Ta Sura · 8 Mashhur Qori · Tafsiri Hilol</span>
+              <span>114 Ta Sura · {availableReciters.length} Ta Faol Qori · Tafsiri Hilol</span>
             </div>
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
             Qurʼoni Karim va Tafsir Maskani
           </h1>
           <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-2xl">
-            114 ta suraning toʻliq arabcha matni, 8 ta mashhur qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
+            114 ta suraning toʻliq arabcha matni, {availableReciters.length} ta mashhur va maxsus qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
           </p>
         </div>
       </div>
@@ -795,7 +898,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
             <div className="flex items-center gap-1.5 text-xs">
               <Headphones className="w-3.5 h-3.5 text-[#c5a869]" />
               <select
-                value={selectedReciterId}
+                value={activeReciter.id}
                 onChange={(e) => {
                   setSelectedReciterId(e.target.value);
                   try {
@@ -806,9 +909,9 @@ export const QuranView: React.FC<QuranViewProps> = ({
                 }}
                 className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 font-semibold text-xs focus:ring-1 focus:ring-[#c5a869] cursor-pointer"
               >
-                {QURAN_RECITERS.map((r) => (
+                {availableReciters.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {r.name} ({typeof r.uploadedSurahsCount === 'number' ? r.uploadedSurahsCount : 114}/114)
                   </option>
                 ))}
               </select>
@@ -819,6 +922,107 @@ export const QuranView: React.FC<QuranViewProps> = ({
 
       {/* ---------------- TAB 1: MUSHAF & TILOVAT ---------------- */}
       {activeQuranTab === 'mushaf' && (
+        <div className="space-y-6">
+          {/* Active Reciter Profile & Quick Reciter Switcher Bar */}
+          <Card className="p-4 sm:p-5 border-[#c5a869]/30 bg-white/90 dark:bg-[#081b18]/90 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <img
+                  src={activeReciter.profileImageUrl || '/images/quran_illumination_art_1793634658336.jpg'}
+                  alt={activeReciter.name}
+                  className="w-14 h-14 rounded-2xl object-cover border-2 border-[#c5a869]/50 shadow-md shrink-0"
+                />
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#c5a869]/20 text-[#c5a869]">
+                      Tanlangan Qori
+                    </span>
+                    <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white">
+                      {activeReciter.name}
+                    </h3>
+                    {activeReciter.nameAr && (
+                      <span className="font-arabic text-base text-[#c5a869]">{activeReciter.nameAr}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {activeReciter.subtext}
+                    {activeReciter.rewaya ? ` · Rivoyat: ${activeReciter.rewaya}` : ''}
+                  </p>
+                  {activeReciter.biographyUz && (
+                    <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed max-w-3xl">
+                      {activeReciter.biographyUz}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs">
+                  <div className="text-[10px] text-stone-400 uppercase font-semibold">114 Sura Audio Xazinasi</div>
+                  <div className="font-bold text-emerald-500">
+                    Mavjud: {availableSurahsCountForReciter} / 114 sura
+                    {missingSurahsCountForReciter > 0 && (
+                      <span className="text-amber-500 ml-1.5">
+                        (Yuklanmagan: {missingSurahsCountForReciter})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Reciter Quick Selection Chips (All Active Reciters from Firestore) */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 border-t border-stone-200/60 dark:border-emerald-950/60">
+              <span className="text-[11px] font-semibold text-stone-400 shrink-0">
+                Qorilar ({availableReciters.length}):
+              </span>
+              {availableReciters.map((rec) => {
+                const isSelected = rec.id === activeReciter.id;
+                const recCount =
+                  typeof rec.uploadedSurahsCount === 'number' ? rec.uploadedSurahsCount : 114;
+                return (
+                  <button
+                    key={rec.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedReciterId(rec.id);
+                      try {
+                        localStorage.setItem('asaka_ziyo_reciter', rec.id);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#c5a869] text-[#071614] border-[#c5a869] shadow-sm'
+                        : 'bg-stone-100/80 dark:bg-emerald-950/40 border-stone-200 dark:border-emerald-900/40 text-stone-700 dark:text-stone-300 hover:border-[#c5a869]/50'
+                    }`}
+                  >
+                    {rec.profileImageUrl && (
+                      <img
+                        src={rec.profileImageUrl}
+                        alt={rec.name}
+                        className="w-4 h-4 rounded-full object-cover"
+                      />
+                    )}
+                    <span>{rec.name}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded ${
+                        isSelected
+                          ? 'bg-black/20 text-[#071614]'
+                          : recCount > 0
+                          ? 'bg-emerald-500/15 text-emerald-500'
+                          : 'bg-amber-500/15 text-amber-500'
+                      }`}
+                    >
+                      {recCount}/114
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: 114 Surahs Directory & 30 Juz Navigation (4 cols) */}
           <div className="lg:col-span-4 space-y-4">
@@ -860,6 +1064,44 @@ export const QuranView: React.FC<QuranViewProps> = ({
               />
             </div>
 
+            {directoryMode === 'surah' && missingSurahsCountForReciter > 0 && (
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-stone-100 dark:bg-emerald-950/40 border border-stone-200 dark:border-emerald-900/40 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setSurahAudioFilter('all')}
+                  className={`py-1 rounded-lg font-semibold cursor-pointer ${
+                    surahAudioFilter === 'all'
+                      ? 'bg-[#c5a869] text-[#071614]'
+                      : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                  }`}
+                >
+                  Barchasi (114)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSurahAudioFilter('available')}
+                  className={`py-1 rounded-lg font-semibold cursor-pointer ${
+                    surahAudioFilter === 'available'
+                      ? 'bg-emerald-500 text-white'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  Audio bor ({availableSurahsCountForReciter})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSurahAudioFilter('missing')}
+                  className={`py-1 rounded-lg font-semibold cursor-pointer ${
+                    surahAudioFilter === 'missing'
+                      ? 'bg-amber-500 text-[#071614]'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  Yoʻq ({missingSurahsCountForReciter})
+                </button>
+              </div>
+            )}
+
             {/* List by Mode */}
             <div className="space-y-1.5 max-h-[640px] overflow-y-auto pr-1">
               {directoryMode === 'juz' ? (
@@ -898,6 +1140,8 @@ export const QuranView: React.FC<QuranViewProps> = ({
               ) : (
                 filteredSurahs.map((surah) => {
                   const isSelected = surah.number === selectedSurahNumber;
+                  const hasSurahAudio = isSurahAudioAvailableForReciter(activeReciter.id, surah.number);
+                  const isCustomAudio = isCustomSurahAudioOverride(activeReciter.id, surah.number);
                 return (
                   <button
                     key={surah.number}
@@ -921,9 +1165,15 @@ export const QuranView: React.FC<QuranViewProps> = ({
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className="font-arabic text-lg text-[#c5a869]">{surah.nameAr}</span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        Oflayn
-                      </span>
+                      {hasSurahAudio ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {isCustomAudio ? 'Maxsus Audio' : 'Audio tayyor'}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          Audio yoʻq
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -1058,6 +1308,15 @@ export const QuranView: React.FC<QuranViewProps> = ({
                     <span className="hidden sm:inline">Takrorlash</span>
                   </button>
                 </div>
+
+                {!isCurrentSurahAudioReady && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-center gap-2">
+                    <Info className="w-4 h-4 shrink-0 text-amber-300" />
+                    <span>
+                      Ushbu sura ({selectedSurah.number}. {selectedSurah.nameUz}) uchun «{activeReciter.name}» tilovati audio fayli hali biriktirilmagan.
+                    </span>
+                  </div>
+                )}
 
                 {audioError && (
                   <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs">
@@ -1302,6 +1561,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
               )}
             </div>
           </div>
+        </div>
         </div>
       )}
 

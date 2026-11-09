@@ -48,8 +48,10 @@ import {
 } from '../../../utils/notificationService';
 import {
   QURAN_RECITERS,
+  getActiveQuranReciters,
   getReciterSurahAudioUrl,
 } from '../../../data/quranData';
+import { QuranReciter } from '../../../types';
 import {
   Clock,
   BookOpen,
@@ -114,6 +116,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
   // Featured Quran Recitation Mini-Studio State
+  const [availableReciters, setAvailableReciters] = useState<QuranReciter[]>(() => getActiveQuranReciters());
   const [featuredReciterId, setFeaturedReciterId] = useState<string>('mishary');
   const [featuredSurahNum, setFeaturedSurahNum] = useState<number>(1);
   const [isRecitationPlaying, setIsRecitationPlaying] = useState(false);
@@ -152,6 +155,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
       }
       if (event.type === 'NEWS_UPDATED') {
         setNewsList(getStoredNews().filter(isPubliclyPublished));
+      }
+      if (event.type === 'QURAN_RECITERS_UPDATED' || event.type === 'QURAN_AUDIO_UPDATED') {
+        setAvailableReciters(getActiveQuranReciters());
       }
     });
 
@@ -847,7 +853,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </p>
 
             <div className="flex flex-wrap gap-2 pt-2">
-              {QURAN_RECITERS.slice(0, 4).map((reciter) => (
+              {availableReciters.slice(0, 8).map((reciter) => (
                 <button
                   key={reciter.id}
                   onClick={() => {
@@ -908,7 +914,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <span>
                 Qori:{' '}
                 <strong className="text-[#DCC58C]">
-                  {QURAN_RECITERS.find((r) => r.id === featuredReciterId)?.name}
+                  {(availableReciters.find((r) => r.id === featuredReciterId) || QURAN_RECITERS[0])?.name}
                 </strong>
               </span>
               <button

@@ -168,8 +168,20 @@ export interface Ayah {
 export interface QuranReciter {
   id: string;
   name: string;
+  nameAr?: string;
+  country?: string;
+  style?: string;
+  rewaya?: string;
+  biographyUz?: string;
+  profileImageUrl?: string;
+  surahServerBaseUrl?: string;
+  ayahServerBaseUrl?: string;
   subtext: string;
   previewUrl: string;
+  isCustomUploaded?: boolean;
+  uploadedSurahsCount?: number;
+  missingSurahsCount?: number;
+  isActive?: boolean;
 }
 
 export type PublishMode = 'published' | 'draft' | 'archived' | 'test';

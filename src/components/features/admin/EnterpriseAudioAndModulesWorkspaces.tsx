@@ -43,6 +43,8 @@ import {
   saveStoredSurahAudioOverrides,
   createOrUpdateReciter,
   uploadSingleSurahAudio,
+  saveSurahAudioOverrideRecord,
+  syncRecitersAndAudioFromFirestore,
   executeBulkSurahUpload,
   matchFilesToSurahs,
   deleteReciterLibrary,
@@ -67,6 +69,7 @@ import {
   saveStoredCharityCampaign,
   getStoredQuranBookmarks,
   uploadAdminMediaFile,
+  subscribeToDatabase,
 } from '../../../utils/databaseService';
 import {
   toggleAdhanAudio,
@@ -201,6 +204,22 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
     setSurahCatalog(getStoredSurahAudioRecords(selectedReciterId));
   }, [selectedReciterId, reciters]);
 
+  useEffect(() => {
+    if (activeModule === 'quran_reciters_audio') {
+      syncRecitersAndAudioFromFirestore().then(() => {
+        setReciters(getStoredPermanentReciters());
+        setSurahCatalog(getStoredSurahAudioRecords(selectedReciterId));
+      });
+    }
+    const unsub = subscribeToDatabase((event) => {
+      if (event.type === 'QURAN_RECITERS_UPDATED' || event.type === 'QURAN_AUDIO_UPDATED') {
+        setReciters(getStoredPermanentReciters());
+        setSurahCatalog(getStoredSurahAudioRecords(selectedReciterId));
+      }
+    });
+    return () => unsub();
+  }, [activeModule, selectedReciterId]);
+
   const handleSelectBulkFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
@@ -273,12 +292,12 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
         setCustomSurahSourceInput(`ASAKA ZIYO Doimiy Audio Xazinasi (${file.name})`);
         setSurahCatalog(getStoredSurahAudioRecords(editingSurahRecord.reciterId));
         setReciters(getStoredPermanentReciters());
-        onStatusMessage(`Sura #${editingSurahRecord.surahNumber} audio fayli doimiy saqlandi.`);
+        onStatusMessage(`Sura #${editingSurahRecord.surahNumber} audio fayli Firestore va server xazinasiga doimiy saqlandi.`);
       } else {
-        onStatusMessage(res.error || 'Audio faylni saqlashda xatolik yuz berdi.');
+        onStatusMessage(res.error || 'Audio faylni saqlashda xatolik yuz berdi.', true);
       }
     } catch (err: any) {
-      onStatusMessage(`Audio fayl yuklashda xatolik: ${err?.message || 'Nomaʼlum'}`);
+      onStatusMessage(`Audio fayl yuklashda xatolik: ${err?.message || 'Nomaʼlum'}`, true);
     } finally {
       setIsUploadingSurahMp3(false);
     }
@@ -609,8 +628,8 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
         (surahStatusFilter === 'missing' && s.status === 'missing');
       return matchSearch && matchStatus;
     });
-    const uploadedCount = filteredCatalog.filter(
-      (s) => s.status === 'verified_stored' || s.status === 'external_cdn'
+    const uploadedCount = surahCatalog.filter(
+      (s) => (s.status === 'verified_stored' || s.status === 'external_cdn') && Boolean(s.audioUrl)
     ).length;
     const missingCount = Math.max(0, 114 - uploadedCount);
 
@@ -673,6 +692,16 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
               const isSelected = rec.id === selectedReciterId;
               const isPlayingPreview = previewingUrl === rec.previewUrl;
               const isCanonical = ['mishary', 'suwayd', 'hussary', 'dussary', 'sudais', 'juhany', 'ghamidi', 'shatri'].includes(rec.id);
+              const recUploadedCount =
+                typeof rec.uploadedSurahsCount === 'number'
+                  ? rec.uploadedSurahsCount
+                  : isCanonical || rec.surahServerBaseUrl
+                  ? 114
+                  : 0;
+              const recMissingCount =
+                typeof rec.missingSurahsCount === 'number'
+                  ? rec.missingSurahsCount
+                  : Math.max(0, 114 - recUploadedCount);
               return (
                 <div
                   key={rec.id}
@@ -684,27 +713,38 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <div className="text-sm font-bold text-primary flex items-center gap-1.5">
-                        <span>{rec.name}</span>
-                        {!rec.isActive && (
-                          <span className="text-[10px] text-amber-500 font-normal">(Nofaol)</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted">
-                        {rec.country} · {rec.uploadedSurahsCount || 114}/114 sura
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      {rec.profileImageUrl && (
+                        <img
+                          src={rec.profileImageUrl}
+                          alt={rec.name}
+                          className="w-9 h-9 rounded-full object-cover border border-gold/30 shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-primary flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate">{rec.name}</span>
+                          {!rec.isActive && (
+                            <span className="text-[10px] text-amber-500 font-normal">(Nofaol)</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted">
+                          {rec.country} · {recUploadedCount}/114 sura
+                        </div>
                       </div>
                     </div>
-                    <span className="text-xs font-arabic text-gold">{rec.nameAr}</span>
+                    <span className="text-xs font-arabic text-gold shrink-0">{rec.nameAr}</span>
                   </div>
                   <p className="text-xs text-secondary line-clamp-2 mb-3">{rec.biographyUz || 'Tavsif kiritilmagan'}</p>
                   
                   {/* Status Indicator */}
                   <div className="flex items-center gap-2 text-[11px] mb-3">
-                    <span className="text-emerald-500 font-medium">Saqlangan: {rec.uploadedSurahsCount || 114}</span>
+                    <span className={recUploadedCount > 0 ? 'text-emerald-500 font-medium' : 'text-amber-500 font-medium'}>
+                      Saqlangan: {recUploadedCount}
+                    </span>
                     <span className="text-muted">·</span>
-                    <span className={rec.missingSurahsCount ? 'text-amber-500' : 'text-muted'}>
-                      Yetishmayotgan: {rec.missingSurahsCount || 0}
+                    <span className={recMissingCount > 0 ? 'text-amber-500 font-medium' : 'text-muted'}>
+                      Yetishmayotgan: {recMissingCount}
                     </span>
                   </div>
 
@@ -880,6 +920,27 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                     <option value="inactive">Nofaol (Fayllar oʻchirilmaydi, yashirin qoladi)</option>
                   </select>
                 </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-secondary mb-1">Arabcha nomi (ixtiyoriy)</label>
+                  <input
+                    type="text"
+                    value={editingReciter.nameAr || ''}
+                    onChange={(e) => setEditingReciter({ ...editingReciter, nameAr: e.target.value })}
+                    placeholder="الشيخ ..."
+                    className="w-full px-3 py-2 rounded-lg bg-canvas border border-divider text-xs text-primary font-arabic"
+                    dir="rtl"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs text-secondary mb-1">Namuna Audio URL (ixtiyoriy)</label>
+                  <input
+                    type="text"
+                    value={editingReciter.previewUrl || ''}
+                    onChange={(e) => setEditingReciter({ ...editingReciter, previewUrl: e.target.value })}
+                    placeholder="https://... yoki /uploads/... (Fotiha surasi namunasi)"
+                    className="w-full px-3 py-2 rounded-lg bg-canvas border border-divider text-xs text-primary"
+                  />
+                </div>
                 <div className="md:col-span-3">
                   <label className="block text-xs text-secondary mb-1">Tarjimai hol va tavsif</label>
                   <textarea
@@ -899,15 +960,21 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                 <Button
                   variant="primary"
                   onClick={async () => {
-                    if (!editingReciter.name.trim()) return;
+                    if (!editingReciter.name.trim()) {
+                      onStatusMessage('Qori ismini kiritish shart.', true);
+                      return;
+                    }
                     const res = await createOrUpdateReciter(editingReciter);
                     if (res.success && res.reciter) {
                       setReciters(getStoredPermanentReciters());
                       setSelectedReciterId(res.reciter.id);
+                      setSurahCatalog(getStoredSurahAudioRecords(res.reciter.id));
                       setEditingReciter(null);
-                      onStatusMessage(`Qori "${res.reciter.name}" maʼlumotlari doimiy saqlandi.`);
+                      onStatusMessage(
+                        `Qori "${res.reciter.name}" maʼlumotlari Firestore maʼlumotlar bazasiga doimiy saqlandi.`
+                      );
                     } else {
-                      onStatusMessage(res.error || 'Qorini saqlashda xatolik');
+                      onStatusMessage(res.error || 'Qorini Firestore bazasiga saqlashda xatolik yuz berdi.', true);
                     }
                   }}
                 >
@@ -1233,22 +1300,34 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
                 <Button
                   variant="primary"
                   onClick={async () => {
-                    if (!customSurahUrlInput.trim()) return;
-                    const overrides = getStoredSurahAudioOverrides();
-                    overrides[`${editingSurahRecord.reciterId}_${editingSurahRecord.surahNumber}`] = {
-                      ...editingSurahRecord,
+                    if (!customSurahUrlInput.trim()) {
+                      onStatusMessage('Audio URL manzilini kiriting yoki fayl yuklang.', true);
+                      return;
+                    }
+                    const saveRes = await saveSurahAudioOverrideRecord({
+                      reciterId: editingSurahRecord.reciterId,
+                      surahNumber: editingSurahRecord.surahNumber,
                       audioUrl: customSurahUrlInput.trim(),
                       sourceProvider: customSurahSourceInput || 'Administrator tomonidan biriktirilgan',
-                      status: 'verified_stored',
-                      updatedAt: new Date().toISOString(),
-                    };
-                    saveStoredSurahAudioOverrides(overrides);
-                    recalculateReciterSurahCounts(editingSurahRecord.reciterId);
+                      storagePath: editingSurahRecord.storagePath,
+                      durationLabel: editingSurahRecord.durationLabel,
+                      durationSeconds: editingSurahRecord.durationSeconds,
+                      fileSizeBytes: editingSurahRecord.fileSizeBytes,
+                      fileSizeLabel: editingSurahRecord.fileSizeLabel,
+                      fileFormat: editingSurahRecord.fileFormat,
+                    });
+                    if (!saveRes.success) {
+                      onStatusMessage(
+                        saveRes.error || 'Sura audio yozuvini Firestore bazasiga saqlashda xatolik yuz berdi.',
+                        true
+                      );
+                      return;
+                    }
                     setSurahCatalog(getStoredSurahAudioRecords(editingSurahRecord.reciterId));
                     setReciters(getStoredPermanentReciters());
                     setEditingSurahRecord(null);
                     onStatusMessage(
-                      `${editingSurahRecord.surahNameUz} surasi audio yozuvi muvaffaqiyatli saqlandi.`
+                      `${editingSurahRecord.surahNameUz} surasi audio yozuvi Firestore bazasiga muvaffaqiyatli saqlandi.`
                     );
                   }}
                 >
