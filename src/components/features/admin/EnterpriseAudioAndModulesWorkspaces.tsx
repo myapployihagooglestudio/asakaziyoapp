@@ -49,6 +49,9 @@ import {
   matchFilesToSurahs,
   deleteReciterLibrary,
   recalculateReciterSurahCounts,
+  triggerGeminiAiAlignment,
+  getStoredQuranAudioAlignments,
+  QuranAudioAlignmentRecord,
 } from '../../../utils/quranReciterStorageService';
 import {
   SURAHS_LIST,

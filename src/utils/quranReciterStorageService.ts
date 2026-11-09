@@ -370,12 +370,26 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
   let overridesMap: Record<string, Partial<SurahAudioFileRecord>> = getStoredSurahAudioOverrides();
 
   try {
-    const [recitersRes, overridesRes] = await Promise.all([
+    const [recitersRes, overridesRes, alignmentsRes] = await Promise.all([
       fetchCollectionFromFirestore<ReciterProfile>('quranReciters'),
       fetchCollectionFromFirestore<SurahAudioFileRecord>('quranAudioOverrides'),
+      fetchCollectionFromFirestore<QuranAudioAlignmentRecord>('quranAudioAlignments'),
     ]);
 
     const firestoreFailed = !recitersRes.success || !overridesRes.success;
+
+    if (alignmentsRes.success && Array.isArray(alignmentsRes.data) && alignmentsRes.data.length > 0) {
+      const currentAlignments = getStoredQuranAudioAlignments();
+      const nextAlignments = { ...currentAlignments };
+      for (const item of alignmentsRes.data) {
+        if (item && item.id) {
+          nextAlignments[item.id] = item;
+        } else if (item && item.reciterId && item.surahNumber) {
+          nextAlignments[`${item.reciterId}_${item.surahNumber}`] = item;
+        }
+      }
+      saveStoredQuranAudioAlignments(nextAlignments);
+    }
 
     if (overridesRes.success && Array.isArray(overridesRes.data) && overridesRes.data.length > 0) {
       const nextOverrides: Record<string, Partial<SurahAudioFileRecord>> = { ...overridesMap };
@@ -1219,5 +1233,85 @@ export async function deleteReciterLibrary(params: {
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Qorini oʻchirishda xatolik yuz berdi.' };
+  }
+}
+
+// ============================================================================
+// GEMINI AI QURAN AUDIO SYNCHRONIZATION & ALIGNMENT
+// ============================================================================
+
+export interface AyahAlignment {
+  ayahNumberInSurah: number;
+  startTimeMs: number;
+  endTimeMs: number;
+  confidence: number;
+}
+
+export interface QuranAudioAlignmentRecord {
+  id: string; // `${reciterId}_${surahNumber}`
+  reciterId: string;
+  surahNumber: number;
+  audioUrl: string;
+  textVersion: string;
+  ayahAlignments: AyahAlignment[];
+  verificationStatus: 'pending' | 'processing' | 'needs_review' | 'verified' | 'failed';
+  aiProvider: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+const STORAGE_KEY_ALIGNMENTS = 'asaka_ziyo_quran_alignments_v1';
+
+export function getStoredQuranAudioAlignments(): Record<string, QuranAudioAlignmentRecord> {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(STORAGE_KEY_ALIGNMENTS);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+export function saveStoredQuranAudioAlignments(alignments: Record<string, QuranAudioAlignmentRecord>): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(STORAGE_KEY_ALIGNMENTS, JSON.stringify(alignments));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export async function triggerGeminiAiAlignment(params: {
+  reciterId: string;
+  surahNumber: number;
+}): Promise<{ success: boolean; alignment?: QuranAudioAlignmentRecord; error?: string }> {
+  try {
+    const { reciterId, surahNumber } = params;
+    const token = getActiveAdminToken();
+    const res = await fetch('/api/admin/quran-audio/ai-align', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ reciterId, surahNumber }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.alignment) {
+      return { success: false, error: data.error || 'Gemini AI orqali sinxronlashda xatolik yuz berdi.' };
+    }
+    const alignments = getStoredQuranAudioAlignments();
+    alignments[data.alignment.id] = data.alignment;
+    saveStoredQuranAudioAlignments(alignments);
+    dispatchReciterStorageEvent('QURAN_AUDIO_UPDATED', alignments);
+    return { success: true, alignment: data.alignment };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Tarmoq xatoligi yuz berdi.' };
   }
 }

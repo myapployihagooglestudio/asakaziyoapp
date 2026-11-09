@@ -39,7 +39,11 @@ import {
   deleteStoredQuranNote,
   subscribeToDatabase,
 } from '../../../utils/databaseService';
-import { syncRecitersAndAudioFromFirestore } from '../../../utils/quranReciterStorageService';
+import {
+  syncRecitersAndAudioFromFirestore,
+  getStoredQuranAudioAlignments,
+  QuranAudioAlignmentRecord,
+} from '../../../utils/quranReciterStorageService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
@@ -158,6 +162,8 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [audioCatalogVersion, setAudioCatalogVersion] = useState<number>(0);
   const [surahAudioFilter, setSurahAudioFilter] = useState<'all' | 'available' | 'missing'>('all');
   const [hasCompletedInitialReciterSync, setHasCompletedInitialReciterSync] = useState<boolean>(false);
+  const [audioAlignments, setAudioAlignments] = useState<Record<string, QuranAudioAlignmentRecord>>(() => getStoredQuranAudioAlignments());
+  const [activeAyahSyncNumber, setActiveAyahSyncNumber] = useState<number | null>(null);
 
   const [selectedReciterId, setSelectedReciterId] = useState<string>(() => {
     try {
@@ -400,6 +406,18 @@ export const QuranView: React.FC<QuranViewProps> = ({
           setCurrentTimeSec(Math.round(audio.currentTime));
           setDurationSec(Math.round(audio.duration));
           updateNativeMediaPositionState(audio.duration, audio.currentTime, audio.playbackRate);
+
+          const currentMs = audio.currentTime * 1000;
+          const alignKey = `${activeReciter.id}_${selectedSurahNumber}`;
+          const alignmentRecord = audioAlignments[alignKey];
+          if (alignmentRecord && Array.isArray(alignmentRecord.ayahAlignments)) {
+            const matched = alignmentRecord.ayahAlignments.find(
+              (a) => currentMs >= a.startTimeMs && currentMs <= a.endTimeMs
+            );
+            setActiveAyahSyncNumber(matched ? matched.ayahNumberInSurah : null);
+          } else {
+            setActiveAyahSyncNumber(null);
+          }
         }
       };
 
