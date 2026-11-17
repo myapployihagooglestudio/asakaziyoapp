@@ -55,6 +55,7 @@ import { AdminPortal } from './components/features/admin/AdminPortal';
 import { NotificationsView } from './components/features/notifications/NotificationsView';
 import { DailyArchiveView } from './components/features/daily/DailyArchiveView';
 import { QuizView } from './components/features/quiz/QuizView';
+import { DailyQuranQuizView } from './components/features/quran/DailyQuranQuizView';
 import { CalendarView } from './components/features/calendar/CalendarView';
 import { ReminderDashboard } from './components/features/prayer/ReminderDashboard';
 import { MessagesView } from './components/features/messages/MessagesView';
@@ -100,6 +101,9 @@ export default function App() {
       }
       if (pathName.startsWith('/ai') || hashVal.includes('ai_assistant')) {
         return 'ai_assistant';
+      }
+      if (pathName.startsWith('/quran-quiz') || hashVal.includes('quran_quiz')) {
+        return 'quran_quiz';
       }
     }
     return 'home';
@@ -493,7 +497,11 @@ export default function App() {
 
         {activeTab === 'announcements' && <AnnouncementsView />}
 
-        {activeTab === 'quiz' && <QuizView />}
+        {activeTab === 'quiz' && (
+          <QuizView onOpenQuranQuiz={() => handleNavigate('quran_quiz')} />
+        )}
+
+        {activeTab === 'quran_quiz' && <DailyQuranQuizView />}
 
         {activeTab === 'calendar' && <CalendarView />}
 
@@ -608,6 +616,7 @@ export default function App() {
               { id: 'quran', label: 'Qurʼoni Karim' },
               { id: 'messages', label: 'Xabarlar kanali' },
               { id: 'quiz', label: 'Kunlik Viktorina' },
+              { id: 'quran_quiz', label: 'Qurʼon Viktorinasi (Shorts)' },
               { id: 'articles', label: 'Maqolalar' },
               { id: 'notifications', label: 'Bildirishnomalar' },
               { id: 'hadith', label: 'Hadislar toʻplami' },

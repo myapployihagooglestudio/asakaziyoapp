@@ -43,6 +43,8 @@ export const ru = {
     articles: 'Статьи',
     news: 'Новости',
     announcements: 'Объявления',
+    quiz: 'Викторина',
+    quran_quiz: 'Коран-Викторина',
     favorites: 'Избранное',
     settings: 'Настройки',
     admin: 'Администрация',

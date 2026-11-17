@@ -1,4 +1,5 @@
-import { Ayah, QuranReciter, Surah } from '../types';
+import { Ayah, QuranReciter, Surah, SupportedLocale } from '../types';
+import { getTafsirEntryForSurah } from './tafsirHilolData';
 
 export const SURAHS_LIST: Surah[] = [
   { number: 1, nameAr: 'الفَاتِحَة', nameUz: 'Fotiha', meaningUz: 'Ochuvchi sura', numberOfAyahs: 7, revelationType: 'Makkah', pageNumber: 1 },
@@ -119,6 +120,24 @@ export const SURAHS_LIST: Surah[] = [
 
 export const QURAN_RECITERS: QuranReciter[] = [
   {
+    id: 'alijon',
+    name: 'Shayx Alijon qori',
+    nameAr: 'عليجان قوري حمدان',
+    country: 'Oʻzbekiston',
+    style: 'Murattal (Hafs an Osim)',
+    rewaya: 'Hafs Aʼn Assem',
+    biographyUz: 'Oʻzbekistonlik taniqli qori va Qurʼon ilmlari ustozi. 114 sura toʻliq Hafs an Osim rivoyati asosida tilovat qilingan.',
+    profileImageUrl: '/images/quran_illumination_art_1793634658336.jpg',
+    surahServerBaseUrl: 'https://cdn.mp3quran.net/audio/alijon-hamdan/r1',
+    ayahServerBaseUrl: '',
+    subtext: 'Oʻzbekiston · Murattal uslubi (114 sura toʻliq)',
+    previewUrl: 'https://cdn.mp3quran.net/audio/alijon-hamdan/r1/001.mp3',
+    isCustomUploaded: false,
+    uploadedSurahsCount: 114,
+    missingSurahsCount: 0,
+    isActive: true,
+  },
+  {
     id: 'mishary',
     name: 'Shayx Mishariy Roshid al-Afosiy',
     nameAr: 'مشاري راشد العفاسي',
@@ -129,6 +148,7 @@ export const QURAN_RECITERS: QuranReciter[] = [
     profileImageUrl: '/images/quran_illumination_art_1793634658336.jpg',
     surahServerBaseUrl: 'https://server8.mp3quran.net/afs',
     ayahServerBaseUrl: 'https://everyayah.com/data/Alafasy_128kbps',
+    islamicNetworkIdentifier: 'ar.alafasy',
     subtext: 'Kuvayt · Murattal uslubi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
     isCustomUploaded: false,
@@ -165,6 +185,7 @@ export const QURAN_RECITERS: QuranReciter[] = [
     profileImageUrl: '/images/quran_illumination_art_1793634658336.jpg',
     surahServerBaseUrl: 'https://server13.mp3quran.net/husr',
     ayahServerBaseUrl: 'https://everyayah.com/data/Husary_128kbps',
+    islamicNetworkIdentifier: 'ar.husary',
     subtext: 'Misr · Mumtoz tartil maktabi (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Husary_128kbps/001001.mp3',
     isCustomUploaded: false,
@@ -255,6 +276,7 @@ export const QURAN_RECITERS: QuranReciter[] = [
     profileImageUrl: '/images/islamic_scholarship_library_1793634659800.jpg',
     surahServerBaseUrl: 'https://server11.mp3quran.net/shatri',
     ayahServerBaseUrl: 'https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps',
+    islamicNetworkIdentifier: 'ar.shaatree',
     subtext: 'Saudiya Arabistoni · Mayin qiroat (114 sura toʻliq)',
     previewUrl: 'https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps/001001.mp3',
     isCustomUploaded: false,
@@ -348,6 +370,7 @@ export const getActiveQuranReciters = (): QuranReciter[] => {
                 profileImageUrl: r.profileImageUrl || '/images/quran_illumination_art_1793634658336.jpg',
                 surahServerBaseUrl: r.surahServerBaseUrl || '',
                 ayahServerBaseUrl: r.ayahServerBaseUrl || '',
+                islamicNetworkIdentifier: r.islamicNetworkIdentifier || undefined,
                 subtext:
                   r.subtext ||
                   `${r.country || 'Islom olami'} · ${r.style || 'Murattal'} (${counts.uploaded}/114 sura)`,
@@ -355,8 +378,8 @@ export const getActiveQuranReciters = (): QuranReciter[] => {
                   r.previewUrl ||
                   firstOverrideUrl ||
                   basePreview ||
-                  (CANONICAL_RECITER_IDS.has(r.id)
-                    ? 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3'
+                  (r.ayahServerBaseUrl
+                    ? `${String(r.ayahServerBaseUrl).replace(/\/$/, '')}/001001.mp3`
                     : ''),
                 isCustomUploaded: Boolean(r.isCustomUploaded || !CANONICAL_RECITER_IDS.has(r.id)),
                 uploadedSurahsCount: counts.uploaded,
@@ -435,6 +458,8 @@ export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number):
   }
 
   switch (reciterId) {
+    case 'alijon':
+      return `https://cdn.mp3quran.net/audio/alijon-hamdan/r1/${padded}.mp3`;
     case 'mishary':
       return `https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/${surahNumber}.mp3`;
     case 'dussary':
@@ -473,7 +498,45 @@ export const getSurahAudioUrl = (surahNumber: number): string => {
 };
 
 /**
- * Returns single Ayah MP3 URL based on reciter
+ * Computes global 1-based Quran Ayah index (1..6236) from Surah & Ayah number in Surah.
+ */
+export const getGlobalAyahNumber = (
+  surahNumber: number,
+  ayahNumberInSurah: number
+): number => {
+  const safeSurah = Math.max(1, Math.min(114, Math.floor(Number(surahNumber) || 1)));
+  let offset = 0;
+  for (const s of SURAHS_LIST) {
+    if (s.number < safeSurah) {
+      offset += s.numberOfAyahs;
+    } else if (s.number === safeSurah) {
+      const safeAyah = Math.max(1, Math.min(s.numberOfAyahs, Math.floor(Number(ayahNumberInSurah) || 1)));
+      return offset + safeAyah;
+    }
+  }
+  return Math.max(1, offset + (Math.floor(Number(ayahNumberInSurah) || 1)));
+};
+
+export const getIslamicNetworkReciterSlug = (reciterId: string): string => {
+  const active = getActiveQuranReciters();
+  const rec = active.find((r) => r.id === reciterId) || QURAN_RECITERS.find((r) => r.id === reciterId);
+  return String(rec?.islamicNetworkIdentifier || '').trim();
+};
+
+export const getIslamicNetworkAyahUrl = (
+  reciterId: string,
+  surahNumber: number,
+  ayahNumberInSurah: number
+): string => {
+  const slug = getIslamicNetworkReciterSlug(reciterId);
+  if (!slug) return '';
+  const globalAyah = getGlobalAyahNumber(surahNumber, ayahNumberInSurah);
+  return `https://cdn.islamic.network/quran/audio/128/${slug}/${globalAyah}.mp3`;
+};
+
+/**
+ * Returns single Ayah MP3 URL strictly for the specified reciter.
+ * Never falls back to Mishary Alafasy when a reciter only has full-surah audio or is missing per-ayah files.
  */
 export const getReciterAyahAudioUrl = (
   reciterId: string,
@@ -502,6 +565,8 @@ export const getReciterAyahAudioUrl = (
   }
 
   switch (reciterId) {
+    case 'mishary':
+      return `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
     case 'suwayd':
       return `https://everyayah.com/data/Ayman_Sowaid_64kbps/${s}${a}.mp3`;
     case 'hussary':
@@ -516,11 +581,190 @@ export const getReciterAyahAudioUrl = (
       return `https://everyayah.com/data/Ghamadi_40kbps/${s}${a}.mp3`;
     case 'shatri':
       return `https://everyayah.com/data/Abu_Bakr_Ash-Shaatree_128kbps/${s}${a}.mp3`;
-    case 'mishary':
+    case 'alijon':
     default:
-      return `https://everyayah.com/data/Alafasy_128kbps/${s}${a}.mp3`;
+      return '';
   }
 };
+
+export interface QuranReciterAudioCapabilities {
+  reciterId: string;
+  surahAudioCount: number;
+  hasAnySurahAudio: boolean;
+  hasPerAyahAudio: boolean;
+  quizAudioStatus: 'ready' | 'surah_only' | 'unavailable';
+  quizReady: boolean;
+  statusLabelUz: string;
+}
+
+const CANONICAL_PER_AYAH_RECITERS = new Set([
+  'mishary',
+  'suwayd',
+  'hussary',
+  'dussary',
+  'sudais',
+  'juhany',
+  'ghamidi',
+  'shatri',
+]);
+
+/**
+ * Inspects real audio capabilities for any canonical or Firestore-added reciter
+ * so UI & quiz engine never pretend an audio source exists when it does not.
+ */
+export function getQuranReciterAudioCapabilities(
+  reciter: Partial<QuranReciter> | null | undefined,
+  overridesMap?: Record<string, any>
+): QuranReciterAudioCapabilities {
+  const id = String(reciter?.id || '').trim();
+  const baseSurahCount =
+    Number(reciter?.uploadedSurahsCount) > 0
+      ? Math.min(114, Math.floor(Number(reciter?.uploadedSurahsCount)))
+      : reciter?.surahServerBaseUrl?.trim() || CANONICAL_RECITER_IDS.has(id)
+        ? 114
+        : computeReciterSurahCounts(id, reciter?.surahServerBaseUrl, overridesMap).uploaded;
+
+  const hasPerAyahAudio = Boolean(
+    (reciter?.ayahServerBaseUrl && reciter.ayahServerBaseUrl.trim()) ||
+      (reciter?.islamicNetworkIdentifier && reciter.islamicNetworkIdentifier.trim()) ||
+      CANONICAL_PER_AYAH_RECITERS.has(id)
+  );
+
+  const hasAnySurahAudio = baseSurahCount > 0 || Boolean(reciter?.surahServerBaseUrl?.trim());
+
+  if (hasPerAyahAudio) {
+    return {
+      reciterId: id,
+      surahAudioCount: baseSurahCount,
+      hasAnySurahAudio,
+      hasPerAyahAudio: true,
+      quizAudioStatus: 'ready',
+      quizReady: true,
+      statusLabelUz: `${baseSurahCount}/114 sura · Oyatma-oyat tayyor`,
+    };
+  }
+
+  if (hasAnySurahAudio) {
+    return {
+      reciterId: id,
+      surahAudioCount: baseSurahCount,
+      hasAnySurahAudio: true,
+      hasPerAyahAudio: false,
+      quizAudioStatus: 'surah_only',
+      quizReady: false,
+      statusLabelUz: `${baseSurahCount}/114 sura · Faqat toʻliq sura (oyat kesimi yoʻq)`,
+    };
+  }
+
+  return {
+    reciterId: id,
+    surahAudioCount: 0,
+    hasAnySurahAudio: false,
+    hasPerAyahAudio: false,
+    quizAudioStatus: 'unavailable',
+    quizReady: false,
+    statusLabelUz: 'Audio fayllar hali biriktirilmagan',
+  };
+}
+
+export interface UnifiedAyahContent {
+  textAr: string;
+  translationUz: string;
+  translatorName: string;
+  translationSource: string;
+  tafsirTextUz: string;
+  tafsirSource: string;
+  tafsirScope: 'ayah' | 'surah' | 'none';
+}
+
+/**
+ * Resolves canonical Arabic text, Shayx Muhammad Sodiq Muhammad Yusuf translation,
+ * and Tafsiri Hilol tafsir exclusively from the existing Quran section databases.
+ * Never fabricates missing translations or tafsir text.
+ */
+export function resolveUnifiedAyahContent(
+  surahNumber: number,
+  ayahNumberInSurah: number,
+  locale: SupportedLocale = 'uz-Latn'
+): UnifiedAyahContent {
+  const verifiedList = VERIFIED_AYAHS[surahNumber];
+  const verifiedAyah = Array.isArray(verifiedList)
+    ? verifiedList.find((a) => a.numberInSurah === ayahNumberInSurah)
+    : undefined;
+
+  const tafsirEntry = getTafsirEntryForSurah(surahNumber);
+  const exactTafsirSample = tafsirEntry?.sampleAyahTafsir?.find(
+    (s) => s.ayahNumber === ayahNumberInSurah
+  );
+
+  const localeTranslation = verifiedAyah?.translations?.[locale] || verifiedAyah?.translations?.['uz-Latn'];
+  const textAr = String(verifiedAyah?.textAr || exactTafsirSample?.textAr || '').trim();
+  const translationUz = String(
+    localeTranslation?.text || verifiedAyah?.translationUz || exactTafsirSample?.translationUz || ''
+  ).trim();
+  const translatorName = translationUz
+    ? String(localeTranslation?.translator || 'Shayx Muhammad Sodiq Muhammad Yusuf')
+    : '';
+  const translationSource = translationUz
+    ? String(localeTranslation?.source || 'Tafsiri Hilol (Hilol Nashr)')
+    : '';
+
+  if (exactTafsirSample && Array.isArray(exactTafsirSample.tafsirHilolBody) && exactTafsirSample.tafsirHilolBody.length > 0) {
+    return {
+      textAr,
+      translationUz,
+      translatorName,
+      translationSource,
+      tafsirTextUz: exactTafsirSample.tafsirHilolBody.join('\n\n'),
+      tafsirSource: tafsirEntry?.sourceNote || 'Tafsiri Hilol (Hilol Nashr)',
+      tafsirScope: 'ayah',
+    };
+  }
+
+  const verifiedAyahTafsir = String(
+    localeTranslation?.tafsir || verifiedAyah?.tafsirSummaryUz || ''
+  ).trim();
+  if (verifiedAyahTafsir) {
+    return {
+      textAr,
+      translationUz,
+      translatorName,
+      translationSource,
+      tafsirTextUz: verifiedAyahTafsir,
+      tafsirSource: String(localeTranslation?.source || 'Tafsiri Hilol (Hilol Nashr)'),
+      tafsirScope: 'ayah',
+    };
+  }
+
+  if (tafsirEntry && tafsirEntry.tafsirOverview) {
+    const overviewParts = [tafsirEntry.tafsirOverview];
+    if (Array.isArray(tafsirEntry.keyThemes) && tafsirEntry.keyThemes.length > 0) {
+      overviewParts.push(`Asosiy mavzular: ${tafsirEntry.keyThemes.join(' · ')}`);
+    }
+    if (tafsirEntry.virtuesUz) {
+      overviewParts.push(`Fazilati: ${tafsirEntry.virtuesUz}`);
+    }
+    return {
+      textAr,
+      translationUz,
+      translatorName,
+      translationSource,
+      tafsirTextUz: overviewParts.join('\n\n'),
+      tafsirSource: tafsirEntry.sourceNote || 'Tafsiri Hilol (Hilol Nashr)',
+      tafsirScope: 'surah',
+    };
+  }
+
+  return {
+    textAr,
+    translationUz,
+    translatorName,
+    translationSource,
+    tafsirTextUz: '',
+    tafsirSource: '',
+    tafsirScope: 'none',
+  };
+}
 
 /**
  * Default single Ayah MP3 URL

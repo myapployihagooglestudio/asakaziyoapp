@@ -278,6 +278,41 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "userId", "title", "messages", "createdAt", "updatedAt"]
+    },
+    "DailyQuranQuiz": {
+      "title": "DailyQuranQuiz",
+      "description": "Daily 10-ayah audio Quran quiz set generated via Gemini audio + JSON analysis",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dateStr": { "type": "string" },
+        "reciterId": { "type": "string" },
+        "reciterName": { "type": "string" },
+        "questions": { "type": "array" },
+        "usedAyahKeys": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "dateStr", "reciterId", "questions", "createdAt"]
+    },
+    "QuranQuizAttempt": {
+      "title": "QuranQuizAttempt",
+      "description": "User attempt results for Daily Quran Audio Quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quizId": { "type": "string" },
+        "dateStr": { "type": "string" },
+        "reciterId": { "type": "string" },
+        "userId": { "type": "string" },
+        "score": { "type": "number" },
+        "incorrectCount": { "type": "number" },
+        "total": { "type": "number" },
+        "percentage": { "type": "number" },
+        "answers": { "type": "array" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["id", "quizId", "dateStr", "score", "total", "completedAt"]
     }
   },
   "firestore": {
@@ -364,6 +399,14 @@
     "/aiConversations/{conversationId}": {
       "schema": "AIConversation",
       "description": "Private user conversations with ASAKA ZIYO Gemini AI Assistant"
+    },
+    "/dailyQuranQuizzes/{quizId}": {
+      "schema": "DailyQuranQuiz",
+      "description": "Daily 10-ayah audio Quran quiz sets per date and reciter"
+    },
+    "/quranQuizAttempts/{attemptId}": {
+      "schema": "QuranQuizAttempt",
+      "description": "Completed attempt scores and answers for Daily Quran Audio Quiz"
     }
   }
 }

@@ -924,6 +924,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 Toʻliq Mushaf →
               </button>
             </div>
+
+            <button
+              onClick={() => onNavigate('quran_quiz')}
+              className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C6A45C]/25 to-[#DCC58C]/20 hover:from-[#C6A45C]/35 hover:to-[#DCC58C]/30 border border-[#C6A45C]/50 text-[#DCC58C] text-xs font-bold flex items-center justify-between transition-all cursor-pointer"
+            >
+              <span>Kunlik Qurʼon Viktorinasi (9:16 Audio Shorts)</span>
+              <span>Boshlash →</span>
+            </button>
           </div>
         </div>
       </Card>

@@ -63,7 +63,11 @@ function getDifficultyLabel(diff: string): string {
   return 'Oʻrta';
 }
 
-export const QuizView: React.FC = () => {
+interface QuizViewProps {
+  onOpenQuranQuiz?: () => void;
+}
+
+export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
   const { t } = useTranslation();
 
   // Today's formatted ISO date for Asaka timezone
@@ -324,6 +328,26 @@ export const QuizView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {onOpenQuranQuiz && (
+        <div className="rounded-2xl border border-[#C6A45C]/35 bg-[#063D32]/10 dark:bg-[#06241E] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="text-xs font-bold text-[#063D32] dark:text-[#DCC58C] uppercase tracking-wider">
+              Yangi · 9:16 Audio Shorts Viktorina
+            </div>
+            <p className="text-xs text-stone-600 dark:text-stone-300">
+              Shayxlar tilovatini tinglab, oyatning yashirilgan oxirgi soʻzini 3.5 soniyada toping!
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenQuranQuiz}
+            className="min-h-[44px] px-4 py-2 rounded-xl bg-[#063D32] dark:bg-[#C6A45C] text-[#F8F5EC] dark:text-[#042B25] text-xs font-bold shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+          >
+            Kunlik Qurʼon Viktorinasini Ochish →
+          </button>
+        </div>
+      )}
 
       {/* Navigation Sub-Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 dark:border-emerald-950/80 pb-2">

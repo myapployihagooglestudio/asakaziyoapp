@@ -72,6 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'news', labelKey: 'news' },
     { id: 'announcements', labelKey: 'announcements' },
     { id: 'quiz', labelKey: 'quiz' },
+    { id: 'quran_quiz', labelKey: 'quran_quiz' },
     { id: 'calendar', labelKey: 'calendar' },
     { id: 'khatm_planner', labelKey: 'khatm_planner' },
     { id: 'prayer_journal', labelKey: 'prayer_journal' },
@@ -188,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ASAKA ZIYO — Barcha Xizmatlar va Boʻlimlar
                       </span>
                       <span className="text-[10px] font-mono-numbers text-[#5C746C] dark:text-[#8FA69E]">
-                        14 ta modul
+                        15 ta modul
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">

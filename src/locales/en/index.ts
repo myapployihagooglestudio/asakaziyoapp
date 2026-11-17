@@ -43,6 +43,8 @@ export const en = {
     articles: 'Articles',
     news: 'News',
     announcements: 'Announcements',
+    quiz: 'Quiz',
+    quran_quiz: 'Quran Audio Quiz',
     favorites: 'Favorites',
     settings: 'Settings',
     admin: 'Administration',

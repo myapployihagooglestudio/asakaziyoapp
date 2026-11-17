@@ -43,6 +43,8 @@ export const uzCyrl = {
     articles: 'Мақолалар',
     news: 'Янгиликлар',
     announcements: 'Эълонлар',
+    quiz: 'Викторина',
+    quran_quiz: 'Қуръон Викторинаси',
     favorites: 'Севимлилар',
     settings: 'Созламалар',
     admin: 'Маъмурият',

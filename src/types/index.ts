@@ -19,6 +19,7 @@ export type NavigationTab =
   | 'messages'
   | 'daily_archive'
   | 'quiz'
+  | 'quran_quiz'
   | 'calendar'
   | 'reminder_dashboard'
   | 'profile'
@@ -176,6 +177,7 @@ export interface QuranReciter {
   profileImageUrl?: string;
   surahServerBaseUrl?: string;
   ayahServerBaseUrl?: string;
+  islamicNetworkIdentifier?: string;
   subtext: string;
   previewUrl: string;
   isCustomUploaded?: boolean;
@@ -765,6 +767,87 @@ export interface PersonalProgressSummary {
   isPrivate: boolean;
   achievements: IslamicAchievementMilestone[];
   updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 11. KUNLIK QUR'ON VIKTORINASI (DAILY QURAN AUDIO QUIZ SHORTS)
+// ---------------------------------------------------------------------------
+export type QuranQuizHidePosition = 'start' | 'middle' | 'end';
+
+export interface QuranQuizQuestion {
+  id: string;
+  ayahKey: string; // e.g. "103:2"
+  globalAyahNumber: number; // 1..6236
+  surahNumber: number;
+  surahNameUz: string;
+  surahNameAr: string;
+  ayahNumberInSurah: number;
+  juzNumber?: number;
+  reciterId: string;
+  reciterName: string;
+  audioUrl: string;
+  fallbackAudioUrl?: string;
+  audioDurationMs: number;
+  fullArabicText: string;
+  hidePos: QuranQuizHidePosition;
+  maskedArabicBefore: string;
+  maskedArabicPrefix: string;
+  maskedArabicAfter: string;
+  hiddenWord: string;
+  hiddenWordCount?: 1 | 2;
+  trailingMarker?: string;
+  translationUz?: string;
+  translatorName?: string;
+  translationSource?: string;
+  tafsirTextUz?: string;
+  tafsirSource?: string;
+  tafsirScope?: 'ayah' | 'surah' | 'none';
+  pauseRatio: number; // 0.0..1.0
+  resumeRatio: number; // 0.0..1.0
+  startTimeMs: number;
+  pauseBeforeLastWordMs: number;
+  endTimeMs: number;
+  startSec?: number;
+  pauseSec?: number;
+  endSec?: number;
+  options: string[]; // 4 Arabic choices (1 true + 3 AI distractors)
+  correctIndex: number; // 0..3
+  aiModel: string;
+  analyzedAt: string;
+}
+
+export interface DailyQuranQuizSet {
+  id: string; // e.g. "2026-11-17_mishary"
+  dateStr: string; // YYYY-MM-DD (Asia/Tashkent)
+  reciterId: string;
+  reciterName: string;
+  questions: QuranQuizQuestion[];
+  usedAyahKeys: string[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface QuranQuizAttemptAnswer {
+  questionId: string;
+  ayahKey: string;
+  selectedIndex: number | null;
+  correctIndex: number;
+  isCorrect: boolean;
+  responseTimeMs: number;
+}
+
+export interface QuranQuizAttempt {
+  id: string;
+  quizId: string;
+  dateStr: string;
+  reciterId: string;
+  userId?: string;
+  score: number;
+  incorrectCount: number;
+  total: number;
+  percentage: number;
+  answers: QuranQuizAttemptAnswer[];
+  completedAt: string;
 }
 
 

@@ -44,6 +44,7 @@ export const uzLatn = {
     news: 'Yangiliklar',
     announcements: 'Eʼlonlar',
     quiz: 'Viktorina',
+    quran_quiz: 'Qurʼon Viktorinasi',
     calendar: 'Taqvim',
     reminder_dashboard: 'Eslatmalar',
     favorites: 'Sevimlilar',

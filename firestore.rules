@@ -529,5 +529,36 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isValidId(audioId) && (isContentAdmin() || isVerifiedServerWrite('ownAudioLibrary', audioId));
     }
+
+    // 35. Kunlik Qur'on Viktorinasi (Daily Quran Audio Quiz Sets & User Attempts)
+    match /dailyQuranQuizzes/{quizId} {
+      allow read: if true;
+      allow create, update: if isValidId(quizId) && (
+        isVerifiedServerWrite('dailyQuranQuizzes', quizId) ||
+        isContentAdmin()
+      );
+      allow delete: if isValidId(quizId) && (isSuperAdmin() || isVerifiedServerWrite('dailyQuranQuizzes', quizId));
+    }
+
+    match /quranQuizAttempts/{attemptId} {
+      allow read: if isValidId(attemptId) && (
+        isAnyAdmin() ||
+        (isSignedIn() && resource.data.userId == request.auth.uid) ||
+        (!isSignedIn() && resource.data.userId != null)
+      );
+      allow create: if isValidId(attemptId) && (
+        isVerifiedServerWrite('quranQuizAttempts', attemptId) ||
+        (
+          incoming().quizId is string &&
+          incoming().dateStr is string &&
+          incoming().score is number &&
+          incoming().score >= 0 &&
+          incoming().score <= 10 &&
+          incoming().total is number &&
+          incoming().total == 10
+        )
+      );
+      allow update, delete: if isValidId(attemptId) && (isSuperAdmin() || isVerifiedServerWrite('quranQuizAttempts', attemptId));
+    }
   }
 }

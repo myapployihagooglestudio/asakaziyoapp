@@ -16,8 +16,12 @@ import {
   JUZ_LIST,
   QURAN_RECITERS,
   VERIFIED_AYAHS,
+  getGlobalAyahNumber,
+  getIslamicNetworkAyahUrl,
+  getQuranReciterAudioCapabilities,
   getReciterAyahAudioUrl,
   getReciterSurahAudioUrl,
+  resolveUnifiedAyahContent,
 } from '../data/quranData';
 import {
   TAFSIRI_HILOL_ENTRIES,
@@ -92,9 +96,24 @@ for (let i = 0; i < 30; i++) {
 }
 
 // -----------------------------------------------------------------------------
-// Test 3: 8 Canonical Reciters and Audio URL generation
+// Test 3: 9 Canonical Reciters (Shayx Alijon qori first) & Audio URL generation
 // -----------------------------------------------------------------------------
-assert(QURAN_RECITERS.length === 8, '8 Canonical reciters are configured');
+assert(QURAN_RECITERS.length === 9, '9 Canonical reciters are configured');
+assert(QURAN_RECITERS[0].id === 'alijon' && QURAN_RECITERS[0].name === 'Shayx Alijon qori', 'Shayx Alijon qori is listed first');
+const alijonSurah1Url = getReciterSurahAudioUrl('alijon', 1);
+const alijonSurah114Url = getReciterSurahAudioUrl('alijon', 114);
+assert(alijonSurah1Url.includes('/001.mp3') && alijonSurah114Url.includes('/114.mp3'), 'Alijon qori 1-114 surah MP3 URLs formatted cleanly');
+
+assert(getGlobalAyahNumber(1, 1) === 1, 'Global ayah for 1:1 is 1');
+assert(getGlobalAyahNumber(103, 2) === 6178, 'Global ayah for 103:2 is 6178');
+assert(getGlobalAyahNumber(114, 6) === 6236, 'Global ayah for 114:6 is 6236');
+assert(getIslamicNetworkAyahUrl('alijon', 103, 2) === '', 'Alijon qori must NOT silently fallback to Mishary islamic.network');
+assert(getReciterAyahAudioUrl('alijon', 103, 2) === '', 'Alijon qori must NOT silently fallback to Mishary EveryAyah');
+const misharyIslamicUrl = getIslamicNetworkAyahUrl('mishary', 103, 2);
+assert(misharyIslamicUrl === 'https://cdn.islamic.network/quran/audio/128/ar.alafasy/6178.mp3', `Mishary islamic.network URL formatted: ${misharyIslamicUrl}`);
+assert(getIslamicNetworkAyahUrl('hussary', 103, 2) === 'https://cdn.islamic.network/quran/audio/128/ar.husary/6178.mp3', 'Hussary islamic.network slug mapped correctly');
+assert(getIslamicNetworkAyahUrl('shatri', 103, 2) === 'https://cdn.islamic.network/quran/audio/128/ar.shaatree/6178.mp3', 'Shatri islamic.network slug mapped correctly');
+
 const mishary = QURAN_RECITERS.find((r) => r.id === 'mishary');
 assert(Boolean(mishary), 'Shaykh Mishary Rashid Alafasy is present');
 assert(Boolean(mishary?.subtext.includes('Kuvayt') && mishary?.subtext.includes('Murattal')), 'Mishary metadata is correct');
@@ -246,4 +265,32 @@ assert(Boolean(fatihaTafsir?.sourceNote.includes('Hilol Nashr')), 'Nashriyot: Hi
 const searchResults = searchTafsirHilol('fotiha');
 assert(searchResults.length > 0, 'Tafsirdan "fotiha" bo‘yicha qidiruv natija berdi');
 
-console.log('🎉 ALL 8 ASAKA ZIYO QURAN EXPERIENCE TESTS PASSED SUCCESSFULLY!');
+// -----------------------------------------------------------------------------
+// Test 9: Unified Reciter Capabilities & Unified Quran Content Resolution
+// -----------------------------------------------------------------------------
+const alijonCaps = getQuranReciterAudioCapabilities(QURAN_RECITERS.find((r) => r.id === 'alijon'));
+assert(alijonCaps.quizAudioStatus === 'surah_only' && alijonCaps.quizReady === false && alijonCaps.hasAnySurahAudio === true, 'Alijon qori detected honestly as surah_only');
+
+for (const id of ['mishary', 'suwayd', 'hussary', 'dussary', 'sudais', 'juhany', 'ghamidi', 'shatri']) {
+  const caps = getQuranReciterAudioCapabilities(QURAN_RECITERS.find((r) => r.id === id));
+  assert(caps.quizAudioStatus === 'ready' && caps.quizReady === true, `Reciter ${id} detected as per-ayah quiz-ready`);
+}
+
+const unavailCaps = getQuranReciterAudioCapabilities({
+  id: 'custom-empty',
+  name: 'Empty Reciter',
+  surahServerBaseUrl: '',
+  ayahServerBaseUrl: '',
+  uploadedSurahsCount: 0,
+});
+assert(unavailCaps.quizAudioStatus === 'unavailable' && unavailCaps.quizReady === false, 'Empty custom reciter detected as unavailable');
+
+const fatihaContent = resolveUnifiedAyahContent(1, 1);
+assert(fatihaContent.translationUz.includes('Mehribon va rahmli'), 'Unified Fatiha 1:1 translation resolved from Quran DB');
+assert(fatihaContent.translatorName.includes('Muhammad Sodiq'), 'Translator attributed cleanly');
+assert(fatihaContent.tafsirScope === 'ayah' && fatihaContent.tafsirTextUz.length > 20, 'Unified Fatiha 1:1 ayah tafsir resolved cleanly');
+
+const missingTafsirContent = resolveUnifiedAyahContent(87, 5);
+assert(missingTafsirContent.tafsirScope === 'none' && missingTafsirContent.tafsirTextUz === '', 'Missing tafsir is never fabricated');
+
+console.log('🎉 ALL 9 ASAKA ZIYO QURAN EXPERIENCE TESTS PASSED SUCCESSFULLY!');

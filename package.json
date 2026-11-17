@@ -11,7 +11,7 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/databaseService.test.ts && tsx src/utils/quran.test.ts && tsx src/utils/extendedModules.test.ts && tsx src/utils/e2eFullSuite.test.ts && node scripts/firebase-audit-test.cjs",
+    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/databaseService.test.ts && tsx src/utils/quran.test.ts && tsx src/utils/quranAudioSync.test.ts && tsx src/utils/quranQuiz.test.ts && tsx src/utils/extendedModules.test.ts && tsx src/utils/e2eFullSuite.test.ts && node scripts/firebase-audit-test.cjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

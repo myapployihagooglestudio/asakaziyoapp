@@ -89,6 +89,7 @@ export default defineConfig(({ command }) => {
           clientsClaim: true,
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+          navigateFallbackDenylist: [/^\/api\//],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}'],
           runtimeCaching: [
             {

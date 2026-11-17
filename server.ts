@@ -5,7 +5,23 @@ import path from 'path';
 import crypto from 'crypto';
 import dns from 'dns';
 import { fileURLToPath } from 'url';
+import os from 'os';
+import { execFile } from 'child_process';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import {
+  QURAN_RECITERS,
+  getQuranReciterAudioCapabilities,
+  resolveUnifiedAyahContent,
+} from './src/data/quranData';
+import {
+  GeminiQuotaExhaustedError,
+  fetchCanonicalAyahDetails,
+  generateDailyQuranQuizSet,
+} from './server/quranQuizEngine';
+import {
+  getQuizRenderJobStatus,
+  startQuizPartRenderJob,
+} from './server/quranQuizVideoRenderer';
 
 // Force IPv4 resolution first to prevent 10s IPv6 AAAA timeout delays on outbound API calls
 try {
@@ -40,7 +56,13 @@ import {
   collection as fsCollection,
   writeBatch as fsWriteBatch,
   setDoc as fsSetDoc,
+  setLogLevel as setClientFirestoreLogLevel,
 } from 'firebase/firestore';
+try {
+  setClientFirestoreLogLevel('error');
+} catch {
+  // Ignore if unsupported
+}
 import * as firebaseAdminApp from 'firebase-admin/app';
 import * as firebaseAdminFirestore from 'firebase-admin/firestore';
 import * as firebaseAdminAuth from 'firebase-admin/auth';
@@ -549,6 +571,8 @@ function readDatabase(): any {
   if (!Array.isArray(data.announcements)) data.announcements = [];
   if (!Array.isArray(data.quizQuestions)) data.quizQuestions = [];
   if (!Array.isArray(data.dailyQuizzes)) data.dailyQuizzes = [];
+  if (!Array.isArray(data.dailyQuranQuizzes)) data.dailyQuranQuizzes = [];
+  if (!Array.isArray(data.quranQuizAttempts)) data.quranQuizAttempts = [];
   if (!Array.isArray(data.mosqueEvents)) data.mosqueEvents = [];
   if (!Array.isArray(data.academyLessons)) data.academyLessons = [];
   if (!Array.isArray(data.charityCampaigns)) data.charityCampaigns = [];
@@ -667,6 +691,8 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'auditLogs',
   'quizQuestions',
   'dailyQuizzes',
+  'dailyQuranQuizzes',
+  'quranQuizAttempts',
   'messages',
   'mosqueEvents',
   'academyLessons',
@@ -877,6 +903,8 @@ function syncLocalMirrorForDoc(
       auditLogs: 'auditLogs',
       quizQuestions: 'quizQuestions',
       dailyQuizzes: 'dailyQuizzes',
+      dailyQuranQuizzes: 'dailyQuranQuizzes',
+      quranQuizAttempts: 'quranQuizAttempts',
       messages: 'messages',
       mosqueEvents: 'mosqueEvents',
       academyLessons: 'academyLessons',
@@ -974,6 +1002,8 @@ async function hydrateServerDatabaseFromFirestore(): Promise<void> {
       { col: 'notifications', key: 'notifications' },
       { col: 'quizQuestions', key: 'quizQuestions' },
       { col: 'dailyQuizzes', key: 'dailyQuizzes' },
+      { col: 'dailyQuranQuizzes', key: 'dailyQuranQuizzes' },
+      { col: 'quranQuizAttempts', key: 'quranQuizAttempts' },
       { col: 'mosqueEvents', key: 'mosqueEvents' },
       { col: 'academyLessons', key: 'academyLessons' },
       { col: 'charityCampaigns', key: 'charityCampaigns' },
@@ -3171,6 +3201,615 @@ app.post('/api/quiz/questions', requireAdminAuth, async (req: Request, res: Resp
   }
 
   return res.status(400).json({ success: false, error: 'Nomaʼlum viktorina amali.' });
+});
+
+// 15B. Kunlik Qur'on Viktorinasi (9:16 Audio Shorts) — Gemini Audio + JSON Engine
+const inFlightDailyQuranQuizJobs = new Map<string, Promise<any>>();
+
+function isQuizSetReciterClean(quizSet: any, expectedReciterId: string): boolean {
+  if (!quizSet || !Array.isArray(quizSet.questions) || quizSet.questions.length !== 10) {
+    return false;
+  }
+  if (String(quizSet.reciterId || '').trim() !== expectedReciterId) {
+    return false;
+  }
+  if (expectedReciterId !== 'mishary') {
+    for (const q of quizSet.questions) {
+      const aUrl = String(q?.audioUrl || '');
+      if (aUrl.includes('Alafasy_128kbps') || aUrl.includes('/ar.alafasy/')) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+async function enrichQuizSetWithUnifiedQuranDataAsync(quizSet: any): Promise<any> {
+  if (!quizSet || !Array.isArray(quizSet.questions)) return quizSet;
+  const enrichedQuestions = await Promise.all(
+    quizSet.questions.map(async (q: any) => {
+      const surahNum = Number(q.surahNumber);
+      const ayahNum = Number(q.ayahNumberInSurah);
+      const unified = resolveUnifiedAyahContent(surahNum, ayahNum, 'uz-Latn');
+      let translationUz = (unified.translationUz || String(q.translationUz || '').trim()).trim();
+      let translatorName =
+        unified.translatorName ||
+        q.translatorName ||
+        (translationUz ? 'Shayx Muhammad Sodiq Muhammad Yusuf' : '');
+      let translationSource =
+        unified.translationSource ||
+        q.translationSource ||
+        (translationUz ? 'Tafsiri Hilol (Hilol Nashr)' : '');
+      let fullArabicText = String(q.fullArabicText || unified.textAr || '').trim();
+
+      if (!translationUz && surahNum >= 1 && ayahNum >= 1) {
+        try {
+          const canonical = await fetchCanonicalAyahDetails(surahNum, ayahNum);
+          if (canonical.translationUz) {
+            translationUz = canonical.translationUz;
+            translatorName =
+              canonical.translatorName || 'Shayx Muhammad Sodiq Muhammad Yusuf';
+            translationSource =
+              canonical.translationSource || 'Tafsiri Hilol (Hilol Nashr · uz.sodik)';
+          }
+          if (!fullArabicText && canonical.textAr) {
+            fullArabicText = canonical.textAr;
+          }
+        } catch {
+          // Non-fatal if network unavailable; honest empty state preserved
+        }
+      }
+
+      const reciterId = String(q.reciterId || quizSet.reciterId || '').trim();
+      const rawFallback = String(q.fallbackAudioUrl || '');
+      const cleanFallback =
+        reciterId !== 'mishary' && (rawFallback.includes('ar.alafasy') || rawFallback.includes('Alafasy_128kbps'))
+          ? ''
+          : rawFallback;
+
+      return {
+        ...q,
+        fullArabicText,
+        fallbackAudioUrl: cleanFallback,
+        translationUz,
+        translatorName,
+        translationSource,
+        tafsirTextUz: unified.tafsirTextUz || q.tafsirTextUz || '',
+        tafsirSource: unified.tafsirSource || q.tafsirSource || '',
+        tafsirScope:
+          unified.tafsirScope !== 'none'
+            ? unified.tafsirScope
+            : q.tafsirScope || (q.tafsirTextUz ? 'ayah' : 'none'),
+      };
+    })
+  );
+
+  return {
+    ...quizSet,
+    questions: enrichedQuestions,
+  };
+}
+
+app.post('/api/quran-quiz/daily', async (req: Request, res: Response) => {
+  const requestedReciterId = String(req.body?.reciterId || 'mishary').trim() || 'mishary';
+  try {
+    const rawDate = String(req.body?.dateStr || '').trim();
+    const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? rawDate
+      : new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
+    const reciterId = requestedReciterId;
+    const usedAyahKeys: string[] = Array.isArray(req.body?.usedAyahKeys)
+      ? req.body.usedAyahKeys.map((k: any) => String(k).trim()).filter(Boolean)
+      : [];
+    const forceRefresh = Boolean(req.body?.forceRefresh);
+    const quizId = `${dateStr}_${reciterId}`;
+
+    // Verify requested reciter is active and supports per-ayah audio before serving/generating
+    const db = readDatabase();
+    if (!Array.isArray(db.dailyQuranQuizzes)) db.dailyQuranQuizzes = [];
+
+    const mergedReciters = new Map<string, any>();
+    for (const c of QURAN_RECITERS) mergedReciters.set(c.id, { ...c });
+    if (Array.isArray(db.quranReciters)) {
+      for (const r of db.quranReciters) {
+        if (r?.id) mergedReciters.set(r.id, { ...(mergedReciters.get(r.id) || {}), ...r });
+      }
+    }
+    const targetReciter = mergedReciters.get(reciterId);
+    if (!targetReciter || targetReciter.isActive === false || targetReciter.isArchived) {
+      return res.status(400).json({
+        success: false,
+        code: 'RECITER_NOT_FOUND',
+        error: `Tanlangan qori (${reciterId}) faol qorilar roʻyxatida topilmadi.`,
+      });
+    }
+    const reciterCaps = getQuranReciterAudioCapabilities(targetReciter, db.quranAudioOverrides);
+    if (!reciterCaps.hasPerAyahAudio) {
+      return res.status(400).json({
+        success: false,
+        code: 'RECITER_NO_AYAH_AUDIO',
+        error: `«${targetReciter.name}» uchun oyatma-oyat tilovat bazasi mavjud emas (${reciterCaps.statusLabelUz}). Viktorina uchun oyatma-oyat audio tayyor qorilardan birini tanlang.`,
+      });
+    }
+
+    if (!forceRefresh) {
+      const localCached = db.dailyQuranQuizzes.find(
+        (q: any) => q?.id === quizId && isQuizSetReciterClean(q, reciterId)
+      );
+      if (localCached) {
+        const enriched = await enrichQuizSetWithUnifiedQuranDataAsync(localCached);
+        syncLocalMirrorForDoc('dailyQuranQuizzes', quizId, enriched);
+        return res.json({
+          success: true,
+          source: 'cache',
+          quizSet: enriched,
+        });
+      }
+
+      // 2. Check live Firestore so quiz stays identical across reloads and devices
+      const fsSnap = await serverReadFirestoreDoc('dailyQuranQuizzes', quizId);
+      if (fsSnap.exists && fsSnap.data && isQuizSetReciterClean(fsSnap.data, reciterId)) {
+        const enriched = await enrichQuizSetWithUnifiedQuranDataAsync(fsSnap.data);
+        syncLocalMirrorForDoc('dailyQuranQuizzes', quizId, enriched);
+        return res.json({ success: true, source: 'firestore', quizSet: enriched });
+      }
+    }
+
+    // 3. Single-flight lock per date+reciter to avoid duplicate Gemini batch calls
+    const lockKey = forceRefresh ? `${quizId}:refresh` : quizId;
+    let pendingJob = inFlightDailyQuranQuizJobs.get(lockKey);
+    if (!pendingJob) {
+      const existingCached = db.dailyQuranQuizzes.find((q: any) => q?.id === quizId);
+      const mergedUsedKeys = forceRefresh && Array.isArray(existingCached?.usedAyahKeys)
+        ? Array.from(new Set([...usedAyahKeys, ...existingCached.usedAyahKeys]))
+        : usedAyahKeys;
+      const customReciters = Array.isArray(db.quranReciters) ? db.quranReciters : undefined;
+      pendingJob = generateDailyQuranQuizSet({
+        dateStr: forceRefresh ? `${dateStr}_v${Date.now().toString(36)}` : dateStr,
+        reciterId,
+        usedAyahKeys: mergedUsedKeys,
+        customReciters,
+      }).then((generated) => ({
+        ...generated,
+        id: quizId,
+        dateStr,
+      }));
+      inFlightDailyQuranQuizJobs.set(lockKey, pendingJob);
+    }
+
+    let quizSet: any;
+    try {
+      quizSet = await pendingJob;
+    } finally {
+      if (inFlightDailyQuranQuizJobs.get(lockKey) === pendingJob) {
+        inFlightDailyQuranQuizJobs.delete(lockKey);
+      }
+    }
+
+    // 4. Persist confirmed quiz set to Firestore & local mirror
+    const fsWrite = await serverWriteFirestoreDoc('dailyQuranQuizzes', quizId, quizSet);
+    syncLocalMirrorForDoc('dailyQuranQuizzes', quizId, quizSet);
+
+    return res.json({
+      success: true,
+      source: 'gemini_audio',
+      firestoreConfirmed: fsWrite.success,
+      quizSet,
+    });
+  } catch (err: any) {
+    const msg = String(err?.message || err || '');
+    if (msg.includes('RECITER_NO_AYAH_AUDIO') || msg.includes('RECITER_NOT_FOUND')) {
+      return res.status(400).json({
+        success: false,
+        code: msg.includes('RECITER_NO_AYAH_AUDIO') ? 'RECITER_NO_AYAH_AUDIO' : 'RECITER_NOT_FOUND',
+        error: msg.replace(/^(RECITER_NO_AYAH_AUDIO|RECITER_NOT_FOUND):\s*/, ''),
+      });
+    }
+    if (msg.includes('GEMINI_API_KEY_MISSING')) {
+      console.warn('[QuranQuiz] GEMINI_API_KEY missing in environment.');
+      return res.status(503).json({
+        success: false,
+        code: 'GEMINI_API_KEY_MISSING',
+        error:
+          'Server muhitida GEMINI_API_KEY sozlanmagan. Audio oyat tahlili uchun haqiqiy Gemini API kaliti talab qilinadi.',
+      });
+    }
+
+    if (err instanceof GeminiQuotaExhaustedError || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('"code":429')) {
+      const retryAfterSeconds =
+        err instanceof GeminiQuotaExhaustedError ? err.retryAfterSeconds : 3600;
+      const modelsTried =
+        err instanceof GeminiQuotaExhaustedError ? err.modelsTried : ['gemini-4-hydrogen'];
+      console.warn(
+        `[QuranQuiz] Gemini Free Tier quota limit reached (models=${modelsTried.join(',')}, retryAfter=${retryAfterSeconds}s).`
+      );
+
+      // Surface archived 10-question quiz sets, preferring exact requestedReciterId matches first
+      const dbSnap = readDatabase();
+      const archivedMap = new Map<string, any>();
+      const localList = Array.isArray(dbSnap.dailyQuranQuizzes) ? dbSnap.dailyQuranQuizzes : [];
+      for (const item of localList) {
+        if (item?.id && isQuizSetReciterClean(item, String(item.reciterId || ''))) {
+          archivedMap.set(item.id, await enrichQuizSetWithUnifiedQuranDataAsync(item));
+        }
+      }
+      if (archivedMap.size === 0) {
+        try {
+          const remoteDocs = await serverReadFirestoreCollection('dailyQuranQuizzes');
+          for (const item of remoteDocs) {
+            if (item?.id && isQuizSetReciterClean(item, String(item.reciterId || ''))) {
+              const enriched = await enrichQuizSetWithUnifiedQuranDataAsync(item);
+              archivedMap.set(item.id, enriched);
+              syncLocalMirrorForDoc('dailyQuranQuizzes', item.id, enriched);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      const fallbackQuizzes = Array.from(archivedMap.values())
+        .sort((a, b) => {
+          const aMatch = a.reciterId === requestedReciterId ? 1 : 0;
+          const bMatch = b.reciterId === requestedReciterId ? 1 : 0;
+          if (aMatch !== bMatch) return bMatch - aMatch;
+          return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+        })
+        .slice(0, 5);
+
+      const hours = Math.floor(retryAfterSeconds / 3600);
+      const mins = Math.ceil((retryAfterSeconds % 3600) / 60);
+      const waitLabel = hours > 0 ? `${hours} soat ${mins} daqiqa` : `${Math.max(1, mins)} daqiqa`;
+
+      return res.status(429).json({
+        success: false,
+        code: 'GEMINI_QUOTA_EXCEEDED',
+        retryAfterSeconds,
+        modelsTried,
+        fallbackQuizzes,
+        error: `Gemini API bepul kunlik soʻrov kvotasi vaqtincha tugagan (${modelsTried.join(', ')}). Taxminan ${waitLabel} dan soʻng qayta urinib koʻring${fallbackQuizzes.length > 0 ? ' yoki mavjud arxiv viktorinalardan birini oching' : ''}.`,
+      });
+    }
+
+    console.warn('[QuranQuiz] Daily generation could not complete:', msg);
+    return res.status(502).json({
+      success: false,
+      code: 'GEMINI_AUDIO_ANALYSIS_FAILED',
+      error: msg || 'Kunlik Qurʼon viktorinasini Gemini audio tahlili orqali tayyorlab boʻlmadi.',
+    });
+  }
+});
+
+app.post('/api/quran-quiz/attempt', async (req: Request, res: Response) => {
+  try {
+    const attempt = req.body?.attempt;
+    if (
+      !attempt ||
+      typeof attempt.quizId !== 'string' ||
+      typeof attempt.dateStr !== 'string' ||
+      typeof attempt.score !== 'number' ||
+      typeof attempt.total !== 'number'
+    ) {
+      return res.status(400).json({ success: false, error: 'Notoʻgʻri viktorina natijasi maʼlumoti.' });
+    }
+
+    const attemptId = String(attempt.id || `qqa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const record = {
+      ...attempt,
+      id: attemptId,
+      completedAt: attempt.completedAt || new Date().toISOString(),
+    };
+
+    const fsRes = await serverWriteFirestoreDoc('quranQuizAttempts', attemptId, record);
+    syncLocalMirrorForDoc('quranQuizAttempts', attemptId, record);
+
+    return res.json({
+      success: true,
+      firestoreConfirmed: fsRes.success,
+      attempt: record,
+    });
+  } catch (err: any) {
+    console.error('[QuranQuiz] Attempt save failed:', err);
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Viktorina natijasini saqlashda xatolik.',
+    });
+  }
+});
+
+app.get('/api/quran-quiz/proxy-audio', async (req: Request, res: Response) => {
+  try {
+    const targetUrl = String(req.query.url || '').trim();
+    if (!targetUrl) {
+      return res.status(400).json({ success: false, error: 'Audio URL koʻrsatilmagan.' });
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(targetUrl);
+    } catch {
+      return res.status(400).json({ success: false, error: 'Notoʻgʻri audio URL.' });
+    }
+
+    const allowedHosts = [
+      'everyayah.com',
+      'www.everyayah.com',
+      'verses.quran.com',
+      'audio.qurancdn.com',
+      'cdn.mp3quran.net',
+      'cdn.islamic.network',
+      'download.quranicaudio.com',
+    ];
+    if (
+      parsed.protocol !== 'https:' ||
+      (!allowedHosts.includes(parsed.hostname) && !parsed.hostname.endsWith('.mp3quran.net'))
+    ) {
+      return res.status(403).json({ success: false, error: 'Ruxsat etilmagan audio manba.' });
+    }
+
+    const upstream = await fetch(parsed.toString(), {
+      headers: {
+        'User-Agent': 'AsakaZiyoAudioQuiz/1.0',
+        Accept: 'audio/mpeg, audio/*;q=0.9',
+      },
+    });
+    if (!upstream.ok) {
+      return res.status(upstream.status).end();
+    }
+
+    const arrayBuf = await upstream.arrayBuffer();
+    const buf = Buffer.from(arrayBuf);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mpeg');
+    res.setHeader('Content-Length', buf.length);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : buf.length - 1;
+      if (!Number.isNaN(start) && start >= 0 && end < buf.length && start <= end) {
+        const chunk = buf.subarray(start, end + 1);
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${buf.length}`);
+        res.setHeader('Content-Length', chunk.length);
+        return res.send(chunk);
+      }
+    }
+
+    return res.send(buf);
+  } catch (err: any) {
+    return res.status(502).json({ success: false, error: err?.message || 'Audio olishda xatolik.' });
+  }
+});
+
+// 15C. Server FFmpeg MP4 Converter — Guarantees true 9:16 1080x1920 H.264/AAC .mp4 for Mobile & Android Gallery
+app.post(
+  '/api/quran-quiz/export-mp4',
+  express.raw({
+    type: ['video/webm', 'video/mp4', 'video/*', 'application/octet-stream'],
+    limit: '250mb',
+  }),
+  async (req: Request, res: Response) => {
+    const rawBody = req.body;
+    if (!Buffer.isBuffer(rawBody) || rawBody.length < 512) {
+      return res.status(400).json({
+        success: false,
+        error: 'Video maʼlumoti boʻsh yoki notoʻgʻri formatda yuborildi.',
+      });
+    }
+
+    req.setTimeout(180000);
+    res.setTimeout(180000);
+
+    const jobToken = crypto.randomBytes(8).toString('hex');
+    const contentType = String(req.headers['content-type'] || '').toLowerCase();
+    const inputExt = contentType.includes('mp4') ? 'mp4' : 'webm';
+    const inputPath = path.join(os.tmpdir(), `asaka-quiz-in-${jobToken}.${inputExt}`);
+    const outputPath = path.join(os.tmpdir(), `asaka-quiz-out-${jobToken}.mp4`);
+
+    try {
+      await fs.promises.writeFile(inputPath, rawBody);
+
+      await new Promise<void>((resolve, reject) => {
+        execFile(
+          'ffmpeg',
+          [
+            '-y',
+            '-i',
+            inputPath,
+            '-vf',
+            'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30',
+            '-c:v',
+            'libx264',
+            '-preset',
+            'veryfast',
+            '-crf',
+            '22',
+            '-pix_fmt',
+            'yuv420p',
+            '-c:a',
+            'aac',
+            '-b:a',
+            '192k',
+            '-ar',
+            '44100',
+            '-ac',
+            '2',
+            '-movflags',
+            '+faststart',
+            outputPath,
+          ],
+          { timeout: 150000, maxBuffer: 8 * 1024 * 1024 },
+          (err, _stdout, stderr) => {
+            if (err) {
+              reject(new Error(`FFmpeg MP4 xatosi: ${stderr?.slice(-400) || err.message}`));
+              return;
+            }
+            resolve();
+          }
+        );
+      });
+
+      const mp4Buffer = await fs.promises.readFile(outputPath);
+      if (!mp4Buffer || mp4Buffer.length < 1024) {
+        return res.status(500).json({
+          success: false,
+          error: 'FFmpeg boʻsh MP4 natija qaytardi.',
+        });
+      }
+
+      const rawFilename = String(req.query.filename || 'asaka-ziyo-viktorina-10-savol-1080x1920.mp4')
+        .replace(/[^a-zA-Z0-9._-]/g, '-');
+      const safeFilename = rawFilename.endsWith('.mp4') ? rawFilename : `${rawFilename}.mp4`;
+
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Length', mp4Buffer.length);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(mp4Buffer);
+    } catch (err: any) {
+      console.error('[QuranQuiz Export MP4] Conversion failed:', err);
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'MP4 formatiga konvertatsiya qilishda xatolik yuz berdi.',
+      });
+    } finally {
+      await Promise.allSettled([
+        fs.promises.unlink(inputPath),
+        fs.promises.unlink(outputPath),
+      ]);
+    }
+  }
+);
+
+// 15D. Independent 5-Question Server FFmpeg Render Pipeline (Video 1: 1-5, Video 2: 6-10)
+app.post(
+  '/api/quran-quiz/render-video/start',
+  express.json({ limit: '18mb' }),
+  (req: Request, res: Response) => {
+    try {
+      const partIndex = Number(req.body?.partIndex) as 1 | 2;
+      const quizDateStr = String(req.body?.quizDateStr || '').trim();
+      const reciterName = String(req.body?.reciterName || '').trim();
+      const countdownMs = Number(req.body?.countdownMs) || 3500;
+      const introJpgBase64 = String(req.body?.introJpgBase64 || '');
+      const outroJpgBase64 = String(req.body?.outroJpgBase64 || '');
+      const questions = Array.isArray(req.body?.questions) ? req.body.questions : [];
+
+      const job = startQuizPartRenderJob({
+        partIndex,
+        quizDateStr,
+        reciterName,
+        countdownMs,
+        introJpgBase64,
+        outroJpgBase64,
+        questions,
+      });
+
+      return res.json({
+        success: true,
+        jobId: job.jobId,
+        partIndex: job.partIndex,
+        status: job.status,
+        progressPct: job.progressPct,
+        stageLabel: job.stageLabel,
+        filename: job.filename,
+      });
+    } catch (err: any) {
+      return res.status(400).json({
+        success: false,
+        error: err?.message || 'Video render jarayonini boshlab boʻlmadi.',
+      });
+    }
+  }
+);
+
+app.get('/api/quran-quiz/render-video/status/:jobId', (req: Request, res: Response) => {
+  const job = getQuizRenderJobStatus(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({
+      success: false,
+      error: 'Video render vazifasi topilmadi yoki muddati tugagan.',
+    });
+  }
+  return res.json({
+    success: true,
+    jobId: job.jobId,
+    partIndex: job.partIndex,
+    status: job.status,
+    progressPct: job.progressPct,
+    stageLabel: job.stageLabel,
+    error: job.error,
+    filename: job.filename,
+    sizeBytes: job.sizeBytes,
+    durationMs: job.durationMs,
+    downloadUrl:
+      job.status === 'ready'
+        ? `/api/quran-quiz/render-video/download/${job.jobId}?download=1`
+        : '',
+    previewUrl:
+      job.status === 'ready'
+        ? `/api/quran-quiz/render-video/download/${job.jobId}`
+        : '',
+  });
+});
+
+app.get('/api/quran-quiz/render-video/download/:jobId', async (req: Request, res: Response) => {
+  const job = getQuizRenderJobStatus(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ success: false, error: 'Video fayl topilmadi.' });
+  }
+  if (job.status !== 'ready') {
+    return res.status(409).json({
+      success: false,
+      error: 'Video hali toʻliq tayyorlanmagan.',
+      status: job.status,
+      progressPct: job.progressPct,
+    });
+  }
+
+  try {
+    const stat = await fs.promises.stat(job.outputPath);
+    const totalSize = stat.size;
+    const isAttachment = req.query.download === '1' || req.query.download === 'true';
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader(
+      'Content-Disposition',
+      `${isAttachment ? 'attachment' : 'inline'}; filename="${job.filename}"`
+    );
+
+    const range = req.headers.range;
+    if (range) {
+      const match = String(range).match(/^bytes=(\d*)-(\d*)$/);
+      if (match) {
+        const start = match[1] ? parseInt(match[1], 10) : 0;
+        const end = match[2] ? Math.min(totalSize - 1, parseInt(match[2], 10)) : totalSize - 1;
+        if (!Number.isNaN(start) && !Number.isNaN(end) && start <= end && end < totalSize) {
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+          res.setHeader('Content-Length', end - start + 1);
+          fs.createReadStream(job.outputPath, { start, end }).pipe(res);
+          return;
+        }
+      }
+      res.status(416);
+      res.setHeader('Content-Range', `bytes */${totalSize}`);
+      return res.end();
+    }
+
+    res.setHeader('Content-Length', totalSize);
+    fs.createReadStream(job.outputPath).pipe(res);
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'MP4 faylni uzatishda xatolik.',
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

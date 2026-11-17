@@ -84,6 +84,9 @@ import {
   Layers,
   Heart,
   Calendar,
+  Eye,
+  EyeOff,
+  ArrowRightCircle,
 } from 'lucide-react';
 
 interface QuranViewProps {
@@ -204,6 +207,50 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const [rangeEndAyah, setRangeEndAyah] = useState<number>(7);
   const currentRangePointerRef = useRef<number>(1);
 
+  // Real-time follow-along reading auto-scroll toggle (Avto-kuzatib borish)
+  const [autoFollowReading, setAutoFollowReading] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('asaka_ziyo_quran_auto_follow');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // Continuous auto-advance when playing ayah-by-ayah (Ketma-ket avto o'qish)
+  const [isContinuousAyahPlay, setIsContinuousAyahPlay] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('asaka_ziyo_quran_continuous_play');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleAutoFollow = () => {
+    setAutoFollowReading((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('asaka_ziyo_quran_auto_follow', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const toggleContinuousPlay = () => {
+    setIsContinuousAyahPlay((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('asaka_ziyo_quran_continuous_play', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   // Highlighted Ayah on scroll / search jump
   const [highlightedAyahNumber, setHighlightedAyahNumber] = useState<number | null>(null);
 
@@ -251,18 +298,28 @@ export const QuranView: React.FC<QuranViewProps> = ({
     audioAlignmentsRef.current = audioAlignments;
   }, [audioAlignments]);
 
-  // Clean auto-scroll active synced ayah into center view without jitter
+  // Clean auto-scroll active synced or playing ayah into center view without jitter
   useEffect(() => {
-    if (activeAyahSyncNumber !== null && isSurahAudioPlaying) {
-      if (lastAutoScrolledAyahRef.current !== activeAyahSyncNumber) {
-        lastAutoScrolledAyahRef.current = activeAyahSyncNumber;
-        const el = document.getElementById(`ayah-${selectedSurahNumber}-${activeAyahSyncNumber}`);
+    if (!autoFollowReading) return;
+
+    // Resolve active ayah number from either Surah audio sync or Ayah player
+    const activeNum =
+      activeAyahSyncNumber !== null
+        ? activeAyahSyncNumber
+        : playingAyahId
+        ? parseInt(playingAyahId.split('-')[1], 10)
+        : null;
+
+    if (activeNum !== null && (isSurahAudioPlaying || playingAyahId)) {
+      if (lastAutoScrolledAyahRef.current !== activeNum) {
+        lastAutoScrolledAyahRef.current = activeNum;
+        const el = document.getElementById(`ayah-${selectedSurahNumber}-${activeNum}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
     }
-  }, [activeAyahSyncNumber, selectedSurahNumber, isSurahAudioPlaying]);
+  }, [activeAyahSyncNumber, playingAyahId, selectedSurahNumber, isSurahAudioPlaying, autoFollowReading]);
 
   // Ensure selectedReciterId falls back gracefully if deactivated by admin
   useEffect(() => {
@@ -410,7 +467,8 @@ export const QuranView: React.FC<QuranViewProps> = ({
     const alignKey = `${activeReciter.id}_${selectedSurahNumber}`;
     const alignmentRecord = audioAlignmentsRef.current[alignKey];
     if (alignmentRecord && Array.isArray(alignmentRecord.ayahAlignments) && alignmentRecord.ayahAlignments.length > 0) {
-      const activeAyahNum = resolveActiveAyahFromIntervals(alignmentRecord.ayahAlignments, timeSeconds);
+      const currentMs = Math.round(timeSeconds * 1000);
+      const activeAyahNum = resolveActiveAyahFromIntervals(alignmentRecord.ayahAlignments, currentMs);
       setActiveAyahSyncNumber(activeAyahNum);
     } else {
       setActiveAyahSyncNumber(null);
@@ -599,11 +657,13 @@ export const QuranView: React.FC<QuranViewProps> = ({
     }
   };
 
-  // Play individual Ayah with repeat count support
+  // Play individual Ayah with repeat count & continuous auto-advance follow support
   const handlePlayAyah = (ayah: Ayah, repeatTotal: number = repeatAyahCount) => {
     if (playingAyahId === ayah.id && ayahAudioRef.current && !isRangeRepeatActive) {
       ayahAudioRef.current.pause();
       setPlayingAyahId(null);
+      setActiveAyahSyncNumber(null);
+      lastAutoScrolledAyahRef.current = null;
       return;
     }
 
@@ -613,7 +673,6 @@ export const QuranView: React.FC<QuranViewProps> = ({
       surahAudioRef.current.pause();
       setIsSurahAudioPlaying(false);
     }
-    setActiveAyahSyncNumber(null);
 
     if (ayahAudioRef.current) {
       ayahAudioRef.current.pause();
@@ -628,9 +687,11 @@ export const QuranView: React.FC<QuranViewProps> = ({
       currentRepeatRemainingRef.current -= 1;
       if (currentRepeatRemainingRef.current > 0) {
         audio.currentTime = 0;
-        audio.play().catch(() => setPlayingAyahId(null));
+        audio.play().catch(() => {
+          setPlayingAyahId(null);
+          setActiveAyahSyncNumber(null);
+        });
       } else {
-        setPlayingAyahId(null);
         // Track daily read ayahs
         const cur = getStoredQuranProgress();
         const updated = saveStoredQuranProgress({
@@ -646,18 +707,49 @@ export const QuranView: React.FC<QuranViewProps> = ({
           const nextAyah = currentAyahs.find((a) => a.numberInSurah === nextAyahNum);
           if (nextAyah) {
             handlePlayAyah(nextAyah, repeatAyahCount);
+            return;
           }
         } else if (isRangeRepeatActive && ayah.numberInSurah >= rangeEndAyah) {
           setIsRangeRepeatActive(false);
+          setPlayingAyahId(null);
+          setActiveAyahSyncNumber(null);
+          lastAutoScrolledAyahRef.current = null;
+          return;
         }
+
+        // Continuous auto-advance: if enabled, move to next ayah in current surah
+        if (isContinuousAyahPlay && ayah.numberInSurah < selectedSurah.numberOfAyahs) {
+          const nextAyahNum = ayah.numberInSurah + 1;
+          const nextAyah = currentAyahs.find((a) => a.numberInSurah === nextAyahNum);
+          if (nextAyah) {
+            handlePlayAyah(nextAyah, repeatAyahCount);
+            return;
+          }
+        }
+
+        setPlayingAyahId(null);
+        setActiveAyahSyncNumber(null);
+        lastAutoScrolledAyahRef.current = null;
       }
     };
 
     audio.onerror = () => {
       setPlayingAyahId(null);
+      setActiveAyahSyncNumber(null);
+      lastAutoScrolledAyahRef.current = null;
     };
 
-    audio.play().then(() => setPlayingAyahId(ayah.id)).catch(() => setPlayingAyahId(null));
+    audio
+      .play()
+      .then(() => {
+        setPlayingAyahId(ayah.id);
+        setActiveAyahSyncNumber(ayah.numberInSurah);
+      })
+      .catch(() => {
+        setPlayingAyahId(null);
+        setActiveAyahSyncNumber(null);
+      });
+
     ayahAudioRef.current = audio;
   };
 
@@ -1371,7 +1463,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
                   {/* Loop Toggle */}
                   <button
                     onClick={() => setIsLooping(!isLooping)}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors ${
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                       isLooping
                         ? 'border-[#c5a869] bg-[#c5a869]/20 text-[#c5a869]'
                         : 'border-white/10 text-stone-400 hover:text-white'
@@ -1380,6 +1472,34 @@ export const QuranView: React.FC<QuranViewProps> = ({
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Takrorlash</span>
+                  </button>
+
+                  {/* Auto-Follow / Reading Sync Toggle */}
+                  <button
+                    onClick={toggleAutoFollow}
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      autoFollowReading
+                        ? 'border-[#c5a869] bg-[#c5a869]/20 text-[#c5a869]'
+                        : 'border-white/10 text-stone-400 hover:text-white'
+                    }`}
+                    title="Oʻqilayotgan oyatni ekranda avtomatik kuzatib borish (Auto-scroll)"
+                  >
+                    {autoFollowReading ? <Eye className="w-3.5 h-3.5 text-[#c5a869]" /> : <EyeOff className="w-3.5 h-3.5 text-stone-400" />}
+                    <span className="hidden sm:inline">Avto-kuzatuv</span>
+                  </button>
+
+                  {/* Continuous Ayah Play Toggle */}
+                  <button
+                    onClick={toggleContinuousPlay}
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      isContinuousAyahPlay
+                        ? 'border-[#c5a869] bg-[#c5a869]/20 text-[#c5a869]'
+                        : 'border-white/10 text-stone-400 hover:text-white'
+                    }`}
+                    title="Oyat yakunlanganda keyingi oyatga avtomatik oʻtib oʻqib kuzatish"
+                  >
+                    <ArrowRightCircle className={`w-3.5 h-3.5 ${isContinuousAyahPlay ? 'text-[#c5a869]' : 'text-stone-400'}`} />
+                    <span className="hidden sm:inline">Ketma-ket ijro</span>
                   </button>
                 </div>
 
@@ -1490,22 +1610,22 @@ export const QuranView: React.FC<QuranViewProps> = ({
                       id={`ayah-${ayah.surahNumber}-${ayah.numberInSurah}`}
                       key={ayah.id}
                       elevated={isPlayingThisAyah || isSyncedAyah || isHighlighted}
-                      className={`p-5 sm:p-6 space-y-4 transition-all ${
+                      className={`p-5 sm:p-6 space-y-4 transition-all duration-300 ${
                         nightReadingMode
                           ? 'bg-[#061714] border-emerald-900/40 text-stone-200'
                           : ''
                       } ${
                         isPlayingThisAyah || isSyncedAyah
-                          ? 'border-[#c5a869] ring-2 ring-[#c5a869]/50 bg-[#c5a869]/15 shadow-lg'
+                          ? 'border-[#c5a869] ring-2 ring-[#c5a869]/60 bg-[#c5a869]/15 shadow-xl scale-[1.002]'
                           : isHighlighted
                           ? 'border-[#c5a869]/70 ring-1 ring-[#c5a869]/30 bg-[#c5a869]/5'
                           : ''
                       }`}
                     >
-                      {isSyncedAyah && (
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#c5a869] uppercase tracking-wider bg-[#c5a869]/20 px-2.5 py-1 rounded-md w-fit">
-                          <Sparkles className="w-3 h-3 animate-pulse" />
-                          <span>AI Sinxron Oyat (Joriy Tilovat)</span>
+                      {(isSyncedAyah || isPlayingThisAyah) && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#c5a869] uppercase tracking-wider bg-[#c5a869]/25 px-2.5 py-1 rounded-md w-fit border border-[#c5a869]/40 shadow-sm animate-pulse">
+                          <Sparkles className="w-3.5 h-3.5 text-[#c5a869]" />
+                          <span>Joriy Tilovat (Oʻqib kuzatish)</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between border-b border-stone-100 dark:border-emerald-950/60 pb-3">
@@ -1531,9 +1651,13 @@ export const QuranView: React.FC<QuranViewProps> = ({
                                     ? 'bg-[#c5a869] text-[#071614] border-[#c5a869]'
                                     : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
                                 }`}
-                                title="Oyatni tinglash"
+                                title={isPlayingThisAyah ? 'Toʻxtatish' : 'Oyatni tinglash'}
                               >
-                                <Volume2 className="w-4 h-4" />
+                                {isPlayingThisAyah ? (
+                                  <Pause className="w-4 h-4 fill-current animate-pulse" />
+                                ) : (
+                                  <Volume2 className="w-4 h-4" />
+                                )}
                               </button>
                               <button
                                 onClick={() => handleDownloadAudio(ayah.audioUrl!, `${selectedSurah.nameUz}_${ayah.numberInSurah}.mp3`)}

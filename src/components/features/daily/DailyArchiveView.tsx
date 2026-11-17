@@ -8,7 +8,7 @@ import {
   AUTHENTIC_DAILY_BUNDLES,
   getActiveDailyBundle,
 } from '../../../data/dailyContentData';
-import { db, auth } from '../../../utils/firebaseClient';
+import { db, auth, ensureFirestoreConnectivityChecked } from '../../../utils/firebaseClient';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import {
   Calendar,
@@ -76,7 +76,7 @@ export const DailyArchiveView: React.FC<DailyArchiveViewProps> = ({
     async function loadFirestoreArchive() {
       setLoading(true);
       try {
-        if (db) {
+        if (db && (await ensureFirestoreConnectivityChecked())) {
           const snapshot = await getDocs(collection(db, 'dailyContent'));
           if (!snapshot.empty) {
             const firestoreBundles: DailyIslamicBundle[] = [];

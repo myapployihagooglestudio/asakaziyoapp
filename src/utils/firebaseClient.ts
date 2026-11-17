@@ -20,24 +20,40 @@ import {
   deleteDoc,
   onSnapshot,
   runTransaction,
+  setLogLevel,
+  enableNetwork,
+  disableNetwork,
   Firestore,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { AdminUser, UserRole } from '../types';
 
+const isBrowserRuntime = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+// Suppress verbose WebChannel idle-stream disconnect diagnostics in client logs
+try {
+  setLogLevel('error');
+} catch {
+  // Ignore if unsupported in current runtime
+}
+
 // Initialize Firebase App
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Firestore with auto-detect long polling for resilient connection in all environments
+// Initialize Firestore with forced XHR long-polling in browser runtimes to avoid
+// WebChannel/Fetch streaming stalls behind proxies, iframes, and cellular networks.
 let firestoreInstance: Firestore;
 try {
-  firestoreInstance = initializeFirestore(
-    app,
-    {
-      experimentalAutoDetectLongPolling: true,
-    },
-    firebaseConfig.firestoreDatabaseId
-  );
+  firestoreInstance = isBrowserRuntime
+    ? initializeFirestore(
+        app,
+        {
+          experimentalForceLongPolling: true,
+          experimentalLongPollingOptions: { timeoutSeconds: 8 },
+        },
+        firebaseConfig.firestoreDatabaseId
+      )
+    : getFirestore(app, firebaseConfig.firestoreDatabaseId);
 } catch {
   // If already initialized
   firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -262,15 +278,175 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Startup connection verification against live Cloud Firestore server
-export async function testFirestoreConnection(): Promise<boolean> {
-  try {
-    await getDocFromServer(doc(db, 'schedules', 'asaka-main'));
-    return true;
-  } catch (error) {
-    console.warn('[Firestore Connection Check] Live server read failed:', error instanceof Error ? error.message : error);
+// ---------------------------------------------------------------------------
+// FIRESTORE REACHABILITY GUARD (PREVENTS 10s OFFLINE STREAM STALLS)
+// ---------------------------------------------------------------------------
+let firestoreNetworkReady = !isBrowserRuntime;
+let firestoreProbeCompleted = !isBrowserRuntime;
+let firestoreReachabilityPromise: Promise<boolean> | null = null;
+let networkDisabledExplicitly = false;
+const networkReadyCallbacks = new Set<() => void>();
+
+export function isFirestoreNetworkReady(): boolean {
+  return firestoreNetworkReady;
+}
+
+export function onFirestoreNetworkReady(cb: () => void): () => void {
+  if (firestoreNetworkReady) {
+    cb();
+    return () => {};
+  }
+  networkReadyCallbacks.add(cb);
+  return () => {
+    networkReadyCallbacks.delete(cb);
+  };
+}
+
+function flushNetworkReadyCallbacks(): void {
+  const callbacks = Array.from(networkReadyCallbacks);
+  networkReadyCallbacks.clear();
+  callbacks.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      // ignore listener callback error
+    }
+  });
+}
+
+async function safelyDisableFirestoreNetwork(): Promise<void> {
+  firestoreNetworkReady = false;
+  firestoreProbeCompleted = true;
+  if (isBrowserRuntime && !networkDisabledExplicitly) {
+    networkDisabledExplicitly = true;
+    try {
+      await disableNetwork(db);
+    } catch {
+      // ignore if already disabled
+    }
+  }
+}
+
+async function safelyEnableFirestoreNetwork(): Promise<void> {
+  if (isBrowserRuntime && networkDisabledExplicitly) {
+    networkDisabledExplicitly = false;
+    try {
+      await enableNetwork(db);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function probeFirestoreRestEndpoint(timeoutMs = 3200): Promise<boolean> {
+  if (!isBrowserRuntime) return true;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return false;
   }
+  if (typeof fetch !== 'function') return true;
+
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
+      firebaseConfig.projectId
+    )}/databases/${encodeURIComponent(
+      firebaseConfig.firestoreDatabaseId
+    )}/documents/schedules/asaka-main?key=${encodeURIComponent(firebaseConfig.apiKey)}`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller?.signal,
+    });
+    return resp.status > 0;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Verifies live Cloud Firestore connectivity within <5s before opening Watch streams,
+ * cleanly calling disableNetwork(db) on unreachable/offline networks before Firestore's
+ * 10-second OnlineStateTracker timeout logs backend unreachable errors.
+ */
+export async function ensureFirestoreConnectivityChecked(options?: {
+  forceProbe?: boolean;
+}): Promise<boolean> {
+  if (!isBrowserRuntime) return true;
+  const forceProbe = Boolean(options?.forceProbe);
+  if (!forceProbe && firestoreProbeCompleted) {
+    return firestoreNetworkReady;
+  }
+  if (!forceProbe && firestoreReachabilityPromise) {
+    return firestoreReachabilityPromise;
+  }
+
+  const runProbe = async (): Promise<boolean> => {
+    const restReachable = await probeFirestoreRestEndpoint(3200);
+    if (!restReachable) {
+      await safelyDisableFirestoreNetwork();
+      return false;
+    }
+
+    await safelyEnableFirestoreNetwork();
+
+    let sdkTimer: ReturnType<typeof setTimeout> | null = null;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        sdkTimer = setTimeout(() => reject(new Error('Firestore SDK timeout (4.5s)')), 4500);
+      });
+      await Promise.race([
+        getDocFromServer(doc(db, '_diagnostics', 'connection')),
+        timeoutPromise,
+      ]);
+      firestoreNetworkReady = true;
+      firestoreProbeCompleted = true;
+      flushNetworkReadyCallbacks();
+      return true;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (
+        msg.includes('permission-denied') ||
+        msg.includes('PERMISSION_DENIED') ||
+        msg.includes('not-found')
+      ) {
+        firestoreNetworkReady = true;
+        firestoreProbeCompleted = true;
+        flushNetworkReadyCallbacks();
+        return true;
+      }
+      await safelyDisableFirestoreNetwork();
+      return false;
+    } finally {
+      if (sdkTimer) clearTimeout(sdkTimer);
+    }
+  };
+
+  const promise = runProbe().finally(() => {
+    if (firestoreReachabilityPromise === promise) {
+      firestoreReachabilityPromise = null;
+    }
+  });
+  firestoreReachabilityPromise = promise;
+  return promise;
+}
+
+// Startup connection verification against live Cloud Firestore server
+export async function testFirestoreConnection(): Promise<boolean> {
+  if (!isBrowserRuntime) {
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore connection timeout (4s)')), 4000)
+      );
+      await Promise.race([getDocFromServer(doc(db, '_diagnostics', 'connection')), timeoutPromise]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return ensureFirestoreConnectivityChecked({ forceProbe: true });
 }
 
 // Administrator & Firebase Sign Out
@@ -666,40 +842,67 @@ export async function runFirestoreTransaction<T>(
 }
 
 /**
- * Real-time collection listener using onSnapshot
+ * Real-time collection listener using onSnapshot (deferred until connectivity probe passes in browser)
  */
 export function listenToFirestoreCollection<T = any>(
   collectionName: string,
   onData: (items: T[]) => void,
   onError?: (err: Error) => void
 ): () => void {
-  try {
-    return onSnapshot(
-      collection(db, collectionName),
-      (snapshot) => {
-        const items: T[] = [];
-        snapshot.forEach((d) => {
-          items.push({ id: d.id, ...d.data() } as unknown as T);
-        });
-        onData(items);
-      },
-      (error) => {
-        const msg = error.message || '';
-        if (msg.includes('CANCELLED') || msg.includes('idle stream') || msg.includes('Timed out') || msg.includes('Code: 1')) {
-          return;
+  let disposed = false;
+  let activeUnsub: (() => void) | null = null;
+  let cancelReadyWait: (() => void) | null = null;
+
+  const attach = () => {
+    if (disposed) return;
+    try {
+      activeUnsub = onSnapshot(
+        collection(db, collectionName),
+        (snapshot) => {
+          const items: T[] = [];
+          snapshot.forEach((d) => {
+            items.push({ id: d.id, ...d.data() } as unknown as T);
+          });
+          onData(items);
+        },
+        (error) => {
+          const msg = error.message || '';
+          if (
+            msg.includes('CANCELLED') ||
+            msg.includes('idle stream') ||
+            msg.includes('Timed out') ||
+            msg.includes('Code: 1') ||
+            msg.includes('Could not reach Cloud Firestore backend') ||
+            msg.includes('offline mode') ||
+            msg.includes('client is offline')
+          ) {
+            return;
+          }
+          console.warn(`[Firestore Real-time Listener Error] /${collectionName}:`, error);
+          if (onError) onError(error);
         }
-        console.warn(`[Firestore Real-time Listener Error] /${collectionName}:`, error);
-        if (onError) onError(error);
-      }
-    );
-  } catch (err) {
-    if (onError && err instanceof Error) onError(err);
-    return () => {};
+      );
+    } catch (err) {
+      if (onError && err instanceof Error) onError(err);
+    }
+  };
+
+  if (!isBrowserRuntime || firestoreNetworkReady) {
+    attach();
+  } else {
+    cancelReadyWait = onFirestoreNetworkReady(attach);
+    ensureFirestoreConnectivityChecked().catch(() => {});
   }
+
+  return () => {
+    disposed = true;
+    if (cancelReadyWait) cancelReadyWait();
+    if (activeUnsub) activeUnsub();
+  };
 }
 
 /**
- * Real-time single document listener using onSnapshot
+ * Real-time single document listener using onSnapshot (deferred until connectivity probe passes in browser)
  */
 export function listenToFirestoreDoc<T = any>(
   collectionName: string,
@@ -707,29 +910,56 @@ export function listenToFirestoreDoc<T = any>(
   onData: (item: T | null) => void,
   onError?: (err: Error) => void
 ): () => void {
-  try {
-    return onSnapshot(
-      doc(db, collectionName, docId),
-      (snapshot) => {
-        if (snapshot.exists()) {
-          onData({ id: snapshot.id, ...snapshot.data() } as unknown as T);
-        } else {
-          onData(null);
+  let disposed = false;
+  let activeUnsub: (() => void) | null = null;
+  let cancelReadyWait: (() => void) | null = null;
+
+  const attach = () => {
+    if (disposed) return;
+    try {
+      activeUnsub = onSnapshot(
+        doc(db, collectionName, docId),
+        (snapshot) => {
+          if (snapshot.exists()) {
+            onData({ id: snapshot.id, ...snapshot.data() } as unknown as T);
+          } else {
+            onData(null);
+          }
+        },
+        (error) => {
+          const msg = error.message || '';
+          if (
+            msg.includes('CANCELLED') ||
+            msg.includes('idle stream') ||
+            msg.includes('Timed out') ||
+            msg.includes('Code: 1') ||
+            msg.includes('Could not reach Cloud Firestore backend') ||
+            msg.includes('offline mode') ||
+            msg.includes('client is offline')
+          ) {
+            return;
+          }
+          console.warn(`[Firestore Real-time Doc Listener Error] /${collectionName}/${docId}:`, error);
+          if (onError) onError(error);
         }
-      },
-      (error) => {
-        const msg = error.message || '';
-        if (msg.includes('CANCELLED') || msg.includes('idle stream') || msg.includes('Timed out') || msg.includes('Code: 1')) {
-          return;
-        }
-        console.warn(`[Firestore Real-time Doc Listener Error] /${collectionName}/${docId}:`, error);
-        if (onError) onError(error);
-      }
-    );
-  } catch (err) {
-    if (onError && err instanceof Error) onError(err);
-    return () => {};
+      );
+    } catch (err) {
+      if (onError && err instanceof Error) onError(err);
+    }
+  };
+
+  if (!isBrowserRuntime || firestoreNetworkReady) {
+    attach();
+  } else {
+    cancelReadyWait = onFirestoreNetworkReady(attach);
+    ensureFirestoreConnectivityChecked().catch(() => {});
   }
+
+  return () => {
+    disposed = true;
+    if (cancelReadyWait) cancelReadyWait();
+    if (activeUnsub) activeUnsub();
+  };
 }
 
 export interface FetchDocResult<T> {
@@ -743,15 +973,30 @@ export async function fetchDocFromFirestore<T = any>(
   collectionName: string,
   docId: string
 ): Promise<FetchDocResult<T>> {
+  if (isBrowserRuntime) {
+    const online = await ensureFirestoreConnectivityChecked();
+    if (!online) {
+      return { success: false, data: null, exists: false, error: 'Firestore network unavailable' };
+    }
+  }
+  let timer: ReturnType<typeof setTimeout> | null = null;
   try {
-    const snapshot = await getDoc(doc(db, collectionName, docId));
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Firestore doc timeout (4s)')), 4000);
+    });
+    const snapshot = await Promise.race([getDoc(doc(db, collectionName, docId)), timeoutPromise]);
     if (snapshot.exists()) {
       return { success: true, data: snapshot.data() as T, exists: true };
     }
     return { success: true, data: null, exists: false };
   } catch (err: any) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('timeout')) {
+      safelyDisableFirestoreNetwork().catch(() => {});
+    }
     return { success: false, data: null, exists: false, error: msg };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -764,10 +1009,17 @@ export interface FetchCollectionResult<T> {
 export async function fetchCollectionFromFirestore<T = any>(
   collectionName: string
 ): Promise<FetchCollectionResult<T>> {
+  if (isBrowserRuntime) {
+    const online = await ensureFirestoreConnectivityChecked();
+    if (!online) {
+      return { success: false, data: [], error: 'Firestore network unavailable' };
+    }
+  }
+  let timer: ReturnType<typeof setTimeout> | null = null;
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Firestore connection timeout (3.5s)')), 3500)
-    );
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Firestore connection timeout (3.5s)')), 3500);
+    });
     const docsPromise = getDocs(collection(db, collectionName));
     const snapshot = await Promise.race([docsPromise, timeoutPromise]);
     const items: T[] = [];
@@ -777,7 +1029,12 @@ export async function fetchCollectionFromFirestore<T = any>(
     return { success: true, data: items };
   } catch (err: any) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('timeout')) {
+      safelyDisableFirestoreNetwork().catch(() => {});
+    }
     return { success: false, data: [], error: msg };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -795,9 +1052,15 @@ export async function checkAdminRole(
   }
 }
 
-// Initial connection test in browser/WebView runtime
-if (typeof window !== 'undefined') {
-  testFirestoreConnection();
+// Initial connection check and online/offline recovery in real browser runtime
+if (isBrowserRuntime) {
+  window.addEventListener('offline', () => {
+    safelyDisableFirestoreNetwork().catch(() => {});
+  });
+  window.addEventListener('online', () => {
+    ensureFirestoreConnectivityChecked({ forceProbe: true }).catch(() => {});
+  });
+  ensureFirestoreConnectivityChecked().catch(() => {});
 }
 
 

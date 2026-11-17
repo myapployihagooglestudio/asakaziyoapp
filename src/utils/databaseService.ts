@@ -56,6 +56,8 @@ import {
   isAdminAuthenticated,
   getActiveAdminSession,
   getActiveAdminToken,
+  ensureFirestoreConnectivityChecked,
+  onFirestoreNetworkReady,
 } from './firebaseClient';
 import { doc, getDoc, getDocFromServer, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStoredSupabaseConfig } from './supabaseClient';
@@ -498,6 +500,89 @@ function safeGetLocalCache<T>(key: string, defaultValue: T): T {
   }
 }
 
+async function syncFromServerApiFallback(): Promise<boolean> {
+  try {
+    const srvRes = await fetch('/api/database');
+    if (!srvRes.ok) return false;
+    const srvJson = await srvRes.json().catch(() => null);
+    const data = srvJson?.data || srvJson;
+    if (!data || typeof data !== 'object') return false;
+
+    if (data.prayerSchedule && Array.isArray(data.prayerSchedule.times) && data.prayerSchedule.times.length >= 6) {
+      safeSetLocalCache(KEYS.PRAYER, data.prayerSchedule);
+      safeSetLocalCache('asaka_ziyo_prayer_schedule', data.prayerSchedule);
+      broadcastEvent('PRAYER_UPDATED', data.prayerSchedule);
+    }
+    if (Array.isArray(data.articles)) {
+      const sorted = sortFirestoreDocs(data.articles);
+      safeSetLocalCache(KEYS.ARTICLES, sorted);
+      broadcastEvent('ARTICLES_UPDATED', sorted);
+    }
+    if (Array.isArray(data.mediaPosts)) {
+      const sorted = sortFirestoreDocs(data.mediaPosts);
+      safeSetLocalCache(KEYS.MEDIA_POSTS, sorted);
+      broadcastEvent('POSTS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.hadiths)) {
+      const sorted = sortFirestoreDocs(data.hadiths);
+      safeSetLocalCache(KEYS.HADITHS, sorted);
+      broadcastEvent('HADITHS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.dhikrs)) {
+      const sorted = sortFirestoreDocs(data.dhikrs);
+      safeSetLocalCache(KEYS.DHIKRS, sorted);
+      broadcastEvent('DHIKRS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.news)) {
+      const sorted = sortFirestoreDocs(data.news);
+      safeSetLocalCache(KEYS.NEWS, sorted);
+      broadcastEvent('NEWS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.announcements)) {
+      const sorted = sortFirestoreDocs(data.announcements);
+      safeSetLocalCache(KEYS.ANNOUNCEMENTS, sorted);
+      broadcastEvent('ANNOUNCEMENTS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.notifications)) {
+      const sorted = sortFirestoreDocs(data.notifications);
+      safeSetLocalCache(KEYS.NOTIFICATIONS, sorted);
+      broadcastEvent('NOTIFICATIONS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.mosqueEvents) && data.mosqueEvents.length > 0) {
+      const sorted = sortFirestoreDocs(data.mosqueEvents);
+      safeSetLocalCache(MOSQUE_EVENTS_KEY, sorted);
+      broadcastEvent('MOSQUE_EVENTS_UPDATED', sorted);
+    }
+    if (Array.isArray(data.academyLessons) && data.academyLessons.length > 0) {
+      safeSetLocalCache(ACADEMY_LESSONS_KEY, data.academyLessons);
+      broadcastEvent('ACADEMY_LESSONS_UPDATED', data.academyLessons);
+    }
+    if (Array.isArray(data.charityCampaigns) && data.charityCampaigns.length > 0) {
+      const sorted = sortFirestoreDocs(data.charityCampaigns);
+      safeSetLocalCache(CHARITY_CAMPAIGNS_KEY, sorted);
+      broadcastEvent('CHARITY_CAMPAIGN_UPDATED', sorted);
+    }
+    if (Array.isArray(data.digitalBooks) && data.digitalBooks.length > 0) {
+      const sorted = sortFirestoreDocs(data.digitalBooks);
+      safeSetLocalCache(DIGITAL_BOOKS_KEY, sorted);
+      broadcastEvent('DIGITAL_BOOKS_UPDATED', sorted);
+    }
+    if (data.quranAudioOverrides && typeof data.quranAudioOverrides === 'object') {
+      safeSetLocalCache('asaka_ziyo_permanent_surah_audio_v2', data.quranAudioOverrides);
+      safeSetLocalCache('asaka_ziyo_quran_audio_overrides_v1', data.quranAudioOverrides);
+      broadcastEvent('QURAN_AUDIO_UPDATED', data.quranAudioOverrides);
+    }
+    if (Array.isArray(data.quranReciters) && data.quranReciters.length > 0) {
+      safeSetLocalCache('asaka_ziyo_permanent_reciters_v2', data.quranReciters);
+      safeSetLocalCache('asaka_ziyo_reciters_v1', data.quranReciters);
+      broadcastEvent('QURAN_RECITERS_UPDATED', data.quranReciters);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function syncWithFirestore(force = false): Promise<void> {
   if (isSyncingFirestore) return;
   const now = Date.now();
@@ -507,6 +592,14 @@ export async function syncWithFirestore(force = false): Promise<void> {
   try {
     // Take safety snapshot before remote sync
     createDataSnapshot('Firestore sinxronlashdan oldingi zaxira');
+
+    // Check browser Firestore reachability before issuing multiple collection fetches
+    const directReachable = await ensureFirestoreConnectivityChecked();
+    if (!directReachable) {
+      await syncFromServerApiFallback();
+      lastSyncTimestamp = Date.now();
+      return;
+    }
 
     // 1. Fetch Prayer Schedule directly from Firestore (Authoritative Single Source of Truth)
     const scheduleRes = await fetchDocFromFirestore<PrayerSchedule>('schedules', 'asaka-main');
@@ -905,13 +998,18 @@ export function startRealtimeFirestoreListeners(): void {
   }
 }
 
-// Auto-trigger sync and real-time listeners on module load (Firestore First)
-if (typeof window !== 'undefined') {
-  // 1. Initial Firestore primary sync
-  syncWithFirestore(true);
-
-  // 1B. Start real-time Firestore onSnapshot listeners for multi-device instant updates
-  startRealtimeFirestoreListeners();
+// Auto-trigger sync and real-time listeners on module load in real browser runtimes (Firestore First)
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  onFirestoreNetworkReady(() => {
+    startRealtimeFirestoreListeners();
+  });
+  ensureFirestoreConnectivityChecked()
+    .then(() => {
+      syncWithFirestore(true);
+    })
+    .catch(() => {
+      syncWithFirestore(true);
+    });
 
   // 2. Periodic sync every 2 minutes
   setInterval(() => {
@@ -2248,6 +2346,10 @@ export async function runFirestoreDiagnostics(): Promise<FirestoreDiagnosticResu
     } else {
       // Unauthenticated read-only browser probe
       const readStart = performance.now();
+      const reachable = await ensureFirestoreConnectivityChecked({ forceProbe: true });
+      if (!reachable) {
+        throw new Error('Cloud Firestore serveriga ulanib boʻlmadi (offline/blocked)');
+      }
       const schedRef = doc(db, 'schedules', 'asaka-main');
       const snapshot = await getDocFromServer(schedRef);
       const readLatencyMs = Math.round(performance.now() - readStart);
