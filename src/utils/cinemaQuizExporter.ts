@@ -39,7 +39,7 @@ export interface CinemaExportResult {
 
 export interface QuizPartExportOptions {
   questionsPart: QuranQuizQuestion[];
-  partIndex: 1 | 2;
+  partIndex: number;
   partRangeLabel: string;
   globalStartNumber: number;
   totalQuizQuestions?: number;
@@ -58,7 +58,7 @@ export interface QuizPartExportOptions {
 
 export interface QuizPartExportResult {
   jobId: string;
-  partIndex: 1 | 2;
+  partIndex: number;
   filename: string;
   downloadUrl: string;
   previewUrl: string;
@@ -1893,20 +1893,46 @@ export async function exportQuizPartMP4Video(
   }
 }
 
-export function triggerServerMp4Download(params: {
+export async function triggerServerMp4Download(params: {
   downloadUrl: string;
   filename: string;
-}): void {
-  const a = document.createElement('a');
-  a.href = params.downloadUrl;
-  a.download = params.filename;
-  a.rel = 'noopener noreferrer';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  window.setTimeout(() => {
-    a.remove();
-  }, 1500);
+  onProgress?: (msg: string) => void;
+}): Promise<void> {
+  try {
+    params.onProgress?.('Video fayl serverdan yuklab olinmoqda...');
+    const resp = await fetch(params.downloadUrl);
+    const contentType = resp.headers.get('content-type') || '';
+
+    if (!resp.ok || contentType.includes('text/html')) {
+      const errText = await resp.text().catch(() => '');
+      if (errText.includes('<!DOCTYPE') || errText.includes('<html')) {
+        throw new Error('Server video oʻrniga HTML sahifa qaytardi. Video hali tayyor emas yoki xatolik yuz berdi.');
+      }
+      throw new Error(`Video yuklab olishda xatolik (HTTP ${resp.status}).`);
+    }
+
+    const rawBlob = await resp.blob();
+    if (!rawBlob || rawBlob.size < 4096 || rawBlob.type.includes('text/html')) {
+      throw new Error('Serverdan kelgan video fayl notoʻgʻri yoki boʻsh.');
+    }
+
+    const videoBlob = new Blob([rawBlob], { type: 'video/mp4' });
+    const url = URL.createObjectURL(videoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = params.filename;
+    a.rel = 'noopener noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 60000);
+  } catch (err: any) {
+    console.error('MP4 download error:', err);
+    throw err instanceof Error ? err : new Error('Videoni yuklab boʻlmadi.');
+  }
 }
 
 export async function shareServerMp4Video(params: {

@@ -553,11 +553,11 @@ async function processQuizPartRenderJob(
 export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJobState {
   cleanupExpiredJobs();
 
-  if (input.partIndex !== 1 && input.partIndex !== 2) {
-    throw new Error('Notoʻgʻri video qismi (faqat 1 yoki 2 boʻlishi kerak).');
+  if (typeof input.partIndex !== 'number' || input.partIndex < 1 || input.partIndex > 10) {
+    throw new Error('Notoʻgʻri video raqami (1 dan 10 gacha boʻlishi kerak).');
   }
   if (!Array.isArray(input.questions) || input.questions.length === 0 || input.questions.length > 5) {
-    throw new Error('Har bir video qismida 1 tadan 5 tagacha savol boʻlishi shart.');
+    throw new Error('Har bir videoda 1 tadan 5 tagacha savol boʻlishi shart.');
   }
   if (!input.introJpgBase64 || !input.outroJpgBase64) {
     throw new Error('Kirish va yakuniy kadrlar yuborilmadi.');
@@ -569,15 +569,17 @@ export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJ
   fs.mkdirSync(workDir, { recursive: true });
 
   const cleanDate = String(input.quizDateStr || 'bugun').replace(/[^a-zA-Z0-9_-]/g, '');
-  const rangeSlug = input.partIndex === 1 ? '1-5' : '6-10';
-  const filename = `asaka-ziyo-viktorina-${cleanDate}-qism${input.partIndex}-${rangeSlug}-1080x1920.mp4`;
+  const rangeSlug = input.questions.length === 1 ? `savol-${input.partIndex}` : (input.partIndex === 1 ? '1-5' : '6-10');
+  const filename = input.questions.length === 1
+    ? `${input.partIndex}.mp4`
+    : `asaka-ziyo-viktorina-${cleanDate}-qism${input.partIndex}-${rangeSlug}-1080x1920.mp4`;
 
   const job: RenderJobState = {
     jobId,
-    partIndex: input.partIndex,
+    partIndex: input.partIndex as any,
     status: 'queued',
     progressPct: 3,
-    stageLabel: `${input.partIndex}-video (${rangeSlug}-savollar) navbatga qoʻshildi...`,
+    stageLabel: `${input.partIndex}-video navbatga qoʻshildi...`,
     filename,
     outputPath,
     workDir,

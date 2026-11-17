@@ -111,10 +111,19 @@ interface QuizPartExportSlot {
   result: (QuizPartExportResult & { sizeMb: string; title: string }) | null;
 }
 
-const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
-  1: { status: 'idle', progressPct: 0, stageLabel: '', errorText: '', result: null },
-  2: { status: 'idle', progressPct: 0, stageLabel: '', errorText: '', result: null },
-});
+const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
+  const map: Record<number, QuizPartExportSlot> = {};
+  for (let i = 1; i <= 10; i++) {
+    map[i] = {
+      status: 'idle',
+      progressPct: 0,
+      stageLabel: '',
+      errorText: '',
+      result: null,
+    };
+  }
+  return map;
+};
 
   const [attempts, setAttempts] = useState<QuranQuizAttempt[]>(() =>
     getStoredQuranQuizAttempts()
@@ -131,12 +140,12 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
   const [isTailFinishedWaitingNext, setIsTailFinishedWaitingNext] = useState<boolean>(false);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState<boolean>(false);
 
-  // Independent 5-Question 1080x1920 Video Export Slots (Part 1: 1-5, Part 2: 6-10)
-  const [partExports, setPartExports] = useState<Record<1 | 2, QuizPartExportSlot>>(
-    createInitialPartExports
+  // 10 Individual Question MP4 Video Export Slots (1.mp4 through 10.mp4)
+  const [questionExports, setQuestionExports] = useState<Record<number, QuizPartExportSlot>>(() =>
+    createInitialQuestionExports()
   );
   const [isBufferingAudio, setIsBufferingAudio] = useState<boolean>(false);
-  const partAbortRefs = useRef<Record<1 | 2, AbortController | null>>({ 1: null, 2: null });
+  const singleAbortRefs = useRef<Record<number, AbortController | null>>({});
 
   // Refs for precision Web Audio AudioBuffer slicing & particle canvas
   const particleCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -154,8 +163,9 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
   const isTickMutedRef = useRef<boolean>(false);
   const autoAdvanceRef = useRef<boolean>(false);
 
-  const isAnyVideoRendering =
-    partExports[1].status === 'rendering' || partExports[2].status === 'rendering';
+  const isAnyVideoRendering = Object.values(questionExports).some(
+    (slot) => slot?.status === 'rendering'
+  );
 
   useEffect(() => {
     autoAdvanceRef.current = autoAdvanceEnabled;
@@ -249,8 +259,7 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
   useEffect(() => {
     clockAudioRef.current = new QuranQuizClockAudio();
     return () => {
-      partAbortRefs.current[1]?.abort();
-      partAbortRefs.current[2]?.abort();
+      Object.values(singleAbortRefs.current).forEach((c) => c?.abort());
       stopAllActiveTimersAndAudio();
       clockAudioRef.current?.dispose();
     };
@@ -288,13 +297,12 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
 
   const loadQuiz = useCallback(
     async (reciterId: string, forceRefresh = false) => {
-      partAbortRefs.current[1]?.abort();
-      partAbortRefs.current[2]?.abort();
+      Object.values(singleAbortRefs.current).forEach((c) => c?.abort());
       stopAllActiveTimersAndAudio();
       clockAudioRef.current?.setActiveReciter(reciterId);
       setPhase('loading');
       setErrorMessage('');
-      setPartExports(createInitialPartExports());
+      setQuestionExports(createInitialQuestionExports());
       setRevealedIndices([]);
       setInspectedQuestionIndex(null);
       setIsTailFinishedWaitingNext(false);
@@ -807,52 +815,31 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
     setSelectedReciterId(newReciterId);
   };
 
-  const handleExportQuizPartVideo = async (partIndex: 1 | 2) => {
-    if (!quizSet?.questions?.length) return;
-    if (partExports[partIndex].status === 'rendering') return;
+  const handleExportSingleQuestionVideo = async (qIndex: number) => {
+    if (!quizSet?.questions?.[qIndex]) return;
+    const partIndex = qIndex + 1;
+    if (questionExports[partIndex]?.status === 'rendering') return;
 
-    const sliceStart = partIndex === 1 ? 0 : 5;
-    const sliceEnd = partIndex === 1 ? 5 : 10;
-    const partSlice = quizSet.questions.slice(sliceStart, sliceEnd);
-    const rangeLabel = partIndex === 1 ? '1–5' : '6–10';
-
-    if (partSlice.length === 0) {
-      setPartExports((prev) => ({
-        ...prev,
-        [partIndex]: {
-          status: 'error',
-          progressPct: 0,
-          stageLabel: '',
-          errorText: `${partIndex}-video (${rangeLabel}) uchun savollar topilmadi.`,
-          result: null,
-        },
-      }));
-      return;
-    }
-
+    const rawQ = quizSet.questions[qIndex];
     stopAllActiveTimersAndAudio();
-    partAbortRefs.current[partIndex]?.abort();
+    singleAbortRefs.current[partIndex]?.abort();
     const controller = new AbortController();
-    partAbortRefs.current[partIndex] = controller;
+    singleAbortRefs.current[partIndex] = controller;
 
-    setPartExports((prev) => ({
+    setQuestionExports((prev) => ({
       ...prev,
       [partIndex]: {
         status: 'rendering',
         progressPct: 1,
-        stageLabel: `${partIndex}-video (${rangeLabel}): Qurʼon tarjimalari tekshirilmoqda...`,
+        stageLabel: `${partIndex}-savol (${partIndex}.mp4) tayyorlanmoqda...`,
         errorText: '',
         result: null,
       },
     }));
 
     try {
-      const hydratedPart = await Promise.all(
-        partSlice.map(async (raw) => {
-          const base = enrichedById[raw.id] || normalizeQuizQuestion(raw);
-          return base.translationUz ? base : enrichQuizQuestionFromQuranSection(base);
-        })
-      );
+      const base = enrichedById[rawQ.id] || normalizeQuizQuestion(rawQ);
+      const hydrated = base.translationUz ? base : await enrichQuizQuestionFromQuranSection(base);
 
       if (controller.signal.aborted) {
         throw new DOMException('Eksport bekor qilindi.', 'AbortError');
@@ -861,22 +848,22 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
       const reciterDisplayName =
         quizSet.reciterName ||
         reciters.find((r) => r.id === selectedReciterId)?.name ||
-        hydratedPart[0]?.reciterName ||
+        hydrated.reciterName ||
         'Qori';
 
       const result = await exportQuizPartMP4Video({
-        questionsPart: hydratedPart,
+        questionsPart: [hydrated],
         partIndex,
-        partRangeLabel: rangeLabel,
-        globalStartNumber: sliceStart + 1,
+        partRangeLabel: `${partIndex}-savol`,
+        globalStartNumber: partIndex,
         totalQuizQuestions: quizSet.questions.length,
         reciterName: reciterDisplayName,
         quizDateStr: quizSet.dateStr,
-        scoreSummary: phase === 'finished' ? finishedSummary : null,
+        scoreSummary: null,
         countdownMs: TIMER_DURATION_MS,
         signal: controller.signal,
         onProgress: (pct, label) => {
-          setPartExports((prev) => ({
+          setQuestionExports((prev) => ({
             ...prev,
             [partIndex]: {
               ...prev[partIndex],
@@ -889,63 +876,71 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
       });
 
       const sizeMb = (result.sizeBytes / (1024 * 1024)).toFixed(2);
-      setPartExports((prev) => ({
+      const finalFilename = `${partIndex}.mp4`;
+      const readyResult = {
+        ...result,
+        filename: finalFilename,
+        sizeMb,
+        title: `${partIndex}-savol (${hydrated.surahNameUz} surasi) — Asaka Ziyo`,
+      };
+
+      setQuestionExports((prev) => ({
         ...prev,
         [partIndex]: {
           status: 'ready',
           progressPct: 100,
-          stageLabel: `${partIndex}-video (${rangeLabel}-savollar, ${sizeMb} MB) yuklab olishga tayyor!`,
+          stageLabel: `${partIndex}.mp4 (${sizeMb} MB) yuklab olishga tayyor!`,
           errorText: '',
-          result: {
-            ...result,
-            sizeMb,
-            title: `Kunlik Qurʼon Viktorinasi · ${rangeLabel}-savollar (${reciterDisplayName})`,
-          },
+          result: readyResult,
         },
       }));
-      triggerServerMp4Download({
-        downloadUrl: result.downloadUrl,
-        filename: result.filename,
+      await triggerServerMp4Download({
+        downloadUrl: readyResult.downloadUrl,
+        filename: finalFilename,
+        onProgress: (msg) => {
+          setQuestionExports((prev) => ({
+            ...prev,
+            [partIndex]: {
+              ...prev[partIndex],
+              stageLabel: msg,
+            },
+          }));
+        },
       });
     } catch (err: any) {
-      if (err?.name === 'AbortError') {
-        setPartExports((prev) => ({
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        setQuestionExports((prev) => ({
           ...prev,
           [partIndex]: {
+            ...prev[partIndex],
             status: 'idle',
             progressPct: 0,
             stageLabel: '',
-            errorText: '',
-            result: prev[partIndex].result,
           },
         }));
-      } else {
-        setPartExports((prev) => ({
-          ...prev,
-          [partIndex]: {
-            status: 'error',
-            progressPct: 0,
-            stageLabel: '',
-            errorText:
-              err?.message || `${partIndex}-videoni (${rangeLabel}) tayyorlashda xatolik yuz berdi.`,
-            result: null,
-          },
-        }));
+        return;
       }
+      setQuestionExports((prev) => ({
+        ...prev,
+        [partIndex]: {
+          status: 'error',
+          progressPct: 0,
+          stageLabel: '',
+          errorText: err?.message || `${partIndex}-video eksportida xatolik yuz berdi.`,
+          result: null,
+        },
+      }));
     } finally {
-      if (partAbortRefs.current[partIndex] === controller) {
-        partAbortRefs.current[partIndex] = null;
+      if (singleAbortRefs.current[partIndex] === controller) {
+        singleAbortRefs.current[partIndex] = null;
       }
     }
   };
 
-  const handleCancelQuizPartExport = (partIndex: 1 | 2) => {
-    partAbortRefs.current[partIndex]?.abort();
-  };
-
-  const handleShareQuizPartVideo = async (partIndex: 1 | 2) => {
-    const slot = partExports[partIndex];
-    if (slot.status !== 'ready' || !slot.result) return;
+  const handleShareSingleQuestionVideo = async (qIndex: number) => {
+    const partIndex = qIndex + 1;
+    const slot = questionExports[partIndex];
+    if (slot?.status !== 'ready' || !slot.result) return;
     await shareServerMp4Video({
       previewUrl: slot.result.previewUrl,
       downloadUrl: slot.result.downloadUrl,
@@ -1337,38 +1332,40 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
                 </div>
 
                 <div className="space-y-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      disabled={partExports[1].status === 'rendering'}
-                      onClick={() => void handleExportQuizPartVideo(1)}
-                      className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 disabled:opacity-55 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg cursor-pointer px-3 whitespace-nowrap"
-                    >
-                      <Film className="w-4 h-4 shrink-0" />
-                      <span className="truncate">
-                        {partExports[1].status === 'rendering'
-                          ? `1-Video (${partExports[1].progressPct}%)`
-                          : '1-Videoni yuklab olish (1–5)'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={partExports[2].status === 'rendering' || (quizSet?.questions?.length || 0) <= 5}
-                      onClick={() => void handleExportQuizPartVideo(2)}
-                      className="min-h-[44px] rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 disabled:opacity-55 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg cursor-pointer px-3 whitespace-nowrap"
-                    >
-                      <Film className="w-4 h-4 shrink-0" />
-                      <span className="truncate">
-                        {partExports[2].status === 'rendering'
-                          ? `2-Video (${partExports[2].progressPct}%)`
-                          : '2-Videoni yuklab olish (6–10)'}
-                      </span>
-                    </button>
+                  <div className="text-xs font-bold text-[#DCC58C]">
+                    10 ta savolning har biri uchun mustaqil MP4 video (1.mp4 – 10.mp4)
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {quizSet.questions.map((_, idx) => {
+                      const slot = questionExports[idx + 1];
+                      const isRendering = slot?.status === 'rendering';
+                      const isReady = slot?.status === 'ready';
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={isRendering}
+                          onClick={() => void handleExportSingleQuestionVideo(idx)}
+                          className={`min-h-[40px] px-1 rounded-xl font-mono-numbers text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center ${
+                            isReady
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
+                              : isRendering
+                                ? 'bg-[#C6A45C]/30 text-[#DCC58C] border-[#C6A45C]'
+                                : 'bg-white/10 hover:bg-white/20 text-[#F8F5EC] border-[#C6A45C]/30'
+                          }`}
+                        >
+                          <span>{idx + 1}.mp4</span>
+                          <span className="text-[9px] opacity-80">
+                            {isRendering ? `${slot.progressPct}%` : isReady ? 'Tayyor' : 'Yuklab ol'}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                   <button
                     type="button"
                     onClick={handleRestartQuiz}
-                    className="w-full min-h-[44px] rounded-xl bg-white/10 hover:bg-white/15 border border-[#C6A45C]/35 text-[#F8F5EC] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full min-h-[44px] rounded-xl bg-white/10 hover:bg-white/15 border border-[#C6A45C]/35 text-[#F8F5EC] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
                     <RotateCcw className="w-4 h-4" />
                     <span>Qayta ishlash</span>
@@ -1914,68 +1911,43 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
               <span>Kunlik 10 ta Shorts yaratish</span>
             </button>
 
-            {/* Dual Independent 5-Question Video Export Cards (1-5 and 6-10) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {([1, 2] as const).map((partNum) => {
-                const slot = partExports[partNum];
-                const rangeLabel = partNum === 1 ? '1–5' : '6–10';
-                const partQuestionsCount =
-                  partNum === 1
-                    ? Math.min(5, quizSet?.questions?.length || 0)
-                    : Math.max(0, (quizSet?.questions?.length || 0) - 5);
-                const buttonTitle =
-                  partNum === 1
-                    ? '1-Videoni yuklab olish (1–5)'
-                    : '2-Videoni yuklab olish (6–10)';
-                const isDisabled =
-                  !quizSet?.questions?.length ||
-                  partQuestionsCount === 0 ||
-                  phase === 'loading' ||
-                  phase === 'error';
+            {/* 10 Individual Question MP4 Video Export Cards (1.mp4 through 10.mp4) */}
+            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+              {quizSet?.questions?.map((rawQ, qIdx) => {
+                const partNum = qIdx + 1;
+                const slot = questionExports[partNum];
+                const isRendering = slot?.status === 'rendering';
+                const isReady = slot?.status === 'ready';
+                const isError = slot?.status === 'error';
+                const q = enrichedById[rawQ.id] || normalizeQuizQuestion(rawQ);
 
                 return (
                   <div
-                    key={partNum}
-                    className="rounded-2xl bg-white/75 dark:bg-[#041D18] border border-[#063D32]/15 dark:border-[#C6A45C]/30 p-3.5 space-y-3 flex flex-col justify-between"
+                    key={rawQ.id}
+                    className="rounded-2xl bg-white/75 dark:bg-[#041D18] border border-[#063D32]/15 dark:border-[#C6A45C]/30 p-3.5 space-y-2.5"
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="font-bold text-[#042B25] dark:text-[#DCC58C]">
-                          {partNum}-Qism ({rangeLabel}-savollar)
-                        </span>
-                        <span className="font-mono-numbers tabular-nums text-[11px] text-[#5C746C] dark:text-[#8FA69E]">
-                          {partQuestionsCount} ta savol · 9:16
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[#5C746C] dark:text-[#8FA69E]">
-                        {partNum === 1
-                          ? 'Dastlabki 5 ta savoldan iborat mustaqil MP4.'
-                          : 'Keyingi 5 ta savoldan iborat mustaqil MP4.'}
-                      </p>
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-bold text-[#042B25] dark:text-[#DCC58C]">
+                        {partNum}-savol: {q.surahNameUz} ({partNum}.mp4)
+                      </span>
+                      <span className="font-mono-numbers tabular-nums text-[11px] text-[#5C746C] dark:text-[#8FA69E]">
+                        {isReady && slot.result ? `${slot.result.sizeMb} MB` : '9:16'}
+                      </span>
                     </div>
 
-                    {slot.status !== 'rendering' ? (
+                    {!isRendering && !isReady && (
                       <button
                         type="button"
-                        disabled={isDisabled}
-                        onClick={() => void handleExportQuizPartVideo(partNum)}
-                        className="w-full min-h-[46px] px-3 py-2 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 disabled:opacity-45 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                        disabled={phase === 'loading'}
+                        onClick={() => void handleExportSingleQuestionVideo(qIdx)}
+                        className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 disabled:opacity-45 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-sm"
                       >
                         <Film className="w-4 h-4 shrink-0" />
-                        <span className="truncate">{buttonTitle}</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleCancelQuizPartExport(partNum)}
-                        className="w-full min-h-[46px] px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        <X className="w-4 h-4 shrink-0" />
-                        <span>Toʻxtatish ({slot.progressPct}%)</span>
+                        <span>{partNum}.mp4 videoni yaratish</span>
                       </button>
                     )}
 
-                    {slot.status === 'rendering' && (
+                    {isRendering && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-[11px] font-medium">
                           <span className="text-[#042B25] dark:text-[#F8F5EC] truncate pr-2">
@@ -1991,45 +1963,53 @@ const createInitialPartExports = (): Record<1 | 2, QuizPartExportSlot> => ({
                             style={{ width: `${slot.progressPct}%` }}
                           />
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => singleAbortRefs.current[partNum]?.abort()}
+                          className="w-full min-h-[38px] rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Toʻxtatish ({slot.progressPct}%)</span>
+                        </button>
                       </div>
                     )}
 
-                    {slot.status === 'error' && slot.errorText && (
+                    {isError && slot.errorText && (
                       <div className="rounded-xl px-3 py-2 text-[11px] flex items-start gap-2 bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-200">
                         <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                         <span className="leading-snug">{slot.errorText}</span>
                       </div>
                     )}
 
-                    {slot.status === 'ready' && slot.result && (
+                    {isReady && slot.result && (
                       <div className="rounded-xl bg-[#041D18] border border-emerald-400/40 p-3 space-y-2.5 text-[#F8F5EC]">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-emerald-300">
-                            Tayyor ({rangeLabel})
+                            {partNum}.mp4 tayyor ({slot.result.sizeMb} MB)
                           </span>
-                          <span className="font-mono-numbers tabular-nums text-[#8FA69E]">
-                            {slot.result.sizeMb} MB · MP4
+                          <span className="font-mono-numbers text-[10px] text-[#8FA69E]">
+                            1080×1920
                           </span>
                         </div>
                         <video
                           src={slot.result.previewUrl}
                           controls
                           playsInline
-                          className="w-full max-w-[190px] mx-auto aspect-[9/16] rounded-xl border border-[#C6A45C]/35 bg-black object-contain"
+                          className="w-full max-w-[160px] mx-auto aspect-[9/16] rounded-xl border border-[#C6A45C]/35 bg-black object-contain"
                         />
                         <div className="grid grid-cols-1 gap-1.5">
                           <a
                             href={slot.result.downloadUrl}
                             download={slot.result.filename}
-                            className="min-h-[42px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
+                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
                           >
                             <Download className="w-3.5 h-3.5 shrink-0" />
-                            <span>MP4 faylni yuklab olish</span>
+                            <span>{partNum}.mp4 faylni yuklab olish</span>
                           </a>
                           <button
                             type="button"
-                            onClick={() => void handleShareQuizPartVideo(partNum)}
-                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#063D32] hover:bg-[#075747] text-[#F8F5EC] border border-[#C6A45C]/45 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                            onClick={() => void handleShareSingleQuestionVideo(qIdx)}
+                            className="min-h-[38px] px-3 py-1.5 rounded-xl bg-[#063D32] hover:bg-[#075747] text-[#F8F5EC] border border-[#C6A45C]/45 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                           >
                             <Share2 className="w-3.5 h-3.5 text-[#DCC58C] shrink-0" />
                             <span>Ulashish (Android/PWA)</span>

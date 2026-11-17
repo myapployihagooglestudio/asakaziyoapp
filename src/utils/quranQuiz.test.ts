@@ -556,7 +556,7 @@ function runExtendedTests() {
         outroJpgBase64: 'y',
         questions: [],
       }),
-    /Notoʻgʻri video qismi/
+    /savol boʻlishi shart/
   );
   assert.throws(
     () =>
