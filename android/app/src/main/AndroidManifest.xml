@@ -2,15 +2,40 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="uz.asakaziyo.app">
 
-    <!-- Essential Network, Audio, Notification & Offline Sync Permissions -->
+    <!-- 1. Essential Network & Offline Sync -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- 2. Notifications, Exact Prayer Alarms & Boot Rescheduling (Android 12–16) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- 3. Camera (On-Demand Only — Profile & Media Capture) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- 4. Microphone (On-Demand Only — Voice Message & Audio Search) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- 5. Photos, Videos & Scoped Storage (Android 10–16) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- 6. Foreground Location Only (Prayer Region & 241° WSW Qibla Compass) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- 7. Music, Quran Tilovat & Adhan Background Audio Playback (Android 13–16) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"

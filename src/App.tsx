@@ -21,8 +21,10 @@ import { getNextPrayerCalculation } from './utils/prayerTimeUtils';
 import {
   getPrayerAlertSettings,
   triggerBrowserNotification,
-  playGentleChime,
+  syncPrayerScheduleAlarms,
+  SchedulablePrayerKey,
 } from './utils/notificationService';
+import { TelegramHeadsUpBanner } from './components/ui/TelegramHeadsUpBanner';
 import {
   getStoredPrayerSchedule,
   saveStoredPrayerSchedule,
@@ -62,8 +64,6 @@ import { MessagesView } from './components/features/messages/MessagesView';
 import { KhatmPlannerView } from './components/features/quran/KhatmPlannerView';
 import { PrayerJournalView } from './components/features/prayer/PrayerJournalView';
 import { MosqueEventsView } from './components/features/calendar/MosqueEventsView';
-import { AcademyView } from './components/features/academy/AcademyView';
-import { CharityView } from './components/features/charity/CharityView';
 import { FastingView } from './components/features/fasting/FastingView';
 import { DigitalLibraryView } from './components/features/library/DigitalLibraryView';
 import { AskImamView } from './components/features/chat/AskImamView';
@@ -130,14 +130,32 @@ export default function App() {
     getUnreadMessagesCount()
   );
 
-  // Reactive cross-tab and cross-session synchronization
+  // Reactive cross-tab and cross-session synchronization + Admin schedule/broadcast heads-up triggers
   useEffect(() => {
     const unsubscribeDb = subscribeToDatabase((event) => {
       if (event.type === 'PRAYER_UPDATED') {
-        setPrayerSchedule(getStoredPrayerSchedule());
+        const updatedSchedule = getStoredPrayerSchedule();
+        setPrayerSchedule(updatedSchedule);
+        syncPrayerScheduleAlarms(updatedSchedule, true);
       }
       if (event.type === 'NOTIFICATIONS_UPDATED') {
-        setNotifications(getStoredBroadcastNotifications());
+        const latestNotifs = getStoredBroadcastNotifications();
+        setNotifications(latestNotifs);
+        const newest = latestNotifs[0];
+        if (newest && !newest.read) {
+          const alertSettings = getPrayerAlertSettings();
+          if (alertSettings.announcementsPushEnabled !== false) {
+            triggerBrowserNotification(
+              newest.title,
+              newest.message,
+              newest.category || 'announcement',
+              undefined,
+              false,
+              `admin_broadcast_${newest.id}`,
+              newest.routeTab || 'notifications'
+            );
+          }
+        }
       }
     });
 
@@ -327,8 +345,10 @@ export default function App() {
     };
   }, []);
 
-  // Background prayer time & real Adhan alert scheduler (Asia/Tashkent aware)
+  // Background prayer time & real Adhan alert scheduler (Asia/Tashkent aware + deterministic reschedule)
   useEffect(() => {
+    syncPrayerScheduleAlarms(prayerSchedule);
+
     const checkPrayerAlert = () => {
       try {
         const alertSettings = getPrayerAlertSettings();
@@ -337,52 +357,58 @@ export default function App() {
         const nextInfo = getNextPrayerCalculation(prayerSchedule.times);
         if (!nextInfo.nextPrayer) return;
 
-        const prayerKey = nextInfo.nextPrayer.key;
-        const isFiveDaily = ['bomdod', 'peshin', 'asr', 'shom', 'xufton'].includes(prayerKey);
-        if (isFiveDaily) {
-          const pKey = prayerKey as 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton';
-          if (
-            alertSettings.individualPrayerAlerts?.[pKey] === false ||
-            alertSettings.individualPrayerModes?.[pKey] === 'off'
-          ) {
-            return;
-          }
-        }
+        const prayerKey = nextInfo.nextPrayer.key as SchedulablePrayerKey;
+        const isSchedulable = [
+          'tahajjud',
+          'subh',
+          'bomdod',
+          'peshin',
+          'asr',
+          'shom',
+          'xufton',
+        ].includes(prayerKey);
+        if (!isSchedulable) return;
 
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
-        const minutesRemaining = Math.floor(nextInfo.secondsRemaining / 60);
+        const minutesRemaining = Math.ceil(nextInfo.secondsRemaining / 60);
+        const preMins =
+          alertSettings.perPrayerPreReminderMinutes?.[prayerKey] ?? alertSettings.minutesBefore ?? 10;
 
-        // 1. Exact prayer time arrival (plays selected full Adhan recording)
-        if (nextInfo.secondsRemaining <= 45 && alertSettings.notifyOnExactTime !== false) {
-          const exactKey = `adhan_exact_${today}_${prayerKey}`;
-          if (!sessionStorage.getItem(exactKey)) {
-            sessionStorage.setItem(exactKey, 'true');
-            const newNotif = triggerBrowserNotification(
-              `${nextInfo.nextPrayer.nameUz} namozi vaqti kirdi (${nextInfo.nextPrayer.time})`,
-              `Asaka shahrida ${nextInfo.nextPrayer.nameUz} vaqti kirdi. Hayya 'alas-solah!`,
-              'prayer',
-              isFiveDaily ? (prayerKey as 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton') : undefined,
-              true
-            );
-            setNotifications((prev) => [newNotif, ...prev]);
-          }
+        // 1. Exact prayer time arrival (plays selected full Adhan or Chime based on per-prayer mode)
+        if (
+          nextInfo.secondsRemaining <= 45 &&
+          alertSettings.notifyOnExactTime !== false &&
+          alertSettings.individualPrayerAlerts?.[prayerKey] !== false &&
+          alertSettings.individualPrayerModes?.[prayerKey] !== 'off'
+        ) {
+          const exactKey = `asaka_prayer_${today}_${prayerKey}_exact_${nextInfo.nextPrayer.time}`;
+          const mode = alertSettings.individualPrayerModes?.[prayerKey] || 'sound';
+          const newNotif = triggerBrowserNotification(
+            `🕌 ${nextInfo.nextPrayer.nameUz} namozi vaqti kirdi (${nextInfo.nextPrayer.time})`,
+            `Asaka shahri («MuhammadSolih Hoji» jomeʼ masjidi) jadvali boʻyicha ${nextInfo.nextPrayer.nameUz} vaqti kirdi.`,
+            'prayer',
+            prayerKey,
+            mode === 'sound',
+            exactKey,
+            'prayer'
+          );
+          setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
           return;
         }
 
-        // 2. Pre-prayer advance reminder (gentle chime only, no full Adhan overlap)
-        if (minutesRemaining > 0 && minutesRemaining <= alertSettings.minutesBefore) {
-          const preKey = `alert_pre_${today}_${prayerKey}_${alertSettings.minutesBefore}`;
-          if (!sessionStorage.getItem(preKey)) {
-            sessionStorage.setItem(preKey, 'true');
-            const newNotif = triggerBrowserNotification(
-              `Namoz vaqti yaqinlashmoqda (${nextInfo.nextPrayer.nameUz})`,
-              `Asaka shahrida ${nextInfo.nextPrayer.nameUz} namoziga ${minutesRemaining} daqiqa qoldi. Vaqti: ${nextInfo.nextPrayer.time}`,
-              'prayer',
-              isFiveDaily ? (prayerKey as 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton') : undefined,
-              false
-            );
-            setNotifications((prev) => [newNotif, ...prev]);
-          }
+        // 2. Pre-prayer advance reminder (5, 10, 15, or 30 minutes before — separate event!)
+        if (preMins > 0 && minutesRemaining > 0 && minutesRemaining <= preMins) {
+          const preKey = `asaka_prayer_${today}_${prayerKey}_pre_${preMins}m_${nextInfo.nextPrayer.time}`;
+          const newNotif = triggerBrowserNotification(
+            `⏳ ${nextInfo.nextPrayer.nameUz} namoziga ${minutesRemaining} daqiqa qoldi`,
+            `Asaka shahrida soat ${nextInfo.nextPrayer.time} da ${nextInfo.nextPrayer.nameUz} vaqti kiradi.`,
+            'prayer',
+            prayerKey,
+            false,
+            preKey,
+            'prayer'
+          );
+          setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
         }
       } catch {
         // ignore
@@ -392,7 +418,7 @@ export default function App() {
     checkPrayerAlert();
     const interval = setInterval(checkPrayerAlert, 15000);
     return () => clearInterval(interval);
-  }, [prayerSchedule.times]);
+  }, [prayerSchedule]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
@@ -423,6 +449,9 @@ export default function App() {
           onOpenSearch={() => setIsSearchModalOpen(true)}
           onOpenTvMode={() => setIsTvModalOpen(true)}
         />
+
+        {/* Telegram-Style Top Heads-Up Notification Banner */}
+        <TelegramHeadsUpBanner onNavigate={handleNavigate} />
 
         {/* Main Content Area */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 lg:pb-12">
@@ -565,10 +594,6 @@ export default function App() {
 
         {activeTab === 'mosque_events' && <MosqueEventsView />}
 
-        {activeTab === 'academy' && <AcademyView />}
-
-        {activeTab === 'charity' && <CharityView />}
-
         {activeTab === 'fasting' && <FastingView />}
 
         {activeTab === 'library' && <DigitalLibraryView />}
@@ -615,10 +640,10 @@ export default function App() {
             >
               <div className="flex items-center gap-2">
                 <span className="p-1 rounded bg-[#010906]/10">📥</span>
-                <span>APK v2.0.0 Yuklab Olish</span>
+                <span>APK v3.0.0 Yuklab Olish</span>
               </div>
               <span className="text-[10px] bg-[#010906] text-[#FFF6C8] px-2 py-0.5 rounded font-mono-numbers">
-                v2.0
+                v3.0
               </span>
             </button>
 
@@ -658,8 +683,6 @@ export default function App() {
               { id: 'khatm_planner', label: 'Qurʼon Xatmi Rejasi' },
               { id: 'prayer_journal', label: 'Namoz Kundaligi' },
               { id: 'mosque_events', label: 'Masjid Tadbirlari' },
-              { id: 'academy', label: 'Islomiy Akademiya' },
-              { id: 'charity', label: 'Ehson va Sadaqa' },
               { id: 'fasting', label: 'Roʻza Yordamchisi' },
               { id: 'library', label: 'Raqamli Kutubxona' },
               { id: 'ask_imam', label: 'Imomga Savol' },

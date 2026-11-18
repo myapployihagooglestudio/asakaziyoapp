@@ -44,11 +44,9 @@ import {
   getStoredHadiths,
   getStoredDhikrs,
   getStoredQuizQuestions,
-  getStoredAcademyLessons,
   getStoredMosqueEvents,
   getStoredDigitalBooks,
   getStoredMediaPosts,
-  getStoredCharityCampaigns,
   getStoredImamQuestions,
   getStoredKhatmPlans,
   getStoredQuranProgress,
@@ -69,11 +67,9 @@ import {
 import {
   QuranReciter,
   DhikrItem,
-  AcademyLesson,
   MosqueEventItem,
   DigitalBookItem,
   MediaPost,
-  CharityCampaign,
   ImamQuestionItem,
   KhatmPlan,
 } from '../../../types';
@@ -186,9 +182,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
     getStoredDhikrs().filter(isPubliclyPublished)
   );
   const [quizQuestions, setQuizQuestions] = useState<any[]>(() => getStoredQuizQuestions());
-  const [academyLessons, setAcademyLessons] = useState<AcademyLesson[]>(() =>
-    getStoredAcademyLessons()
-  );
   const [mosqueEvents, setMosqueEvents] = useState<MosqueEventItem[]>(() =>
     getStoredMosqueEvents().filter((e) => e.isPublished !== false)
   );
@@ -197,9 +190,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
   );
   const [mediaPosts, setMediaPosts] = useState<MediaPost[]>(() =>
     getStoredMediaPosts().filter((m) => m.isPublished !== false)
-  );
-  const [charityCampaigns, setCharityCampaigns] = useState<CharityCampaign[]>(() =>
-    getStoredCharityCampaigns()
   );
   const [imamQuestions, setImamQuestions] = useState<ImamQuestionItem[]>(() =>
     getStoredImamQuestions().filter((q) => q.isPubliclyVisible || q.status === 'answered')
@@ -213,11 +203,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
       setHadithCollection(getStoredHadiths().filter(isPubliclyPublished));
       setDhikrCollection(getStoredDhikrs().filter(isPubliclyPublished));
       setQuizQuestions(getStoredQuizQuestions());
-      setAcademyLessons(getStoredAcademyLessons());
       setMosqueEvents(getStoredMosqueEvents().filter((e) => e.isPublished !== false));
       setDigitalBooks(getStoredDigitalBooks().filter((b) => b.isPublished !== false));
       setMediaPosts(getStoredMediaPosts().filter((m) => m.isPublished !== false));
-      setCharityCampaigns(getStoredCharityCampaigns());
       setImamQuestions(
         getStoredImamQuestions().filter((q) => q.isPubliclyVisible || q.status === 'answered')
       );
@@ -467,6 +455,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* Left 7 Columns: Calligraphic Basmalah, Greeting, Hijri/Gregorian Dates & Primary Actions */}
           <div className="lg:col-span-7 space-y-6">
             <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2.5 pr-3.5 pl-1.5 py-1 rounded-full bg-[#010906]/85 border border-[#DFBD69]/65 shadow-lg">
+                <img
+                  src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                  alt="MuhammadSolih Hoji Jome Masjidi"
+                  className="w-7 h-7 rounded-full object-cover border border-[#DFBD69]"
+                />
+                <span className="text-[11px] font-extrabold tracking-wider text-[#FFF6C8]">
+                  «MuhammadSolih Hoji» Jomeʼ Masjidi
+                </span>
+              </div>
               <CalligraphyBasmalahBadge />
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#010906]/75 border border-[#DFBD69]/40 text-xs text-[#DFBD69] shadow-inner">
                 <Calendar className="w-3.5 h-3.5 text-[#DFBD69]" />
@@ -868,11 +866,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
               icon: <Calendar className="w-5 h-5 text-[#C6A45C]" />,
             },
             {
-              tab: 'academy' as NavigationTab,
-              title: 'Islomiy Akademiya',
-              subtitle: 'Tajvid, Aqida va Fiqh darslari',
-              badge: 'Taʼlim',
-              icon: <GraduationCap className="w-5 h-5 text-[#C6A45C]" />,
+              tab: 'library' as NavigationTab,
+              title: 'Raqamli Kutubxona',
+              subtitle: 'Moʻtabar kitoblar va ilmiy asarlar',
+              badge: 'Mutolaa',
+              icon: <Library className="w-5 h-5 text-[#C6A45C]" />,
             },
             {
               tab: 'ask_imam' as NavigationTab,
@@ -1442,8 +1440,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
         >
           <GeometricPattern opacity={0.05} />
           <div className="relative z-10 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#C6A45C]/20 border border-[#C6A45C]/45 flex items-center justify-center text-[#DCC58C] shrink-0">
-              <Smartphone className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#C6A45C]/20 border border-[#C6A45C]/65 flex items-center justify-center text-[#DCC58C] shrink-0 shadow-md">
+              <img
+                src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+                alt="ASAKA ZIYO APK v3.0.0"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -1451,11 +1453,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   ASAKA ZIYO Mobil Ilovasi
                 </span>
                 <span className="text-[10px] font-mono-numbers bg-[#C6A45C] text-[#042B25] px-2 py-0.5 rounded font-bold">
-                  APK / PWA
+                  APK v3.0.0 / PWA
                 </span>
               </div>
               <p className="text-xs text-[#F1EBDD]/85 leading-relaxed max-w-md">
-                Oflayn Qurʼoni Karim, Asaka namoz vaqtlari vidjeti va azon eslatmalarini smartfoningizga oʻrnating.
+                Oflayn Qurʼoni Karim, Asaka namoz vaqtlari, Telegram uslubidagi Heads-up eslatmalar va azon bildirishnomalarini smartfoningizga oʻrnating.
               </p>
             </div>
           </div>
@@ -1781,63 +1783,80 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* =======================================================================
-          12. ISLOMIY AKADEMIYA VA MASJID JAMOAT TADBIRLARI SHOWCASE (`academy` & `mosque_events`)
+          12. RASMIY BREND IDENTIFIKATSIYASI VA MASJID JAMOAT TADBIRLARI SHOWCASE
           ======================================================================= */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left 7 Cols: Islomiy Akademiya Darslari */}
+        {/* Left 7 Cols: Official Brand Logos & Mosque Identity */}
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
             <div>
               <span className="text-xs font-bold uppercase tracking-widest text-[#063D32] dark:text-[#DFBD69] block">
-                Tizimli Ilmiy Darslar
+                Oʻzbekiston Musulmonlari Idorasi · Andijon Viloyati, Asaka Tumani
               </span>
               <h2 className="text-2xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
-                Islomiy Akademiya (Tajvid, Aqida, Fiqh, Siyrat)
+                «MuhammadSolih Hoji» Jomeʼ Masjidi Rasmiy Ramzlari
               </h2>
             </div>
-            <button
-              onClick={() => onNavigate('academy')}
-              className="text-xs font-bold text-[#063D32] dark:text-[#DFBD69] hover:underline cursor-pointer"
+            <a
+              href="https://t.me/Asaka_Ziyo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-[#063D32] dark:text-[#DFBD69] hover:underline"
             >
-              Barcha darslar ({academyLessons.length}) →
-            </button>
+              @Asaka_Ziyo →
+            </a>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {academyLessons.slice(0, 4).map((lesson) => (
-              <Card
-                key={lesson.id}
-                elevated
-                interactive
-                onClick={() => onNavigate('academy')}
-                className="p-5 flex flex-col justify-between gap-3"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-[#063D32] dark:text-[#FFF6C8] font-bold">
-                      {lesson.trackTitleUz}
-                    </span>
-                    <span className="font-mono-numbers text-[#5C746C] dark:text-[#DFBD69]">
-                      {lesson.durationMinutes} daqiqa
-                    </span>
-                  </div>
-                  <h3 className="text-base font-display font-bold text-[#042B25] dark:text-[#FFF8E8] line-clamp-2">
-                    {lesson.title}
-                  </h3>
-                  <p className="text-xs text-[#5C746C] dark:text-[#FFF8E8]/75 line-clamp-2">
-                    {lesson.description}
-                  </p>
-                </div>
-                <div className="pt-2 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs">
-                  <span className="text-[#2C4A42] dark:text-[#FFF8E8]/80 truncate">
-                    Ustoz: {lesson.instructor}
-                  </span>
-                  <span className="font-bold text-[#063D32] dark:text-[#DFBD69] shrink-0">
-                    Darsni ochish →
-                  </span>
-                </div>
-              </Card>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <Card
+              variant="emerald"
+              ornamental
+              className="p-5 flex flex-col items-center text-center justify-between gap-4"
+            >
+              <div className="w-36 h-36 rounded-full overflow-hidden border-2 border-[#DFBD69] shadow-[0_12px_32px_rgba(0,0,0,0.55)] bg-white p-1">
+                <img
+                  src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                  alt="MuhammadSolih Hoji Jome Masjidi Rasmiy Muhr Logosi"
+                  className="w-full h-full rounded-full object-cover"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#DFBD69]">
+                  Rasmiy Masjid Nishoni
+                </span>
+                <h3 className="text-base font-display font-bold text-[#FFF8E8]">
+                  «MuhammadSolih Hoji» Jomeʼ Masjidi
+                </h3>
+                <p className="text-xs text-[#FFF8E8]/80 leading-relaxed">
+                  Oʻzbekiston Musulmonlari Idorasi Andijon viloyati, Asaka tumani bosh jomeʼ masjidi rasmiy ramzi.
+                </p>
+              </div>
+            </Card>
+
+            <Card
+              variant="emerald"
+              ornamental
+              className="p-5 flex flex-col items-center text-center justify-between gap-4"
+            >
+              <div className="w-36 h-36 rounded-2xl overflow-hidden border-2 border-[#DFBD69] shadow-[0_12px_32px_rgba(0,0,0,0.55)] bg-[#041D13]">
+                <img
+                  src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+                  alt="ASAKA ZIYO Rasmiy Brend Logotipi"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#DFBD69]">
+                  Rasmiy Raqamli Ekotizim va Kanal
+                </span>
+                <h3 className="text-base font-display font-bold text-[#FFF8E8]">
+                  ASAKA ZIYO Rasmiy Brendi
+                </h3>
+                <p className="text-xs text-[#FFF8E8]/80 leading-relaxed">
+                  Ilmiy-maʼrifiy raqamli platforma, Android mobil ilovasi (v3.0.0) va @Asaka_Ziyo Telegram kanali.
+                </p>
+              </div>
+            </Card>
           </div>
         </div>
 
@@ -1991,16 +2010,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* =======================================================================
-          14. UMUMIY VIKTORINA, XAYRIYA (VAQF) VA IBODAT REJALARI SHOWCASE
+          14. UMUMIY VIKTORINA VA SHAXSIY IBODAT REJALARI SHOWCASE
           ======================================================================= */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Left 4 Cols: Umumiy Islomiy Viktorina (`quiz`) */}
+        {/* Left 6 Cols: Umumiy Islomiy Viktorina (`quiz`) */}
         <Card
           elevated
           ornamental
           interactive
           onClick={() => onNavigate('quiz')}
-          className="lg:col-span-4 p-6 flex flex-col justify-between gap-4"
+          className="lg:col-span-6 p-6 flex flex-col justify-between gap-4"
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -2025,69 +2044,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </Card>
 
-        {/* Middle 4 Cols: Xayriya va Vaqf Loyihalari (`charity`) */}
-        <Card
-          elevated
-          ornamental
-          interactive
-          onClick={() => onNavigate('charity')}
-          className="lg:col-span-4 p-6 flex flex-col justify-between gap-4"
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                <HeartHandshake className="w-3.5 h-3.5" />
-                <span>Xayriya va Vaqf</span>
-              </span>
-              <span className="text-xs font-mono-numbers font-bold text-emerald-600 dark:text-emerald-400">
-                {charityCampaigns.length} faol loyiha
-              </span>
-            </div>
-            <h3 className="text-xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
-              {charityCampaigns[0]?.title || 'Masjid Obodonchiligi va Ehson Loyihalari'}
-            </h3>
-            {charityCampaigns[0] && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] font-mono-numbers">
-                  <span className="text-[#5C746C] dark:text-[#FFF8E8]/75">Yigʻildi:</span>
-                  <span className="font-bold text-[#063D32] dark:text-[#DFBD69]">
-                    {Math.min(
-                      100,
-                      Math.round(
-                        (charityCampaigns[0].collectedAmountUzs /
-                          Math.max(1, charityCampaigns[0].targetAmountUzs)) *
-                          100
-                      )
-                    )}
-                    %
-                  </span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-[#F1EBDD] dark:bg-[#010906] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-[#DFBD69]"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        Math.round(
-                          (charityCampaigns[0].collectedAmountUzs /
-                            Math.max(1, charityCampaigns[0].targetAmountUzs)) *
-                            100
-                        )
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs font-bold text-[#063D32] dark:text-[#DFBD69]">
-            <span>Shaffof hisobot</span>
-            <span>Ehson va loyihalar →</span>
-          </div>
-        </Card>
-
-        {/* Right 4 Cols: Roʻza, Taqvim va Qurʼon Xatmi Rejasi (`khatm_planner`, `fasting`, `calendar`) */}
-        <Card elevated ornamental className="lg:col-span-4 p-6 flex flex-col justify-between gap-4">
+        {/* Right 6 Cols: Roʻza, Taqvim va Qurʼon Xatmi Rejasi (`khatm_planner`, `fasting`, `calendar`) */}
+        <Card elevated ornamental className="lg:col-span-6 p-6 flex flex-col justify-between gap-4">
           <div className="space-y-3">
             <span className="px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8] inline-flex items-center gap-1.5">
               <Moon className="w-3.5 h-3.5 text-[#DFBD69]" />

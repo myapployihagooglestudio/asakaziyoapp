@@ -16,19 +16,35 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           {/* Col 1: Brand & Regional Identity */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_60%,#010906_100%)] flex items-center justify-center border border-[#DFBD69]/55 shadow-md">
-                <IslamicStarEmblem size={17} className="text-[#DFBD69]" />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-[#DFBD69]/75 shadow-md shrink-0 bg-[#041D13]">
+                <img
+                  src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                  alt="MuhammadSolih Hoji Jome Masjidi Rasmiy Logosi"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <span className="font-display text-lg font-extrabold text-[#03170F] dark:text-[#FFF8E8] tracking-wider">
-                {t('common:appName', 'ASAKA ZIYO')}
-              </span>
+              <div className="w-11 h-11 rounded-xl overflow-hidden border border-[#DFBD69]/75 shadow-md shrink-0 bg-[#041D13]">
+                <img
+                  src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+                  alt="ASAKA ZIYO Rasmiy Brend Logosi"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div>
+                <span className="font-display text-lg font-extrabold text-[#03170F] dark:text-[#FFF8E8] tracking-wider block leading-tight">
+                  {t('common:appName', 'ASAKA ZIYO')}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8A6621] dark:text-[#DFBD69]">
+                  «MuhammadSolih Hoji» Jomeʼ Masjidi
+                </span>
+              </div>
             </div>
             <p className="text-xs text-[#1E3F35] dark:text-[#9CB5AC] leading-relaxed max-w-xs">
               {t(
                 'home:heroSubtitle',
-                'Asaka shahri va Fargʻona vodiysi ahli uchun moʻljallangan ilmiy-maʼrifiy, islomiy raqamli platforma.'
+                'Oʻzbekiston Musulmonlari Idorasi · Andijon viloyati, Asaka tumani «MuhammadSolih Hoji» jomeʼ masjidi rasmiy ilmiy-maʼrifiy raqamli ekotizimi.'
               )}
             </p>
             <div className="flex items-center gap-1.5 text-xs text-[#063D32] dark:text-[#DFBD69] font-bold">

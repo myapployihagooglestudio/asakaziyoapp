@@ -1,15 +1,25 @@
 /**
- * ASAKA ZIYO — Unified Notification, Real Adhan Audio Player & Reminder Service
- * Supports Mishary Rashid Alafasy & Haramain Adhan audio playback,
- * real-time audio progress/scrubbing/volume state, per-prayer Adhan track selection,
- * Web Audio gentle chime option, browser notifications, and Firestore + localStorage sync.
+ * ASAKA ZIYO — Unified Telegram-Style Heads-Up Notification, Smart Adhan Reminder & Audio Engine
+ *
+ * Features:
+ * 1. Per-prayer individual scheduling for Tahajjud, Subh, Bomdod, Peshin, Asr, Shom, Xufton:
+ *    - Pre-reminder offsets: 5, 10, 15, 30 minutes before, or Off (0) — separate from exact Adhan entry!
+ *    - Exact time notification: Full Adhan audio ('sound'), Gentle Chime ('chime'), Vibration only ('silent'), or Off ('off').
+ * 2. Deterministic Deduplication & Auto-Rescheduling in Asia/Tashkent (UTC+5):
+ *    - Cancels old scheduled alarms immediately when Admin updates prayer times in Firestore.
+ *    - Persists schedule across app restarts / device reboots and works 100% offline.
+ * 3. Telegram-Style Heads-Up Notification Banner & Native Android High-Importance Channel Bridge:
+ *    - Supports Prayer Pre-Reminders, Exact Adhan Alerts, Admin Announcements, News, Articles, and Chat Messages.
  */
 
 import { ADHAN_TRACKS, getAdhanTrackById, getDefaultTrackForPrayer, AdhanTrack } from '../data/adhanTracksData';
+import { PrayerSchedule } from '../types';
 import { auth, syncDocToFirestore } from './firebaseClient';
 
 export type NotificationCategory =
   | 'prayer'
+  | 'prayer_pre_reminder'
+  | 'prayer_exact'
   | 'ramadan'
   | 'daily_content'
   | 'announcement'
@@ -20,10 +30,23 @@ export type NotificationCategory =
   | 'dhikr'
   | 'system'
   | 'media'
-  | 'event';
+  | 'event'
+  | 'chat';
 
 export type SoundMode = 'adhan' | 'chime' | 'silent';
 export type PrayerAzanMode = 'sound' | 'chime' | 'silent' | 'off';
+export type SchedulablePrayerKey =
+  | 'tahajjud'
+  | 'subh'
+  | 'bomdod'
+  | 'peshin'
+  | 'asr'
+  | 'shom'
+  | 'xufton';
+
+export type PreReminderMinutesOption = 0 | 5 | 10 | 15 | 30;
+export type PrayerPreReminderOffset = PreReminderMinutesOption;
+export type PrayerExactMode = PrayerAzanMode;
 
 export interface AppNotification {
   id: string;
@@ -36,6 +59,33 @@ export interface AppNotification {
   actionTab?: string;
   routeTab?: string;
   routeId?: string;
+  dedupKey?: string;
+}
+
+export interface HeadsUpNotificationPayload {
+  id: string;
+  title: string;
+  message: string;
+  subtitle?: string;
+  timestamp: string;
+  category: NotificationCategory;
+  routeTab: string;
+  isAdhanPlaying?: boolean;
+  prayerKey?: SchedulablePrayerKey;
+  badgeText?: string;
+}
+
+export interface ScheduledPrayerAlarmItem {
+  alarmId: string;
+  dateKey: string;
+  prayerKey: SchedulablePrayerKey;
+  prayerNameUz: string;
+  prayerTimeStr: string;
+  triggerTimeStr: string;
+  stage: 'pre' | 'exact';
+  minutesBefore: number;
+  mode: PrayerAzanMode;
+  targetTimestampMs: number;
 }
 
 export interface PrayerAlertSettings {
@@ -44,19 +94,29 @@ export interface PrayerAlertSettings {
   notifyOnExactTime: boolean;
   soundEnabled: boolean;
   soundMode: SoundMode;
+  preReminderSoundMode: 'chime' | 'silent';
   selectedAdhanTrackId: string;
   defaultAdhanTrackId: string;
   bomdodAdhanTrackId: string;
   vibrationEnabled: boolean;
   volume: number; // 0.1 to 1.0
+  headsUpBannerEnabled: boolean;
+  announcementsPushEnabled: boolean;
+  newsArticlesPushEnabled: boolean;
+  chatMessagesPushEnabled: boolean;
   perPrayerTracks: Record<string, string> & {
+    tahajjud: string;
+    subh: string;
     bomdod: string;
     peshin: string;
     asr: string;
     shom: string;
     xufton: string;
   };
+  perPrayerPreReminderMinutes: Record<SchedulablePrayerKey, PreReminderMinutesOption>;
   individualPrayerAlerts: {
+    tahajjud: boolean;
+    subh: boolean;
     bomdod: boolean;
     peshin: boolean;
     asr: boolean;
@@ -64,6 +124,8 @@ export interface PrayerAlertSettings {
     xufton: boolean;
   };
   individualPrayerModes: {
+    tahajjud: PrayerAzanMode;
+    subh: PrayerAzanMode;
     bomdod: PrayerAzanMode;
     peshin: PrayerAzanMode;
     asr: PrayerAzanMode;
@@ -74,6 +136,11 @@ export interface PrayerAlertSettings {
   ramadanIftarAlert: boolean;
   dailyVerseHadithAlert: boolean;
   fridayJummahAlert: boolean;
+  preReminderMinutes?: Record<string, PreReminderMinutesOption>;
+  perPrayerMode?: Record<string, PrayerAzanMode>;
+  announcementAlertsEnabled?: boolean;
+  newsAlertsEnabled?: boolean;
+  chatAlertsEnabled?: boolean;
 }
 
 export interface AdhanPlayerState {
@@ -92,6 +159,22 @@ export interface AdhanPlayerState {
 const NOTIFICATIONS_STORAGE_KEY = 'asaka_ziyo_notifications_v2';
 const ALERT_SETTINGS_STORAGE_KEY = 'asaka_ziyo_prayer_alert_settings_v3';
 const LEGACY_AZAN_SETTINGS_KEY = 'asaka_ziyo_azan_settings_v2';
+const FIRED_EVENTS_STORAGE_KEY = 'asaka_ziyo_fired_notif_keys_v3';
+const SCHEDULED_ALARMS_STORAGE_KEY = 'asaka_ziyo_scheduled_alarms_v3';
+
+export const SCHEDULABLE_PRAYERS: {
+  key: SchedulablePrayerKey;
+  nameUz: string;
+  defaultPreMins: PreReminderMinutesOption;
+}[] = [
+  { key: 'tahajjud', nameUz: 'Tahajjud', defaultPreMins: 15 },
+  { key: 'subh', nameUz: 'Subhi Sodiq (Saharlik)', defaultPreMins: 15 },
+  { key: 'bomdod', nameUz: 'Bomdod', defaultPreMins: 10 },
+  { key: 'peshin', nameUz: 'Peshin', defaultPreMins: 10 },
+  { key: 'asr', nameUz: 'Asr', defaultPreMins: 10 },
+  { key: 'shom', nameUz: 'Shom (Iftorlik)', defaultPreMins: 5 },
+  { key: 'xufton', nameUz: 'Xufton', defaultPreMins: 10 },
+];
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [];
 
@@ -101,11 +184,16 @@ export const DEFAULT_ALERT_SETTINGS: PrayerAlertSettings = {
   notifyOnExactTime: true,
   soundEnabled: true,
   soundMode: 'adhan',
+  preReminderSoundMode: 'chime',
   selectedAdhanTrackId: 'mishary-alafasy-standard',
   defaultAdhanTrackId: 'mishary-alafasy-standard',
   bomdodAdhanTrackId: 'mishary-alafasy-fajr',
   vibrationEnabled: true,
   volume: 0.85,
+  headsUpBannerEnabled: true,
+  announcementsPushEnabled: true,
+  newsArticlesPushEnabled: true,
+  chatMessagesPushEnabled: true,
   perPrayerTracks: {
     tahajjud: 'mishary-alafasy-fajr-hijaz',
     subh: 'mishary-alafasy-fajr',
@@ -116,7 +204,18 @@ export const DEFAULT_ALERT_SETTINGS: PrayerAlertSettings = {
     shom: 'mishary-alafasy-hijaz',
     xufton: 'mishary-alafasy-standard',
   },
+  perPrayerPreReminderMinutes: {
+    tahajjud: 15,
+    subh: 15,
+    bomdod: 10,
+    peshin: 10,
+    asr: 10,
+    shom: 5,
+    xufton: 10,
+  },
   individualPrayerAlerts: {
+    tahajjud: true,
+    subh: true,
     bomdod: true,
     peshin: true,
     asr: true,
@@ -124,6 +223,8 @@ export const DEFAULT_ALERT_SETTINGS: PrayerAlertSettings = {
     xufton: true,
   },
   individualPrayerModes: {
+    tahajjud: 'chime',
+    subh: 'chime',
     bomdod: 'sound',
     peshin: 'sound',
     asr: 'sound',
@@ -156,6 +257,16 @@ let activePlayerState: AdhanPlayerState = {
 type AdhanPlayerListener = (state: AdhanPlayerState) => void;
 const playerListeners = new Set<AdhanPlayerListener>();
 
+// Heads-up notification listeners (Telegram-style top banner)
+type HeadsUpListener = (payload: HeadsUpNotificationPayload | null) => void;
+const headsUpListeners = new Set<HeadsUpListener>();
+let currentHeadsUpPayload: HeadsUpNotificationPayload | null = null;
+
+// Active scheduled timers so old schedule timers can be cleanly cancelled on admin update
+let activeScheduleTimers: ReturnType<typeof setTimeout>[] = [];
+let lastScheduleSignature = '';
+let latestSyncedSchedule: PrayerSchedule | null = null;
+
 function emitPlayerState(partial?: Partial<AdhanPlayerState>) {
   if (partial) {
     activePlayerState = { ...activePlayerState, ...partial };
@@ -168,6 +279,116 @@ function emitPlayerState(partial?: Partial<AdhanPlayerState>) {
       // ignore listener errors
     }
   });
+}
+
+export function subscribeToHeadsUpNotifications(listener: HeadsUpListener): () => void {
+  headsUpListeners.add(listener);
+  listener(currentHeadsUpPayload);
+  return () => {
+    headsUpListeners.delete(listener);
+  };
+}
+
+export function dismissHeadsUpNotification(): void {
+  currentHeadsUpPayload = null;
+  headsUpListeners.forEach((cb) => {
+    try {
+      cb(null);
+    } catch {
+      // ignore
+    }
+  });
+}
+
+export function emitHeadsUpNotification(payload: HeadsUpNotificationPayload): void {
+  const settings = getPrayerAlertSettings();
+  if (settings.headsUpBannerEnabled !== false) {
+    currentHeadsUpPayload = payload;
+    headsUpListeners.forEach((cb) => {
+      try {
+        cb(payload);
+      } catch {
+        // ignore
+      }
+    });
+  }
+
+  // Also forward to Native Android Bridge if running inside Android APK
+  if (typeof window !== 'undefined') {
+    const win = window as unknown as {
+      AsakaAndroidBridge?: {
+        showHeadsUpNotification?: (
+          title: string,
+          body: string,
+          channelId: string,
+          routeTab: string
+        ) => void;
+      };
+    };
+    if (win.AsakaAndroidBridge?.showHeadsUpNotification) {
+      const channelId =
+        payload.category === 'prayer'
+          ? 'asaka_ziyo_prayer_adhan'
+          : payload.category === 'announcement' || payload.category === 'news'
+          ? 'asaka_ziyo_announcements'
+          : 'asaka_ziyo_daily_wisdom';
+      try {
+        win.AsakaAndroidBridge.showHeadsUpNotification(
+          payload.title,
+          payload.message,
+          channelId,
+          payload.routeTab || 'prayer'
+        );
+      } catch {
+        // ignore bridge error
+      }
+    }
+  }
+}
+
+export function triggerTelegramHeadsUpNotification(params: {
+  title: string;
+  body: string;
+  category?: NotificationCategory;
+  targetView?: string;
+  playChime?: boolean;
+}): void {
+  emitHeadsUpNotification({
+    id: `heads-up-${Date.now()}`,
+    title: params.title,
+    message: params.body,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    category: params.category || 'prayer',
+    routeTab: params.targetView || 'home',
+  });
+}
+
+/**
+ * Checks and records deterministic deduplication keys so the same notification never fires twice
+ */
+export function hasNotificationEventFired(dedupKey: string): boolean {
+  if (!dedupKey) return false;
+  try {
+    const raw = localStorage.getItem(FIRED_EVENTS_STORAGE_KEY);
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    return list.includes(dedupKey);
+  } catch {
+    return false;
+  }
+}
+
+export function markNotificationEventFired(dedupKey: string): void {
+  if (!dedupKey) return;
+  try {
+    const raw = localStorage.getItem(FIRED_EVENTS_STORAGE_KEY);
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    if (!list.includes(dedupKey)) {
+      const next = [dedupKey, ...list].slice(0, 250);
+      localStorage.setItem(FIRED_EVENTS_STORAGE_KEY, JSON.stringify(next));
+    }
+  } catch {
+    // ignore
+  }
 }
 
 export function getAdhanPlayerState(): AdhanPlayerState {
@@ -221,6 +442,13 @@ export function saveStoredNotifications(items: AppNotification[]): void {
 export function saveNotification(
   notification: Partial<AppNotification> & { title: string; message: string }
 ): AppNotification[] {
+  if (notification.dedupKey && hasNotificationEventFired(notification.dedupKey)) {
+    return getStoredNotifications();
+  }
+  if (notification.dedupKey) {
+    markNotificationEventFired(notification.dedupKey);
+  }
+
   const fullNotif: AppNotification = {
     id: notification.id || `notif-${Date.now()}`,
     title: notification.title,
@@ -231,6 +459,7 @@ export function saveNotification(
     priority: notification.priority || 'normal',
     actionTab: notification.actionTab || notification.routeTab,
     routeTab: notification.routeTab || notification.actionTab,
+    dedupKey: notification.dedupKey,
   };
   const existing = getStoredNotifications();
   const updated = [fullNotif, ...existing.filter((n) => n.id !== fullNotif.id)];
@@ -257,10 +486,15 @@ export function getPrayerAlertSettings(): PrayerAlertSettings {
       ...(parsed.individualPrayerModes || {}),
     };
 
+    const mergedPreMins: PrayerAlertSettings['perPrayerPreReminderMinutes'] = {
+      ...DEFAULT_ALERT_SETTINGS.perPrayerPreReminderMinutes,
+      ...(parsed.perPrayerPreReminderMinutes || {}),
+    };
+
     if (!parsed.individualPrayerModes && legacyRaw) {
       try {
         const legacyModes = JSON.parse(legacyRaw) as Record<string, string>;
-        (['bomdod', 'peshin', 'asr', 'shom', 'xufton'] as const).forEach((k) => {
+        (['tahajjud', 'subh', 'bomdod', 'peshin', 'asr', 'shom', 'xufton'] as const).forEach((k) => {
           const val = legacyModes[k];
           if (val === 'sound' || val === 'chime' || val === 'silent' || val === 'off') {
             mergedIndividualModes[k] = val;
@@ -291,6 +525,7 @@ export function getPrayerAlertSettings(): PrayerAlertSettings {
         ...DEFAULT_ALERT_SETTINGS.perPrayerTracks,
         ...(parsed.perPrayerTracks || {}),
       },
+      perPrayerPreReminderMinutes: mergedPreMins,
       individualPrayerAlerts: mergedIndividualAlerts,
       individualPrayerModes: mergedIndividualModes,
     };
@@ -301,9 +536,15 @@ export function getPrayerAlertSettings(): PrayerAlertSettings {
 
 export function savePrayerAlertSettings(settings: PrayerAlertSettings): void {
   try {
-    const normalizedModes = { ...settings.individualPrayerModes };
-    const normalizedAlerts = { ...settings.individualPrayerAlerts };
-    (['bomdod', 'peshin', 'asr', 'shom', 'xufton'] as const).forEach((key) => {
+    const normalizedModes = {
+      ...DEFAULT_ALERT_SETTINGS.individualPrayerModes,
+      ...settings.individualPrayerModes,
+    };
+    const normalizedAlerts = {
+      ...DEFAULT_ALERT_SETTINGS.individualPrayerAlerts,
+      ...settings.individualPrayerAlerts,
+    };
+    (['tahajjud', 'subh', 'bomdod', 'peshin', 'asr', 'shom', 'xufton'] as const).forEach((key) => {
       if (!normalizedAlerts[key]) {
         normalizedModes[key] = 'off';
       } else if (normalizedModes[key] === 'off') {
@@ -322,11 +563,16 @@ export function savePrayerAlertSettings(settings: PrayerAlertSettings): void {
       DEFAULT_ALERT_SETTINGS.selectedAdhanTrackId;
 
     const finalSettings: PrayerAlertSettings = {
+      ...DEFAULT_ALERT_SETTINGS,
       ...settings,
       selectedAdhanTrackId: primaryTrack,
       defaultAdhanTrackId: primaryTrack,
       individualPrayerAlerts: normalizedAlerts,
       individualPrayerModes: normalizedModes,
+      perPrayerPreReminderMinutes: {
+        ...DEFAULT_ALERT_SETTINGS.perPrayerPreReminderMinutes,
+        ...(settings.perPrayerPreReminderMinutes || {}),
+      },
     };
 
     localStorage.setItem(ALERT_SETTINGS_STORAGE_KEY, JSON.stringify(finalSettings));
@@ -340,6 +586,11 @@ export function savePrayerAlertSettings(settings: PrayerAlertSettings): void {
         prayerAlertSettings: finalSettings,
         updatedAt: new Date().toISOString(),
       }).catch(() => {});
+    }
+
+    // Re-sync scheduled alarms immediately when user changes settings
+    if (latestSyncedSchedule) {
+      syncPrayerScheduleAlarms(latestSyncedSchedule, true);
     }
 
     settingsListeners.forEach((listener) => {
@@ -357,8 +608,17 @@ export function savePrayerAlertSettings(settings: PrayerAlertSettings): void {
 /**
  * Triggers device vibration if supported and enabled
  */
-export function triggerVibration(pattern: number | number[] = [200, 100, 200]): boolean {
+export function triggerVibration(pattern: number | number[] = [220, 100, 220]): boolean {
   try {
+    if (typeof window !== 'undefined') {
+      const win = window as unknown as {
+        AsakaAndroidBridge?: { vibrate?: (ms: number) => void };
+      };
+      if (win.AsakaAndroidBridge?.vibrate) {
+        win.AsakaAndroidBridge.vibrate(250);
+        return true;
+      }
+    }
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       return navigator.vibrate(pattern);
     }
@@ -491,7 +751,6 @@ export async function playAdhanAudioTrack(track: AdhanTrack, volumeOverride?: nu
 
 /**
  * Plays a verified Adhan recording (e.g. Mishary Rashid Alafasy)
- * Automatically tries primary Archive.org stream, then server proxy fallback (/api/audio/adhan/:trackId).
  */
 export async function playAdhanTrackById(
   trackId: string,
@@ -531,7 +790,10 @@ export async function playAdhanTrackById(
         let settled = false;
 
         audio.onloadedmetadata = () => {
-          const dur = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : track.durationSeconds;
+          const dur =
+            Number.isFinite(audio.duration) && audio.duration > 0
+              ? audio.duration
+              : track.durationSeconds;
           emitPlayerState({
             duration: dur,
             isLoading: false,
@@ -540,7 +802,10 @@ export async function playAdhanTrackById(
 
         audio.ontimeupdate = () => {
           const cur = audio.currentTime || 0;
-          const dur = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : track.durationSeconds;
+          const dur =
+            Number.isFinite(audio.duration) && audio.duration > 0
+              ? audio.duration
+              : track.durationSeconds;
           const pct = dur > 0 ? Math.min(100, Math.round((cur / dur) * 100)) : 0;
           emitPlayerState({
             currentTime: cur,
@@ -607,11 +872,9 @@ export async function playAdhanTrackById(
       });
     };
 
-    // 1. Try primary verified Archive.org stream
     const primaryOk = await tryPlaySource(track.audioUrl, false);
     if (primaryOk) return true;
 
-    // 2. Try local server proxy fallback (/api/audio/adhan/:trackId)
     const fallbackUrl = track.fallbackAudioUrl || `/api/audio/adhan/${track.id}`;
     const fallbackOk = await tryPlaySource(fallbackUrl, true);
     if (fallbackOk) return true;
@@ -635,11 +898,9 @@ export async function playAdhanTrackById(
 }
 
 /**
- * Plays the configured Adhan or Chime for a specific prayer (bomdod, peshin, asr, shom, xufton)
+ * Plays the configured Adhan or Chime for a specific prayer
  */
-export async function playPrayerAdhanSound(
-  prayerKey?: 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton'
-): Promise<void> {
+export async function playPrayerAdhanSound(prayerKey?: SchedulablePrayerKey): Promise<void> {
   const settings = getPrayerAlertSettings();
   if (settings.vibrationEnabled) {
     triggerVibration();
@@ -676,7 +937,9 @@ export async function playPrayerAdhanSound(
  */
 export function playGentleChime(): void {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
 
     const ctx = new AudioCtx();
@@ -721,31 +984,91 @@ export async function requestBrowserNotificationPermission(): Promise<Notificati
 export const requestPushPermission = requestBrowserNotificationPermission;
 
 /**
- * Trigger a real Browser Notification and optional sound
+ * Trigger a real Browser Notification, Telegram-style Heads-up Banner, and optional sound
  */
 export function triggerBrowserNotification(
   title: string,
   body: string,
   category: NotificationCategory = 'prayer',
-  prayerKey?: 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton',
-  playFullAdhan: boolean = true
+  prayerKey?: SchedulablePrayerKey,
+  playFullAdhan: boolean = true,
+  dedupKey?: string,
+  routeTab: string = 'prayer'
 ): AppNotification {
+  if (dedupKey && hasNotificationEventFired(dedupKey)) {
+    const existing = getStoredNotifications();
+    return existing[0] || {
+      id: `notif-${Date.now()}`,
+      title,
+      message: body,
+      timestamp: 'Hozirgina',
+      category,
+      read: false,
+    };
+  }
+  if (dedupKey) {
+    markNotificationEventFired(dedupKey);
+  }
+
   const settings = getPrayerAlertSettings();
+
+  if (settings.vibrationEnabled) {
+    triggerVibration();
+  }
 
   if (settings.soundEnabled) {
     if (category === 'prayer' && playFullAdhan) {
       playPrayerAdhanSound(prayerKey);
+    } else if (
+      category === 'prayer' &&
+      !playFullAdhan &&
+      settings.preReminderSoundMode !== 'silent'
+    ) {
+      playGentleChime();
     } else if (settings.soundMode !== 'silent') {
       playGentleChime();
     }
   }
 
+  const nowTimeStr = new Intl.DateTimeFormat('uz-UZ', {
+    timeZone: 'Asia/Tashkent',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+
+  // 1. Trigger Telegram-style top Heads-Up Notification Banner + Android Native Channel
+  emitHeadsUpNotification({
+    id: dedupKey || `headsup-${Date.now()}`,
+    title,
+    message: body,
+    timestamp: nowTimeStr,
+    category,
+    routeTab,
+    isAdhanPlaying: Boolean(category === 'prayer' && playFullAdhan),
+    prayerKey,
+    badgeText:
+      category === 'prayer'
+        ? playFullAdhan
+          ? 'Azon Vaqti'
+          : 'Oldindan Eslatma'
+        : category === 'announcement'
+        ? 'Masjid Eʼloni'
+        : category === 'news'
+        ? 'Yangilik'
+        : category === 'chat'
+        ? 'Yangi Xabar'
+        : 'ASAKA ZIYO',
+  });
+
+  // 2. Trigger OS / Browser Notification with official brand icon
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
       new Notification(title, {
         body,
-        icon: '/icons/icon-192.svg',
-        tag: `asaka-ziyo-${Date.now()}`,
+        icon: '/pwa-192x192.png',
+        badge: '/pwa-192x192.png',
+        tag: dedupKey || `asaka-ziyo-${Date.now()}`,
       });
     } catch {
       // Fallback to in-app notification
@@ -756,15 +1079,233 @@ export function triggerBrowserNotification(
     id: `notif-${Date.now()}`,
     title,
     message: body,
-    timestamp: 'Hozirgina',
+    timestamp: nowTimeStr,
     category,
     read: false,
     priority: category === 'prayer' || category === 'ramadan' ? 'high' : 'normal',
+    routeTab,
+    actionTab: routeTab,
+    dedupKey,
   };
 
   const existing = getStoredNotifications();
   saveStoredNotifications([newNotif, ...existing]);
   return newNotif;
+}
+
+/**
+ * Helper to get current Tashkent YYYY-MM-DD and seconds since midnight
+ */
+function getTashkentDateAndSeconds(): {
+  dateKey: string;
+  secondsSinceMidnight: number;
+  nowMs: number;
+} {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tashkent',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+
+  const map: Record<string, string> = {};
+  parts.forEach((p) => {
+    map[p.type] = p.value;
+  });
+
+  const dateKey = `${map.year}-${map.month}-${map.day}`;
+  const h = parseInt(map.hour || '0', 10) % 24;
+  const m = parseInt(map.minute || '0', 10);
+  const s = parseInt(map.second || '0', 10);
+  return {
+    dateKey,
+    secondsSinceMidnight: h * 3600 + m * 60 + s,
+    nowMs: now.getTime(),
+  };
+}
+
+function parseTimeStrToMinutes(timeStr: string): number | null {
+  const match = String(timeStr || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+function formatMinutesToHHMM(totalMinutes: number): string {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
+}
+
+/**
+ * Returns the currently active scheduled prayer alarms for inspection in UI
+ */
+export function getActiveScheduledAlarms(): ScheduledPrayerAlarmItem[] {
+  try {
+    const raw = localStorage.getItem(SCHEDULED_ALARMS_STORAGE_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+/**
+ * Cancels all old prayer timers and reschedules both Pre-Reminders (5/10/15/30 min before)
+ * and Exact Adhan Reminders for all 7 prayers based on the latest Admin Firestore schedule.
+ */
+export function syncPrayerScheduleAlarms(
+  schedule: PrayerSchedule,
+  forceRebuild: boolean = false
+): ScheduledPrayerAlarmItem[] {
+  latestSyncedSchedule = schedule;
+  const settings = getPrayerAlertSettings();
+
+  const signature = JSON.stringify({
+    times: schedule.times.map((t) => `${t.key}:${t.time}:${t.iqamahTime || ''}`),
+    enabled: settings.enabled,
+    notifyOnExactTime: settings.notifyOnExactTime,
+    preMins: settings.perPrayerPreReminderMinutes,
+    indivAlerts: settings.individualPrayerAlerts,
+    indivModes: settings.individualPrayerModes,
+  });
+
+  if (!forceRebuild && signature === lastScheduleSignature && activeScheduleTimers.length > 0) {
+    return getActiveScheduledAlarms();
+  }
+
+  // 1. Cancel all previous timers immediately so old schedule times never fire
+  activeScheduleTimers.forEach((t) => clearTimeout(t));
+  activeScheduleTimers = [];
+  lastScheduleSignature = signature;
+
+  if (!settings.enabled) {
+    localStorage.setItem(SCHEDULED_ALARMS_STORAGE_KEY, JSON.stringify([]));
+    return [];
+  }
+
+  const { dateKey, secondsSinceMidnight, nowMs } = getTashkentDateAndSeconds();
+  const upcomingAlarms: ScheduledPrayerAlarmItem[] = [];
+
+  for (const meta of SCHEDULABLE_PRAYERS) {
+    const entry = schedule.times.find((t) => t.key === meta.key);
+    if (!entry) continue;
+
+    const prayerMinutes = parseTimeStrToMinutes(entry.time);
+    if (prayerMinutes === null) continue;
+
+    const preMins = settings.perPrayerPreReminderMinutes?.[meta.key] ?? 0;
+    const isExactEnabled =
+      settings.notifyOnExactTime !== false &&
+      settings.individualPrayerAlerts?.[meta.key] !== false &&
+      settings.individualPrayerModes?.[meta.key] !== 'off';
+    const prayerMode = settings.individualPrayerModes?.[meta.key] || 'sound';
+
+    // Stage A: Pre-reminder (5, 10, 15, or 30 minutes before prayer time) — separate event!
+    if (preMins > 0) {
+      const triggerMins = prayerMinutes - preMins;
+      const triggerSec = ((triggerMins % 1440) + 1440) % 1440 * 60;
+      let deltaSec = triggerSec - secondsSinceMidnight;
+      let targetDateKey = dateKey;
+      if (deltaSec < -30) {
+        deltaSec += 86400;
+        targetDateKey = `${dateKey}+1`;
+      }
+
+      const alarmId = `asaka_prayer_${targetDateKey}_${meta.key}_pre_${preMins}m_${entry.time}`;
+      const item: ScheduledPrayerAlarmItem = {
+        alarmId,
+        dateKey: targetDateKey,
+        prayerKey: meta.key,
+        prayerNameUz: entry.nameUz || meta.nameUz,
+        prayerTimeStr: entry.time,
+        triggerTimeStr: formatMinutesToHHMM(triggerMins),
+        stage: 'pre',
+        minutesBefore: preMins,
+        mode: settings.preReminderSoundMode === 'silent' ? 'silent' : 'chime',
+        targetTimestampMs: nowMs + Math.max(1, deltaSec) * 1000,
+      };
+      upcomingAlarms.push(item);
+
+      if (deltaSec >= -30 && deltaSec <= 86400) {
+        const timer = setTimeout(() => {
+          triggerBrowserNotification(
+            `⏳ ${item.prayerNameUz} namoziga ${preMins} daqiqa qoldi`,
+            `Asaka vaqti bilan soat ${item.prayerTimeStr} da ${item.prayerNameUz} vaqti kiradi. Tahorat va ibodatga tayyorgarlik koʻring.`,
+            'prayer',
+            meta.key,
+            false,
+            item.alarmId,
+            'prayer'
+          );
+        }, Math.max(500, deltaSec * 1000));
+        activeScheduleTimers.push(timer);
+      }
+    }
+
+    // Stage B: Exact prayer entry time notification (Azon vaqti) — separate event!
+    if (isExactEnabled) {
+      const triggerSec = prayerMinutes * 60;
+      let deltaSec = triggerSec - secondsSinceMidnight;
+      let targetDateKey = dateKey;
+      if (deltaSec < -30) {
+        deltaSec += 86400;
+        targetDateKey = `${dateKey}+1`;
+      }
+
+      const alarmId = `asaka_prayer_${targetDateKey}_${meta.key}_exact_${entry.time}`;
+      const item: ScheduledPrayerAlarmItem = {
+        alarmId,
+        dateKey: targetDateKey,
+        prayerKey: meta.key,
+        prayerNameUz: entry.nameUz || meta.nameUz,
+        prayerTimeStr: entry.time,
+        triggerTimeStr: entry.time,
+        stage: 'exact',
+        minutesBefore: 0,
+        mode: prayerMode,
+        targetTimestampMs: nowMs + Math.max(1, deltaSec) * 1000,
+      };
+      upcomingAlarms.push(item);
+
+      if (deltaSec >= -30 && deltaSec <= 86400) {
+        const timer = setTimeout(() => {
+          triggerBrowserNotification(
+            `🕌 ${item.prayerNameUz} vaqti kirdi (${item.prayerTimeStr})`,
+            `Asaka shahri («MuhammadSolih Hoji» jomeʼ masjidi) jadvali boʻyicha ${item.prayerNameUz} vaqti kirdi.${
+              entry.iqamahTime ? ` Jamoat (Iqomat): ${entry.iqamahTime}.` : ''
+            }`,
+            'prayer',
+            meta.key,
+            prayerMode === 'sound',
+            item.alarmId,
+            'prayer'
+          );
+        }, Math.max(500, deltaSec * 1000));
+        activeScheduleTimers.push(timer);
+      }
+    }
+  }
+
+  upcomingAlarms.sort((a, b) => a.targetTimestampMs - b.targetTimestampMs);
+  try {
+    localStorage.setItem(SCHEDULED_ALARMS_STORAGE_KEY, JSON.stringify(upcomingAlarms));
+  } catch {
+    // ignore
+  }
+  return upcomingAlarms;
 }
 
 export { ADHAN_TRACKS, getAdhanTrackById };

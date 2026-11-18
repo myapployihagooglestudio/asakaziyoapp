@@ -1,7 +1,7 @@
 /**
  * ASAKA ZIYO — Capacitor 6 Native Android & iOS Configuration
  * Package Identifier: uz.asakaziyo.app
- * Version: 2.0.0 (Build 200)
+ * Version: 3.0.0 (Build 300)
  */
 
 export interface CapacitorConfig {

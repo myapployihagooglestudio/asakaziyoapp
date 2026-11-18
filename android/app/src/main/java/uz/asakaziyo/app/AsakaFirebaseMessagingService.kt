@@ -11,9 +11,10 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
 /**
- * ASAKA ZIYO — Firebase Cloud Messaging Service
- * Handles real Android push notifications for Prayer Reminders, Adhan Alerts,
- * Quran & Hadith Daily Wisdom, and Mosque Announcements.
+ * ASAKA ZIYO — Firebase Cloud Messaging Service (v3.0.0)
+ * Handles real Android push notifications with Telegram-style High-Importance Heads-Up banners
+ * for Prayer Pre-Reminders (5/10/15/30 min), Exact Adhan Alerts, Mosque Announcements,
+ * News/Articles, and Community Chat Messages.
  */
 class AsakaFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -26,13 +27,15 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
         val title = remoteMessage.notification?.title ?: remoteMessage.data["title"] ?: "ASAKA ZIYO"
         val body = remoteMessage.notification?.body ?: remoteMessage.data["body"] ?: ""
         val channelId = remoteMessage.data["channelId"] ?: CHANNEL_PRAYER_ADHAN
+        val targetView = remoteMessage.data["targetView"] ?: "home"
 
-        showNotification(title, body, channelId)
+        showNotification(title, body, channelId, targetView)
     }
 
-    private fun showNotification(title: String, messageBody: String, channelId: String) {
+    private fun showNotification(title: String, messageBody: String, channelId: String, targetView: String) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra("targetView", targetView)
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
@@ -43,8 +46,10 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
             .setContentText(messageBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(messageBody))
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setContentIntent(pendingIntent)
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -56,19 +61,34 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val channels = listOf(
                 NotificationChannel(
+                    CHANNEL_PRAYER_PRE_REMINDER,
+                    "Namoz Oldidan Eslatmalar (5–30 daqiqa)",
+                    NotificationManager.IMPORTANCE_HIGH
+                ),
+                NotificationChannel(
                     CHANNEL_PRAYER_ADHAN,
                     "Namoz va Azon Eslatmalari",
+                    NotificationManager.IMPORTANCE_HIGH
+                ),
+                NotificationChannel(
+                    CHANNEL_ANNOUNCEMENTS,
+                    "Masjid Eʼlonlari va Muhim Xabarlar",
+                    NotificationManager.IMPORTANCE_HIGH
+                ),
+                NotificationChannel(
+                    CHANNEL_NEWS_ARTICLES,
+                    "Yangiliklar va Ilmiy Maqolalar",
+                    NotificationManager.IMPORTANCE_HIGH
+                ),
+                NotificationChannel(
+                    CHANNEL_CHAT_MESSAGES,
+                    "Suhbat va Imom Savol-Javob Xabarlari",
                     NotificationManager.IMPORTANCE_HIGH
                 ),
                 NotificationChannel(
                     CHANNEL_DAILY_WISDOM,
                     "Kunlik Oyat, Hadis va Zikrlar",
                     NotificationManager.IMPORTANCE_DEFAULT
-                ),
-                NotificationChannel(
-                    CHANNEL_ANNOUNCEMENTS,
-                    "Masjid Eʼlonlari va Yangiliklar",
-                    NotificationManager.IMPORTANCE_HIGH
                 )
             )
             channels.forEach { manager.createNotificationChannel(it) }
@@ -76,8 +96,11 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
+        const val CHANNEL_PRAYER_PRE_REMINDER = "asaka_ziyo_prayer_pre_reminder"
         const val CHANNEL_PRAYER_ADHAN = "asaka_ziyo_prayer_adhan"
-        const val CHANNEL_DAILY_WISDOM = "asaka_ziyo_daily_wisdom"
         const val CHANNEL_ANNOUNCEMENTS = "asaka_ziyo_announcements"
+        const val CHANNEL_NEWS_ARTICLES = "asaka_ziyo_news_articles"
+        const val CHANNEL_CHAT_MESSAGES = "asaka_ziyo_chat_messages"
+        const val CHANNEL_DAILY_WISDOM = "asaka_ziyo_daily_wisdom"
     }
 }

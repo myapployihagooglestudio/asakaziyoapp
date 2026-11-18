@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IslamicStarEmblem } from '../../ui/GeometricPattern';
 import { usePWAInstall } from '../../../hooks/usePWAInstall';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { SupportedLocale } from '../../../types';
@@ -64,9 +63,11 @@ export const AppInstallBanner: React.FC<AppInstallBannerProps> = ({
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#04120e]/95 text-white border border-[#c9a84c]/45 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[#071a14] border border-[#c9a84c]/35 flex items-center justify-center shrink-0">
-            <IslamicStarEmblem size={20} className="text-[#c9a84c]" />
-          </div>
+          <img
+            src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+            alt="ASAKA ZIYO Official Logo"
+            className="w-10 h-10 rounded-xl object-cover border border-[#c9a84c]/50 shrink-0"
+          />
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -77,11 +78,11 @@ export const AppInstallBanner: React.FC<AppInstallBannerProps> = ({
                 PWA
               </span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#c9a84c] text-[#04120e]">
-                APK v2.0.0
+                APK v3.0.0
               </span>
             </div>
             <p className="text-[11px] text-stone-300 truncate mt-0.5">
-              {getLocalized("Bosh ekranga oʻrnatish (PWA) yoki rasmiy Android APK yuklash")}
+              {getLocalized("Bosh ekranga oʻrnatish (PWA) yoki rasmiy Android APK v3.0.0 yuklash")}
             </p>
           </div>
         </div>

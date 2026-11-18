@@ -271,6 +271,7 @@ if (typeof window !== 'undefined' && isRunningInNativeAndroidApk()) {
       if (
         rawAttr &&
         (rawAttr.startsWith('/images/') ||
+          rawAttr.startsWith('/assets/aistudio/') ||
           rawAttr.startsWith('/pwa-') ||
           rawAttr === '/icon.svg' ||
           rawAttr === '/apple-touch-icon.png')

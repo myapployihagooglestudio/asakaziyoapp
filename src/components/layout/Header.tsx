@@ -77,10 +77,8 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'khatm_planner', labelKey: 'khatm_planner' },
     { id: 'prayer_journal', labelKey: 'prayer_journal' },
     { id: 'mosque_events', labelKey: 'mosque_events' },
-    { id: 'academy', labelKey: 'academy' },
     { id: 'library', labelKey: 'library' },
     { id: 'ask_imam', labelKey: 'ask_imam' },
-    { id: 'charity', labelKey: 'charity' },
     { id: 'fasting', labelKey: 'fasting' },
     { id: 'achievements', labelKey: 'achievements' },
   ];
@@ -111,20 +109,24 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 w-full border-b border-[#063D32]/15 dark:border-[#DFBD69]/28 bg-[#FFF8E8]/92 dark:bg-[#010906]/90 backdrop-blur-2xl transition-colors shadow-[0_8px_30px_rgba(1,9,6,0.06)] dark:shadow-[0_10px_36px_rgba(0,0,0,0.65)]">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-2 sm:gap-4 h-16">
-          {/* Zone 1: Architectural Brand Identity */}
+          {/* Zone 1: Architectural Brand Identity with Official Mosque Emblem */}
           <button
             onClick={() => handleNavClick('home')}
             className="group flex items-center gap-2.5 text-left text-[#03170F] dark:text-[#FFF8E8] whitespace-nowrap shrink-0 focus-visible:outline-none cursor-pointer min-h-[42px]"
           >
-            <div className="w-10 h-10 rounded-xl bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_60%,#010906_100%)] flex items-center justify-center border border-[#DFBD69]/65 group-hover:border-[#FFF6C8] transition-all shadow-[0_4px_16px_rgba(212,175,55,0.25),inset_0_1px_0_rgba(255,246,200,0.3)]">
-              <IslamicStarEmblem size={19} className="text-[#DFBD69] group-hover:scale-110 transition-transform" />
+            <div className="relative w-10 h-10 rounded-full overflow-hidden bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_60%,#010906_100%)] flex items-center justify-center border-2 border-[#DFBD69]/80 group-hover:border-[#FFF6C8] transition-all shadow-[0_4px_16px_rgba(212,175,55,0.32),inset_0_1px_0_rgba(255,246,200,0.3)]">
+              <img
+                src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+                alt="ASAKA ZIYO Official Brand Logo"
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+              />
             </div>
             <div className="flex flex-col">
               <span className="font-display text-sm sm:text-base font-extrabold tracking-[0.14em] text-[#03170F] dark:text-[#FFF8E8] group-hover:text-[#063D32] dark:group-hover:text-[#DFBD69] transition-colors leading-none">
                 {t('common:appName', 'ASAKA ZIYO')}
               </span>
-              <span className="hidden sm:inline-block text-[9px] uppercase tracking-[0.24em] text-[#8A6621] dark:text-[#DFBD69]/90 mt-1 font-bold">
-                Sacred Islamic Ecosystem
+              <span className="hidden sm:inline-block text-[9px] uppercase tracking-[0.2em] text-[#8A6621] dark:text-[#DFBD69]/90 mt-1 font-bold">
+                MuhammadSolih Hoji Jomeʼ Masjidi
               </span>
             </div>
           </button>
@@ -189,7 +191,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ASAKA ZIYO — Barcha Xizmatlar va Boʻlimlar
                       </span>
                       <span className="text-[10px] font-mono-numbers text-[#526B62] dark:text-[#9CB5AC]">
-                        15 ta modul
+                        13 ta modul
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
@@ -234,11 +236,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={onOpenInstallModal}
                 className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-extrabold rounded-xl az-gold-foil-bg text-[#010906] hover:brightness-105 transition-all shadow-[0_4px_14px_rgba(212,175,55,0.35)] cursor-pointer whitespace-nowrap border border-[#FFF6C8]/60"
-                title="ASAKA ZIYO Android APK v2.0.0 va Oflayn Markaz"
+                title="ASAKA ZIYO Android APK v3.0.0 va Oflayn Markaz"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden xs:inline">APK</span>
-                <span className="hidden sm:inline">v2.0.0</span>
+                <span className="hidden sm:inline">v3.0.0</span>
               </button>
             )}
 
@@ -422,7 +424,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Download className="w-4 h-4" />
-                <span>Android APK v2.0.0</span>
+                <span>Android APK v3.0.0</span>
               </button>
             )}
           </div>

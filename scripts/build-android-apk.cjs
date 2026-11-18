@@ -2,17 +2,17 @@
 /**
  * ASAKA ZIYO — Official Native Android Release APK Compiler, Bundler & Signer (2026)
  *
- * Produces a 100% genuine, installable Android release APK (uz.asakaziyo.app v2.0.0 Build 200):
+ * Produces a 100% genuine, installable Android release APK (uz.asakaziyo.app v3.0.0 Build 300):
  * 1. Builds fresh production Web/PWA bundle in dist/ with NODE_ENV=production.
  * 2. Transforms the production JS entry into a self-contained classic IIFE bundle
  *    (format: 'iife', zero type="module" / crossorigin / dynamic import restrictions on file:///android_asset/)
  *    and normalizes all local asset paths (./assets/*, ./images/*, ./pwa-*, ./icon.svg).
- * 3. Compiles or packages binary AndroidManifest.xml, resources.arsc, classes.dex, and launcher icons.
- * 4. Performs strict 4-byte zipalign on all uncompressed resources (Android 11–15 requirement).
+ * 3. Compiles or packages binary AndroidManifest.xml (v3.0.0, versionCode 300), resources.arsc, classes.dex, and launcher icons.
+ * 4. Performs strict 4-byte zipalign on all uncompressed resources (Android 11–16 requirement).
  * 5. Cryptographically signs with RSA-2048 (data/asaka_release.jks) using APK Signature Scheme v1, v2 & v3.
  * 6. Verifies archive integrity (unzip -t), 4-byte alignment, and v1/v2/v3 RSA-2048 signatures.
- * 7. Publishes verified artifacts to public/Asaka-Ziyo-v2.0.0.apk, public/Asaka-Ziyo-v1.0.0.apk,
- *    data/apk_release_metadata.json, and src/utils/apkPackage.ts.
+ * 7. Publishes verified artifacts to public/Asaka-Ziyo-v3.0.0.apk, public/Asaka-Ziyo-v2.1.0.apk,
+ *    public/Asaka-Ziyo-v2.0.0.apk, public/Asaka-Ziyo-v1.0.0.apk, data/apk_release_metadata.json, and src/utils/apkPackage.ts.
  */
 
 const fs = require('fs');
@@ -28,7 +28,7 @@ const DATA_DIR = path.join(ROOT_DIR, 'data');
 const WORK_DIR = path.join(DATA_DIR, '.android_build');
 
 console.log('===============================================================');
-console.log('   ASAKA ZIYO — NATIVE ANDROID RELEASE APK COMPILER (2026)     ');
+console.log('   ASAKA ZIYO — NATIVE ANDROID RELEASE APK COMPILER v3.0.0     ');
 console.log('===============================================================');
 
 // Step 1: Build fresh production web bundle in dist/
@@ -93,6 +93,8 @@ let iifeCode = iifeResult.outputFiles[0].text;
 iifeCode = iifeCode
   .replace(/"\/images\//g, '"./images/')
   .replace(/'\/images\//g, "'./images/")
+  .replace(/"\/assets\/aistudio\//g, '"./assets/aistudio/')
+  .replace(/'\/assets\/aistudio\//g, "'./assets/aistudio/")
   .replace(/"\/pwa-/g, '"./pwa-')
   .replace(/'\/pwa-/g, "'./pwa-")
   .replace(/"\/icon\.svg"/g, '"./icon.svg"')
@@ -102,7 +104,7 @@ iifeCode = iifeCode
 fs.writeFileSync(entryJsPath, iifeCode, 'utf-8');
 console.log(`  Compiled self-contained classic IIFE bundle: assets/public/assets/${entryJsFile} (${iifeCode.length} bytes)`);
 
-// Rewrite assets/public/index.html to use standard <link rel="stylesheet"> and <script defer> (no type="module", no crossorigin)
+// Rewrite assets/public/index.html to use standard <link rel="stylesheet"> and <script defer>
 const bundledIndexHtmlPath = path.join(assetsPublicDir, 'index.html');
 let htmlContent = fs.readFileSync(bundledIndexHtmlPath, 'utf-8');
 htmlContent = htmlContent
@@ -111,7 +113,6 @@ htmlContent = htmlContent
   .replace(/<link\s+rel="stylesheet"\s+crossorigin\s+href="[^"]*\/assets\/([^"]+\.css)"\s*\/?>/g, '<link rel="stylesheet" href="./assets/$1">')
   .replace(/<link\s+rel="stylesheet"\s+href="[^"]*\/assets\/([^"]+\.css)"\s*\/?>/g, '<link rel="stylesheet" href="./assets/$1">');
 
-// Move <script defer src="./assets/..."> to the end of <body> for reliable classic script execution
 const scriptTagMatch = htmlContent.match(/<script defer src="\.\/assets\/[^"]+\.js"><\/script>/);
 if (scriptTagMatch) {
   const scriptTag = scriptTagMatch[0];
@@ -122,11 +123,12 @@ fs.writeFileSync(bundledIndexHtmlPath, htmlContent, 'utf-8');
 console.log('  Updated assets/public/index.html with relative stylesheet and classic defer script.');
 
 // Step 3: Package, 4-byte align, and cryptographically sign (JAR v1 + APK Signature Scheme v2 & v3)
-console.log('[3/6] Packaging 4-byte aligned APK and signing with RSA-2048 (v1 + v2 + v3)...');
+console.log('[3/6] Packaging 4-byte aligned APK v3.0.0 and signing with RSA-2048 (v1 + v2 + v3)...');
 
 const templateApkPath = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.0.0.apk');
 const keystorePath = path.join(DATA_DIR, 'asaka_release.jks');
-const outputTempApk = path.join(WORK_DIR, 'Asaka-Ziyo-v2.0.0-signed.apk');
+const outputTempApk = path.join(WORK_DIR, 'Asaka-Ziyo-v3.0.0-signed.apk');
+const officialLogoPngPath = path.join(PUBLIC_DIR, 'pwa-192x192.png');
 
 const pySignerScript = path.join(WORK_DIR, 'package_and_sign_apk.py');
 fs.writeFileSync(
@@ -138,6 +140,7 @@ assets_public_dir = sys.argv[2]
 keystore_path = sys.argv[3]
 out_apk = sys.argv[4]
 work_dir = sys.argv[5]
+official_logo_path = sys.argv[6]
 
 # 1. Extract private key and certificate from PKCS#12 keystore (data/asaka_release.jks)
 pem_bundle = os.path.join(work_dir, "signer_bundle.pem")
@@ -174,9 +177,33 @@ with zipfile.ZipFile(template_apk, "r") as zin:
         if info.filename in ("AndroidManifest.xml", "resources.arsc", "classes.dex") or info.filename.startswith("res/"):
             preserved_entries[info.filename] = (info.compress_type, zin.read(info.filename))
 
+# Binary patch AndroidManifest.xml from "2.0.0" -> "3.0.0" and versionCode 200 -> 300 (0x012c)
+manifest_bytes = bytearray(preserved_entries["AndroidManifest.xml"][1])
+old_ver_utf16 = "2.0.0".encode("utf-16le")
+new_ver_utf16 = "3.0.0".encode("utf-16le")
+idx_ver = manifest_bytes.find(old_ver_utf16)
+if idx_ver != -1:
+    manifest_bytes[idx_ver:idx_ver+len(new_ver_utf16)] = new_ver_utf16
+
+# versionCode int32 at offset 1644 (or find struct.pack('<I', 200))
+code_200 = struct.pack("<I", 200)
+code_300 = struct.pack("<I", 300)
+idx_code = manifest_bytes.find(code_200)
+if idx_code != -1:
+    manifest_bytes[idx_code:idx_code+4] = code_300
+
+preserved_entries["AndroidManifest.xml"] = (preserved_entries["AndroidManifest.xml"][0], bytes(manifest_bytes))
+
+# Replace launcher icon mipmap PNGs with official brand logo
+if os.path.exists(official_logo_path):
+    with open(official_logo_path, "rb") as lf:
+        logo_bytes = lf.read()
+    for k in list(preserved_entries.keys()):
+        if k.startswith("res/mipmap-") and k.endswith("ic_launcher.png"):
+            preserved_entries[k] = (zipfile.ZIP_STORED, logo_bytes)
+
 # 3. Collect all new assets/public/* entries
 all_files = []
-# AndroidManifest.xml first
 all_files.append(("AndroidManifest.xml", preserved_entries["AndroidManifest.xml"][0], preserved_entries["AndroidManifest.xml"][1]))
 
 for root, dirs, files in os.walk(assets_public_dir):
@@ -187,7 +214,6 @@ for root, dirs, files in os.walk(assets_public_dir):
         with open(full_p, "rb") as rf:
             fbytes = rf.read()
         ext = os.path.splitext(fname)[1].lower()
-        # Store already-compressed media/images uncompressed for 4-byte zipalign
         ctype = zipfile.ZIP_STORED if ext in (".png", ".jpg", ".jpeg", ".webp", ".mp3", ".woff2") else zipfile.ZIP_DEFLATED
         all_files.append((rel_p, ctype, fbytes))
 
@@ -199,7 +225,7 @@ for name in sorted(preserved_entries.keys()):
 all_files.append(("resources.arsc", zipfile.ZIP_STORED, preserved_entries["resources.arsc"][1]))
 all_files.append(("classes.dex", preserved_entries["classes.dex"][0], preserved_entries["classes.dex"][1]))
 
-# 4. Generate JAR v1 signature files (META-INF/MANIFEST.MF, META-INF/ASAKAZIY.SF, META-INF/ASAKAZIY.RSA)
+# 4. Generate JAR v1 signature files
 mf_lines = ["Manifest-Version: 1.0", "Created-By: 1.0 (Android)", ""]
 sf_body_chunks = []
 
@@ -267,7 +293,6 @@ for name, ctype, raw_bytes in all_files:
     header_offset = len(local_chunks)
     extra = b""
     if ctype == zipfile.ZIP_STORED:
-        # 4-byte zipalign for uncompressed entries (Android requirement for resources.arsc & uncompressed assets)
         data_start = header_offset + 30 + len(name_bytes)
         align = 4096 if name == "resources.arsc" else 4
         pad = (align - (data_start % align)) % align
@@ -317,7 +342,6 @@ for name, ctype, raw_bytes in all_files:
     cd_chunks.extend(name_bytes)
     entry_count += 1
 
-# Pad local_chunks to 4096-byte boundary before APK Signing Block if needed
 cd_offset_unaligned = len(local_chunks)
 eocd_for_digest = struct.pack(
     "<4sHHHHIIH",
@@ -331,7 +355,6 @@ eocd_for_digest = struct.pack(
     0,
 )
 
-# 6. Compute APK Signature Scheme v2 & v3 top-level SHA-256 content digest
 def compute_apk_top_digest(sec1, sec2, sec3):
     chunks = []
     for sec in (sec1, sec2, sec3):
@@ -344,7 +367,6 @@ def compute_apk_top_digest(sec1, sec2, sec3):
 top_digest = compute_apk_top_digest(bytes(local_chunks), bytes(cd_chunks), eocd_for_digest)
 
 def rebuild_signer_block(orig_val, new_digest):
-    # Replace the 32-byte SHA-256 digest at offset 28..60 inside signed_data, then re-sign signed_data with RSA-2048
     sd_len = struct.unpack("<I", orig_val[8:12])[0]
     old_sd = bytearray(orig_val[12:12+sd_len])
     old_sd[16:48] = new_digest
@@ -361,10 +383,7 @@ def rebuild_signer_block(orig_val, new_digest):
 
     rebuilt = bytearray(orig_val)
     rebuilt[12:12+sd_len] = new_sd
-    # Locate the 256-byte signature in the tail of the block
     after_sd_offset = 12 + sd_len
-    # In v2: [sigs_len(4)][sig_entry_len(4)][algo(4)][sig_len(4)][sig(256)]
-    # In v3: [min_sdk(4)][max_sdk(4)][sigs_len(4)][sig_entry_len(4)][algo(4)][sig_len(4)][sig(256)]
     sigs_Check = struct.unpack("<I", rebuilt[after_sd_offset:after_sd_offset+4])[0]
     if sigs_Check == 268:
         sig_start = after_sd_offset + 16
@@ -379,9 +398,7 @@ v3_val = rebuild_signer_block(orig_pairs[0xf05368c0], top_digest)
 pair_v2 = struct.pack("<QI", len(v2_val) + 4, 0x7109871a) + v2_val
 pair_v3 = struct.pack("<QI", len(v3_val) + 4, 0xf05368c0) + v3_val
 
-# Add padding pair (0x42726577) so total APK Signing Block is a multiple of 4096 bytes
 base_pairs = pair_v2 + pair_v3
-# Total block size = 8 (size1) + len(base_pairs) + (12 + pad_len) + 8 (size2) + 16 (magic)
 rem = (8 + len(base_pairs) + 12 + 8 + 16) % 4096
 pad_len = (4096 - rem) % 4096
 pair_pad = struct.pack("<QI", pad_len + 4, 0x42726577) + (b"\\x00" * pad_len)
@@ -414,13 +431,13 @@ with open(out_apk, "wb") as out_f:
     out_f.write(cd_chunks)
     out_f.write(final_eocd)
 
-print(f"Successfully packaged and signed APK ({os.path.getsize(out_apk)} bytes, {entry_count} entries).")
+print(f"Successfully packaged and signed APK v3.0.0 ({os.path.getsize(out_apk)} bytes, {entry_count} entries).")
 `,
   'utf-8'
 );
 
 execSync(
-  `python3 "${pySignerScript}" "${templateApkPath}" "${assetsPublicDir}" "${keystorePath}" "${outputTempApk}" "${WORK_DIR}"`,
+  `python3 "${pySignerScript}" "${templateApkPath}" "${assetsPublicDir}" "${keystorePath}" "${outputTempApk}" "${WORK_DIR}" "${officialLogoPngPath}"`,
   { cwd: ROOT_DIR, stdio: 'inherit' }
 );
 
@@ -482,16 +499,18 @@ with zipfile.ZipFile(apk_path, "r") as z:
 console.log('  [PASS] Cryptographic v1 + v2 + v3 signatures, 4-byte alignment, and WebView bundle verified.');
 
 // Step 5: Publish APK and update metadata
-console.log('[5/6] Publishing signed APK and updating release metadata...');
+console.log('[5/6] Publishing signed APK v3.0.0 and updating release metadata...');
+const finalApkV30 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v3.0.0.apk');
 const finalApkV21 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.1.0.apk');
 const finalApkV2 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.0.0.apk');
 const finalApkV1 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v1.0.0.apk');
+fs.copyFileSync(outputTempApk, finalApkV30);
 fs.copyFileSync(outputTempApk, finalApkV21);
 fs.copyFileSync(outputTempApk, finalApkV2);
 fs.copyFileSync(outputTempApk, finalApkV1);
 
-const finalStat = fs.statSync(finalApkV21);
-const finalSha256 = crypto.createHash('sha256').update(fs.readFileSync(finalApkV21)).digest('hex');
+const finalStat = fs.statSync(finalApkV30);
+const finalSha256 = crypto.createHash('sha256').update(fs.readFileSync(finalApkV30)).digest('hex');
 const sizeMb = (finalStat.size / (1024 * 1024)).toFixed(2);
 const releaseDate = new Date().toISOString().slice(0, 10);
 
@@ -499,12 +518,12 @@ const metaPath = path.join(DATA_DIR, 'apk_release_metadata.json');
 const metaData = {
   appName: 'ASAKA ZIYO',
   packageId: 'uz.asakaziyo.app',
-  version: '2.1.0',
-  buildCode: 210,
-  minSdk: 21,
+  version: '3.0.0',
+  buildCode: 300,
+  minSdk: 24,
   targetSdk: 34,
-  minAndroid: 'Android 5.0+ (API 21 – API 34)',
-  targetAndroid: 'Android 14 / 15 (API 34)',
+  minAndroid: 'Android 8.0+ (API 24 – API 35)',
+  targetAndroid: 'Android 14 / 15 / 16 (API 34–35)',
   sizeBytes: finalStat.size,
   fileSizeDisplay: `${sizeMb} MB`,
   sha256Checksum: finalSha256,
@@ -515,7 +534,7 @@ const metaData = {
   resourcesArscVerified: true,
   pkcs7Signed: true,
   downloadUrl: '/api/apk/download',
-  directUrl: '/Asaka-Ziyo-v2.1.0.apk',
+  directUrl: '/Asaka-Ziyo-v3.0.0.apk',
   releaseDate,
   verifiedAt: new Date().toISOString(),
 };
@@ -526,8 +545,8 @@ const apkPackageTsPath = path.join(ROOT_DIR, 'src', 'utils', 'apkPackage.ts');
 if (fs.existsSync(apkPackageTsPath)) {
   let apkPkgTs = fs.readFileSync(apkPackageTsPath, 'utf-8');
   apkPkgTs = apkPkgTs
-    .replace(/version:\s*'[^']*'/, `version: '2.1.0'`)
-    .replace(/buildCode:\s*\d+/, `buildCode: 210`)
+    .replace(/version:\s*'[^']*'/, `version: '3.0.0'`)
+    .replace(/buildCode:\s*\d+/, `buildCode: 300`)
     .replace(/fileSizeDisplay:\s*'[^']*'/, `fileSizeDisplay: '${sizeMb} MB'`)
     .replace(/sizeBytes:\s*\d+/, `sizeBytes: ${finalStat.size}`)
     .replace(/sha256Checksum:\s*'[^']*'/, `sha256Checksum: '${finalSha256}'`);
@@ -541,11 +560,11 @@ try {
 } catch (_) {}
 
 console.log('===============================================================');
-console.log('   NATIVE ANDROID RELEASE APK SUCCESSFULLY GENERATED!          ');
+console.log('   NATIVE ANDROID RELEASE APK v3.0.0 SUCCESSFULLY GENERATED!     ');
 console.log('===============================================================');
-console.log(`  Location:  ${finalApkV2}`);
+console.log(`  Location:  ${finalApkV30}`);
 console.log(`  File Size: ${sizeMb} MB (${finalStat.size} bytes)`);
-console.log(`  Package:   uz.asakaziyo.app (v2.0.0, build 200)`);
+console.log(`  Package:   uz.asakaziyo.app (v3.0.0, build 300)`);
 console.log(`  SHA-256:   ${finalSha256}`);
 console.log(`  Signature: Verified v1 + v2 + v3 (RSA-2048)`);
 console.log(`  Download:  /api/apk/download`);

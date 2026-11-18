@@ -13,17 +13,19 @@ import {
   playAdhanTrackById,
   toggleAdhanAudio,
   seekAdhanAudio,
-  setAdhanAudioVolume,
   subscribeToAdhanPlayerState,
   subscribeToPrayerAlertSettings,
   downloadAdhanTrackFile,
   getPrayerAlertSettings,
   savePrayerAlertSettings,
   stopActiveAdhanAudio,
+  syncPrayerScheduleAlarms,
+  triggerTelegramHeadsUpNotification,
   AdhanPlayerState,
+  PrayerPreReminderOffset,
+  PrayerExactMode,
 } from '../../../utils/notificationService';
 import {
-  Bell,
   Clock,
   Volume2,
   VolumeX,
@@ -39,10 +41,10 @@ import {
   Play,
   Pause,
   Square,
-  Check,
   Music,
   Loader2,
   AlertCircle,
+  Send,
 } from 'lucide-react';
 
 interface ReminderDashboardProps {
@@ -61,11 +63,9 @@ function formatAudioSeconds(sec: number): string {
 
 export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
   schedule,
-  settings,
-  onUpdateSettings,
   onBack,
 }) => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
   const [tracks] = useState<AdhanTrack[]>(() => getStoredAdhanTracks());
@@ -110,6 +110,7 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
 
   const handleSaveAlertSettings = () => {
     savePrayerAlertSettings(alertSettings);
+    syncPrayerScheduleAlarms(schedule, true);
     setSavedStatus(true);
     setTimeout(() => setSavedStatus(false), 3000);
   };
@@ -139,24 +140,44 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
       {/* Banner */}
       <div className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] p-6 sm:p-10 text-white shadow-xl">
         <GeometricPattern opacity={0.06} />
-        <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-            <Music className="w-4 h-4 text-[#c5a869]" />
-            <span>Shayx Mishariy Al-Afosiy Azon Audio Va Eslatma Markazi</span>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-2xl space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
+              <Music className="w-4 h-4 text-[#c5a869]" />
+              <span>Shayx Mishariy Al-Afosiy Azon Audio Va Eslatma Markazi</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
+              Azon Audio va 7 Mahal Namoz Eslatmalari
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+              Har bir namoz uchun oldindan ogohlantirish (5 / 10 / 15 / 30 daqiqa oldin), namoz vaqti kirganda Toʻliq Azon, Ohang yoki Vibratsiya hamda Telegram uslubidagi Heads-Up bildirishnomalar.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-white">
-            Azon Audio va Eslatmalar Dashboardi
-          </h1>
-          <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-            Shayx Mishariy Rashid Al-Afosiyning barcha azon vaqti audio variantlari, Bomdod uchun maxsus azon («As-salatu khayrun minan-nawm»), oflayn yuklab olish va har bir namoz uchun alohida sozlamalar.
-          </p>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() =>
+              triggerTelegramHeadsUpNotification({
+                title: '🕋 Bomdod namoziga 15 daqiqa qoldi',
+                body: 'Bomdod namozi vaqti: 05:55. Tahorat olib, namozga tayyorgarlik koʻring.',
+                category: 'prayer_pre_reminder',
+                targetView: 'prayer',
+                playChime: true,
+              })
+            }
+            className="gap-2 self-start sm:self-center shrink-0"
+          >
+            <Send className="w-4 h-4" />
+            <span>Telegram Heads-Up Sinovi</span>
+          </Button>
         </div>
       </div>
 
       {savedStatus && (
         <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 text-xs sm:text-sm flex items-center gap-3 animate-fade-in shadow-lg">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span>Azon va bildirishnoma sozlamalari muvaffaqiyatli saqlandi va fonda faollashtirildi!</span>
+          <span>Azon va bildirishnoma sozlamalari muvaffaqiyatli saqlandi hamda jadval qayta sinxronlandi!</span>
         </div>
       )}
 
@@ -397,72 +418,115 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
             </select>
           </div>
         </div>
-
-        {/* PWA / Browser Background Limitations Reality Banner */}
-        <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-950/20 text-amber-200 text-xs space-y-2">
-          <div className="font-bold flex items-center gap-2 text-amber-300">
-            <ShieldCheck className="w-4 h-4 shrink-0" />
-            <span>Mobil Brauzer va PWA Fon Cheklovlari (Haqiqiy holat)</span>
-          </div>
-          <p className="text-[11px] leading-relaxed text-stone-300">
-            Zamonaviy mobil operatsion tizimlar (iOS Safari va Android Chrome) batareyani tejash uchun fon rejimida turgan veb-ilovalarning audio ijrosini toʻxtatishi mumkin. Eng ishonchli azon eslatmasi uchun ilovani bosh ekranga oʻrnatib (PWA), bildirishnomalarga toʻliq ruxsat bering hamda ilova ochiq yoki fon rejimida minimallashtirilgan boʻlishini taʼminlang.
-          </p>
-        </div>
       </Card>
 
-      {/* 3. PER-PRAYER AZON ASSIGNMENT */}
+      {/* 3. PER-PRAYER AZON, PRE-REMINDER OFFSET & EXACT-TIME MODE ASSIGNMENT */}
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-white px-1">
-          Har bir namoz uchun alohida Azon tanlovi
+          {getLocalizedText('Har bir namoz uchun oldindan eslatma (5/10/15/30 daqiqa) va Azon tanlovi')}
         </h3>
 
-        {schedule.times.map((item) => {
-          const currentTrackId =
-            (alertSettings.perPrayerTracks && alertSettings.perPrayerTracks[item.key]) ||
-            (item.key === 'bomdod' || item.key === 'subh'
-              ? alertSettings.bomdodAdhanTrackId
-              : alertSettings.defaultAdhanTrackId);
+        {schedule.times
+          .filter((item) => item.key !== 'quyosh')
+          .map((item) => {
+            const currentTrackId =
+              (alertSettings.perPrayerTracks && alertSettings.perPrayerTracks[item.key]) ||
+              (item.key === 'bomdod' || item.key === 'subh'
+                ? alertSettings.bomdodAdhanTrackId
+                : alertSettings.defaultAdhanTrackId);
+            const currentPreOffset: PrayerPreReminderOffset =
+              alertSettings.preReminderMinutes?.[item.key] ?? 15;
+            const currentExactMode: PrayerExactMode =
+              alertSettings.perPrayerMode?.[item.key] ?? 'sound';
 
-          return (
-            <Card
-              key={item.key}
-              elevated
-              className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-[#c5a869]/30 bg-stone-900/50"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#c5a869]/20 flex items-center justify-center shrink-0">
-                  {getPrayerIcon(item.key)}
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-white">{item.nameUz}</h4>
-                  <p className="text-xs font-mono-numbers text-stone-400">Azon: {item.time}</p>
-                </div>
-              </div>
+            return (
+              <Card
+                key={item.key}
+                elevated
+                className="p-5 flex flex-col gap-4 border-[#c5a869]/30 bg-stone-900/50"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#c5a869]/20 flex items-center justify-center shrink-0">
+                      {getPrayerIcon(item.key)}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white">{item.nameUz}</h4>
+                      <p className="text-xs font-mono-numbers text-[#DFBD69]">
+                        Namoz vaqti: {item.time}
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="w-full sm:w-72">
-                <select
-                  value={currentTrackId}
-                  onChange={(e) => {
-                    const updatedPerPrayer = {
-                      ...(alertSettings.perPrayerTracks || {}),
-                      [item.key]: e.target.value,
-                    };
-                    const updated = { ...alertSettings, perPrayerTracks: updatedPerPrayer };
-                    setAlertSettings(updated);
-                    playAdhanTrackById(e.target.value);
-                  }}
-                  className="w-full p-2.5 text-xs rounded-xl border border-white/10 bg-black/40 text-white focus:border-[#c5a869]"
-                >
-                  {tracks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </Card>
-          );
-        })}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full sm:w-auto">
+                    {/* Pre-reminder offset */}
+                    <select
+                      value={currentPreOffset}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) as PrayerPreReminderOffset;
+                        setAlertSettings({
+                          ...alertSettings,
+                          preReminderMinutes: {
+                            ...(alertSettings.preReminderMinutes || {}),
+                            [item.key]: val,
+                          },
+                        });
+                      }}
+                      className="p-2.5 text-xs rounded-xl border border-white/10 bg-black/40 text-white focus:border-[#c5a869]"
+                    >
+                      <option value={0}>Oldindan: Oʻchirilgan</option>
+                      <option value={5}>Oldindan: 5 daqiqa</option>
+                      <option value={10}>Oldindan: 10 daqiqa</option>
+                      <option value={15}>Oldindan: 15 daqiqa</option>
+                      <option value={30}>Oldindan: 30 daqiqa</option>
+                    </select>
+
+                    {/* Exact time mode */}
+                    <select
+                      value={currentExactMode}
+                      onChange={(e) => {
+                        const mode = e.target.value as PrayerExactMode;
+                        setAlertSettings({
+                          ...alertSettings,
+                          perPrayerMode: {
+                            ...(alertSettings.perPrayerMode || {}),
+                            [item.key]: mode,
+                          },
+                        });
+                      }}
+                      className="p-2.5 text-xs rounded-xl border border-white/10 bg-black/40 text-white focus:border-[#c5a869]"
+                    >
+                      <option value="sound">Vaqtida: Toʻliq Azon</option>
+                      <option value="chime">Vaqtida: Qisqa Ohang</option>
+                      <option value="silent">Vaqtida: Vibratsiya</option>
+                      <option value="off">Vaqtida: Oʻchirilgan</option>
+                    </select>
+
+                    {/* Track selection */}
+                    <select
+                      value={currentTrackId}
+                      onChange={(e) => {
+                        const updatedPerPrayer = {
+                          ...(alertSettings.perPrayerTracks || {}),
+                          [item.key]: e.target.value,
+                        };
+                        const updated = { ...alertSettings, perPrayerTracks: updatedPerPrayer };
+                        setAlertSettings(updated);
+                        playAdhanTrackById(e.target.value);
+                      }}
+                      className="p-2.5 text-xs rounded-xl border border-white/10 bg-black/40 text-white focus:border-[#c5a869]"
+                    >
+                      {tracks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
       </div>
 
       <div className="flex justify-end gap-3 pt-4">
@@ -471,7 +535,7 @@ export const ReminderDashboard: React.FC<ReminderDashboardProps> = ({
         </Button>
         <Button variant="primary" size="sm" onClick={handleSaveAlertSettings} className="gap-2">
           <ShieldCheck className="w-4 h-4" />
-          <span>Azon Sozlamalarini Saqlash</span>
+          <span>Azon va Eslatma Sozlamalarini Saqlash</span>
         </Button>
       </div>
     </div>

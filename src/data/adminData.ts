@@ -20,9 +20,9 @@ export const ADMIN_ROLES_CONFIG: AdminRoleConfig[] = [
   {
     role: 'CONTENT_MANAGER',
     labelUz: 'Kontent Boshqaruvchisi (Content Manager)',
-    descriptionUz: 'Bosh sahifa, maqolalar, yangiliklar, eʼlonlar, hadislar, zikrlar, viktorina, akademiya, kutubxona va masjid tadbirlarini nashr etish.',
-    permissions: ['create_article', 'edit_article', 'publish_article', 'manage_announcements', 'manage_hadiths', 'manage_dhikrs', 'manage_quiz', 'manage_academy', 'manage_library', 'manage_events'],
-    allowedModules: ['dashboard', 'home_featured', 'hadith', 'dhikr_duas', 'articles', 'news', 'announcements', 'quiz_bank', 'mosque_events', 'learning_academy', 'digital_library', 'charity_donations'],
+    descriptionUz: 'Bosh sahifa, maqolalar, yangiliklar, eʼlonlar, hadislar, zikrlar, viktorina, kutubxona va masjid tadbirlarini nashr etish.',
+    permissions: ['create_article', 'edit_article', 'publish_article', 'manage_announcements', 'manage_hadiths', 'manage_dhikrs', 'manage_quiz', 'manage_library', 'manage_events'],
+    allowedModules: ['dashboard', 'home_featured', 'hadith', 'dhikr_duas', 'articles', 'news', 'announcements', 'quiz_bank', 'mosque_events', 'digital_library'],
     allowedActions: ['view', 'create', 'edit', 'publish', 'archive'],
   },
   {

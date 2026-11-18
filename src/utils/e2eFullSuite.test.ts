@@ -184,6 +184,8 @@ async function runFullE2ESuite() {
       xufton: 'off' as const,
     },
     individualPrayerAlerts: {
+      tahajjud: true,
+      subh: true,
       bomdod: true,
       peshin: true,
       asr: true,

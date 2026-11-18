@@ -364,13 +364,22 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
 
           {/* Left Mosque Identity & Hijri/Milodiy Dates */}
           <div className="flex items-center gap-[clamp(10px,1.1vw,22px)] min-w-0">
-            <div className="w-[clamp(44px,3.6vw,76px)] h-[clamp(44px,3.6vw,76px)] rounded-2xl bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_65%,#010906_100%)] border-2 border-[#DFBD69] flex items-center justify-center shadow-[0_0_24px_rgba(223,189,105,0.32)] shrink-0">
-              <IslamicStarEmblem size={28} className="text-[#FFF6C8] w-[60%] h-[60%]" />
+            <div className="flex items-center gap-2 shrink-0">
+              <img
+                src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                alt="MuhammadSolih Hoji Jome Masjidi Rasmiy Muhr Logosi"
+                className="w-[clamp(44px,3.6vw,76px)] h-[clamp(44px,3.6vw,76px)] rounded-full object-cover border-2 border-[#DFBD69] shadow-[0_0_24px_rgba(223,189,105,0.32)]"
+              />
+              <img
+                src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+                alt="ASAKA ZIYO Rasmiy Brend Nishoni"
+                className="w-[clamp(44px,3.6vw,76px)] h-[clamp(44px,3.6vw,76px)] rounded-2xl object-cover border-2 border-[#DFBD69] shadow-[0_0_24px_rgba(223,189,105,0.32)] hidden sm:block"
+              />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-display text-[clamp(1.05rem,1.75vw,2.5rem)] font-extrabold tracking-[0.08em] qz-gold-foil-text leading-tight truncate">
-                  ASAKA ZIYO · JOME MASJIDI EKRANI
+                <h1 className="font-display text-[clamp(1.05rem,1.75vw,2.5rem)] font-extrabold tracking-[0.06em] qz-gold-foil-text leading-tight truncate">
+                  ASAKA ZIYO · «MUHAMMADSOLIH HOJI» JOME MASJIDI
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full bg-[#DFBD69]/18 border border-[#DFBD69]/55 text-[#FFF6C8] text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest hidden sm:inline-flex items-center gap-1.5">
                   <Tv className="w-3.5 h-3.5 text-[#DFBD69]" />

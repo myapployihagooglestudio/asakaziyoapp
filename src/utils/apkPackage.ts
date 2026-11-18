@@ -1,7 +1,7 @@
 /**
  * ASAKA ZIYO — Standalone Android APK Package & Release Verification Engine (2026)
  * Package ID: uz.asakaziyo.app
- * Version: 2.0.0 (Build 200)
+ * Version: 3.0.0 (Build 300)
  */
 
 export interface APKReleaseInfo {
@@ -28,15 +28,15 @@ export interface APKReleaseInfo {
 }
 
 export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
-  version: '2.1.0',
-  buildCode: 210,
+  version: '3.0.0',
+  buildCode: 300,
   packageId: 'uz.asakaziyo.app',
   appName: 'ASAKA ZIYO',
   releaseDate: '2026-yil, Noyabr',
-  sizeBytes: 4732150,
-  fileSizeDisplay: '4.51 MB',
-  sha256Checksum: 'c09b171b91acb7d374ba0745cf0a93aeaa52e34f91df67653eab570229c5dc67',
-  targetAndroid: 'Android 14 / 15 (API 34)',
+  sizeBytes: 12265450,
+  fileSizeDisplay: '11.70 MB',
+  sha256Checksum: '24b89ee9340defba3f7329b37bc04ccf4f8ef04078e9bd24915db3d642c5b352',
+  targetAndroid: 'Android 14 / 15 / 16 (API 34–35)',
   minAndroid: 'Android 8.0+ (API 24)',
   downloadUrl: '/api/apk/download',
   aabAvailable: true,
@@ -50,24 +50,34 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
     'android.permission.ACCESS_NETWORK_STATE',
     'android.permission.VIBRATE',
     'android.permission.POST_NOTIFICATIONS',
+    'android.permission.SCHEDULE_EXACT_ALARM',
+    'android.permission.RECEIVE_BOOT_COMPLETED',
+    'android.permission.CAMERA',
+    'android.permission.RECORD_AUDIO',
+    'android.permission.ACCESS_COARSE_LOCATION',
+    'android.permission.ACCESS_FINE_LOCATION',
+    'android.permission.READ_MEDIA_IMAGES',
+    'android.permission.READ_MEDIA_VIDEO',
+    'android.permission.READ_MEDIA_AUDIO',
+    'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
     'android.permission.FOREGROUND_SERVICE',
     'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
     'android.permission.WAKE_LOCK',
   ],
   featuresUz: [
-    'Haqiqiy binar AXML + DEX + RSA-2048 PKCS#7 imzolangan Android APK paketi (uz.asakaziyo.app)',
-    '5 ta mustaqil til va alifbo tizimi (Lotin, Kirill, Yangi alifbo, Rus, Ingliz)',
-    'Asaka shahri va Andijon viloyati uchun rasmiy tasdiqlangan 8 mahal namoz taqvimi',
-    '241° WSW aniq Qibla kompasi va jonli teskari sanoq taymeri',
-    'Qurʼoni Karim 114 surasi, Tafsiri Hilol va 8+ qorilar audiosi (oflayn yuklab olish bilan)',
-    'Ekran qulflanganda ham fonda uzluksiz Qurʼon va Azon tinglash (MediaSession)',
+    'Haqiqiy binar AXML + DEX + RSA-2048 PKCS#7 imzolangan Android APK v3.0.0 (Build 300 · uz.asakaziyo.app)',
+    'Rasmiy «MuhammadSolih Hoji» Jomeʼ masjidi logosi va yangi Emerald & Metallic Gold dizayni',
+    'Android 10–16 uchun 7 ta native ruxsat tizimi (Bildirishnoma, Kamera, Mikrofon, Telefon, Media, Joylashuv, Audio)',
+    'Telegram uslubidagi Heads-Up bildirishnomalar va 7 mahal namoz uchun 5/10/15/30 daqiqa oldindan eslatma tizimi',
+    'Masjid Jamoat Smart TV (16:9 Full HD / 4K) ekrani va Qurʼon viktorinasi Sacred Cinema v3 MP4 eksporti',
+    'Qurʼoni Karim 114 surasi, Tafsiri Hilol va qorilar audiosi (ekran qulflanganda ham fonda tinglash)',
     'Internet uzilganda ham 100% oflayn ishlash va avtomatik sinxronlash tizimi',
   ],
   installStepsUz: [
     {
       step: 1,
-      title: 'Rasmiy imzolangan APK faylni yuklab oling',
-      desc: '«APK v2.0.0 Yuklab Olish» tugmasini bosing. Binar tekshiruvdan oʻtgan toʻliq APK smartfoningizga saqlanadi.',
+      title: 'Rasmiy imzolangan APK v3.0.0 faylni yuklab oling',
+      desc: '«APK v3.0.0 Yuklab Olish» tugmasini bosing. Binar tekshiruvdan oʻtgan toʻliq APK smartfoningizga saqlanadi.',
     },
     {
       step: 2,
@@ -77,7 +87,7 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
     {
       step: 3,
       title: 'Oʻrnating va mustaqil ishga tushiring',
-      desc: '«Oʻrnatish» (Install) tugmasini bosing. ASAKA ZIYO Chrome brauzerisiz, mustaqil Android ilova sifatida ochiladi.',
+      desc: '«Oʻrnatish» (Install) tugmasini bosing. ASAKA ZIYO v3.0.0 mustaqil Android ilova sifatida ochiladi.',
     },
   ],
 };
@@ -90,10 +100,11 @@ export async function fetchVerifiedApkInfo(): Promise<APKReleaseInfo> {
     const resp = await fetch('/api/apk/info');
     if (resp.ok) {
       const data = await resp.json();
-      if (data && data.success && data.apk) {
+      if (data && data.success) {
+        const apkPayload = data.apk || data;
         return {
           ...ASAKA_ZIYO_APK_RELEASE,
-          ...data.apk,
+          ...apkPayload,
         };
       }
     }
@@ -109,7 +120,7 @@ export async function fetchVerifiedApkInfo(): Promise<APKReleaseInfo> {
  */
 export async function downloadVerifiedApkWithProgress(
   onProgress?: (percent: number, loadedBytes: number, totalBytes: number) => void,
-  filename = 'Asaka-Ziyo-v2.0.0.apk'
+  filename = 'Asaka-Ziyo-v3.0.0.apk'
 ): Promise<{ success: boolean; sizeBytes: number; error?: string }> {
   try {
     const response = await fetch('/api/apk/download');
@@ -187,7 +198,7 @@ export async function downloadVerifiedApkWithProgress(
 /**
  * Legacy helper for immediate download trigger
  */
-export function triggerApkDownload(filename = 'Asaka-Ziyo-v2.0.0.apk'): boolean {
+export function triggerApkDownload(filename = 'Asaka-Ziyo-v3.0.0.apk'): boolean {
   try {
     const link = document.createElement('a');
     link.href = '/api/apk/download';

@@ -4706,7 +4706,7 @@ app.get('/api/audio/adhan/:trackId', async (req: Request, res: Response) => {
 const SERVER_ROLE_MODULES: Record<string, string[]> = {
   SUPER_ADMIN: ['*'],
   ADMIN: ['*'],
-  CONTENT_MANAGER: ['dashboard', 'home_featured', 'hadith', 'dhikr_duas', 'articles', 'news', 'announcements', 'quiz_bank', 'mosque_events', 'learning_academy', 'digital_library', 'charity_donations'],
+  CONTENT_MANAGER: ['dashboard', 'home_featured', 'hadith', 'dhikr_duas', 'articles', 'news', 'announcements', 'quiz_bank', 'mosque_events', 'digital_library'],
   QURAN_AUDIO_MANAGER: ['dashboard', 'quran_translations', 'quran_reciters_audio', 'adhan_library', 'audio_video_media', 'reels_short_videos'],
   PRAYER_TIMES_MANAGER: ['dashboard', 'prayer_schedules'],
   EDITOR: ['dashboard', 'articles', 'news', 'announcements', 'hadith', 'dhikr_duas', 'languages_translations'],
@@ -5304,6 +5304,7 @@ app.get('/api/admin/storage-stats', requireAdminAuth, (_req: Request, res: Respo
 // ---------------------------------------------------------------------------
 // 5.8. NATIVE ANDROID APK RELEASE METADATA & VERIFIED BINARY DOWNLOAD STREAMING
 // ---------------------------------------------------------------------------
+const APK_PUBLIC_PATH_V3 = path.join(__dirname, 'public', 'Asaka-Ziyo-v3.0.0.apk');
 const APK_PUBLIC_PATH_V2 = path.join(__dirname, 'public', 'Asaka-Ziyo-v2.0.0.apk');
 const APK_PUBLIC_PATH_V1 = path.join(__dirname, 'public', 'Asaka-Ziyo-v1.0.0.apk');
 const APK_METADATA_PATH = path.join(DATA_DIR, 'apk_release_metadata.json');
@@ -5314,7 +5315,9 @@ function resolveVerifiedApkFile(): {
   sha256: string;
   metadata: any;
 } | null {
-  const candidatePath = fs.existsSync(APK_PUBLIC_PATH_V2)
+  const candidatePath = fs.existsSync(APK_PUBLIC_PATH_V3)
+    ? APK_PUBLIC_PATH_V3
+    : fs.existsSync(APK_PUBLIC_PATH_V2)
     ? APK_PUBLIC_PATH_V2
     : fs.existsSync(APK_PUBLIC_PATH_V1)
     ? APK_PUBLIC_PATH_V1
