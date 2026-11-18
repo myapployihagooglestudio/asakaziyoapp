@@ -6,12 +6,12 @@ interface GeometricPatternProps {
 }
 
 /**
- * Authentic subtle Islamic geometric pattern (Girih & 12-pointed Samarkand/Asaka star motif)
+ * Authentic subtle Islamic geometric pattern (Girih & 16-pointed Samarkand/Mamluk/Timurid star motif)
  * Provides restrained architectural character and layered depth.
  */
 export const GeometricPattern: React.FC<GeometricPatternProps> = ({
   className = '',
-  opacity = 0.045,
+  opacity = 0.048,
 }) => {
   return (
     <div
@@ -22,33 +22,40 @@ export const GeometricPattern: React.FC<GeometricPatternProps> = ({
       <svg
         className="w-full h-full"
         xmlns="http://www.w3.org/2000/svg"
-        width="96"
-        height="96"
+        width="104"
+        height="104"
         fill="none"
       >
         <defs>
-          <pattern id="girih-pattern-2026" width="96" height="96" patternUnits="userSpaceOnUse">
+          <linearGradient id="girih-metallic-gold" x1="0" y1="0" x2="104" y2="104" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#8A6621" />
+            <stop offset="28%" stopColor="#DFBD69" />
+            <stop offset="52%" stopColor="#FFF6C8" />
+            <stop offset="78%" stopColor="#D4AF37" />
+            <stop offset="100%" stopColor="#7A5818" />
+          </linearGradient>
+          <pattern id="girih-pattern-2026" width="104" height="104" patternUnits="userSpaceOnUse">
             <path
-              d="M48 4 L58 26 L82 14 L70 38 L92 48 L70 58 L82 82 L58 70 L48 92 L38 70 L14 82 L26 58 L4 48 L26 38 L14 14 L38 26 Z"
-              stroke="#C6A45C"
-              strokeWidth="0.9"
+              d="M52 4 L63 28 L88 15 L75 40 L100 52 L75 64 L88 89 L63 76 L52 100 L41 76 L16 89 L29 64 L4 52 L29 40 L16 15 L41 28 Z"
+              stroke="url(#girih-metallic-gold)"
+              strokeWidth="0.95"
               fill="none"
             />
             <path
-              d="M48 18 L55 35 L73 35 L59 46 L64 64 L48 53 L32 64 L37 46 L23 35 L41 35 Z"
-              stroke="#DCC58C"
-              strokeWidth="0.5"
+              d="M52 20 L60 38 L79 38 L64 50 L69 69 L52 57 L35 69 L40 50 L25 38 L44 38 Z"
+              stroke="#DFBD69"
+              strokeWidth="0.55"
               fill="none"
             />
             <path
-              d="M0 0 L96 96 M96 0 L0 96 M48 0 L48 96 M0 48 L96 48"
-              stroke="#C6A45C"
-              strokeWidth="0.4"
+              d="M0 0 L104 104 M104 0 L0 104 M52 0 L52 104 M0 52 L104 52"
+              stroke="#D4AF37"
+              strokeWidth="0.38"
               strokeDasharray="2 4"
               fill="none"
             />
-            <circle cx="48" cy="48" r="16" stroke="#C6A45C" strokeWidth="0.7" fill="none" />
-            <circle cx="48" cy="48" r="5" stroke="#DCC58C" strokeWidth="0.5" fill="none" />
+            <circle cx="52" cy="52" r="18" stroke="url(#girih-metallic-gold)" strokeWidth="0.7" fill="none" />
+            <circle cx="52" cy="52" r="5.5" stroke="#FFF6C8" strokeWidth="0.5" fill="none" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#girih-pattern-2026)" />
@@ -58,7 +65,7 @@ export const GeometricPattern: React.FC<GeometricPatternProps> = ({
 };
 
 export const IslamicStarEmblem: React.FC<{ className?: string; size?: number }> = ({
-  className = 'w-6 h-6 text-[#C6A45C]',
+  className = 'w-6 h-6 text-[#DFBD69]',
   size = 24,
 }) => (
   <svg
@@ -75,9 +82,9 @@ export const IslamicStarEmblem: React.FC<{ className?: string; size?: number }> 
 
 export const IslamicHairlineDivider: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div className={`flex items-center gap-4 my-2 ${className}`} aria-hidden="true">
-    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#C6A45C]/35 to-[#C6A45C]/35" />
-    <IslamicStarEmblem size={14} className="text-[#C6A45C]/75 shrink-0" />
-    <div className="h-px flex-1 bg-gradient-to-l from-transparent via-[#C6A45C]/35 to-[#C6A45C]/35" />
+    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#DFBD69]/45 to-[#D4AF37]/45" />
+    <IslamicStarEmblem size={14} className="text-[#DFBD69] shrink-0" />
+    <div className="h-px flex-1 bg-gradient-to-l from-transparent via-[#DFBD69]/45 to-[#D4AF37]/45" />
   </div>
 );
 
@@ -99,21 +106,22 @@ export const IslamicMihrabArch: React.FC<{ className?: string; opacity?: number 
     <path
       d="M20 490 V220 C20 110 110 35 200 12 C290 35 380 110 380 220 V490"
       stroke="url(#mihrab-gold-grad)"
-      strokeWidth="1.5"
-      strokeOpacity="0.45"
+      strokeWidth="1.6"
+      strokeOpacity="0.55"
     />
     <path
       d="M36 490 V225 C36 125 118 54 200 32 C282 54 364 125 364 225 V490"
       stroke="url(#mihrab-gold-grad)"
-      strokeWidth="0.75"
+      strokeWidth="0.85"
       strokeDasharray="4 4"
-      strokeOpacity="0.3"
+      strokeOpacity="0.38"
     />
     <defs>
       <linearGradient id="mihrab-gold-grad" x1="200" y1="12" x2="200" y2="490" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#DCC58C" />
-        <stop offset="50%" stopColor="#C6A45C" />
-        <stop offset="100%" stopColor="#C6A45C" stopOpacity="0" />
+        <stop offset="0%" stopColor="#FFF6C8" />
+        <stop offset="45%" stopColor="#DFBD69" />
+        <stop offset="80%" stopColor="#D4AF37" />
+        <stop offset="100%" stopColor="#8A6621" stopOpacity="0" />
       </linearGradient>
     </defs>
   </svg>
@@ -124,15 +132,120 @@ export const IslamicMihrabArch: React.FC<{ className?: string; opacity?: number 
  */
 export const CalligraphyBasmalahBadge: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div
-    className={`inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#042B25]/70 dark:bg-[#031814]/80 border border-[#C6A45C]/40 backdrop-blur-md shadow-sm ${className}`}
+    className={`inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#03170F]/85 border border-[#DFBD69]/50 backdrop-blur-md shadow-[0_6px_20px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,246,200,0.2)] ${className}`}
   >
-    <IslamicStarEmblem size={13} className="text-[#DCC58C] animate-float-slow" />
+    <IslamicStarEmblem size={13} className="text-[#DFBD69] animate-float-slow" />
     <span
       dir="rtl"
-      className="font-arabic text-base sm:text-lg text-[#F8F5EC] tracking-wide leading-none py-0.5"
+      className="font-arabic text-base sm:text-lg text-[#FFF8E8] tracking-wide leading-none py-0.5 drop-shadow-[0_2px_8px_rgba(223,189,105,0.3)]"
     >
       بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
     </span>
-    <IslamicStarEmblem size={13} className="text-[#DCC58C] animate-float-slow" />
+    <IslamicStarEmblem size={13} className="text-[#DFBD69] animate-float-slow" />
   </div>
 );
+
+/**
+ * 4-Corner Oriental Islamic Arabesque Ornaments (SVG Metallic Gold Filigree)
+ */
+export const ArabesqueCornerOrnaments: React.FC<{
+  size?: number;
+  className?: string;
+}> = ({ size = 26, className = '' }) => {
+  const corners = [
+    'top-2.5 left-2.5 rotate-0',
+    'top-2.5 right-2.5 rotate-90',
+    'bottom-2.5 right-2.5 rotate-180',
+    'bottom-2.5 left-2.5 -rotate-90',
+  ];
+  return (
+    <>
+      {corners.map((pos, idx) => (
+        <svg
+          key={idx}
+          viewBox="0 0 36 36"
+          width={size}
+          height={size}
+          fill="none"
+          aria-hidden="true"
+          className={`pointer-events-none absolute ${pos} opacity-75 select-none ${className}`}
+        >
+          <path
+            d="M2 34 V12 C2 6.5 6.5 2 12 2 H34"
+            stroke="#DFBD69"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+          <path
+            d="M6 26 V13 C6 9.1 9.1 6 13 6 H26"
+            stroke="#FFF6C8"
+            strokeWidth="0.9"
+            strokeOpacity="0.65"
+            strokeLinecap="round"
+          />
+          <path d="M11 7 L14 10 L11 13 L8 10 Z" fill="#DFBD69" />
+          <circle cx="5.5" cy="5.5" r="1.8" fill="#FFF6C8" />
+        </svg>
+      ))}
+    </>
+  );
+};
+
+/**
+ * 8-Pointed Rub el Hizb Star Badge for numbers, ranks, and icons
+ */
+export const RubElHizbBadge: React.FC<{
+  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+  active?: boolean;
+  className?: string;
+}> = ({ children, size = 'md', active = false, className = '' }) => {
+  const dims =
+    size === 'sm' ? 'w-7 h-7 text-[11px]' : size === 'lg' ? 'w-11 h-11 text-sm' : 'w-9 h-9 text-xs';
+  return (
+    <div className={`relative inline-flex items-center justify-center shrink-0 ${dims} ${className}`}>
+      <svg viewBox="0 0 40 40" className="absolute inset-0 w-full h-full" aria-hidden="true">
+        <g transform="translate(20,20)">
+          <rect
+            x="-12"
+            y="-12"
+            width="24"
+            height="24"
+            rx="2.5"
+            fill={active ? 'rgba(16,185,129,0.28)' : 'rgba(223,189,105,0.14)'}
+            stroke={active ? '#FFF6C8' : '#DFBD69'}
+            strokeWidth="1.4"
+          />
+          <rect
+            x="-12"
+            y="-12"
+            width="24"
+            height="24"
+            rx="2.5"
+            transform="rotate(45)"
+            fill={active ? 'rgba(4,120,87,0.45)' : 'rgba(3,23,15,0.72)'}
+            stroke={active ? '#FFF6C8' : '#DFBD69'}
+            strokeWidth="1.4"
+          />
+        </g>
+      </svg>
+      <span className="relative z-10 font-bold text-[#FFF6C8] leading-none">{children}</span>
+    </div>
+  );
+};
+
+/**
+ * Subtle Volumetric God-Rays for Hero Sections
+ */
+export const VolumetricGodRays: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div
+    aria-hidden="true"
+    className={`pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-[130%] h-[360px] select-none opacity-65 mix-blend-screen ${className}`}
+    style={{
+      background:
+        'conic-gradient(from 180deg at 50% 0%, transparent 0deg, rgba(223, 189, 105, 0.14) 18deg, transparent 36deg, rgba(52, 211, 153, 0.12) 55deg, rgba(255, 246, 200, 0.18) 72deg, transparent 95deg, rgba(223, 189, 105, 0.12) 115deg, transparent 140deg)',
+      filter: 'blur(26px)',
+    }}
+  />
+);
+

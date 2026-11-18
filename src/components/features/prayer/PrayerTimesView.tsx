@@ -5,7 +5,13 @@ import { MONTHLY_CALENDAR_PREVIEW } from '../../../data/prayerTimesData';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import {
+  GeometricPattern,
+  IslamicMihrabArch,
+  CalligraphyBasmalahBadge,
+  ArabesqueCornerOrnaments,
+  VolumetricGodRays,
+} from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
   playGentleChime,
@@ -56,12 +62,14 @@ import {
   Square,
   Music,
   Loader2,
+  Tv,
 } from 'lucide-react';
 
 interface PrayerTimesViewProps {
   schedule: PrayerSchedule;
   onOpenAdmin: () => void;
   onOpenReminderDashboard: () => void;
+  onOpenTvMode?: () => void;
 }
 
 export type AzonAlertMode = PrayerAzanMode;
@@ -77,6 +85,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
   schedule,
   onOpenAdmin,
   onOpenReminderDashboard,
+  onOpenTvMode,
 }) => {
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
@@ -253,23 +262,25 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 1. 2026 LUXURY ARCHITECTURAL HERO BANNER */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/40 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
+      {/* 1. LUXURY SACRED CINEMA HERO BANNER */}
+      <div className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary text-[#FFF8E8] p-6 sm:p-10 shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
         <img
           src="/images/asaka_dawn_spiritual_1793634658872.jpg"
           alt="Asaka Dawn Spiritual"
           className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity scale-105 transition-transform duration-1000"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#010906]/95 via-[#041D13]/88 to-[#063D32]/75" />
+        <VolumetricGodRays />
         <GeometricPattern opacity={0.07} />
         <IslamicMihrabArch opacity={0.15} className="right-6 max-w-[280px] ml-auto hidden md:block" />
+        <ArabesqueCornerOrnaments size={28} />
 
-        <div className="relative z-10 max-w-3xl space-y-3.5">
+        <div className="relative z-10 max-w-4xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <CalligraphyBasmalahBadge />
-              <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider bg-[#031814]/60 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-[#C6A45C]/35 shadow-lg">
-                <MapPin className="w-3.5 h-3.5 text-[#C6A45C]" />
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#DFBD69] uppercase tracking-wider bg-[#010906]/75 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-[#DFBD69]/45 shadow-lg">
+                <MapPin className="w-3.5 h-3.5 text-[#DFBD69]" />
                 <span>{t('prayer:regionCity')}</span>
                 <span aria-hidden="true">·</span>
                 <span>{t('prayer:regionProvince')}</span>
@@ -278,33 +289,44 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {onOpenTvMode && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onOpenTvMode}
+                  className="gap-2 text-xs shadow-lg"
+                >
+                  <Tv className="w-4 h-4" />
+                  <span>Masjid Jamoat Ekrani (TV)</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onOpenReminderDashboard}
-                className="gap-2 bg-[#031814]/60 backdrop-blur-md border-[#C6A45C]/60 text-[#C6A45C] hover:bg-[#C6A45C]/20 text-xs shadow-md"
+                className="gap-2 bg-[#010906]/70 backdrop-blur-md border-[#DFBD69]/60 text-[#DFBD69] hover:bg-[#DFBD69]/20 text-xs shadow-md"
               >
-                <Sliders className="w-4 h-4 text-[#C6A45C]" />
+                <Sliders className="w-4 h-4 text-[#DFBD69]" />
                 <span>Eslatma Dashboardi</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowAzanModal(true)}
-                className="gap-2 bg-[#031814]/60 backdrop-blur-md border-[#C6A45C]/60 text-[#C6A45C] hover:bg-[#C6A45C]/20 text-xs shadow-md"
+                className="gap-2 bg-[#010906]/70 backdrop-blur-md border-[#DFBD69]/60 text-[#DFBD69] hover:bg-[#DFBD69]/20 text-xs shadow-md"
               >
-                <Bell className="w-4 h-4 text-[#C6A45C]" />
+                <Bell className="w-4 h-4 text-[#DFBD69]" />
                 <span>Azon Bildirishnomalari</span>
               </Button>
             </div>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC] leading-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8] leading-tight">
             {t('prayer:title')}
           </h1>
 
-          <p className="text-xs sm:text-sm text-[#DCC58C]/90 max-w-2xl leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#FFF8E8]/85 max-w-2xl leading-relaxed">
             {t('prayer:subtitle')}
           </p>
         </div>
@@ -569,21 +591,24 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
               return (
                 <Card
                   key={item.key}
-                  elevated={isNext}
+                  variant={isNext ? 'emerald' : 'elevated'}
+                  ornamental={isNext}
                   className={`p-5 space-y-4 transition-all duration-300 relative overflow-hidden ${
                     isNext
-                      ? 'border-2 border-[#c5a869] ring-4 ring-[#c5a869]/30 bg-gradient-to-br from-[#052620] to-[#071614] shadow-2xl scale-[1.02]'
-                      : 'hover:border-[#c5a869]/60 hover:shadow-xl bg-stone-900/40 backdrop-blur-md'
+                      ? 'border-2 border-[#DFBD69] ring-4 ring-[#DFBD69]/25 shadow-[0_24px_65px_rgba(223,189,105,0.22)] scale-[1.01]'
+                      : 'hover:border-[#DFBD69]/60 hover:shadow-xl'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-[#c5a869]/15 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#DFBD69]/15 border border-[#DFBD69]/30 flex items-center justify-center shrink-0">
                         {getPrayerIcon(item.key)}
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-stone-100">{localizedName}</div>
-                        <div className="text-xs font-arabic text-[#c5a869]">{item.nameAr}</div>
+                        <div className={`text-sm font-bold ${isNext ? 'text-[#FFF8E8]' : 'text-[#03170F] dark:text-[#FFF8E8]'}`}>
+                          {localizedName}
+                        </div>
+                        <div className="text-xs font-arabic text-[#DFBD69]">{item.nameAr}</div>
                       </div>
                     </div>
                     
@@ -595,8 +620,8 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                           title={isThisTrackPlaying ? 'Azonni toʻxtatish' : 'Ushbu namoz azonini tinglash'}
                           className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold ${
                             isThisTrackPlaying
-                              ? 'bg-[#c5a869] text-[#031d17] border-[#c5a869] shadow'
-                              : 'bg-white/5 text-[#c5a869] border-[#c5a869]/30 hover:bg-[#c5a869]/20'
+                              ? 'az-gold-foil-bg text-[#010906] border-[#DFBD69] shadow'
+                              : 'bg-[#DFBD69]/10 text-[#8A6621] dark:text-[#DFBD69] border-[#DFBD69]/35 hover:bg-[#DFBD69]/20'
                           }`}
                         >
                           {isThisTrackPlaying ? (
@@ -612,7 +637,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                           type="button"
                           onClick={() => setShowAzanModal(true)}
                           title="Toʻliq ovozli azon yoqilgan (Sozlash uchun bosing)"
-                          className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30 cursor-pointer"
                         >
                           <Volume2 className="w-3.5 h-3.5" />
                         </button>
@@ -622,7 +647,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                           type="button"
                           onClick={() => setShowAzanModal(true)}
                           title="Mayin ohang (Chime) yoqilgan"
-                          className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-sky-500/20 text-sky-600 dark:text-sky-400 hover:bg-sky-500/30 cursor-pointer"
                         >
                           <Music className="w-3.5 h-3.5" />
                         </button>
@@ -632,7 +657,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                           type="button"
                           onClick={() => setShowAzanModal(true)}
                           title="Ovozsiz bildirishnoma"
-                          className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30 cursor-pointer"
                         >
                           <Bell className="w-3.5 h-3.5" />
                         </button>
@@ -642,14 +667,14 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                           type="button"
                           onClick={() => setShowAzanModal(true)}
                           title="Bildirishnoma oʻchirilgan"
-                          className="p-1.5 rounded-lg bg-stone-700/40 text-stone-400 hover:bg-stone-700/60 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-stone-500/20 text-stone-500 dark:text-stone-400 hover:bg-stone-500/30 cursor-pointer"
                         >
                           <BellOff className="w-3.5 h-3.5" />
                         </button>
                       )}
 
                       {isNext && (
-                        <span className="text-[11px] font-semibold text-[#064e3b] dark:text-[#c5a869] tracking-wide">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full az-gold-foil-bg text-[#010906] uppercase tracking-wider">
                           Keyingi
                         </span>
                       )}
@@ -657,16 +682,16 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                   </div>
 
                   {/* Explicit Sections for Azon and Iqomat */}
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-stone-200/80 dark:border-white/10 text-xs">
-                    <div className="bg-[#F6F2E9] dark:bg-black/25 p-2.5 rounded-xl border border-stone-200/70 dark:border-white/5">
-                      <div className="text-[11px] text-[#6C7C73] dark:text-stone-400 font-medium">Azon vaqti</div>
-                      <div className="text-lg sm:text-xl font-bold font-mono-numbers text-[#14221B] dark:text-white tracking-tight mt-0.5">
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[#DFBD69]/20 text-xs">
+                    <div className={`p-2.5 rounded-xl border ${isNext ? 'bg-[#010906]/55 border-[#DFBD69]/30' : 'bg-[#F8F5EC] dark:bg-[#010906]/55 border-[#DFBD69]/25'}`}>
+                      <div className={`text-[11px] font-medium ${isNext ? 'text-[#FFF8E8]/75' : 'text-[#5C746C] dark:text-[#FFF8E8]/65'}`}>Azon vaqti</div>
+                      <div className={`text-lg sm:text-xl font-bold font-mono-numbers tracking-tight mt-0.5 ${isNext ? 'text-[#FFF8E8]' : 'text-[#03170F] dark:text-[#FFF8E8]'}`}>
                         {item.time}
                       </div>
                     </div>
-                    <div className="bg-[#c5a869]/12 dark:bg-[#c5a869]/10 p-2.5 rounded-xl border border-[#9e7f3c]/25 dark:border-[#c5a869]/20 text-right">
-                      <div className="text-[10px] text-[#c5a869] uppercase font-semibold">Iqomat vaqti</div>
-                      <div className="text-lg sm:text-xl font-bold font-mono-numbers text-[#c5a869] mt-0.5">
+                    <div className="bg-[#DFBD69]/12 dark:bg-[#DFBD69]/10 p-2.5 rounded-xl border border-[#DFBD69]/35 text-right">
+                      <div className="text-[10px] text-[#8A6621] dark:text-[#DFBD69] uppercase font-bold">Jamoat (Iqomat)</div>
+                      <div className="text-lg sm:text-xl font-bold font-mono-numbers text-[#8A6621] dark:text-[#FFF6C8] mt-0.5">
                         {item.iqamahTime || '—'}
                       </div>
                     </div>

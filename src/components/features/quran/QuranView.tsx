@@ -49,7 +49,13 @@ import { stopActiveAdhanAudio } from '../../../utils/notificationService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import {
+  GeometricPattern,
+  IslamicMihrabArch,
+  CalligraphyBasmalahBadge,
+  ArabesqueCornerOrnaments,
+  VolumetricGodRays,
+} from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { getOfflineAudioBlobUrl, startOfflineDownload } from '../../../utils/offlineStorageService';
 import { updateNativeMediaSession, updateNativeMediaPositionState } from '../../../utils/nativeMobileBridge';
@@ -944,44 +950,46 @@ export const QuranView: React.FC<QuranViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 1. 2026 LUXURY ARCHITECTURAL HEADER BANNER */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] p-6 sm:p-10 text-white shadow-2xl">
+      {/* 1. LUXURY SACRED CINEMA HEADER BANNER */}
+      <div className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary p-6 sm:p-10 text-[#FFF8E8] shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
         <img
           src="/images/quran_illumination_art_1793634658336.jpg"
           alt="Quran Illumination Art"
           className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#010906]/95 via-[#041D13]/88 to-[#063D32]/75" />
+        <VolumetricGodRays />
         <GeometricPattern opacity={0.07} />
         <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[280px] ml-auto hidden md:block" />
+        <ArabesqueCornerOrnaments size={28} />
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
-              <BookOpen className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-xs font-bold text-[#DFBD69] uppercase tracking-wider bg-[#010906]/70 px-3.5 py-1.5 rounded-xl border border-[#DFBD69]/40">
+              <BookOpen className="w-4 h-4 text-[#DFBD69]" />
               <span>Kalomulloh Ekotizimi</span>
               <span aria-hidden="true">·</span>
               <span>114 Ta Sura · {availableReciters.length} Ta Faol Qori · Tafsiri Hilol</span>
             </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8]">
             Qurʼoni Karim va Tafsir Maskani
           </h1>
-          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-[#FFF8E8]/85 leading-relaxed max-w-2xl">
             114 ta suraning toʻliq arabcha matni, {availableReciters.length} ta mashhur va maxsus qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
           </p>
         </div>
       </div>
 
       {/* 2. Mode Selector: 4 Tabs (Mushaf, Tafsiri Hilol, Xatm & Tracker, Xatcho'plar & Qaydlar) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2D9C5] dark:border-[#124237] pb-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-[#F1EBDD] dark:bg-[#06241E] border border-[#E2D9C5] dark:border-[#124237]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DFBD69]/25 pb-3">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-[#F1EBDD] dark:bg-[#03170F] border border-[#DFBD69]/35">
           <button
             onClick={() => setActiveQuranTab('mushaf')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeQuranTab === 'mushaf'
-                ? 'bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#042B25] shadow-md'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                ? 'az-gold-foil-bg text-[#010906] shadow-md'
+                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
             }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -992,8 +1000,8 @@ export const QuranView: React.FC<QuranViewProps> = ({
             onClick={() => setActiveQuranTab('tafsir_hilol')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeQuranTab === 'tafsir_hilol'
-                ? 'bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#042B25] shadow-md'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                ? 'az-gold-foil-bg text-[#010906] shadow-md'
+                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
             }`}
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
@@ -1004,8 +1012,8 @@ export const QuranView: React.FC<QuranViewProps> = ({
             onClick={() => setActiveQuranTab('tracker')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeQuranTab === 'tracker'
-                ? 'bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#042B25] shadow-md'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                ? 'az-gold-foil-bg text-[#010906] shadow-md'
+                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
             }`}
           >
             <Award className="w-4 h-4 text-emerald-500" />
@@ -1016,8 +1024,8 @@ export const QuranView: React.FC<QuranViewProps> = ({
             onClick={() => setActiveQuranTab('bookmarks_notes')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeQuranTab === 'bookmarks_notes'
-                ? 'bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#042B25] shadow-md'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                ? 'az-gold-foil-bg text-[#010906] shadow-md'
+                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
             }`}
           >
             <Bookmark className="w-4 h-4 text-blue-400" />

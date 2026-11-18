@@ -20,6 +20,9 @@ import {
   IslamicMihrabArch,
   CalligraphyBasmalahBadge,
   IslamicStarEmblem,
+  ArabesqueCornerOrnaments,
+  RubElHizbBadge,
+  VolumetricGodRays,
 } from '../../ui/GeometricPattern';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -75,6 +78,8 @@ import {
   GraduationCap,
   Award,
   MessageCircleQuestion,
+  Tv,
+  Film,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -94,6 +99,7 @@ interface HomeViewProps {
   }) => void;
   isFavorited: (id: string) => boolean;
   onOpenInstallModal?: () => void;
+  onOpenTvMode?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -103,6 +109,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onToggleFavorite,
   isFavorited,
   onOpenInstallModal,
+  onOpenTvMode,
 }) => {
   const { t, i18n } = useTranslation(['home', 'common', 'prayer', 'quran', 'hadith']);
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
@@ -363,70 +370,72 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </motion.div>
       )}
 
-      {/* 2. 2026 ARCHITECTURAL HERO SECTION WITH ANIMATED CIRCULAR PRAYER COUNTDOWN */}
-      <section className="relative rounded-[28px] overflow-hidden border border-[#C6A45C]/40 bg-[#042B25] text-[#F8F5EC] shadow-[0_28px_60px_-15px_rgba(4,43,37,0.45)]">
+      {/* 2. LUXURY SACRED CINEMA HERO SECTION WITH ANIMATED CIRCULAR PRAYER COUNTDOWN */}
+      <section className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary text-[#FFF8E8] shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
         <img
           src="/images/asaka_islamic_architecture_1793634657962.jpg"
           alt="Asaka Islamic Architecture"
           referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-35 scale-105 transition-transform duration-1000"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity scale-105 transition-transform duration-1000"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-br from-[#042B25]/96 via-[#063D32]/90 to-[#075747]/82" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#010906]/92 via-[#041D13]/88 to-[#063D32]/82" />
+        <VolumetricGodRays />
         <GeometricPattern opacity={0.07} />
         <IslamicMihrabArch className="absolute right-4 top-0 h-full w-auto opacity-30 hidden lg:block" />
+        <ArabesqueCornerOrnaments size={30} />
 
         <div className="relative z-10 px-5 sm:px-10 lg:px-12 py-8 sm:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           {/* Left 7 Columns: Calligraphic Basmalah, Greeting, Hijri/Gregorian Dates & Primary Actions */}
           <div className="lg:col-span-7 space-y-6">
             <div className="flex flex-wrap items-center gap-3">
               <CalligraphyBasmalahBadge />
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#031814]/65 border border-[#C6A45C]/30 text-xs text-[#DCC58C]">
-                <Calendar className="w-3.5 h-3.5 text-[#C6A45C]" />
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#010906]/75 border border-[#DFBD69]/40 text-xs text-[#DFBD69] shadow-inner">
+                <Calendar className="w-3.5 h-3.5 text-[#DFBD69]" />
                 <span>{dailyBundle.formattedDateUz}</span>
-                <span className="text-[#C6A45C]/50">·</span>
-                <span className="font-mono-numbers text-[#F8F5EC] font-semibold">
+                <span className="text-[#DFBD69]/50">·</span>
+                <span className="font-mono-numbers text-[#FFF8E8] font-bold">
                   {dailyBundle.hijriDateUz}
                 </span>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#DCC58C] font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-[#C6A45C]" />
+              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-[#DFBD69] font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
                 <span>Assalomu alaykum wa rahmatullohi wa barakatuh · {t('common:location', 'Asaka')}</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC] leading-[1.12] text-balance">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8] leading-[1.12] text-balance drop-shadow-[0_10px_28px_rgba(0,0,0,0.45)]">
                 {t('home:heroTitle')}
               </h1>
 
-              <p className="text-sm sm:text-base text-[#F1EBDD]/90 leading-relaxed max-w-2xl">
+              <p className="text-sm sm:text-base text-[#FFF8E8]/85 leading-relaxed max-w-2xl">
                 {t('home:heroSubtitle')}
               </p>
             </div>
 
             {/* Live Tashkent Time + Location Pill */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <div className="px-4 py-2.5 rounded-2xl bg-[#031814]/75 border border-[#C6A45C]/35 backdrop-blur-md flex items-center gap-3">
-                <Clock className="w-4 h-4 text-[#C6A45C]" />
+              <div className="px-4 py-2.5 rounded-2xl bg-[#010906]/80 border border-[#DFBD69]/45 backdrop-blur-md flex items-center gap-3 shadow-lg">
+                <Clock className="w-4 h-4 text-[#DFBD69]" />
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-[#DCC58C] block">
+                  <span className="text-[10px] uppercase tracking-wider text-[#DFBD69] font-semibold block">
                     Toshkent / Asaka vaqti
                   </span>
-                  <div className="text-lg font-mono-numbers font-bold text-[#F8F5EC] tracking-wider">
-                    {clockHours}:{clockMinutes}:<span className="text-[#C6A45C]">{clockSeconds}</span>
+                  <div className="text-lg font-mono-numbers font-bold text-[#FFF8E8] tracking-wider">
+                    {clockHours}:{clockMinutes}:<span className="az-gold-foil-text">{clockSeconds}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="px-4 py-2.5 rounded-2xl bg-[#031814]/75 border border-[#C6A45C]/35 backdrop-blur-md flex items-center gap-3">
-                <Compass className="w-4 h-4 text-[#C6A45C]" />
+              <div className="px-4 py-2.5 rounded-2xl bg-[#010906]/80 border border-[#DFBD69]/45 backdrop-blur-md flex items-center gap-3 shadow-lg">
+                <Compass className="w-4 h-4 text-[#DFBD69]" />
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-[#DCC58C] block">
+                  <span className="text-[10px] uppercase tracking-wider text-[#DFBD69] font-semibold block">
                     Qibla yoʻnalishi
                   </span>
-                  <div className="text-sm font-mono-numbers font-bold text-[#F8F5EC]">
+                  <div className="text-sm font-mono-numbers font-bold text-[#FFF8E8]">
                     {prayerSchedule.qiblaAngleDeg || 241}° Gʻarb-Janubi-Gʻarb
                   </div>
                 </div>
@@ -448,59 +457,71 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 variant="outline"
                 size="md"
                 onClick={() => onNavigate('quran')}
-                className="gap-2 bg-[#031814]/50 backdrop-blur-sm border-[#C6A45C]/55 text-[#F8F5EC] hover:bg-[#C6A45C]/20"
+                className="gap-2 bg-[#010906]/65 backdrop-blur-md border-[#DFBD69]/60 text-[#FFF8E8] hover:bg-[#DFBD69]/20"
               >
-                <BookOpen className="w-4 h-4 text-[#DCC58C]" />
+                <BookOpen className="w-4 h-4 text-[#DFBD69]" />
                 <span>{t('home:heroQuranCta')}</span>
               </Button>
               <Button
                 variant="outline"
                 size="md"
-                onClick={() => onNavigate('ai_assistant')}
-                className="gap-2 bg-[#031814]/50 backdrop-blur-sm border-[#F8F5EC]/20 text-[#F1EBDD] hover:border-[#C6A45C]"
+                onClick={() => onNavigate('quran_quiz')}
+                className="gap-2 bg-[#010906]/65 backdrop-blur-md border-[#DFBD69]/60 text-[#DFBD69] hover:bg-[#DFBD69]/20"
               >
-                <Bot className="w-4 h-4 text-[#C6A45C]" />
-                <span>AI Islomiy Yordamchi</span>
+                <Film className="w-4 h-4 text-[#DFBD69]" />
+                <span>Qurʼon Viktorinasi (9:16)</span>
               </Button>
+              {onOpenTvMode && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={onOpenTvMode}
+                  className="gap-2 bg-[#063D32]/85 backdrop-blur-md border-[#DFBD69]/75 text-[#FFF8E8] hover:bg-[#DFBD69] hover:text-[#010906]"
+                >
+                  <Tv className="w-4 h-4 text-[#DFBD69]" />
+                  <span>Masjid Jamoat Ekrani (TV)</span>
+                </Button>
+              )}
             </div>
           </div>
 
           {/* Right 5 Columns: Animated Circular Next-Prayer Countdown Mihrab Card */}
           <div className="lg:col-span-5">
-            <div className="relative rounded-3xl bg-[#031814]/80 border border-[#C6A45C]/45 p-6 sm:p-7 backdrop-blur-xl shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between gap-2 pb-4 border-b border-[#C6A45C]/20">
+            <div className="relative rounded-3xl bg-[#010906]/85 border border-[#DFBD69]/55 p-6 sm:p-7 backdrop-blur-2xl shadow-[0_24px_70px_rgba(0,0,0,0.65)] overflow-hidden">
+              <ArabesqueCornerOrnaments size={22} />
+              <div className="relative z-10 flex items-center justify-between gap-2 pb-4 border-b border-[#DFBD69]/25">
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#DCC58C] block">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#DFBD69] block">
                     Navbatdagi Namoz Vaqti
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-display font-bold text-[#F8F5EC] mt-0.5">
+                  <h2 className="text-xl sm:text-2xl font-display font-bold text-[#FFF8E8] mt-0.5">
                     {nextPrayerInfo.nextPrayer
                       ? t(`prayer:${nextPrayerInfo.nextPrayer.key}`, nextPrayerInfo.nextPrayer.nameUz)
                       : 'Bomdod'}{' '}
-                    <span className="font-arabic text-lg text-[#C6A45C] ml-1">
+                    <span className="font-arabic text-lg az-gold-foil-text ml-1">
                       {nextPrayerInfo.nextPrayer?.nameAr || 'الفجر'}
                     </span>
                   </h2>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] uppercase tracking-wider text-[#8FA69E] block">
-                    Kirish vaqti
+                  <span className="text-[10px] uppercase tracking-wider text-[#FFF8E8]/60 block">
+                    Azon vaqti
                   </span>
-                  <span className="text-2xl font-mono-numbers font-bold text-[#DCC58C]">
+                  <span className="text-2xl font-mono-numbers font-bold az-gold-foil-text">
                     {nextPrayerInfo.nextPrayer?.time || '05:14'}
                   </span>
                 </div>
               </div>
 
               {/* Circular Animated Progress Ring */}
-              <div className="py-5 flex flex-col sm:flex-row items-center justify-around gap-5">
+              <div className="relative z-10 py-5 flex flex-col sm:flex-row items-center justify-around gap-5">
                 <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 150 150">
                     <circle
                       cx="75"
                       cy="75"
                       r={ringRadius}
-                      stroke="rgba(198, 164, 92, 0.16)"
+                      stroke="rgba(223, 189, 105, 0.16)"
                       strokeWidth="8"
                       fill="transparent"
                     />
@@ -509,7 +530,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       cy="75"
                       r={ringRadius}
                       stroke="url(#hero-countdown-gold)"
-                      strokeWidth="8"
+                      strokeWidth="8.5"
                       strokeDasharray={ringCircumference}
                       strokeDashoffset={ringStrokeDashoffset}
                       strokeLinecap="round"
@@ -518,20 +539,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     />
                     <defs>
                       <linearGradient id="hero-countdown-gold" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="#DCC58C" />
-                        <stop offset="100%" stopColor="#C6A45C" />
+                        <stop offset="0%" stopColor="#8A6621" />
+                        <stop offset="30%" stopColor="#DFBD69" />
+                        <stop offset="55%" stopColor="#FFF6C8" />
+                        <stop offset="80%" stopColor="#D4AF37" />
+                        <stop offset="100%" stopColor="#7A5818" />
                       </linearGradient>
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
-                    <span className="text-[10px] uppercase tracking-widest text-[#DCC58C]">
+                    <span className="text-[10px] uppercase tracking-widest text-[#DFBD69] font-semibold">
                       Qolgan vaqt
                     </span>
-                    <span className="text-xl sm:text-2xl font-mono-numbers font-bold text-[#F8F5EC] tracking-tight mt-0.5">
+                    <span className="text-xl sm:text-2xl font-mono-numbers font-bold text-[#FFF8E8] tracking-tight mt-0.5">
                       {nextPrayerInfo.countdownText}
                     </span>
                     {nextPrayerInfo.currentPrayer && (
-                      <span className="text-[10px] text-emerald-300 font-medium mt-1">
+                      <span className="text-[10px] text-emerald-300 font-semibold mt-1">
                         Hozir: {t(`prayer:${nextPrayerInfo.currentPrayer.key}`, nextPrayerInfo.currentPrayer.nameUz)}
                       </span>
                     )}
@@ -540,18 +564,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
                 {/* Quick Adhan Preview & Schedule Details */}
                 <div className="space-y-3 w-full sm:w-auto">
-                  <div className="p-3 rounded-2xl bg-[#063D32]/60 border border-[#C6A45C]/25">
-                    <div className="text-[11px] text-[#DCC58C] font-semibold">
+                  <div className="p-3 rounded-2xl bg-[#041D13]/90 border border-[#DFBD69]/35">
+                    <div className="text-[11px] text-[#DFBD69] font-semibold">
                       Jamoat (Iqomat) vaqti:
                     </div>
-                    <div className="text-lg font-mono-numbers font-bold text-[#F8F5EC]">
+                    <div className="text-lg font-mono-numbers font-bold text-[#FFF8E8]">
                       {nextPrayerInfo.nextPrayer?.iqamahTime || nextPrayerInfo.nextPrayer?.time || '05:40'}
                     </div>
                   </div>
 
                   <button
                     onClick={() => toggleAdhanAudio(ADHAN_TRACKS[0]?.id || 'mishary-alafasy-standard')}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-[#C6A45C]/25 to-[#C6A45C]/10 hover:from-[#C6A45C] hover:to-[#B38F45] text-[#DCC58C] hover:text-[#042B25] border border-[#C6A45C]/45 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-[#DFBD69]/25 to-[#D4AF37]/15 hover:from-[#DFBD69] hover:to-[#D4AF37] text-[#FFF6C8] hover:text-[#010906] border border-[#DFBD69]/55 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
                   >
                     {isAdhanPreviewPlaying ? (
                       <>
@@ -967,12 +991,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* Kun Oyati (7 Cols) */}
           <Card
             elevated
-            className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden space-y-6 border-[#C6A45C]/35"
+            ornamental
+            className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden space-y-6 border-[#DFBD69]/45"
           >
-            <GeometricPattern opacity={0.035} />
+            <GeometricPattern opacity={0.04} />
             <div className="relative z-10 space-y-5">
               <div className="flex items-center justify-between gap-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#C6A45C]/15 text-xs font-bold text-[#063D32] dark:text-[#DCC58C]">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 border border-[#DFBD69]/35 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8]">
                   <IslamicStarEmblem size={12} />
                   <span>Kun Oyati · {dailyBundle.ayah.surahNameUz} surasi, {dailyBundle.ayah.numberInSurah}-oyat</span>
                 </div>
@@ -981,8 +1006,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     onClick={() => handlePlayAudio(dailyBundle.ayah.audioUrl)}
                     className={`min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border transition-colors cursor-pointer ${
                       playingAudio
-                        ? 'bg-[#C6A45C] text-[#042B25] border-[#C6A45C]'
-                        : 'text-[#063D32] dark:text-[#DCC58C] border-[#063D32]/20 dark:border-[#C6A45C]/30 hover:border-[#C6A45C]'
+                        ? 'az-gold-foil-bg text-[#010906] border-[#DFBD69]'
+                        : 'text-[#063D32] dark:text-[#DFBD69] border-[#063D32]/20 dark:border-[#DFBD69]/35 hover:border-[#DFBD69]'
                     }`}
                     title="Qiroatni tinglash"
                   >
@@ -1000,37 +1025,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         routeId: dailyBundle.ayah.id,
                       })
                     }
-                    className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border text-[#063D32] dark:text-[#DCC58C] border-[#063D32]/20 dark:border-[#C6A45C]/30 hover:border-[#C6A45C] transition-colors cursor-pointer"
+                    className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border text-[#063D32] dark:text-[#DFBD69] border-[#063D32]/20 dark:border-[#DFBD69]/35 hover:border-[#DFBD69] transition-colors cursor-pointer"
                     title="Saqlash"
                   >
                     <Bookmark
                       className={`w-4 h-4 ${
-                        isFavorited(dailyBundle.ayah.id) ? 'fill-[#C6A45C] text-[#C6A45C]' : ''
+                        isFavorited(dailyBundle.ayah.id) ? 'fill-[#DFBD69] text-[#DFBD69]' : ''
                       }`}
                     />
                   </button>
                 </div>
               </div>
 
-              <div className="p-5 sm:p-6 rounded-2xl bg-[#F1EBDD]/75 dark:bg-[#041D18] border border-[#C6A45C]/25">
+              <div className="p-5 sm:p-6 rounded-2xl bg-[#F1EBDD]/80 dark:bg-[#010906]/75 border border-[#DFBD69]/35 shadow-inner">
                 <p
                   dir="rtl"
-                  className="font-arabic text-2xl sm:text-3xl text-[#042B25] dark:text-[#F8F5EC] leading-[2.3] text-right"
+                  className="font-arabic text-2xl sm:text-3xl text-[#03170F] dark:text-[#FFF8E8] leading-[2.3] text-right"
                 >
                   {dailyBundle.ayah.textAr}
                 </p>
               </div>
 
-              <p className="text-base sm:text-lg text-[#042B25] dark:text-[#F1EBDD] leading-relaxed font-editorial italic">
+              <p className="text-base sm:text-lg text-[#03170F] dark:text-[#FFF8E8]/90 leading-relaxed font-editorial italic">
                 «{ayahTranslation}»
               </p>
             </div>
 
-            <div className="relative z-10 pt-4 border-t border-[#063D32]/12 dark:border-[#C6A45C]/20 text-xs text-[#5C746C] dark:text-[#8FA69E] flex items-center justify-between gap-2">
+            <div className="relative z-10 pt-4 border-t border-[#063D32]/12 dark:border-[#DFBD69]/20 text-xs text-[#5C746C] dark:text-[#FFF8E8]/65 flex items-center justify-between gap-2">
               <span className="truncate">Tafsiri Hilol · Shayx Muhammad Sodiq Muhammad Yusuf</span>
               <button
                 onClick={() => onNavigate('quran')}
-                className="text-[#063D32] dark:text-[#C6A45C] font-bold hover:underline shrink-0 cursor-pointer"
+                className="text-[#063D32] dark:text-[#DFBD69] font-bold hover:underline shrink-0 cursor-pointer"
               >
                 Qurʼoni Karimga oʻtish →
               </button>
@@ -1040,7 +1065,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* Right 5 Cols: Stacked Kun Hadisi & Kun Zikri */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             {/* Kun Hadisi */}
-            <Card elevated className="p-6 flex-1 flex flex-col justify-between space-y-4">
+            <Card elevated ornamental className="p-6 flex-1 flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="font-bold text-[#063D32] dark:text-[#C6A45C]">

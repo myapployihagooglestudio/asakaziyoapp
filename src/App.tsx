@@ -398,7 +398,17 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen flex flex-col bg-[#F8F5EC] text-[#042B25] dark:bg-[#031814] dark:text-[#F8F5EC] transition-colors duration-200 overflow-x-hidden max-w-full">
+      <div className="relative min-h-screen flex flex-col bg-[#F8F5EC] text-[#03170F] dark:bg-[#010906] dark:text-[#FFF8E8] transition-colors duration-200 overflow-x-hidden max-w-full">
+        {/* Subtle GPU-friendly Ambient Sacred Emerald & Gold Top Aura */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-x-0 top-0 h-[440px] opacity-40 dark:opacity-100 -z-10"
+          style={{
+            background:
+              'radial-gradient(ellipse 75% 55% at 50% -10%, rgba(9, 46, 31, 0.72) 0%, rgba(223, 189, 105, 0.08) 45%, transparent 80%)',
+          }}
+        />
+
         {/* Top Header conforming to Top Bar Contract */}
         <Header
           activeTab={activeTab}
@@ -415,7 +425,7 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 lg:pb-12">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 lg:pb-12">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -434,6 +444,7 @@ export default function App() {
             onToggleFavorite={handleToggleFavorite}
             isFavorited={isFavorited}
             onOpenInstallModal={() => setIsInstallModalOpen(true)}
+            onOpenTvMode={() => setIsTvModalOpen(true)}
           />
         )}
 
@@ -466,6 +477,7 @@ export default function App() {
             schedule={prayerSchedule}
             onOpenAdmin={() => handleNavigate('admin')}
             onOpenReminderDashboard={() => handleNavigate('reminder_dashboard')}
+            onOpenTvMode={() => setIsTvModalOpen(true)}
           />
         )}
 
@@ -589,38 +601,57 @@ export default function App() {
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         title="Barcha Boʻlimlar"
-        subtitle="Asaka Ziyo ekotizim navigatsiyasi"
-        maxWidth="sm"
+        subtitle="ASAKA ZIYO — Islomiy Super Ekotizim navigatsiyasi"
+        maxWidth="md"
       >
         <div className="space-y-3">
-          <button
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              setIsInstallModalOpen(true);
-            }}
-            className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-[#c5a869] to-[#d8bd7e] text-[#071614] font-bold text-xs shadow-md cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded bg-[#071614]/10">📥</span>
-              <span>APK v1.0 Yuklab Olish / Oʻrnatish</span>
-            </div>
-            <span className="text-[10px] bg-[#071614] text-[#c5a869] px-2 py-0.5 rounded">
-              v1.0.0
-            </span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsInstallModalOpen(true);
+              }}
+              className="w-full flex items-center justify-between p-3.5 rounded-xl az-gold-foil-bg text-[#010906] font-extrabold text-xs shadow-md cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded bg-[#010906]/10">📥</span>
+                <span>APK v2.0.0 Yuklab Olish</span>
+              </div>
+              <span className="text-[10px] bg-[#010906] text-[#FFF6C8] px-2 py-0.5 rounded font-mono-numbers">
+                v2.0
+              </span>
+            </button>
 
-          <div className="grid grid-cols-2 gap-2.5 text-xs font-semibold">
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsTvModalOpen(true);
+              }}
+              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#092E1F] border border-[#DFBD69]/55 text-[#FFF8E8] font-bold text-xs shadow-md cursor-pointer hover:border-[#FFF6C8]"
+            >
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded bg-[#DFBD69]/15">🕌</span>
+                <span>Masjid Jamoat Ekrani (TV)</span>
+              </div>
+              <span className="text-[10px] bg-[#DFBD69] text-[#010906] px-2 py-0.5 rounded font-extrabold">
+                Haramayn
+              </span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
             {[
               { id: 'home', label: 'Bosh sahifa' },
               { id: 'prayer', label: 'Namoz vaqtlari' },
               { id: 'quran', label: 'Qurʼoni Karim' },
-              { id: 'messages', label: 'Xabarlar kanali' },
-              { id: 'quiz', label: 'Kunlik Viktorina' },
               { id: 'quran_quiz', label: 'Qurʼon Viktorinasi (Shorts)' },
-              { id: 'articles', label: 'Maqolalar' },
-              { id: 'notifications', label: 'Bildirishnomalar' },
               { id: 'hadith', label: 'Hadislar toʻplami' },
               { id: 'dhikr', label: 'Zikr va duolar' },
+              { id: 'articles', label: 'Maqolalar' },
+              { id: 'ai_assistant', label: 'Islomiy AI Yordamchi' },
+              { id: 'messages', label: 'Xabarlar kanali' },
+              { id: 'notifications', label: 'Bildirishnomalar' },
+              { id: 'quiz', label: 'Kunlik Viktorina' },
               { id: 'news', label: 'Yangiliklar' },
               { id: 'announcements', label: 'Eʼlonlar' },
               { id: 'calendar', label: 'Hijriy Taqvim' },
@@ -634,6 +665,7 @@ export default function App() {
               { id: 'ask_imam', label: 'Imomga Savol' },
               { id: 'achievements', label: 'Shaxsiy Yutuqlar' },
               { id: 'favorites', label: 'Sevimlilar' },
+              { id: 'profile', label: 'Shaxsiy Profil' },
               { id: 'settings', label: 'Sozlamalar' },
               { id: 'admin', label: 'Maʼmuriyat konsoli' },
             ].map((item) => (
@@ -642,8 +674,8 @@ export default function App() {
                 onClick={() => handleNavigate(item.id as NavigationTab)}
                 className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                   activeTab === item.id
-                    ? 'border-[#c5a869] bg-[#c5a869]/15 text-[#c5a869]'
-                    : 'border-stone-200 dark:border-emerald-950 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5'
+                    ? 'az-gold-foil-bg text-[#010906] border-[#FFF6C8] font-extrabold shadow-sm'
+                    : 'border-[#063D32]/15 dark:border-[#DFBD69]/22 bg-[#F8F5EC] dark:bg-[#041D13]/85 text-[#03170F] dark:text-[#FFF8E8] hover:border-[#DFBD69]/55'
                 }`}
               >
                 {item.label}
@@ -654,13 +686,13 @@ export default function App() {
                 setIsMobileMenuOpen(false);
                 setIsChatModalOpen(true);
               }}
-              className="col-span-2 w-full flex items-center justify-between p-3.5 rounded-xl bg-emerald-950/40 border border-[#c5a869]/40 text-[#c5a869] font-bold text-xs shadow-md cursor-pointer hover:bg-emerald-950/60 transition-colors"
+              className="col-span-2 w-full flex items-center justify-between p-3.5 rounded-xl bg-[#041D13] border border-[#DFBD69]/45 text-[#DFBD69] font-bold text-xs shadow-md cursor-pointer hover:border-[#FFF6C8] transition-colors"
             >
               <div className="flex items-center gap-2">
-                <span className="p-1 rounded bg-[#c5a869]/10">💬</span>
+                <span className="p-1 rounded bg-[#DFBD69]/15">💬</span>
                 <span>Maʼmuriyat bilan Muloqot & Chat</span>
               </div>
-              <span className="text-[10px] bg-[#c5a869] text-[#071614] px-2 py-0.5 rounded">
+              <span className="text-[10px] az-gold-foil-bg text-[#010906] font-extrabold px-2.5 py-0.5 rounded">
                 Yozish
               </span>
             </button>

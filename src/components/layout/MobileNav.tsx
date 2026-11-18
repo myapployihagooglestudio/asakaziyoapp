@@ -30,7 +30,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F8F5EC]/95 dark:bg-[#031814]/95 backdrop-blur-xl border-t border-[#063D32]/15 dark:border-[#C6A45C]/25 px-1.5 pt-1.5 pb-safe transition-colors shadow-[0_-8px_28px_rgba(4,43,37,0.08)]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FFF8E8]/95 dark:bg-[#010906]/94 backdrop-blur-2xl border-t border-[#063D32]/15 dark:border-[#DFBD69]/32 px-1.5 pt-1.5 pb-safe transition-colors shadow-[0_-10px_32px_rgba(3,23,15,0.1)] dark:shadow-[0_-12px_38px_rgba(0,0,0,0.78)]"
       aria-label="Mobil tezkor navigatsiya"
     >
       <div className="grid grid-cols-6 items-center max-w-lg mx-auto h-14">
@@ -42,14 +42,14 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               onClick={() => onSelectTab(item.id)}
               className={`relative flex flex-col items-center justify-center min-h-[46px] px-1 rounded-xl transition-colors cursor-pointer ${
                 isActive
-                  ? 'text-[#063D32] dark:text-[#DCC58C] font-bold'
-                  : 'text-[#5C746C] dark:text-[#8FA69E] hover:text-[#042B25] dark:hover:text-[#F8F5EC]'
+                  ? 'text-[#063D32] dark:text-[#FFF6C8] font-extrabold'
+                  : 'text-[#526B62] dark:text-[#9CB5AC] hover:text-[#03170F] dark:hover:text-[#FFF8E8]'
               }`}
             >
               {isActive && (
                 <motion.span
                   layoutId="mobile-nav-active-pill"
-                  className="absolute inset-x-2 inset-y-0.5 rounded-xl bg-[#063D32]/10 dark:bg-[#C6A45C]/15 border border-[#063D32]/20 dark:border-[#C6A45C]/30 -z-10"
+                  className="absolute inset-x-1.5 inset-y-0.5 rounded-xl bg-[#063D32]/12 dark:bg-[#DFBD69]/18 border border-[#063D32]/25 dark:border-[#DFBD69]/45 shadow-[0_0_14px_rgba(223,189,105,0.2)] -z-10"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -70,18 +70,18 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
         <button
           onClick={onOpenMoreMenu}
-          className="relative flex flex-col items-center justify-center min-h-[46px] px-1 rounded-xl text-[#5C746C] dark:text-[#8FA69E] hover:text-[#042B25] dark:hover:text-[#F8F5EC] transition-colors cursor-pointer"
+          className="relative flex flex-col items-center justify-center min-h-[46px] px-1 rounded-xl text-[#526B62] dark:text-[#9CB5AC] hover:text-[#03170F] dark:hover:text-[#FFF8E8] transition-colors cursor-pointer"
           aria-label={t('allSections', 'Boʻlimlar')}
         >
           <div className="mb-0.5 relative">
-            <LayoutGrid className="w-5 h-5 text-[#C6A45C]" />
+            <LayoutGrid className="w-5 h-5 text-[#DFBD69]" />
             {unreadMessagesCount > 0 && (
-              <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#063D32] dark:bg-[#C6A45C] text-white dark:text-[#042B25] text-[9px] font-bold flex items-center justify-center leading-none tabular-nums">
+              <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#063D32] dark:bg-[#DFBD69] text-white dark:text-[#010906] text-[9px] font-extrabold flex items-center justify-center leading-none tabular-nums">
                 {unreadMessagesCount}
               </span>
             )}
           </div>
-          <span className="text-[10px] font-semibold tracking-tight whitespace-nowrap truncate max-w-full">
+          <span className="text-[10px] font-bold tracking-tight whitespace-nowrap truncate max-w-full text-[#8A6621] dark:text-[#DFBD69]">
             {t('allSections', 'Boʻlimlar')}
           </span>
         </button>
@@ -89,3 +89,4 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     </nav>
   );
 };
+

@@ -19,7 +19,7 @@ import {
 import { ADMIN_ROLES_CONFIG, INITIAL_AUDIT_LOGS } from '../../../data/adminData';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { GeometricPattern, IslamicStarEmblem, ArabesqueCornerOrnaments } from '../../ui/GeometricPattern';
 import {
   Shield,
   ShieldCheck,
@@ -1865,18 +1865,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
-          <Card elevated className="p-6 sm:p-8 relative overflow-hidden border-[#c5a869]/50 shadow-2xl">
+          <Card elevated ornamental className="p-6 sm:p-8 relative overflow-hidden border-[#DFBD69]/55 shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
             <GeometricPattern opacity={0.06} />
 
             <div className="relative z-10 space-y-6">
               <div className="text-center space-y-2">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-950/80 border border-[#c5a869]/40 flex items-center justify-center shadow-lg">
-                  <Lock className="w-7 h-7 text-[#c5a869]" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-[#041D13] border border-[#DFBD69]/50 flex items-center justify-center shadow-lg">
+                  <Lock className="w-7 h-7 text-[#DFBD69]" />
                 </div>
-                <h2 className="text-2xl font-display font-bold text-stone-900 dark:text-stone-100">
+                <h2 className="text-2xl font-display font-bold text-[#03170F] dark:text-[#FFF8E8]">
                   Maʼmuriyat Konsoli
                 </h2>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
+                <p className="text-xs text-stone-500 dark:text-[#FFF8E8]/70">
                   Asaka Ziyo tizimini boshqarish uchun shaxsiy administrator login va parolingizni kiriting.
                 </p>
               </div>
@@ -1901,7 +1901,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       placeholder="Loginni kiriting"
                       value={loginInput}
                       onChange={(e) => setLoginInput(e.target.value)}
-                      className="w-full p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-mono focus:outline-none focus:border-[#c5a869]"
+                      className="w-full p-3 rounded-xl border border-[#DFBD69]/35 bg-[#F8F5EC] dark:bg-[#010906] text-xs font-mono focus:outline-none focus:border-[#DFBD69]"
                     />
                   </div>
 
@@ -1917,7 +1917,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         placeholder="••••••••"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full p-3 pr-10 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-xs font-mono focus:outline-none focus:border-[#c5a869]"
+                        className="w-full p-3 pr-10 rounded-xl border border-[#DFBD69]/35 bg-[#F8F5EC] dark:bg-[#010906] text-xs font-mono focus:outline-none focus:border-[#DFBD69]"
                       />
                       <button
                         type="button"
@@ -1952,7 +1952,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <button
                   type="button"
                   onClick={onExitAdmin}
-                  className="text-xs text-stone-500 hover:text-[#c5a869] transition-colors cursor-pointer"
+                  className="text-xs text-stone-500 hover:text-[#DFBD69] transition-colors cursor-pointer"
                 >
                   ← Bosh sahifaga qaytish
                 </button>
@@ -1974,23 +1974,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   return (
     <div className="space-y-6 pb-20 max-w-full overflow-x-hidden">
       {/* Top Banner & User Session Info */}
-      <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-[#031d17] via-[#062921] to-[#071614] border border-[#c5a869]/30 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-[#031d17] border border-[#c5a869]/40 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-6 h-6 text-[#c5a869]" />
+      <div className="relative p-5 sm:p-6 rounded-3xl az-hero-sanctuary border border-[#DFBD69]/55 text-[#FFF8E8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-[0_24px_70px_rgba(1,9,6,0.65)] overflow-hidden">
+        <ArabesqueCornerOrnaments size={22} />
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#010906]/80 border border-[#DFBD69]/55 flex items-center justify-center shrink-0 shadow-lg">
+            <ShieldCheck className="w-6 h-6 text-[#DFBD69]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-lg font-bold text-white tracking-wide">
+              <h2 className="font-display text-lg font-bold text-[#FFF8E8] tracking-wide">
                 ASAKA ZIYO — Maʼmuriyat Markazi
               </h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#c5a869] text-[#071614]">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold az-gold-foil-bg text-[#010906]">
                 {adminUser?.role || activeRole}
               </span>
             </div>
-            <p className="text-xs text-stone-300">
+            <p className="text-xs text-[#FFF8E8]/80">
               Kirilgan hisob:{' '}
-              <span className="font-semibold text-[#c5a869]">
+              <span className="font-semibold text-[#DFBD69]">
                 {adminUser?.username || AUTHORIZED_ADMIN_USERNAME}
               </span>{' '}
               · Maʼmuriyat seansi: <span className="font-mono text-emerald-400">Faol (Himoyalangan)</span>
@@ -2006,18 +2007,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        <div className="relative z-10 flex items-center gap-2 self-end sm:self-center">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowPasswordChangeModal(true)}
-            className="text-xs border-[#c5a869]/40 text-[#c5a869] hover:bg-[#c5a869]/10"
+            className="text-xs border-[#DFBD69]/50 text-[#DFBD69] hover:bg-[#DFBD69]/15"
           >
             <Lock className="w-3.5 h-3.5 mr-1" />
             <span>Parolni oʻzgartirish</span>
           </Button>
 
-          <Button variant="outline" size="sm" onClick={onExitAdmin} className="text-xs">
+          <Button variant="outline" size="sm" onClick={onExitAdmin} className="text-xs border-[#FFF8E8]/30 text-[#FFF8E8]">
             <ArrowLeft className="w-3.5 h-3.5 mr-1" />
             <span>Ilovaga Qaytish</span>
           </Button>

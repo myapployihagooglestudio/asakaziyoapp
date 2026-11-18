@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ArabesqueCornerOrnaments, IslamicStarEmblem } from './GeometricPattern';
 
 interface ModalProps {
   isOpen: boolean;
@@ -52,35 +53,40 @@ export const Modal: React.FC<ModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 bg-black/65 backdrop-blur-sm"
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-[#010906]/78 backdrop-blur-md"
             onClick={onClose}
             aria-hidden="true"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 14 }}
+            initial={{ opacity: 0, scale: 0.95, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 10 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-[#FBF9F5] dark:bg-[#0B1F1C] border border-stone-200 dark:border-[#c5a869]/30 rounded-t-3xl sm:rounded-2xl shadow-2xl z-10 overflow-hidden sm:my-auto`}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+            className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-[#FFF8E8] dark:bg-[linear-gradient(155deg,#041D13_0%,#03170F_55%,#010906_100%)] border border-[#DFBD69]/45 rounded-t-3xl sm:rounded-3xl shadow-[0_32px_80px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,246,200,0.22)] z-10 overflow-hidden sm:my-auto`}
             role="dialog"
             aria-modal="true"
           >
-            {/* Mobile drag indicator */}
-            <div className="sm:hidden w-10 h-1 bg-stone-300 dark:bg-emerald-900 rounded-full mx-auto mt-3" />
+            <ArabesqueCornerOrnaments size={22} />
 
-            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-200/80 dark:border-emerald-950/80">
+            {/* Mobile drag indicator */}
+            <div className="sm:hidden w-12 h-1.5 bg-[#DFBD69]/45 rounded-full mx-auto mt-3" />
+
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#063D32]/14 dark:border-[#DFBD69]/25 bg-[#F8F5EC]/60 dark:bg-[#092E1F]/35">
               <div className="pr-3">
-                <h3 className="text-lg font-semibold text-[#14221B] dark:text-[#F4F1EA] font-editorial">
-                  {title}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <IslamicStarEmblem size={15} className="text-[#DFBD69] shrink-0" />
+                  <h3 className="text-lg font-bold text-[#03170F] dark:text-[#FFF8E8] font-display tracking-wide">
+                    {title}
+                  </h3>
+                </div>
                 {subtitle && (
-                  <p className="text-xs text-[#6C7C73] dark:text-[#8FA199] mt-0.5">{subtitle}</p>
+                  <p className="text-xs text-[#526B62] dark:text-[#9CB5AC] mt-0.5 pl-6">{subtitle}</p>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[#6C7C73] hover:text-[#14221B] dark:text-[#8FA199] dark:hover:text-[#F4F1EA] rounded-xl hover:bg-stone-200/60 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                className="min-w-[42px] min-h-[42px] flex items-center justify-center text-[#526B62] hover:text-[#03170F] dark:text-[#DFBD69] dark:hover:text-[#FFF8E8] rounded-xl border border-transparent hover:border-[#DFBD69]/35 hover:bg-[#063D32]/8 dark:hover:bg-white/8 transition-all cursor-pointer shrink-0"
                 aria-label="Yopish"
               >
                 <X className="w-5 h-5" />
@@ -93,3 +99,4 @@ export const Modal: React.FC<ModalProps> = ({
     </AnimatePresence>
   );
 };
+

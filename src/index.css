@@ -4,33 +4,61 @@
 
 @layer base {
   :root {
-    /* ASAKA ZIYO — 2026 Luxury Islamic Super App Color System (Light Mode: Warm Ivory & Deep Emerald) */
+    /* ASAKA ZIYO — Global Luxury Sacred Cinema Brand System
+       Light Mode: Warm Ivory (#FFF8E8 / #F8F5EC) & Royal Emerald (#063D32 / #075747) */
     --bg-canvas: #F8F5EC;
-    --bg-surface: #FFFFFF;
+    --bg-surface: #FFF8E8;
     --bg-surface-subtle: #F1EBDD;
-    --bg-surface-elevated: #FCFBF7;
-    --text-primary: #042B25;
-    --text-secondary: #2C4A42;
-    --text-muted: #5C746C;
-    --border-hairline: rgba(6, 61, 50, 0.11);
-    --border-gold: rgba(198, 164, 92, 0.35);
+    --bg-surface-elevated: #FFFFFF;
+    --text-primary: #03170F;
+    --text-secondary: #1E3F35;
+    --text-muted: #526B62;
+    --border-hairline: rgba(6, 61, 50, 0.12);
+    --border-gold: rgba(212, 175, 55, 0.42);
 
     /* Primary & Secondary Brand Palette Tokens */
+    --color-emerald-obsidian: #010906;
+    --color-emerald-night: #03170F;
+    --color-emerald-velvet: #041D13;
+    --color-emerald-sacred: #092E1F;
     --color-emerald-deep: #063D32;
     --color-emerald-royal: #075747;
-    --color-forest-dark: #042B25;
-    --color-ivory-warm: #F8F5EC;
+    --color-forest-dark: #03170F;
+    --color-ivory-warm: #FFF8E8;
+    --color-ivory-soft: #F8F5EC;
     --color-cream-soft: #F1EBDD;
-    --color-gold-champagne: #C6A45C;
-    --color-gold-muted: #DCC58C;
-    --color-gold-300: #DCC58C;
-    --color-gold-400: #C6A45C;
-    --color-gold-500: #B38F45;
-    --color-gold-600: #8F6F2B;
 
-    --color-canvas-dark: #031814;
-    --color-surface-dark: #06241E;
-    --color-surface-dark-elevated: #082E26;
+    /* Realistic 5-Stop Metallic Gold Foil Tokens */
+    --color-gold-shadow: #8A6621;
+    --color-gold-champagne: #DFBD69;
+    --color-gold-highlight: #FFF6C8;
+    --color-gold-classic: #D4AF37;
+    --color-gold-bronze: #7A5818;
+    --color-gold-muted: #DFBD69;
+    --color-gold-300: #FFF6C8;
+    --color-gold-400: #DFBD69;
+    --color-gold-500: #D4AF37;
+    --color-gold-600: #8A6621;
+
+    --gradient-gold-foil: linear-gradient(
+      135deg,
+      #8A6621 0%,
+      #DFBD69 25%,
+      #FFF6C8 50%,
+      #D4AF37 75%,
+      #7A5818 100%
+    );
+    --gradient-emerald-royal: radial-gradient(
+      circle at 50% 18%,
+      #092E1F 0%,
+      #063D32 45%,
+      #03170F 85%,
+      #010906 100%
+    );
+
+    --color-canvas-dark: #010906;
+    --color-surface-dark: #03170F;
+    --color-surface-dark-elevated: #041D13;
 
     /* Fluid Typography Scale (320px Mobile -> 3840px 4K Display) */
     --font-fluid-hero: clamp(1.85rem, 2.8vw + 1rem, 3.5rem);
@@ -44,33 +72,34 @@
     --space-fluid-md: clamp(1rem, 2vw, 2rem);
     --space-fluid-lg: clamp(1.5rem, 3vw, 3.5rem);
     --container-max-width: 90rem;
-    --radius-card: 1.35rem;
-    --radius-hero: 1.75rem;
+    --radius-card: 1.5rem;
+    --radius-hero: 2rem;
 
     /* Elevation & Motion Tokens */
-    --shadow-card: 0 8px 28px -6px rgba(4, 43, 37, 0.07), 0 2px 6px -1px rgba(4, 43, 37, 0.04);
-    --shadow-elevated: 0 22px 48px -12px rgba(4, 43, 37, 0.16), 0 4px 12px -2px rgba(198, 164, 92, 0.08);
+    --shadow-card: 0 12px 34px -8px rgba(3, 23, 15, 0.08), 0 2px 8px -1px rgba(138, 102, 33, 0.06);
+    --shadow-elevated: 0 24px 54px -12px rgba(3, 23, 15, 0.18), 0 4px 16px -2px rgba(212, 175, 55, 0.14);
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     --duration-fast: 160ms;
-    --duration-normal: 260ms;
+    --duration-normal: 280ms;
   }
 
   .dark {
-    /* ASAKA ZIYO — 2026 Dark Mode: Deep Midnight Green & Champagne Gold */
-    --bg-canvas: #031814;
-    --bg-surface: #06241E;
-    --bg-surface-subtle: #041D18;
-    --bg-surface-elevated: #082E26;
-    --text-primary: #F8F5EC;
-    --text-secondary: #D4CFC3;
-    --text-muted: #8FA69E;
-    --border-hairline: rgba(198, 164, 92, 0.16);
-    --border-gold: rgba(198, 164, 92, 0.34);
+    /* ASAKA ZIYO — Dark Mode: Deep Emerald Velvet (#010906 -> #03170F -> #041D13) & Metallic Gold Foil */
+    --bg-canvas: #010906;
+    --bg-surface: #03170F;
+    --bg-surface-subtle: #041D13;
+    --bg-surface-elevated: #092E1F;
+    --text-primary: #FFF8E8;
+    --text-secondary: #E6DFCE;
+    --text-muted: #9CB5AC;
+    --border-hairline: rgba(223, 189, 105, 0.18);
+    --border-gold: rgba(223, 189, 105, 0.48);
 
-    --color-gold-500: #C6A45C;
-    --color-gold-600: #DCC58C;
-    --shadow-card: 0 10px 32px -6px rgba(0, 0, 0, 0.55);
-    --shadow-elevated: 0 28px 60px -12px rgba(0, 0, 0, 0.72), 0 0 24px -4px rgba(198, 164, 92, 0.12);
+    --color-gold-500: #DFBD69;
+    --color-gold-600: #FFF6C8;
+    --shadow-card: 0 16px 40px -8px rgba(0, 0, 0, 0.68), inset 0 1px 0 rgba(255, 246, 200, 0.1);
+    --shadow-elevated: 0 28px 68px -12px rgba(0, 0, 0, 0.82), 0 0 28px -4px rgba(223, 189, 105, 0.16), inset 0 1px 0 rgba(255, 246, 200, 0.18);
   }
 
   html, body, #root {
@@ -116,13 +145,13 @@
 
   /* Universal Keyboard & Smart TV Remote Focus Indicator */
   :focus-visible {
-    outline: 2.5px solid #C6A45C !important;
+    outline: 2.5px solid #DFBD69 !important;
     outline-offset: 3px !important;
   }
 }
 
 .font-arabic {
-  font-family: 'Amiri', 'Traditional Arabic', serif;
+  font-family: 'Amiri Quran', 'Scheherazade New', 'Amiri', 'Traditional Arabic', serif;
   line-height: 2.25;
 }
 
@@ -158,19 +187,76 @@
 
 /* Luxury Architectural Surface Utilities */
 .surface-luxury-glass {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(241, 235, 221, 0.85));
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(198, 164, 92, 0.25);
+  background: linear-gradient(145deg, rgba(255, 248, 232, 0.94), rgba(248, 245, 236, 0.88));
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  box-shadow: var(--shadow-card);
 }
 
 .dark .surface-luxury-glass {
-  background: linear-gradient(145deg, rgba(8, 46, 38, 0.88), rgba(4, 29, 24, 0.92));
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(198, 164, 92, 0.24);
+  background: linear-gradient(155deg, rgba(4, 29, 19, 0.82) 0%, rgba(9, 46, 31, 0.68) 50%, rgba(1, 9, 6, 0.90) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(223, 189, 105, 0.36);
+  box-shadow: var(--shadow-card);
 }
 
 .surface-emerald-royal {
-  background: radial-gradient(circle at top right, #075747 0%, #063D32 55%, #042B25 100%);
+  background: radial-gradient(circle at 50% 18%, #092E1F 0%, #063D32 45%, #03170F 85%, #010906 100%);
+}
+
+/* Global Metallic Gold Foil Text & Background Utilities */
+.az-gold-foil-text {
+  background: linear-gradient(135deg, #8A6621 0%, #DFBD69 25%, #FFF6C8 50%, #D4AF37 75%, #7A5818 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.az-gold-foil-bg {
+  background: linear-gradient(135deg, #8A6621 0%, #DFBD69 25%, #FFF6C8 50%, #D4AF37 75%, #7A5818 100%);
+}
+
+.az-hero-sanctuary {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(16, 185, 129, 0.18) 0%, transparent 48%),
+    radial-gradient(circle at 85% 22%, rgba(223, 189, 105, 0.14) 0%, transparent 44%),
+    radial-gradient(circle at 50% 25%, #092E1F 0%, #041D13 48%, #03170F 78%, #010906 100%);
+  border: 1.5px solid rgba(223, 189, 105, 0.48);
+  box-shadow:
+    0 28px 70px -16px rgba(1, 9, 6, 0.65),
+    inset 0 1px 0 rgba(255, 246, 200, 0.28),
+    inset 0 0 36px rgba(223, 189, 105, 0.08);
+}
+
+.az-card-specular {
+  position: relative;
+  overflow: hidden;
+}
+
+.az-card-specular::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 246, 200, 0.08) 50%,
+    transparent 100%
+  );
+  transform: skewX(-22deg);
+  transition: left 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.az-card-specular:hover::after {
+  left: 160%;
 }
 
 /* ==========================================================================

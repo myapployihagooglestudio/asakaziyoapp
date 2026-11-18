@@ -715,8 +715,8 @@ export async function syncDocToFirestore(
     syncedAt: nowIso,
   });
 
-  // Route all privileged administrator writes through the authenticated backend gateway
-  if (adminLoggedIn) {
+  // Route privileged administrator writes through the authenticated backend gateway
+  if (adminLoggedIn && isAdminCol) {
     try {
       const token = getActiveAdminToken();
       const headers: Record<string, string> = {
@@ -755,7 +755,7 @@ export async function syncDocToFirestore(
     return { success: false, error: permError };
   }
 
-  // Ordinary public user interactions (comments, ratings, userProgress, contentLikes, contentViews, pending inquiries)
+  // Ordinary public & personal user interactions (tasbihSessions, prayerJournal, khatmPlans, comments, ratings, userProgress, contentLikes, contentViews, pending inquiries)
   try {
     await setDoc(doc(db, collectionName, docId), cleanPayload, { merge: true });
     return { success: true };
@@ -771,13 +771,14 @@ export async function deleteDocFromFirestore(
   docId: string
 ): Promise<{ success: boolean; error?: string }> {
   const path = `${collectionName}/${docId}`;
+  const isAdminCol = ADMIN_WRITE_COLLECTIONS.has(collectionName);
 
-  if (ADMIN_WRITE_COLLECTIONS.has(collectionName) && !isAdminAuthenticated()) {
+  if (isAdminCol && !isAdminAuthenticated()) {
     const permError = '7 PERMISSION_DENIED: Missing or insufficient permissions (Admin: asakaziyo0@gmail.com required).';
     return { success: false, error: permError };
   }
 
-  if (isAdminAuthenticated()) {
+  if (isAdminAuthenticated() && isAdminCol) {
     try {
       const token = getActiveAdminToken();
       const headers: Record<string, string> = {
@@ -809,7 +810,7 @@ export async function deleteDocFromFirestore(
     }
   }
 
-  if (ADMIN_WRITE_COLLECTIONS.has(collectionName)) {
+  if (isAdminCol) {
     return {
       success: false,
       error: '7 PERMISSION_DENIED: Missing or insufficient permissions (Admin: asakaziyo0@gmail.com required).',
