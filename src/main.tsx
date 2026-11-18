@@ -226,15 +226,31 @@ if (typeof window !== 'undefined' && isRunningInNativeAndroidApk()) {
     if (apiPath) {
       if (navigator.onLine !== false && apiPath !== '/api/admin/auth' && apiPath !== '/api/admin/session') {
         try {
+          const isLongRunningMediaRoute =
+            apiPath.startsWith('/api/quran-quiz/') || apiPath.startsWith('/api/apk/download');
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 3200);
+          const timer = setTimeout(() => controller.abort(), isLongRunningMediaRoute ? 120000 : 5000);
           const remoteRes = await origFetch(`${CLOUD_API_ORIGIN}${apiPath}`, {
             ...init,
             signal: controller.signal,
           });
           clearTimeout(timer);
           const ct = (remoteRes.headers.get('content-type') || '').toLowerCase();
-          if (remoteRes.ok && (ct.includes('application/json') || apiPath === '/api/apk/download')) {
+          if (
+            remoteRes.ok &&
+            !ct.includes('text/html') &&
+            (ct.includes('application/json') ||
+              ct.includes('video/mp4') ||
+              ct.includes('video/') ||
+              ct.includes('audio/') ||
+              ct.includes('application/octet-stream') ||
+              apiPath.startsWith('/api/apk/download') ||
+              apiPath.startsWith('/api/quran-quiz/'))
+          ) {
+            return remoteRes;
+          }
+          // For explicit 4xx/5xx JSON API errors on quran-quiz routes, return the real JSON error response
+          if (apiPath.startsWith('/api/quran-quiz/') && ct.includes('application/json')) {
             return remoteRes;
           }
         } catch {

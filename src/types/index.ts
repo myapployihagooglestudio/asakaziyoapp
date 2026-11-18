@@ -817,7 +817,7 @@ export interface QuranQuizQuestion {
 }
 
 export interface DailyQuranQuizSet {
-  id: string; // e.g. "2026-11-17_mishary"
+  id: string; // Canonical "YYYY-MM-DD" (or legacy "YYYY-MM-DD_reciterId")
   dateStr: string; // YYYY-MM-DD (Asia/Tashkent)
   reciterId: string;
   reciterName: string;
@@ -825,6 +825,18 @@ export interface DailyQuranQuizSet {
   usedAyahKeys: string[];
   createdAt: string;
   updatedAt?: string;
+  schemaVersion?: number;
+}
+
+export interface QuranQuizArchiveSummaryItem {
+  id: string;
+  dateStr: string;
+  questionCount: number;
+  reciterId: string;
+  reciterName: string;
+  usedAyahKeys: string[];
+  surahPreviewUz: string[];
+  createdAt: string;
 }
 
 export interface QuranQuizAttemptAnswer {
@@ -842,6 +854,7 @@ export interface QuranQuizAttempt {
   dateStr: string;
   reciterId: string;
   userId?: string;
+  attemptNumber?: number;
   score: number;
   incorrectCount: number;
   total: number;

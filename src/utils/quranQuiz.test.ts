@@ -27,12 +27,20 @@ import {
   computeQuestionAudioSlice,
   getCachedDailyQuranQuiz,
   getUsedAyahKeys,
+  getYesterdayTashkentDateStr,
+  rebindQuizSetToReciter,
 } from './quranQuizService';
 import type { DailyQuranQuizSet, QuranQuizQuestion } from '../types';
 import {
   buildStrictReciterAudioUrls,
+  formatCanonicalQuizVideoFilename,
+  hasMp4FtypSignature,
   startQuizPartRenderJob,
 } from '../../server/quranQuizVideoRenderer';
+import {
+  formatQuizMp4Filename,
+  verifyMp4BinaryBuffer,
+} from './cinemaQuizExporter';
 
 function buildSyntheticMp3Buffer(frameCount: number): Buffer {
   // MPEG 1 Layer III, 128 kbps (idx 9 = 0x90), 44100 Hz (idx 0), no padding => 417 bytes/frame
@@ -231,7 +239,7 @@ function runTests() {
   }));
 
   const mockSet: DailyQuranQuizSet = {
-    id: '2026-11-17_mishary',
+    id: '2026-11-17',
     dateStr: '2026-11-17',
     reciterId: 'mishary',
     reciterName: 'Shayx Mishariy',
@@ -480,12 +488,12 @@ function runExtendedTests() {
   assert.strictEqual(nonTafsir84_6.tafsirScope, 'none');
   assert.strictEqual(nonTafsir84_6.tafsirTextUz, '', 'Must never fabricate tafsir when not in DB');
 
-  // 14. Cache validator rejects poisoned non-Mishary caches carrying Alafasy URLs
-  const poisonedSet: DailyQuranQuizSet = {
-    id: '2026-11-17_suwayd',
+  // 14. Canonical daily quiz rebinds cleanly to any selected reciter without changing the 10 questions
+  const canonicalSet: DailyQuranQuizSet = {
+    id: '2026-11-17',
     dateStr: '2026-11-17',
-    reciterId: 'suwayd',
-    reciterName: 'Shayx Ayman Suwayd',
+    reciterId: 'mishary',
+    reciterName: 'Shayx Mishariy al-Afosiy',
     questions: Array.from({ length: 10 }).map((_, idx) => ({
       id: `p_${idx}`,
       ayahKey: `1:${(idx % 7) + 1}`,
@@ -494,8 +502,8 @@ function runExtendedTests() {
       surahNameUz: 'Fotiha',
       surahNameAr: 'الفاتحة',
       ayahNumberInSurah: (idx % 7) + 1,
-      reciterId: 'suwayd',
-      reciterName: 'Shayx Ayman Suwayd',
+      reciterId: 'mishary',
+      reciterName: 'Shayx Mishariy al-Afosiy',
       audioUrl: 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
       audioDurationMs: 4000,
       fullArabicText: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
@@ -517,14 +525,42 @@ function runExtendedTests() {
     usedAyahKeys: ['1:1'],
     createdAt: '2026-11-17T05:00:00.000Z',
   };
-  cacheDailyQuranQuiz(poisonedSet);
-  assert.strictEqual(
-    getCachedDailyQuranQuiz('2026-11-17', 'suwayd'),
-    null,
-    'Poisoned non-Mishary cache with Alafasy audio must be rejected'
+  cacheDailyQuranQuiz(canonicalSet);
+  const reboundSuwayd = getCachedDailyQuranQuiz('2026-11-17', 'suwayd');
+  assert.ok(reboundSuwayd, 'Canonical date quiz must load for Suwayd');
+  assert.strictEqual(reboundSuwayd?.reciterId, 'suwayd');
+  assert.strictEqual(reboundSuwayd?.questions.length, 10);
+  assert.ok(
+    reboundSuwayd!.questions.every(
+      (q) => !q.audioUrl.includes('Alafasy_128kbps') && q.audioUrl.includes('Ayman_Sowaid')
+    ),
+    'Rebound Suwayd quiz must use Suwayd audio URLs while preserving all 10 questions'
   );
+  const directRebound = rebindQuizSetToReciter(canonicalSet, 'sudais');
+  assert.strictEqual(directRebound.id, '2026-11-17');
+  assert.strictEqual(directRebound.reciterId, 'sudais');
+  assert.ok(directRebound.questions.every((q) => q.audioUrl.includes('Abdurrahmaan_As-Sudais')));
 
-  // 15. Server video renderer strict per-reciter audio guard & 5-question part bounds validation
+  // 15. Server video renderer strict per-reciter audio guard, canonical filenames (quiz-01.mp4 .. quiz-10.mp4), & 1-question per video validation
+  assert.strictEqual(formatCanonicalQuizVideoFilename(1), 'quiz-01.mp4');
+  assert.strictEqual(formatCanonicalQuizVideoFilename(10), 'quiz-10.mp4');
+  assert.strictEqual(formatQuizMp4Filename(1), 'quiz-01.mp4');
+  assert.strictEqual(formatQuizMp4Filename(10), 'quiz-10.mp4');
+  assert.strictEqual(getYesterdayTashkentDateStr('2026-04-12'), '2026-04-11');
+
+  // MP4 ftyp binary verification vs HTML fallback rejection
+  const validMp4Buf = Buffer.alloc(8192, 0);
+  validMp4Buf.writeUInt32BE(32, 0);
+  validMp4Buf.write('ftypisom', 4, 'ascii');
+  assert.strictEqual(hasMp4FtypSignature(validMp4Buf), true);
+  assert.strictEqual(verifyMp4BinaryBuffer(new Uint8Array(validMp4Buf).buffer).valid, true);
+
+  const htmlFallbackBuf = Buffer.from('<!DOCTYPE html><html><body>SPA Fallback</body></html>'.padEnd(6000, ' '));
+  assert.strictEqual(hasMp4FtypSignature(htmlFallbackBuf), false);
+  const htmlVerify = verifyMp4BinaryBuffer(new Uint8Array(htmlFallbackBuf).buffer);
+  assert.strictEqual(htmlVerify.valid, false);
+  assert.ok(String(htmlVerify.error || '').includes('HTML'));
+
   const strictSuwaydUrls = buildStrictReciterAudioUrls({
     id: 'q1',
     ayahKey: '1:1',
@@ -549,24 +585,24 @@ function runExtendedTests() {
   assert.throws(
     () =>
       startQuizPartRenderJob({
-        partIndex: 3 as 1,
+        questionNumber: 11,
         quizDateStr: '2026-11-17',
         reciterName: 'Shayx Mishariy',
         introJpgBase64: 'x',
         outroJpgBase64: 'y',
         questions: [],
       }),
-    /savol boʻlishi shart/
+    /1 dan 10 gacha boʻlishi kerak/
   );
   assert.throws(
     () =>
       startQuizPartRenderJob({
-        partIndex: 1,
+        questionNumber: 1,
         quizDateStr: '2026-11-17',
         reciterName: 'Shayx Mishariy',
         introJpgBase64: 'x',
         outroJpgBase64: 'y',
-        questions: Array.from({ length: 6 }).map((_, idx) => ({
+        questions: Array.from({ length: 2 }).map((_, idx) => ({
           id: `q_${idx}`,
           ayahKey: `1:${idx + 1}`,
           surahNumber: 1,
@@ -581,10 +617,11 @@ function runExtendedTests() {
           revealJpgBase64: 'y',
         })),
       }),
-    /1 tadan 5 tagacha savol/
+    /faqat 1 ta savol boʻlishi shart/
   );
 }
 
 runTests();
 runExtendedTests();
 console.log('✅ [PASS] All Kunlik Qurʼon Viktorinasi tests passed!');
+

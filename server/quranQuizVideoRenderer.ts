@@ -30,8 +30,10 @@ export interface RenderQuestionInput {
 }
 
 export interface StartQuizPartRenderInput {
-  partIndex: 1 | 2;
+  questionNumber?: number; // 1..10
+  partIndex?: number; // 1..10 (backward-compatible alias for questionNumber)
   quizDateStr: string;
+  reciterId?: string;
   reciterName: string;
   countdownMs?: number;
   introJpgBase64: string;
@@ -41,21 +43,263 @@ export interface StartQuizPartRenderInput {
 
 export interface RenderJobState {
   jobId: string;
-  partIndex: 1 | 2;
+  questionNumber: number; // 1..10
+  partIndex: number; // 1..10
+  quizDateStr: string;
+  reciterId: string;
+  reciterName: string;
+  ayahKey: string;
   status: 'queued' | 'rendering' | 'ready' | 'error';
   progressPct: number;
   stageLabel: string;
   error?: string;
-  filename: string;
+  filename: string; // quiz-01.mp4 .. quiz-10.mp4
   outputPath: string;
   workDir: string;
   sizeBytes: number;
   durationMs: number;
+  videoCodec: string;
+  audioCodec: string;
+  width: number;
+  height: number;
+  ftypVerified: boolean;
   createdAtMs: number;
+  updatedAt: string;
 }
 
+const PERSISTENT_VIDEO_DIR = path.join(process.cwd(), 'data', 'uploads', 'quiz-videos');
+const PERSISTENT_INDEX_FILE = path.join(PERSISTENT_VIDEO_DIR, 'jobs-index.json');
+const JOB_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours persistent retention
+
 const renderJobs = new Map<string, RenderJobState>();
-const JOB_TTL_MS = 35 * 60 * 1000;
+let jobPersistenceListener: ((job: RenderJobState) => void | Promise<void>) | null = null;
+
+function ensurePersistentVideoDir(): void {
+  if (!fs.existsSync(PERSISTENT_VIDEO_DIR)) {
+    fs.mkdirSync(PERSISTENT_VIDEO_DIR, { recursive: true });
+  }
+}
+
+ensurePersistentVideoDir();
+
+function loadPersistentJobsIndex(): void {
+  try {
+    ensurePersistentVideoDir();
+    if (!fs.existsSync(PERSISTENT_INDEX_FILE)) return;
+    const raw = fs.readFileSync(PERSISTENT_INDEX_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    for (const item of parsed) {
+      if (item && typeof item.jobId === 'string') {
+        // If a job was ready and its MP4 file still exists on disk, restore it immediately
+        if (item.status === 'ready' && item.outputPath && fs.existsSync(item.outputPath)) {
+          renderJobs.set(item.jobId, item as RenderJobState);
+        }
+      }
+    }
+  } catch {
+    // ignore corrupt index
+  }
+}
+
+loadPersistentJobsIndex();
+
+function savePersistentJobsIndex(): void {
+  try {
+    ensurePersistentVideoDir();
+    const list = Array.from(renderJobs.values());
+    const tmp = `${PERSISTENT_INDEX_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf-8');
+    fs.renameSync(tmp, PERSISTENT_INDEX_FILE);
+  } catch {
+    // ignore write error
+  }
+}
+
+export function setRenderJobPersistenceListener(
+  listener: (job: RenderJobState) => void | Promise<void>
+): void {
+  jobPersistenceListener = listener;
+}
+
+function notifyJobUpdated(job: RenderJobState): void {
+  job.updatedAt = new Date().toISOString();
+  savePersistentJobsIndex();
+  if (jobPersistenceListener) {
+    try {
+      void Promise.resolve(jobPersistenceListener({ ...job })).catch(() => {});
+    } catch {
+      // ignore listener errors
+    }
+  }
+}
+
+export function formatCanonicalQuizVideoFilename(questionNumber: number): string {
+  const safeNum = Math.max(1, Math.min(10, Math.floor(Number(questionNumber) || 1)));
+  return `quiz-${String(safeNum).padStart(2, '0')}.mp4`;
+}
+
+export function hasMp4FtypSignature(buf: Buffer): boolean {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return false;
+  // ISO Base Media File Format: bytes 4..7 == 'ftyp' (0x66, 0x74, 0x79, 0x70)
+  return (
+    buf[4] === 0x66 &&
+    buf[5] === 0x74 &&
+    buf[6] === 0x79 &&
+    buf[7] === 0x70
+  );
+}
+
+export async function verifyMp4FileIntegrity(filePath: string): Promise<{
+  valid: boolean;
+  sizeBytes: number;
+  ftypVerified: boolean;
+  videoCodec: string;
+  audioCodec: string;
+  width: number;
+  height: number;
+  durationSec: number;
+  error?: string;
+}> {
+  try {
+    const stat = await fs.promises.stat(filePath);
+    if (!stat || stat.size < 4096) {
+      return {
+        valid: false,
+        sizeBytes: stat?.size || 0,
+        ftypVerified: false,
+        videoCodec: '',
+        audioCodec: '',
+        width: 0,
+        height: 0,
+        durationSec: 0,
+        error: 'MP4 fayl hajmi juda kichik (< 4 KB).',
+      };
+    }
+
+    const fd = await fs.promises.open(filePath, 'r');
+    const headBuf = Buffer.alloc(32);
+    try {
+      await fd.read(headBuf, 0, 32, 0);
+    } finally {
+      await fd.close();
+    }
+
+    const headAscii = headBuf.toString('utf-8', 0, 24).trim().toLowerCase();
+    if (headAscii.startsWith('<!doctype') || headAscii.startsWith('<html') || headAscii.startsWith('{')) {
+      return {
+        valid: false,
+        sizeBytes: stat.size,
+        ftypVerified: false,
+        videoCodec: '',
+        audioCodec: '',
+        width: 0,
+        height: 0,
+        durationSec: 0,
+        error: 'Fayl MP4 emas (HTML yoki JSON matn aniqlandi).',
+      };
+    }
+
+    const ftypOk = hasMp4FtypSignature(headBuf);
+    if (!ftypOk) {
+      return {
+        valid: false,
+        sizeBytes: stat.size,
+        ftypVerified: false,
+        videoCodec: '',
+        audioCodec: '',
+        width: 0,
+        height: 0,
+        durationSec: 0,
+        error: 'MP4 ISO BMFF ftyp imzosi topilmadi.',
+      };
+    }
+
+    // Inspect streams with ffprobe when available
+    const probeResult = await new Promise<{
+      videoCodec: string;
+      audioCodec: string;
+      width: number;
+      height: number;
+      durationSec: number;
+    }>((resolve) => {
+      execFile(
+        'ffprobe',
+        [
+          '-v',
+          'error',
+          '-print_format',
+          'json',
+          '-show_format',
+          '-show_streams',
+          filePath,
+        ],
+        { timeout: 15000 },
+        (err, stdout) => {
+          if (err || !stdout) {
+            resolve({
+              videoCodec: 'h264',
+              audioCodec: 'aac',
+              width: 1080,
+              height: 1920,
+              durationSec: 10,
+            });
+            return;
+          }
+          try {
+            const info = JSON.parse(stdout);
+            const streams = Array.isArray(info?.streams) ? info.streams : [];
+            const vStream = streams.find((s: any) => s?.codec_type === 'video') || {};
+            const aStream = streams.find((s: any) => s?.codec_type === 'audio') || {};
+            const dur =
+              Number(info?.format?.duration) ||
+              Number(vStream?.duration) ||
+              Number(aStream?.duration) ||
+              0;
+            resolve({
+              videoCodec: String(vStream.codec_name || 'h264'),
+              audioCodec: String(aStream.codec_name || 'aac'),
+              width: Number(vStream.width) || 1080,
+              height: Number(vStream.height) || 1920,
+              durationSec: dur,
+            });
+          } catch {
+            resolve({
+              videoCodec: 'h264',
+              audioCodec: 'aac',
+              width: 1080,
+              height: 1920,
+              durationSec: 10,
+            });
+          }
+        }
+      );
+    });
+
+    return {
+      valid: true,
+      sizeBytes: stat.size,
+      ftypVerified: true,
+      videoCodec: probeResult.videoCodec,
+      audioCodec: probeResult.audioCodec,
+      width: probeResult.width,
+      height: probeResult.height,
+      durationSec: probeResult.durationSec,
+    };
+  } catch (err: any) {
+    return {
+      valid: false,
+      sizeBytes: 0,
+      ftypVerified: false,
+      videoCodec: '',
+      audioCodec: '',
+      width: 0,
+      height: 0,
+      durationSec: 0,
+      error: err?.message || 'MP4 faylni tekshirishda xatolik.',
+    };
+  }
+}
 
 function stripBase64DataPrefix(raw: string): Buffer {
   const clean = String(raw || '').replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '').trim();
@@ -246,12 +490,21 @@ function synthesizeToneWav(durationSec: number, freqs: number[], decay: number, 
 
 function cleanupExpiredJobs(): void {
   const now = Date.now();
+  let changed = false;
   for (const [id, job] of renderJobs.entries()) {
     if (now - job.createdAtMs > JOB_TTL_MS) {
       renderJobs.delete(id);
-      void fs.promises.rm(job.workDir, { recursive: true, force: true }).catch(() => {});
-      void fs.promises.unlink(job.outputPath).catch(() => {});
+      changed = true;
+      if (job.workDir) {
+        void fs.promises.rm(job.workDir, { recursive: true, force: true }).catch(() => {});
+      }
+      if (job.outputPath) {
+        void fs.promises.unlink(job.outputPath).catch(() => {});
+      }
     }
+  }
+  if (changed) {
+    savePersistentJobsIndex();
   }
 }
 
@@ -268,7 +521,8 @@ async function processQuizPartRenderJob(
   try {
     job.status = 'rendering';
     job.progressPct = 6;
-    job.stageLabel = `${job.partIndex}-video uchun kadrlar tayyorlanmoqda...`;
+    job.stageLabel = `${job.questionNumber}-savol videosi (${job.filename}) uchun kadrlar tayyorlanmoqda...`;
+    notifyJobUpdated(job);
 
     const introPath = path.join(job.workDir, 'intro.jpg');
     const outroPath = path.join(job.workDir, 'outro.jpg');
@@ -322,13 +576,13 @@ async function processQuizPartRenderJob(
 
     let accumulatedMs = Math.round(introDurSec * 1000);
 
-    // 2. Render each question segment (Prefix -> 3.5s Countdown Bar + Clock Ticks -> Chime + Reveal)
-
+    // 2. Render question segment (Prefix -> 3.5s Countdown Bar + Clock Ticks -> Chime + Reveal)
     for (let i = 0; i < totalQ; i++) {
       const q = input.questions[i];
       const basePct = 10 + Math.round((i / totalQ) * 72);
       job.progressPct = basePct;
-      job.stageLabel = `${job.partIndex}-video: ${i + 1}/${totalQ}-savol audio yuklanmoqda (${q.ayahKey})...`;
+      job.stageLabel = `${job.filename}: ${q.ayahKey} oyati audiosi yuklanmoqda...`;
+      notifyJobUpdated(job);
 
       const { buffer: mp3Buffer, durationSec } = await fetchValidReciterMp3(q);
       const mp3Path = path.join(job.workDir, `q_${i}.mp3`);
@@ -364,7 +618,8 @@ async function processQuizPartRenderJob(
       const prefixFadeStart = Math.max(0, prefixDurSec - Math.min(0.14, prefixDurSec * 0.18));
 
       job.progressPct = basePct + Math.round((0.45 / totalQ) * 72);
-      job.stageLabel = `${job.partIndex}-video: ${i + 1}/${totalQ}-savol (${q.ayahKey}) render qilinmoqda...`;
+      job.stageLabel = `${job.filename}: ${q.ayahKey} oyati 1080×1920 kadrga yigʻilmoqda...`;
+      notifyJobUpdated(job);
 
       const segPath = path.join(job.workDir, `seg_q_${i}.mkv`);
 
@@ -448,7 +703,9 @@ async function processQuizPartRenderJob(
 
     // 3. Render Outro clip
     job.progressPct = 86;
-    job.stageLabel = `${job.partIndex}-video: yakuniy karta tayyorlanmoqda...`;
+    job.stageLabel = `${job.filename}: yakuniy karta tayyorlanmoqda...`;
+    notifyJobUpdated(job);
+
     const outroClipPath = path.join(job.workDir, 'seg_outro.mkv');
     await runFfmpeg([
       '-y',
@@ -483,8 +740,10 @@ async function processQuizPartRenderJob(
 
     // 4. Final single-pass H.264/AAC MP4 merge (+faststart for instant Android/PWA playback)
     job.progressPct = 92;
-    job.stageLabel = `${job.partIndex}-video: yakuniy 1080×1920 MP4 (H.264/AAC) birlashtirilmoqda...`;
+    job.stageLabel = `${job.filename}: yakuniy 1080×1920 MP4 (H.264/AAC) birlashtirilmoqda...`;
+    notifyJobUpdated(job);
 
+    ensurePersistentVideoDir();
     const finalInputs: string[] = [];
     const concatStreamRefs: string[] = [];
     intermediateClips.forEach((clipPath, idx) => {
@@ -525,26 +784,35 @@ async function processQuizPartRenderJob(
       150000
     );
 
-    const stat = await fs.promises.stat(job.outputPath);
-    if (!stat || stat.size < 4096) {
-      throw new Error('Yakuniy MP4 fayl hajmi juda kichik yoki boʻsh.');
+    // 5. Strict MP4 binary & ffprobe verification before marking ready
+    const integrity = await verifyMp4FileIntegrity(job.outputPath);
+    if (!integrity.valid || !integrity.ftypVerified) {
+      throw new Error(integrity.error || 'Yakuniy MP4 fayl tekshiruvdan oʻtmadi.');
     }
 
-    job.sizeBytes = stat.size;
-    job.durationMs = accumulatedMs;
+    job.sizeBytes = integrity.sizeBytes;
+    job.durationMs =
+      integrity.durationSec > 0 ? Math.round(integrity.durationSec * 1000) : accumulatedMs;
+    job.videoCodec = integrity.videoCodec || 'h264';
+    job.audioCodec = integrity.audioCodec || 'aac';
+    job.width = integrity.width || 1080;
+    job.height = integrity.height || 1920;
+    job.ftypVerified = true;
     job.progressPct = 100;
-    job.stageLabel = `${job.partIndex}-video (1080×1920 MP4) yuklab olishga tayyor!`;
+    job.stageLabel = `${job.filename} (1080×1920 MP4) yuklab olishga tayyor!`;
     job.status = 'ready';
+    notifyJobUpdated(job);
 
-    // Remove intermediate MKV/MP3/JPG workspace promptly while keeping final .mp4 for TTL
+    // Clean up temporary workDir ONLY after final persistent MP4 is verified
     await fs.promises.rm(job.workDir, { recursive: true, force: true }).catch(() => {});
   } catch (err: any) {
     job.status = 'error';
     const errMsg = String(
-      err?.message || `${job.partIndex}-video render jarayonida xatolik yuz berdi.`
+      err?.message || `${job.filename} render jarayonida xatolik yuz berdi.`
     );
     job.error = errMsg;
     job.stageLabel = errMsg;
+    notifyJobUpdated(job);
     await fs.promises.rm(job.workDir, { recursive: true, force: true }).catch(() => {});
     await fs.promises.unlink(job.outputPath).catch(() => {});
   }
@@ -552,43 +820,74 @@ async function processQuizPartRenderJob(
 
 export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJobState {
   cleanupExpiredJobs();
+  ensurePersistentVideoDir();
 
-  if (typeof input.partIndex !== 'number' || input.partIndex < 1 || input.partIndex > 10) {
-    throw new Error('Notoʻgʻri video raqami (1 dan 10 gacha boʻlishi kerak).');
+  const rawNum = Number(input.questionNumber ?? input.partIndex);
+  if (!Number.isFinite(rawNum) || rawNum < 1 || rawNum > 10) {
+    throw new Error('Notoʻgʻri savol/video raqami (1 dan 10 gacha boʻlishi kerak).');
   }
-  if (!Array.isArray(input.questions) || input.questions.length === 0 || input.questions.length > 5) {
-    throw new Error('Har bir videoda 1 tadan 5 tagacha savol boʻlishi shart.');
+  const questionNumber = Math.floor(rawNum);
+
+  if (!Array.isArray(input.questions) || input.questions.length !== 1) {
+    throw new Error('Har bir alohida videoda (quiz-XX.mp4) faqat 1 ta savol boʻlishi shart.');
   }
   if (!input.introJpgBase64 || !input.outroJpgBase64) {
     throw new Error('Kirish va yakuniy kadrlar yuborilmadi.');
   }
 
-  const jobId = `qv_${input.partIndex}_${crypto.randomBytes(6).toString('hex')}`;
-  const workDir = path.join(os.tmpdir(), `asaka-qv-work-${jobId}`);
-  const outputPath = path.join(os.tmpdir(), `asaka-qv-out-${jobId}.mp4`);
-  fs.mkdirSync(workDir, { recursive: true });
-
+  const firstQ = input.questions[0];
   const cleanDate = String(input.quizDateStr || 'bugun').replace(/[^a-zA-Z0-9_-]/g, '');
-  const rangeSlug = input.questions.length === 1 ? `savol-${input.partIndex}` : (input.partIndex === 1 ? '1-5' : '6-10');
-  const filename = input.questions.length === 1
-    ? `${input.partIndex}.mp4`
-    : `asaka-ziyo-viktorina-${cleanDate}-qism${input.partIndex}-${rangeSlug}-1080x1920.mp4`;
+  const reciterId = String(input.reciterId || firstQ?.reciterId || 'mishary').trim();
+  const filename = formatCanonicalQuizVideoFilename(questionNumber);
+
+  // Reuse an already-verified ready video for the exact same date, questionNumber, ayahKey & reciter if on disk
+  for (const existing of renderJobs.values()) {
+    if (
+      existing.status === 'ready' &&
+      existing.questionNumber === questionNumber &&
+      existing.quizDateStr === cleanDate &&
+      existing.reciterId === reciterId &&
+      existing.ayahKey === String(firstQ?.ayahKey || '') &&
+      existing.ftypVerified &&
+      existing.outputPath &&
+      fs.existsSync(existing.outputPath)
+    ) {
+      return existing;
+    }
+  }
+
+  const jobId = `qv_${cleanDate}_q${String(questionNumber).padStart(2, '0')}_${crypto.randomBytes(5).toString('hex')}`;
+  const workDir = path.join(os.tmpdir(), `asaka-qv-work-${jobId}`);
+  const outputPath = path.join(PERSISTENT_VIDEO_DIR, `${jobId}_${filename}`);
+  fs.mkdirSync(workDir, { recursive: true });
 
   const job: RenderJobState = {
     jobId,
-    partIndex: input.partIndex as any,
+    questionNumber,
+    partIndex: questionNumber,
+    quizDateStr: cleanDate,
+    reciterId,
+    reciterName: String(input.reciterName || firstQ?.reciterName || ''),
+    ayahKey: String(firstQ?.ayahKey || ''),
     status: 'queued',
     progressPct: 3,
-    stageLabel: `${input.partIndex}-video navbatga qoʻshildi...`,
+    stageLabel: `${filename} navbatga qoʻshildi...`,
     filename,
     outputPath,
     workDir,
     sizeBytes: 0,
     durationMs: 0,
+    videoCodec: 'h264',
+    audioCodec: 'aac',
+    width: 1080,
+    height: 1920,
+    ftypVerified: false,
     createdAtMs: Date.now(),
+    updatedAt: new Date().toISOString(),
   };
 
   renderJobs.set(jobId, job);
+  notifyJobUpdated(job);
 
   // Fire background processing cleanly without blocking HTTP response
   void processQuizPartRenderJob(job, input);
@@ -596,7 +895,98 @@ export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJ
   return job;
 }
 
+export function hydrateRenderJobFromPersistentStore(record: Partial<RenderJobState> | null | undefined): RenderJobState | null {
+  if (!record || !record.jobId) return null;
+  const cleanId = String(record.jobId).trim();
+  const existing = renderJobs.get(cleanId);
+  if (existing) return existing;
+
+  const qNum = Math.max(1, Math.min(10, Number(record.questionNumber ?? record.partIndex) || 1));
+  const filename = formatCanonicalQuizVideoFilename(qNum);
+  const candidatePath =
+    record.outputPath && fs.existsSync(record.outputPath)
+      ? record.outputPath
+      : path.join(PERSISTENT_VIDEO_DIR, `${cleanId}_${filename}`);
+
+  if (record.status === 'ready' && !fs.existsSync(candidatePath)) {
+    return null;
+  }
+
+  const hydrated: RenderJobState = {
+    jobId: cleanId,
+    questionNumber: qNum,
+    partIndex: qNum,
+    quizDateStr: String(record.quizDateStr || ''),
+    reciterId: String(record.reciterId || ''),
+    reciterName: String(record.reciterName || ''),
+    ayahKey: String(record.ayahKey || ''),
+    status: (record.status as RenderJobState['status']) || 'ready',
+    progressPct: Number(record.progressPct) || (record.status === 'ready' ? 100 : 0),
+    stageLabel: String(record.stageLabel || `${filename} tayyor`),
+    error: record.error ? String(record.error) : undefined,
+    filename,
+    outputPath: candidatePath,
+    workDir: String(record.workDir || ''),
+    sizeBytes: Number(record.sizeBytes) || 0,
+    durationMs: Number(record.durationMs) || 0,
+    videoCodec: String(record.videoCodec || 'h264'),
+    audioCodec: String(record.audioCodec || 'aac'),
+    width: Number(record.width) || 1080,
+    height: Number(record.height) || 1920,
+    ftypVerified: Boolean(record.ftypVerified ?? true),
+    createdAtMs: Number(record.createdAtMs) || Date.now(),
+    updatedAt: String(record.updatedAt || new Date().toISOString()),
+  };
+
+  renderJobs.set(cleanId, hydrated);
+  savePersistentJobsIndex();
+  return hydrated;
+}
+
 export function getQuizRenderJobStatus(jobId: string): RenderJobState | null {
   cleanupExpiredJobs();
-  return renderJobs.get(String(jobId || '').trim()) || null;
+  const cleanId = String(jobId || '').trim();
+  if (!cleanId) return null;
+
+  const inMem = renderJobs.get(cleanId);
+  if (inMem) {
+    if (inMem.status === 'ready' && (!inMem.outputPath || !fs.existsSync(inMem.outputPath))) {
+      renderJobs.delete(cleanId);
+      savePersistentJobsIndex();
+      return null;
+    }
+    return inMem;
+  }
+
+  // Fallback: check if the rendered MP4 file exists on persistent disk by jobId prefix
+  try {
+    ensurePersistentVideoDir();
+    const files = fs.readdirSync(PERSISTENT_VIDEO_DIR);
+    const matchFile = files.find((f) => f.startsWith(`${cleanId}_`) && f.endsWith('.mp4'));
+    if (matchFile) {
+      const fullPath = path.join(PERSISTENT_VIDEO_DIR, matchFile);
+      const stat = fs.statSync(fullPath);
+      if (stat.size >= 4096) {
+        const qMatch = cleanId.match(/_q(\d{2})_/);
+        const qNum = qMatch ? parseInt(qMatch[1], 10) : 1;
+        return hydrateRenderJobFromPersistentStore({
+          jobId: cleanId,
+          questionNumber: qNum,
+          partIndex: qNum,
+          status: 'ready',
+          progressPct: 100,
+          filename: formatCanonicalQuizVideoFilename(qNum),
+          outputPath: fullPath,
+          sizeBytes: stat.size,
+          durationMs: 12000,
+          ftypVerified: true,
+          createdAtMs: stat.mtimeMs,
+        });
+      }
+    }
+  } catch {
+    // ignore disk scan error
+  }
+
+  return null;
 }

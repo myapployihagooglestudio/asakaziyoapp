@@ -387,3 +387,428 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(198, 164, 92, 0.6);
 }
+
+/* ==========================================================================
+   ASAKA ZIYO — LUXURY SACRED CINEMA & MOTION VFX DESIGN SYSTEM
+   9:16 | 1080x1920 | Deep Emerald Velvet × Realistic Metallic Gold Foil
+   ========================================================================== */
+
+:root {
+  --qz-night: #010805;
+  --qz-emerald-deep: #03170f;
+  --qz-emerald: #093322;
+  --qz-glass: rgba(4, 24, 16, 0.72);
+  --qz-glass-elevated: rgba(6, 36, 24, 0.84);
+
+  --qz-gold: linear-gradient(
+    135deg,
+    #8A6621 0%,
+    #DFBD69 25%,
+    #FFF6C8 50%,
+    #D4AF37 75%,
+    #7A5818 100%
+  );
+  --qz-gold-horizontal: linear-gradient(
+    90deg,
+    #8A6621 0%,
+    #DFBD69 25%,
+    #FFF6C8 50%,
+    #D4AF37 75%,
+    #7A5818 100%
+  );
+  --qz-gold-text: linear-gradient(
+    180deg,
+    #FFFDF7 0%,
+    #FFF6C8 48%,
+    #DFBD69 82%,
+    #C69B3C 100%
+  );
+
+  --qz-gold-solid: #DFBD69;
+  --qz-ivory: #FFF8E8;
+  --qz-muted: rgba(255, 248, 232, 0.72);
+
+  --qz-green-metallic: linear-gradient(
+    135deg,
+    #047857 0%,
+    #10B981 48%,
+    #34D399 100%
+  );
+
+  --qz-gold-border: rgba(223, 189, 105, 0.62);
+  --qz-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.65),
+    0 0 36px rgba(212, 175, 55, 0.12),
+    inset 0 1px 0 rgba(255, 246, 200, 0.22);
+
+  --qz-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --qz-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 1. Multi-layer Cinematic Stage (9:16 Vertical) */
+.qz-stage {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  overflow: hidden;
+  color: var(--qz-ivory);
+  background:
+    radial-gradient(
+      circle at 50% 25%,
+      #093322 0%,
+      #03170f 45%,
+      #010805 100%
+    );
+  box-shadow:
+    0 32px 90px -16px rgba(0, 0, 0, 0.85),
+    0 0 0 1.5px rgba(223, 189, 105, 0.55),
+    inset 0 0 80px rgba(1, 8, 5, 0.82);
+}
+
+/* Cinematic Dark Vignette on Edges */
+.qz-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: radial-gradient(
+    ellipse at 50% 48%,
+    transparent 52%,
+    rgba(1, 8, 5, 0.55) 82%,
+    rgba(0, 4, 2, 0.92) 100%
+  );
+}
+
+/* Heartbeat Tension Glow during last 1.5s of Countdown */
+@keyframes qzHeartbeatTension {
+  0%, 100% {
+    opacity: 0.25;
+    box-shadow: inset 0 0 45px rgba(217, 119, 6, 0.28), inset 0 0 90px rgba(220, 38, 38, 0.18);
+  }
+  50% {
+    opacity: 0.95;
+    box-shadow: inset 0 0 75px rgba(245, 158, 11, 0.58), inset 0 0 130px rgba(239, 68, 68, 0.38);
+  }
+}
+
+.qz-heartbeat-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  animation: qzHeartbeatTension 0.55s ease-in-out infinite;
+}
+
+/* Volumetric God-Rays from Top Center */
+@keyframes qzGodRayBreathe {
+  0%, 100% {
+    opacity: 0.38;
+    transform: translateX(-50%) scaleX(0.96) rotate(-2deg);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translateX(-50%) scaleX(1.08) rotate(2deg);
+  }
+}
+
+.qz-god-rays {
+  pointer-events: none;
+  position: absolute;
+  top: -12%;
+  left: 50%;
+  width: 150%;
+  height: 78%;
+  transform: translateX(-50%);
+  mix-blend-mode: screen;
+  z-index: 1;
+  background:
+    conic-gradient(
+      from 152deg at 50% 0%,
+      transparent 0deg,
+      rgba(223, 189, 105, 0.14) 12deg,
+      transparent 24deg,
+      rgba(52, 211, 153, 0.11) 34deg,
+      transparent 44deg,
+      rgba(255, 246, 200, 0.16) 56deg,
+      transparent 72deg
+    );
+  filter: blur(22px);
+  animation: qzGodRayBreathe 8s ease-in-out infinite;
+}
+
+/* Counter-Rotating Dual Islamic Girih & 16-Star Mandalas */
+@keyframes qzSpinCW90 {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes qzSpinCCW120 {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.qz-mandala-cw {
+  animation: qzSpinCW90 90s linear infinite;
+}
+
+.qz-mandala-ccw {
+  animation: qzSpinCCW120 120s linear infinite;
+}
+
+/* 2. Metallic Gold Foil & Frosted Obsidian Glass Card */
+.qz-gold-foil-bg {
+  background: var(--qz-gold);
+}
+
+.qz-gold-foil-text {
+  background: var(--qz-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.qz-arabic-calligraphy {
+  font-family: 'Amiri Quran', 'Scheherazade New', 'Amiri', 'Traditional Arabic', serif;
+  line-height: 2.25;
+  background: var(--qz-gold-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 16px rgba(212, 175, 55, 0.28));
+}
+
+@keyframes qzSpecularSweep {
+  0% {
+    transform: translateX(-140%) skewX(-24deg);
+  }
+  28%, 100% {
+    transform: translateX(240%) skewX(-24deg);
+  }
+}
+
+.qz-obsidian-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--qz-glass);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1.5px solid rgba(223, 189, 105, 0.58);
+  box-shadow: var(--qz-shadow);
+}
+
+.qz-obsidian-card::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 48%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 246, 200, 0.03) 25%,
+    rgba(255, 246, 200, 0.16) 50%,
+    rgba(223, 189, 105, 0.05) 75%,
+    transparent 100%
+  );
+  animation: qzSpecularSweep 5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* 3. Ornamental Surah Cartouche Badge */
+.qz-surah-cartouche {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 54, 37, 0.92) 0%,
+    rgba(4, 24, 16, 0.96) 100%
+  );
+  border: 1.5px solid rgba(223, 189, 105, 0.72);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 246, 200, 0.3),
+    0 0 18px rgba(212, 175, 55, 0.18);
+}
+
+/* 4. Hidden Word Glowing Metallic Capsule & 3D Spring Reveal */
+@keyframes qzCapsuleWave {
+  0% {
+    background-position: -200% 50%;
+    box-shadow: 0 0 14px rgba(223, 189, 105, 0.35), inset 0 0 10px rgba(223, 189, 105, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(255, 246, 200, 0.65), inset 0 0 16px rgba(223, 189, 105, 0.42);
+  }
+  100% {
+    background-position: 200% 50%;
+    box-shadow: 0 0 14px rgba(223, 189, 105, 0.35), inset 0 0 10px rgba(223, 189, 105, 0.2);
+  }
+}
+
+.qz-hidden-capsule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  padding: 0.08rem 0.85rem;
+  margin: 0 0.3rem;
+  border-radius: 9999px;
+  border: 1.5px solid #DFBD69;
+  background: linear-gradient(
+    110deg,
+    rgba(138, 102, 33, 0.28) 0%,
+    rgba(223, 189, 105, 0.46) 45%,
+    rgba(255, 246, 200, 0.72) 50%,
+    rgba(223, 189, 105, 0.46) 55%,
+    rgba(122, 88, 24, 0.28) 100%
+  );
+  background-size: 240% 100%;
+  color: #FFF6C8;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  animation: qzCapsuleWave 2.4s ease-in-out infinite;
+}
+
+@keyframes qzExpandRing {
+  0% {
+    transform: translate(-50%, -50%) scale(0.45);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.35);
+    opacity: 0;
+  }
+}
+
+.qz-reveal-ring {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  border: 2px solid #DFBD69;
+  box-shadow: 0 0 24px #34D399;
+  animation: qzExpandRing 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes qzSparkleBurst {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--spark-angle, 0deg)) translateY(0px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--spark-angle, 0deg)) translateY(calc(-1 * var(--spark-dist, 36px))) scale(0);
+    opacity: 0;
+  }
+}
+
+.qz-sparkle-dot {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #FFF6C8 0%, #DFBD69 60%, #10B981 100%);
+  box-shadow: 0 0 8px #FFF6C8;
+  animation: qzSparkleBurst 0.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 7. 4 Answer Buttons with Metallic States & Shimmer */
+.qz-answer-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    rgba(6, 36, 25, 0.82) 0%,
+    rgba(3, 18, 12, 0.92) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(223, 189, 105, 0.42);
+  box-shadow:
+    0 12px 28px -8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 246, 200, 0.16);
+  transition:
+    transform 0.32s var(--qz-spring),
+    opacity 0.28s var(--qz-smooth),
+    border-color 0.25s ease,
+    box-shadow 0.28s ease;
+}
+
+.qz-answer-btn:hover:not(:disabled) {
+  border-color: #DFBD69;
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 34px -8px rgba(0, 0, 0, 0.72),
+    0 0 18px rgba(223, 189, 105, 0.24),
+    inset 0 1px 0 rgba(255, 246, 200, 0.28);
+}
+
+.qz-answer-btn-selected {
+  background: linear-gradient(
+    135deg,
+    rgba(138, 102, 33, 0.38) 0%,
+    rgba(212, 175, 55, 0.26) 50%,
+    rgba(6, 36, 25, 0.92) 100%
+  );
+  border-color: #FFF6C8;
+  box-shadow:
+    0 0 26px rgba(223, 189, 105, 0.42),
+    inset 0 1px 0 rgba(255, 246, 200, 0.4);
+}
+
+.qz-answer-btn-correct {
+  background: var(--qz-green-metallic) !important;
+  border-color: #FFF6C8 !important;
+  color: #FFFDF7 !important;
+  transform: scale(1.03) !important;
+  box-shadow:
+    0 0 34px rgba(16, 185, 129, 0.68),
+    0 14px 30px rgba(0, 0, 0, 0.55),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+.qz-answer-btn-correct::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 246, 200, 0.38),
+    transparent
+  );
+  animation: qzSpecularSweep 2.2s ease-out infinite;
+}
+
+.qz-answer-btn-dimmed {
+  opacity: 0.35 !important;
+  transform: scale(0.96) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  filter: saturate(0.5);
+}
+
+.qz-answer-btn-wrong {
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.88), rgba(185, 28, 28, 0.78)) !important;
+  border-color: rgba(252, 165, 165, 0.75) !important;
+  opacity: 0.82 !important;
+  transform: scale(0.97) !important;
+}
+

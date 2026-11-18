@@ -530,14 +530,33 @@ service cloud.firestore {
       allow write: if isValidId(audioId) && (isContentAdmin() || isVerifiedServerWrite('ownAudioLibrary', audioId));
     }
 
-    // 35. Kunlik Qur'on Viktorinasi (Daily Quran Audio Quiz Sets & User Attempts)
+    // 35. Kunlik Qur'on Viktorinasi (Permanent Daily Quran Audio Quiz Archive, User Attempts & Video Render Jobs)
     match /dailyQuranQuizzes/{quizId} {
       allow read: if true;
-      allow create, update: if isValidId(quizId) && (
+      allow create: if isValidId(quizId) && (
+        isVerifiedServerWrite('dailyQuranQuizzes', quizId) ||
+        isContentAdmin() ||
+        (
+          incoming().dateStr is string &&
+          incoming().dateStr.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+          incoming().questions is list &&
+          incoming().questions.size() == 10
+        )
+      );
+      allow update: if isValidId(quizId) && (
         isVerifiedServerWrite('dailyQuranQuizzes', quizId) ||
         isContentAdmin()
+      ) && (
+        !('questions' in existing()) ||
+        existing().questions.size() != 10 ||
+        (
+          incoming().questions is list &&
+          incoming().questions.size() == 10 &&
+          incoming().dateStr == existing().dateStr
+        )
       );
-      allow delete: if isValidId(quizId) && (isSuperAdmin() || isVerifiedServerWrite('dailyQuranQuizzes', quizId));
+      // Permanent Archive Protection: Historical daily quizzes must never be deleted
+      allow delete: if false;
     }
 
     match /quranQuizAttempts/{attemptId} {
@@ -560,5 +579,15 @@ service cloud.firestore {
       );
       allow update, delete: if isValidId(attemptId) && (isSuperAdmin() || isVerifiedServerWrite('quranQuizAttempts', attemptId));
     }
+
+    match /quranQuizRenderJobs/{jobId} {
+      allow read: if true;
+      allow create, update: if isValidId(jobId) && (
+        isVerifiedServerWrite('quranQuizRenderJobs', jobId) ||
+        isContentAdmin()
+      );
+      allow delete: if isValidId(jobId) && (isSuperAdmin() || isVerifiedServerWrite('quranQuizRenderJobs', jobId));
+    }
   }
 }
+

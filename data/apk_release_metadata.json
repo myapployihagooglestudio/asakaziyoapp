@@ -7,9 +7,9 @@
   "targetSdk": 34,
   "minAndroid": "Android 5.0+ (API 21 – API 34)",
   "targetAndroid": "Android 14 / 15 (API 34)",
-  "sizeBytes": 4728049,
+  "sizeBytes": 4732150,
   "fileSizeDisplay": "4.51 MB",
-  "sha256Checksum": "049edd64710703f57c077992f4bf81be1d334b98f135622386ea2760afe4963e",
+  "sha256Checksum": "c09b171b91acb7d374ba0745cf0a93aeaa52e34f91df67653eab570229c5dc67",
   "signatureScheme": "JAR v1 + APK Signature Scheme v2 & v3 (RSA-2048 SHA-256)",
   "certificateSubject": "CN=ASAKA ZIYO, OU=Mobile, O=ASAKA ZIYO, L=Asaka, ST=Andijan, C=UZ",
   "axmlVerified": true,
@@ -19,5 +19,5 @@
   "downloadUrl": "/api/apk/download",
   "directUrl": "/Asaka-Ziyo-v2.1.0.apk",
   "releaseDate": "2026-11-17",
-  "verifiedAt": "2026-11-17T17:21:32.482Z"
+  "verifiedAt": "2026-11-17T17:38:38.871Z"
 }

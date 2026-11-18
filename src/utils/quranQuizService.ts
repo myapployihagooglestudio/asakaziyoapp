@@ -1,4 +1,4 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db, ensureFirestoreConnectivityChecked } from './firebaseClient';
 import {
   getActiveQuranReciters,
@@ -11,6 +11,7 @@ import {
 } from '../data/quranData';
 import type {
   DailyQuranQuizSet,
+  QuranQuizArchiveSummaryItem,
   QuranQuizAttempt,
   QuranQuizHidePosition,
   QuranQuizQuestion,
@@ -31,10 +32,15 @@ export function getTodayTashkentDateStr(now = new Date()): string {
   }
 }
 
-function getPreviousDateStr(dateStr: string): string {
+export function getPreviousDateStr(dateStr: string): string {
   const d = new Date(`${dateStr}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateStr;
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+export function getYesterdayTashkentDateStr(todayDateStr = getTodayTashkentDateStr()): string {
+  return getPreviousDateStr(todayDateStr);
 }
 
 export function getUsedAyahKeys(): string[] {
@@ -61,7 +67,7 @@ export function archiveUsedAyahKeys(keys: string[]): string[] {
   const merged = Array.from(
     new Set([...existing, ...keys.map((k) => String(k).trim()).filter(Boolean)])
   );
-  // Retain up to 2,500 historical ayah keys to keep localStorage fast while preventing multi-month repeats
+  // Retain up to 2,500 historical ayah keys in localStorage while Firestore holds the permanent archive
   const trimmed = merged.length > 2500 ? merged.slice(merged.length - 2500) : merged;
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -75,23 +81,49 @@ export function archiveUsedAyahKeys(keys: string[]): string[] {
   return trimmed;
 }
 
-function hasCleanReciterAudio(quizSet: DailyQuranQuizSet): boolean {
-  if (
-    !quizSet ||
-    !Array.isArray(quizSet.questions) ||
-    quizSet.questions.length !== 10
-  ) {
-    return false;
-  }
-  if (quizSet.reciterId !== 'mishary') {
-    for (const q of quizSet.questions) {
-      const aUrl = String(q?.audioUrl || '');
-      if (aUrl.includes('Alafasy_128kbps') || aUrl.includes('/ar.alafasy/')) {
-        return false;
-      }
-    }
-  }
-  return true;
+function isValidTenQuestionSet(quizSet: DailyQuranQuizSet | null | undefined): quizSet is DailyQuranQuizSet {
+  return Boolean(
+    quizSet &&
+      Array.isArray(quizSet.questions) &&
+      quizSet.questions.length === 10
+  );
+}
+
+/**
+ * Dynamically binds the selected reciter's per-ayah audio URLs to an existing 10-question quiz set
+ * WITHOUT changing the day's 10 canonical verses, masked words, or answer options.
+ */
+export function rebindQuizSetToReciter(
+  quizSet: DailyQuranQuizSet,
+  reciterId: string,
+  recitersList = getActiveQuranReciters()
+): DailyQuranQuizSet {
+  const cleanReciterId = String(reciterId || quizSet?.reciterId || 'mishary').trim();
+  const reciterObj = recitersList.find((r) => r.id === cleanReciterId);
+  const reciterName = reciterObj?.name || quizSet?.reciterName || 'Mishary Rashid Alafasy';
+  const canonicalDate = String(quizSet?.dateStr || quizSet?.id || '').slice(0, 10);
+
+  const reboundQuestions = (Array.isArray(quizSet?.questions) ? quizSet.questions : []).map((q) => {
+    const primaryUrl = getReciterAyahAudioUrl(cleanReciterId, q.surahNumber, q.ayahNumberInSurah);
+    const islamicUrl = getIslamicNetworkAyahUrl(cleanReciterId, q.surahNumber, q.ayahNumberInSurah);
+    return normalizeQuizQuestion({
+      ...q,
+      reciterId: cleanReciterId,
+      reciterName,
+      audioUrl: primaryUrl || q.audioUrl,
+      fallbackAudioUrl: islamicUrl || '',
+    });
+  });
+
+  return {
+    ...quizSet,
+    id: canonicalDate || quizSet.id,
+    dateStr: canonicalDate || quizSet.dateStr,
+    reciterId: cleanReciterId,
+    reciterName,
+    questions: reboundQuestions,
+    schemaVersion: 2,
+  };
 }
 
 export function getCachedDailyQuranQuiz(
@@ -103,15 +135,15 @@ export function getCachedDailyQuranQuiz(
     const raw = window.localStorage.getItem(QURAN_QUIZ_DAILY_CACHE_KEY);
     if (!raw) return null;
     const cacheMap = JSON.parse(raw);
-    const quizId = `${dateStr}_${reciterId}`;
-    const entry = cacheMap?.[quizId];
-    if (
-      entry &&
-      entry.dateStr === dateStr &&
-      entry.reciterId === reciterId &&
-      hasCleanReciterAudio(entry as DailyQuranQuizSet)
-    ) {
-      return entry as DailyQuranQuizSet;
+    const canonicalEntry = cacheMap?.[dateStr] || cacheMap?.[`${dateStr}_${reciterId}`];
+    if (canonicalEntry && isValidTenQuestionSet(canonicalEntry)) {
+      return rebindQuizSetToReciter(canonicalEntry as DailyQuranQuizSet, reciterId);
+    }
+    // Check if any reciter variant for this dateStr exists in cache
+    for (const [k, val] of Object.entries(cacheMap || {})) {
+      if (k.startsWith(`${dateStr}_`) && isValidTenQuestionSet(val as DailyQuranQuizSet)) {
+        return rebindQuizSetToReciter(val as DailyQuranQuizSet, reciterId);
+      }
     }
     return null;
   } catch {
@@ -121,18 +153,25 @@ export function getCachedDailyQuranQuiz(
 
 export function cacheDailyQuranQuiz(quizSet: DailyQuranQuizSet): void {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return;
+    if (typeof window === 'undefined' || !window.localStorage || !isValidTenQuestionSet(quizSet)) return;
     const raw = window.localStorage.getItem(QURAN_QUIZ_DAILY_CACHE_KEY);
     const cacheMap: Record<string, DailyQuranQuizSet> = raw ? JSON.parse(raw) || {} : {};
-    // Keep only the last 7 daily quiz caches in localStorage
-    const keys = Object.keys(cacheMap);
-    if (keys.length >= 7) {
-      const oldestKey = keys[0];
-      if (oldestKey && oldestKey !== quizSet.id) {
+    const canonicalDate = String(quizSet.dateStr || quizSet.id || '').slice(0, 10);
+    if (!canonicalDate) return;
+
+    // Keep only the last 7 daily quiz caches in localStorage (permanent archive lives in Firestore)
+    const dateKeys = Object.keys(cacheMap).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+    while (dateKeys.length >= 7 && !cacheMap[canonicalDate]) {
+      const oldestKey = dateKeys.shift();
+      if (oldestKey && oldestKey !== canonicalDate) {
         delete cacheMap[oldestKey];
       }
     }
-    cacheMap[quizSet.id] = quizSet;
+    cacheMap[canonicalDate] = {
+      ...quizSet,
+      id: canonicalDate,
+      dateStr: canonicalDate,
+    };
     window.localStorage.setItem(QURAN_QUIZ_DAILY_CACHE_KEY, JSON.stringify(cacheMap));
   } catch {
     // ignore
@@ -183,6 +222,25 @@ export function getStoredQuranQuizAttempts(): QuranQuizAttempt[] {
   } catch {
     return [];
   }
+}
+
+export function getAttemptsForDate(
+  dateStr: string,
+  attempts = getStoredQuranQuizAttempts()
+): QuranQuizAttempt[] {
+  const cleanDate = String(dateStr || '').slice(0, 10);
+  return attempts.filter(
+    (a) => String(a?.dateStr || a?.quizId || '').slice(0, 10) === cleanDate
+  );
+}
+
+export function getBestAttemptForDate(
+  dateStr: string,
+  attempts = getStoredQuranQuizAttempts()
+): QuranQuizAttempt | null {
+  const list = getAttemptsForDate(dateStr, attempts);
+  if (list.length === 0) return null;
+  return list.reduce((best, curr) => (curr.score > best.score ? curr : best), list[0]);
 }
 
 export function getStoredQuranQuizStreak(): { count: number; lastDate: string } {
@@ -273,11 +331,11 @@ export async function fetchOrCreateDailyQuranQuiz(params: {
   dateStr?: string;
   reciterId?: string;
   forceRefresh?: boolean;
+  createIfMissing?: boolean;
 }): Promise<{ quizSet: DailyQuranQuizSet; source: string }> {
   const dateStr = params.dateStr || getTodayTashkentDateStr();
   const reciterId = params.reciterId || getStoredQuranQuizReciterId() || getDefaultQuizReciterId();
-  const quizId = `${dateStr}_${reciterId}`;
-  const dedupeKey = `${quizId}:${Boolean(params.forceRefresh)}`;
+  const dedupeKey = `${dateStr}:${reciterId}:${Boolean(params.forceRefresh)}`;
 
   const existingPromise = inFlightQuizRequests.get(dedupeKey);
   if (existingPromise) {
@@ -288,24 +346,36 @@ export async function fetchOrCreateDailyQuranQuiz(params: {
     if (!params.forceRefresh) {
       const localCached = getCachedDailyQuranQuiz(dateStr, reciterId);
       if (localCached) {
-        const hydratedLocal = await hydrateQuizSetFromQuranSection(localCached);
+        const hydratedLocal = await hydrateQuizSetFromQuranSection(
+          rebindQuizSetToReciter(localCached, reciterId)
+        );
         cacheDailyQuranQuiz(hydratedLocal);
         return { quizSet: hydratedLocal, source: 'localStorage' };
       }
 
-      // Check Firestore directly first when reachable so same-day reloads stay instant
+      // Check Firestore directly first (canonical YYYY-MM-DD then legacy YYYY-MM-DD_reciterId)
       try {
         if (await ensureFirestoreConnectivityChecked()) {
-          const snap = await getDoc(doc(db, 'dailyQuranQuizzes', quizId));
-          if (snap.exists()) {
-            const remoteRaw = snap.data() as DailyQuranQuizSet;
-            if (hasCleanReciterAudio(remoteRaw)) {
-              const hydratedRemote = await hydrateQuizSetFromQuranSection(
-                normalizeDailyQuizSet(remoteRaw)
-              );
+          const canonicalSnap = await getDoc(doc(db, 'dailyQuranQuizzes', dateStr));
+          if (canonicalSnap.exists()) {
+            const remoteRaw = canonicalSnap.data() as DailyQuranQuizSet;
+            if (isValidTenQuestionSet(remoteRaw)) {
+              const rebound = rebindQuizSetToReciter(remoteRaw, reciterId);
+              const hydratedRemote = await hydrateQuizSetFromQuranSection(rebound);
               cacheDailyQuranQuiz(hydratedRemote);
               archiveUsedAyahKeys(hydratedRemote.questions.map((q) => q.ayahKey));
               return { quizSet: hydratedRemote, source: 'firestore' };
+            }
+          }
+          const legacySnap = await getDoc(doc(db, 'dailyQuranQuizzes', `${dateStr}_${reciterId}`));
+          if (legacySnap.exists()) {
+            const legacyRaw = legacySnap.data() as DailyQuranQuizSet;
+            if (isValidTenQuestionSet(legacyRaw)) {
+              const rebound = rebindQuizSetToReciter(legacyRaw, reciterId);
+              const hydratedLegacy = await hydrateQuizSetFromQuranSection(rebound);
+              cacheDailyQuranQuiz(hydratedLegacy);
+              archiveUsedAyahKeys(hydratedLegacy.questions.map((q) => q.ayahKey));
+              return { quizSet: hydratedLegacy, source: 'firestore' };
             }
           }
         }
@@ -323,6 +393,7 @@ export async function fetchOrCreateDailyQuranQuiz(params: {
         reciterId,
         usedAyahKeys,
         forceRefresh: Boolean(params.forceRefresh),
+        createIfMissing: params.createIfMissing !== false,
       }),
     });
 
@@ -340,7 +411,7 @@ export async function fetchOrCreateDailyQuranQuiz(params: {
     }
 
     const quizSet: DailyQuranQuizSet = await hydrateQuizSetFromQuranSection(
-      normalizeDailyQuizSet(payload.quizSet)
+      rebindQuizSetToReciter(normalizeDailyQuizSet(payload.quizSet), reciterId)
     );
     cacheDailyQuranQuiz(quizSet);
     archiveUsedAyahKeys(quizSet.questions.map((q) => q.ayahKey));
@@ -354,6 +425,177 @@ export async function fetchOrCreateDailyQuranQuiz(params: {
   });
   inFlightQuizRequests.set(dedupeKey, promise);
   return promise;
+}
+
+export async function fetchArchivedQuranQuizByDate(
+  dateStr: string,
+  reciterId = getStoredQuranQuizReciterId()
+): Promise<{
+  exists: boolean;
+  quizSet: DailyQuranQuizSet | null;
+  source: string;
+  error?: string;
+}> {
+  const cleanDate = String(dateStr || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+    return {
+      exists: false,
+      quizSet: null,
+      source: 'none',
+      error: 'Sana formati YYYY-MM-DD boʻlishi shart.',
+    };
+  }
+
+  // 1. Check localStorage cache first
+  const localCached = getCachedDailyQuranQuiz(cleanDate, reciterId);
+  if (localCached) {
+    const hydrated = await hydrateQuizSetFromQuranSection(
+      rebindQuizSetToReciter(localCached, reciterId)
+    );
+    return { exists: true, quizSet: hydrated, source: 'localStorage' };
+  }
+
+  // 2. Check server permanent archive API (`/api/quran-quiz/by-date/:dateStr`)
+  try {
+    const resp = await fetch(
+      `/api/quran-quiz/by-date/${encodeURIComponent(cleanDate)}?reciterId=${encodeURIComponent(reciterId)}`
+    );
+    const payload = await resp.json().catch(() => ({}));
+    if (resp.ok && payload?.success && payload?.quizSet && isValidTenQuestionSet(payload.quizSet)) {
+      const hydrated = await hydrateQuizSetFromQuranSection(
+        rebindQuizSetToReciter(normalizeDailyQuizSet(payload.quizSet), reciterId)
+      );
+      cacheDailyQuranQuiz(hydrated);
+      archiveUsedAyahKeys(hydrated.questions.map((q) => q.ayahKey));
+      return { exists: true, quizSet: hydrated, source: payload.source || 'archive' };
+    }
+  } catch {
+    // Fallback to direct Firestore check if server is offline
+  }
+
+  // 3. Direct Firestore fallback (`dailyQuranQuizzes/{YYYY-MM-DD}`)
+  try {
+    if (await ensureFirestoreConnectivityChecked()) {
+      const snap = await getDoc(doc(db, 'dailyQuranQuizzes', cleanDate));
+      if (snap.exists()) {
+        const raw = snap.data() as DailyQuranQuizSet;
+        if (isValidTenQuestionSet(raw)) {
+          const hydrated = await hydrateQuizSetFromQuranSection(
+            rebindQuizSetToReciter(normalizeDailyQuizSet(raw), reciterId)
+          );
+          cacheDailyQuranQuiz(hydrated);
+          return { exists: true, quizSet: hydrated, source: 'firestore' };
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    exists: false,
+    quizSet: null,
+    source: 'none',
+    error: `${cleanDate} sanasi uchun Qurʼon viktorinasi arxivda mavjud emas.`,
+  };
+}
+
+export async function fetchQuranQuizArchiveList(params?: {
+  year?: string;
+  month?: string;
+}): Promise<{
+  todayDateStr: string;
+  yesterdayDateStr: string;
+  totalArchivedDays: number;
+  availableYears: string[];
+  availableMonthsByYear: Record<string, string[]>;
+  items: QuranQuizArchiveSummaryItem[];
+}> {
+  const todayDateStr = getTodayTashkentDateStr();
+  const yesterdayDateStr = getYesterdayTashkentDateStr(todayDateStr);
+
+  const query = new URLSearchParams();
+  if (params?.year) query.set('year', params.year);
+  if (params?.month) query.set('month', params.month);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+
+  try {
+    const resp = await fetch(`/api/quran-quiz/archive${qs}`);
+    const payload = await resp.json().catch(() => ({}));
+    if (resp.ok && payload?.success && Array.isArray(payload.items)) {
+      return {
+        todayDateStr: payload.todayDateStr || todayDateStr,
+        yesterdayDateStr: payload.yesterdayDateStr || yesterdayDateStr,
+        totalArchivedDays: Number(payload.totalArchivedDays) || payload.items.length,
+        availableYears: Array.isArray(payload.availableYears) ? payload.availableYears : [],
+        availableMonthsByYear: payload.availableMonthsByYear || {},
+        items: payload.items,
+      };
+    }
+  } catch {
+    // Fallback to direct Firestore query if server endpoint is unreachable
+  }
+
+  try {
+    if (await ensureFirestoreConnectivityChecked()) {
+      const snap = await getDocs(collection(db, 'dailyQuranQuizzes'));
+      const byDate = new Map<string, QuranQuizArchiveSummaryItem>();
+      const yearsSet = new Set<string>();
+      const monthsByYear: Record<string, string[]> = {};
+
+      snap.docs.forEach((d) => {
+        const data = d.data() as DailyQuranQuizSet;
+        if (!isValidTenQuestionSet(data)) return;
+        const dStr = String(data.dateStr || d.id || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return;
+        const [yyyy, mm] = dStr.split('-');
+        if (yyyy && mm) {
+          yearsSet.add(yyyy);
+          if (!monthsByYear[yyyy]) monthsByYear[yyyy] = [];
+          if (!monthsByYear[yyyy].includes(mm)) monthsByYear[yyyy].push(mm);
+        }
+        if (!byDate.has(dStr) || d.id === dStr) {
+          byDate.set(dStr, {
+            id: dStr,
+            dateStr: dStr,
+            questionCount: data.questions.length,
+            reciterId: data.reciterId || 'mishary',
+            reciterName: data.reciterName || 'Mishary Rashid Alafasy',
+            usedAyahKeys: Array.isArray(data.usedAyahKeys)
+              ? data.usedAyahKeys
+              : data.questions.map((q) => q.ayahKey),
+            surahPreviewUz: Array.from(
+              new Set(data.questions.map((q) => q.surahNameUz).filter(Boolean))
+            ).slice(0, 4),
+            createdAt: data.createdAt || `${dStr}T00:00:00.000Z`,
+          });
+        }
+      });
+
+      const items = Array.from(byDate.values()).sort((a, b) =>
+        b.dateStr.localeCompare(a.dateStr)
+      );
+      return {
+        todayDateStr,
+        yesterdayDateStr,
+        totalArchivedDays: items.length,
+        availableYears: Array.from(yearsSet).sort((a, b) => b.localeCompare(a)),
+        availableMonthsByYear: monthsByYear,
+        items,
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    todayDateStr,
+    yesterdayDateStr,
+    totalArchivedDays: 0,
+    availableYears: [],
+    availableMonthsByYear: {},
+    items: [],
+  };
 }
 
 function getQuranQuizUserId(): string {
@@ -381,14 +623,21 @@ export async function saveQuranQuizAttemptToCloud(
   streak: { count: number; lastDate: string };
 }> {
   const userId = getQuranQuizUserId();
+  const existing = getStoredQuranQuizAttempts();
+  const cleanDate = String(attemptInput.dateStr || attemptInput.quizId || '').slice(0, 10);
+  const sameDateCount = existing.filter(
+    (a) => String(a?.dateStr || a?.quizId || '').slice(0, 10) === cleanDate
+  ).length;
+
   const attempt: QuranQuizAttempt = {
     ...attemptInput,
+    dateStr: cleanDate || attemptInput.dateStr,
     id: `qqa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     userId,
+    attemptNumber: attemptInput.attemptNumber || sameDateCount + 1,
   };
 
-  const existing = getStoredQuranQuizAttempts();
-  const nextAttempts = [attempt, ...existing].slice(0, 50);
+  const nextAttempts = [attempt, ...existing].slice(0, 100);
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(QURAN_QUIZ_ATTEMPTS_KEY, JSON.stringify(nextAttempts));

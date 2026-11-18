@@ -23,6 +23,10 @@ import {
   Share2,
   X,
   ChevronDown,
+  Calendar,
+  Archive,
+  FolderOpen,
+  Search,
 } from 'lucide-react';
 import {
   getActiveQuranReciters,
@@ -32,6 +36,7 @@ import { subscribeToDatabase } from '../../../utils/databaseService';
 import { syncRecitersAndAudioFromFirestore } from '../../../utils/quranReciterStorageService';
 import type {
   DailyQuranQuizSet,
+  QuranQuizArchiveSummaryItem,
   QuranQuizAttempt,
   QuranQuizAttemptAnswer,
   QuranQuizQuestion,
@@ -40,23 +45,31 @@ import type {
 import {
   QuranQuizApiError,
   QuranQuizClockAudio,
+  cacheDailyQuranQuiz,
   calculateAttemptSummary,
   computeQuestionAudioSlice,
   enrichQuizQuestionFromQuranSection,
+  fetchArchivedQuranQuizByDate,
   fetchOrCreateDailyQuranQuiz,
+  fetchQuranQuizArchiveList,
+  getAttemptsForDate,
+  getBestAttemptForDate,
   getDefaultQuizReciterId,
   getStoredQuranQuizAttempts,
   getStoredQuranQuizReciterId,
   getStoredQuranQuizStreak,
   getTodayTashkentDateStr,
   getUsedAyahKeys,
+  getYesterdayTashkentDateStr,
   normalizeDailyQuizSet,
   normalizeQuizQuestion,
+  rebindQuizSetToReciter,
   saveQuranQuizAttemptToCloud,
   saveStoredQuranQuizReciterId,
 } from '../../../utils/quranQuizService';
 import {
   exportQuizPartMP4Video,
+  formatQuizMp4Filename,
   shareServerMp4Video,
   triggerServerMp4Download,
   type QuizPartExportResult,
@@ -71,37 +84,25 @@ type QuizPhase =
   | 'revealed_playing_tail'
   | 'finished';
 
+type QuizArchiveSectionTab = 'today' | 'yesterday' | 'previous' | 'archive';
+
+const UZBEK_MONTH_NAMES: Record<string, string> = {
+  '01': 'Yanvar',
+  '02': 'Fevral',
+  '03': 'Mart',
+  '04': 'Aprel',
+  '05': 'May',
+  '06': 'Iyun',
+  '07': 'Iyul',
+  '08': 'Avgust',
+  '09': 'Sentabr',
+  '10': 'Oktabr',
+  '11': 'Noyabr',
+  '12': 'Dekabr',
+};
+
 const TIMER_DURATION_MS = 3500;
 const VISUALIZER_BAR_COUNT = 24;
-
-export const DailyQuranQuizView: React.FC = () => {
-  const todayDateStr = useMemo(() => getTodayTashkentDateStr(), []);
-  const [reciters, setReciters] = useState<QuranReciter[]>(() => getActiveQuranReciters());
-
-  const [selectedReciterId, setSelectedReciterId] = useState<string>(() =>
-    getStoredQuranQuizReciterId()
-  );
-  const [enrichedById, setEnrichedById] = useState<Record<string, QuranQuizQuestion>>({});
-  const [quizSet, setQuizSet] = useState<DailyQuranQuizSet | null>(null);
-  const [quizSource, setQuizSource] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const [isQuotaLimited, setIsQuotaLimited] = useState<boolean>(false);
-  const [quotaFallbackQuizzes, setQuotaFallbackQuizzes] = useState<DailyQuranQuizSet[]>([]);
-  const [usedVersesCount, setUsedVersesCount] = useState<number>(() => getUsedAyahKeys().length);
-
-  const [phase, setPhase] = useState<QuizPhase>('loading');
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [isTickMuted, setIsTickMuted] = useState<boolean>(false);
-
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [timerRemainingMs, setTimerRemainingMs] = useState<number>(TIMER_DURATION_MS);
-  const [waveBins, setWaveBins] = useState<number[]>(() =>
-    new Array(VISUALIZER_BAR_COUNT).fill(0.08)
-  );
-  const [answersMap, setAnswersMap] = useState<
-    Record<number, { selectedIndex: number | null; responseTimeMs: number }>
-  >({});
 
 interface QuizPartExportSlot {
   status: 'idle' | 'rendering' | 'ready' | 'error';
@@ -124,6 +125,54 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
   }
   return map;
 };
+
+export const DailyQuranQuizView: React.FC = () => {
+  const todayDateStr = useMemo(() => getTodayTashkentDateStr(), []);
+  const yesterdayDateStr = useMemo(() => getYesterdayTashkentDateStr(todayDateStr), [todayDateStr]);
+  const [reciters, setReciters] = useState<QuranReciter[]>(() => getActiveQuranReciters());
+
+  const [selectedReciterId, setSelectedReciterId] = useState<string>(() =>
+    getStoredQuranQuizReciterId()
+  );
+  const selectedReciterIdRef = useRef<string>(selectedReciterId);
+  useEffect(() => {
+    selectedReciterIdRef.current = selectedReciterId;
+  }, [selectedReciterId]);
+
+  const [activeSectionTab, setActiveSectionTab] = useState<QuizArchiveSectionTab>('today');
+  const [activeQuizDateStr, setActiveQuizDateStr] = useState<string>(todayDateStr);
+  const [archiveItems, setArchiveItems] = useState<QuranQuizArchiveSummaryItem[]>([]);
+  const [archiveAvailableYears, setArchiveAvailableYears] = useState<string[]>([]);
+  const [archiveMonthsByYear, setArchiveMonthsByYear] = useState<Record<string, string[]>>({});
+  const [selectedArchiveYear, setSelectedArchiveYear] = useState<string>(() =>
+    todayDateStr.slice(0, 4)
+  );
+  const [selectedArchiveMonth, setSelectedArchiveMonth] = useState<string>('all');
+  const [selectedDatePickerStr, setSelectedDatePickerStr] = useState<string>(todayDateStr);
+  const [archiveLoading, setArchiveLoading] = useState<boolean>(false);
+  const [archiveStatusBanner, setArchiveStatusBanner] = useState<string>('');
+
+  const [enrichedById, setEnrichedById] = useState<Record<string, QuranQuizQuestion>>({});
+  const [quizSet, setQuizSet] = useState<DailyQuranQuizSet | null>(null);
+  const [quizSource, setQuizSource] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isQuotaLimited, setIsQuotaLimited] = useState<boolean>(false);
+  const [quotaFallbackQuizzes, setQuotaFallbackQuizzes] = useState<DailyQuranQuizSet[]>([]);
+  const [usedVersesCount, setUsedVersesCount] = useState<number>(() => getUsedAyahKeys().length);
+
+  const [phase, setPhase] = useState<QuizPhase>('loading');
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [isTickMuted, setIsTickMuted] = useState<boolean>(false);
+
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [timerRemainingMs, setTimerRemainingMs] = useState<number>(TIMER_DURATION_MS);
+  const [waveBins, setWaveBins] = useState<number[]>(() =>
+    new Array(VISUALIZER_BAR_COUNT).fill(0.08)
+  );
+  const [answersMap, setAnswersMap] = useState<
+    Record<number, { selectedIndex: number | null; responseTimeMs: number }>
+  >({});
 
   const [attempts, setAttempts] = useState<QuranQuizAttempt[]>(() =>
     getStoredQuranQuizAttempts()
@@ -186,7 +235,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
     }
   }, [isTickMuted]);
 
-  // Subtle drifting golden light particles inside the 9:16 Cinema Stage
+  // Ambient Golden Bokeh & Dust Particles inside the 9:16 Sacred Cinema Stage
   useEffect(() => {
     const canvas = particleCanvasRef.current;
     if (!canvas) return;
@@ -197,18 +246,19 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-    const width = 420;
-    const height = 746;
+    const width = 430;
+    const height = 764;
     canvas.width = width;
     canvas.height = height;
 
-    const particles = Array.from({ length: 30 }).map((_, i) => ({
-      x: (i * 53) % width,
-      y: (i * 97) % height,
-      r: 0.9 + (i % 3) * 0.75,
-      speedY: 0.22 + (i % 5) * 0.12,
-      driftPhase: i * 0.65,
-      alpha: 0.18 + (i % 4) * 0.11,
+    const particles = Array.from({ length: 36 }).map((_, i) => ({
+      x: (i * 59) % width,
+      y: (i * 103) % height,
+      r: i % 5 === 0 ? 2.4 + (i % 3) * 0.9 : 0.9 + (i % 3) * 0.65,
+      isBokeh: i % 5 === 0,
+      speedY: 0.18 + (i % 5) * 0.11,
+      driftPhase: i * 0.72,
+      alpha: i % 5 === 0 ? 0.16 + (i % 3) * 0.08 : 0.24 + (i % 4) * 0.12,
     }));
 
     let animId = 0;
@@ -216,17 +266,30 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
-      tick += 0.016;
+      tick += 0.015;
       for (const p of particles) {
         if (!prefersReducedMotion) {
           p.y -= p.speedY;
-          if (p.y < -8) p.y = height + 8;
+          if (p.y < -12) p.y = height + 12;
         }
-        const px = p.x + Math.sin(tick + p.driftPhase) * 6;
-        ctx.fillStyle = `rgba(220, 197, 140, ${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(px, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
+        const px = p.x + Math.sin(tick + p.driftPhase) * (p.isBokeh ? 9 : 5);
+        const pulseAlpha = p.alpha * (0.72 + 0.28 * Math.sin(tick * 2 + p.driftPhase));
+
+        if (p.isBokeh) {
+          const grad = ctx.createRadialGradient(px, p.y, 0, px, p.y, p.r * 3.2);
+          grad.addColorStop(0, `rgba(255, 246, 200, ${pulseAlpha})`);
+          grad.addColorStop(0.45, `rgba(223, 189, 105, ${pulseAlpha * 0.55})`);
+          grad.addColorStop(1, 'rgba(212, 175, 55, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(px, p.y, p.r * 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = `rgba(255, 246, 200, ${pulseAlpha})`;
+          ctx.beginPath();
+          ctx.arc(px, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       if (!prefersReducedMotion) {
         animId = window.requestAnimationFrame(draw);
@@ -295,13 +358,32 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
     };
   }, []);
 
+  const refreshArchiveMetadata = useCallback(async () => {
+    setArchiveLoading(true);
+    try {
+      const meta = await fetchQuranQuizArchiveList();
+      setArchiveItems(meta.items);
+      setArchiveAvailableYears(meta.availableYears);
+      setArchiveMonthsByYear(meta.availableMonthsByYear);
+      if (meta.availableYears.length > 0 && !meta.availableYears.includes(selectedArchiveYear)) {
+        setSelectedArchiveYear(meta.availableYears[0]);
+      }
+      setUsedVersesCount(getUsedAyahKeys().length);
+    } catch {
+      // Best-effort archive refresh
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, [selectedArchiveYear]);
+
   const loadQuiz = useCallback(
-    async (reciterId: string, forceRefresh = false) => {
+    async (reciterId: string, forceRefresh = false, targetDateStr = todayDateStr) => {
       Object.values(singleAbortRefs.current).forEach((c) => c?.abort());
       stopAllActiveTimersAndAudio();
       clockAudioRef.current?.setActiveReciter(reciterId);
       setPhase('loading');
       setErrorMessage('');
+      setArchiveStatusBanner('');
       setQuestionExports(createInitialQuestionExports());
       setRevealedIndices([]);
       setInspectedQuestionIndex(null);
@@ -314,17 +396,47 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
       setEnrichedById({});
       setTimerRemainingMs(TIMER_DURATION_MS);
       setIsPaused(false);
+      setActiveQuizDateStr(targetDateStr);
 
       try {
+        if (targetDateStr !== todayDateStr) {
+          const archivedRes = await fetchArchivedQuranQuizByDate(targetDateStr, reciterId);
+          if (!archivedRes.exists || !archivedRes.quizSet) {
+            const msg = `${targetDateStr} sanasi uchun arxivda viktorina mavjud emas.`;
+            setArchiveStatusBanner(msg);
+            setErrorMessage(msg);
+            setQuizSet(null);
+            setPhase('error');
+            return;
+          }
+          const bound = rebindQuizSetToReciter(
+            normalizeDailyQuizSet(archivedRes.quizSet),
+            reciterId,
+            getActiveQuranReciters()
+          );
+          setQuizSet(bound);
+          setQuizSource(archivedRes.source || 'archive_firestore');
+          setUsedVersesCount(getUsedAyahKeys().length);
+          setPhase('ready');
+          void refreshArchiveMetadata();
+          return;
+        }
+
         const result = await fetchOrCreateDailyQuranQuiz({
           dateStr: todayDateStr,
           reciterId,
           forceRefresh,
         });
-        setQuizSet(normalizeDailyQuizSet(result.quizSet));
+        const bound = rebindQuizSetToReciter(
+          normalizeDailyQuizSet(result.quizSet),
+          reciterId,
+          getActiveQuranReciters()
+        );
+        setQuizSet(bound);
         setQuizSource(result.source);
         setUsedVersesCount(getUsedAyahKeys().length);
         setPhase('ready');
+        void refreshArchiveMetadata();
       } catch (err: any) {
         if (err instanceof QuranQuizApiError) {
           setIsQuotaLimited(err.code === 'GEMINI_QUOTA_EXCEEDED' || err.status === 429);
@@ -337,12 +449,50 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
         setPhase('error');
       }
     },
-    [stopAllActiveTimersAndAudio, todayDateStr]
+    [refreshArchiveMetadata, stopAllActiveTimersAndAudio, todayDateStr]
   );
 
+  const initialLoadDoneRef = useRef<boolean>(false);
   useEffect(() => {
-    void loadQuiz(selectedReciterId, false);
-  }, [loadQuiz, selectedReciterId]);
+    if (initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
+    void loadQuiz(selectedReciterIdRef.current, false, todayDateStr);
+    void refreshArchiveMetadata();
+  }, [loadQuiz, refreshArchiveMetadata, todayDateStr]);
+
+  const handleSelectArchiveTab = useCallback(
+    (tab: QuizArchiveSectionTab) => {
+      if (isAnyVideoRendering) return;
+      setActiveSectionTab(tab);
+      setArchiveStatusBanner('');
+      if (tab === 'today') {
+        if (activeQuizDateStr !== todayDateStr || !quizSet || phase === 'error') {
+          void loadQuiz(selectedReciterIdRef.current, false, todayDateStr);
+        }
+      } else if (tab === 'yesterday') {
+        setSelectedDatePickerStr(yesterdayDateStr);
+        void loadQuiz(selectedReciterIdRef.current, false, yesterdayDateStr);
+      } else {
+        void refreshArchiveMetadata();
+      }
+    },
+    [activeQuizDateStr, isAnyVideoRendering, loadQuiz, phase, quizSet, refreshArchiveMetadata, todayDateStr, yesterdayDateStr]
+  );
+
+  const handleOpenArchiveDate = useCallback(
+    (targetDateStr: string) => {
+      const cleanDate = String(targetDateStr || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate) || isAnyVideoRendering) return;
+      setSelectedDatePickerStr(cleanDate);
+      if (cleanDate === todayDateStr) {
+        setActiveSectionTab('today');
+      } else if (cleanDate === yesterdayDateStr) {
+        setActiveSectionTab('yesterday');
+      }
+      void loadQuiz(selectedReciterIdRef.current, false, cleanDate);
+    },
+    [isAnyVideoRendering, loadQuiz, todayDateStr, yesterdayDateStr]
+  );
 
   const currentQuestion: QuranQuizQuestion | null = useMemo(() => {
     if (!quizSet?.questions?.length) return null;
@@ -813,11 +963,43 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
     clockAudioRef.current?.setActiveReciter(newReciterId);
     saveStoredQuranQuizReciterId(newReciterId);
     setSelectedReciterId(newReciterId);
+    selectedReciterIdRef.current = newReciterId;
+
+    if (quizSet) {
+      const rebound = rebindQuizSetToReciter(quizSet, newReciterId, reciters);
+      setQuizSet(rebound);
+      cacheDailyQuranQuiz(rebound);
+      setQuestionExports(createInitialQuestionExports());
+      setEnrichedById((prev) => {
+        const next: Record<string, QuranQuizQuestion> = {};
+        for (const q of rebound.questions) {
+          const existing = prev[q.id];
+          if (existing) {
+            next[q.id] = {
+              ...existing,
+              reciterId: q.reciterId,
+              reciterName: q.reciterName,
+              audioUrl: q.audioUrl,
+              fallbackAudioUrl: q.fallbackAudioUrl,
+            };
+          }
+        }
+        return next;
+      });
+      if (phase !== 'finished' && phase !== 'loading' && phase !== 'error') {
+        setIsPaused(false);
+        setTimerRemainingMs(TIMER_DURATION_MS);
+        setPhase('ready');
+      }
+    } else {
+      void loadQuiz(newReciterId, false, activeQuizDateStr);
+    }
   };
 
   const handleExportSingleQuestionVideo = async (qIndex: number) => {
     if (!quizSet?.questions?.[qIndex]) return;
     const partIndex = qIndex + 1;
+    const canonicalFilename = formatQuizMp4Filename(partIndex);
     if (questionExports[partIndex]?.status === 'rendering') return;
 
     const rawQ = quizSet.questions[qIndex];
@@ -831,7 +1013,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
       [partIndex]: {
         status: 'rendering',
         progressPct: 1,
-        stageLabel: `${partIndex}-savol (${partIndex}.mp4) tayyorlanmoqda...`,
+        stageLabel: `${partIndex}-savol (${canonicalFilename}) tayyorlanmoqda...`,
         errorText: '',
         result: null,
       },
@@ -876,7 +1058,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
       });
 
       const sizeMb = (result.sizeBytes / (1024 * 1024)).toFixed(2);
-      const finalFilename = `${partIndex}.mp4`;
+      const finalFilename = formatQuizMp4Filename(partIndex);
       const readyResult = {
         ...result,
         filename: finalFilename,
@@ -889,13 +1071,14 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
         [partIndex]: {
           status: 'ready',
           progressPct: 100,
-          stageLabel: `${partIndex}.mp4 (${sizeMb} MB) yuklab olishga tayyor!`,
+          stageLabel: `${finalFilename} (${sizeMb} MB) yuklab olishga tayyor!`,
           errorText: '',
           result: readyResult,
         },
       }));
       await triggerServerMp4Download({
         downloadUrl: readyResult.downloadUrl,
+        serverDownloadUrl: readyResult.serverDownloadUrl,
         filename: finalFilename,
         onProgress: (msg) => {
           setQuestionExports((prev) => ({
@@ -926,7 +1109,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
           status: 'error',
           progressPct: 0,
           stageLabel: '',
-          errorText: err?.message || `${partIndex}-video eksportida xatolik yuz berdi.`,
+          errorText: err?.message || `${canonicalFilename} video eksportida xatolik yuz berdi.`,
           result: null,
         },
       }));
@@ -937,6 +1120,36 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
     }
   };
 
+  const handleDownloadReadyQuestionVideo = async (qIndex: number) => {
+    const partIndex = qIndex + 1;
+    const slot = questionExports[partIndex];
+    if (slot?.status !== 'ready' || !slot.result) return;
+    try {
+      await triggerServerMp4Download({
+        downloadUrl: slot.result.downloadUrl,
+        serverDownloadUrl: slot.result.serverDownloadUrl,
+        filename: slot.result.filename,
+        onProgress: (msg) => {
+          setQuestionExports((prev) => ({
+            ...prev,
+            [partIndex]: {
+              ...prev[partIndex],
+              stageLabel: msg,
+            },
+          }));
+        },
+      });
+    } catch (err: any) {
+      setQuestionExports((prev) => ({
+        ...prev,
+        [partIndex]: {
+          ...prev[partIndex],
+          errorText: err?.message || `${slot.result?.filename || 'MP4'} yuklab olishda xatolik.`,
+        },
+      }));
+    }
+  };
+
   const handleShareSingleQuestionVideo = async (qIndex: number) => {
     const partIndex = qIndex + 1;
     const slot = questionExports[partIndex];
@@ -944,6 +1157,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
     await shareServerMp4Video({
       previewUrl: slot.result.previewUrl,
       downloadUrl: slot.result.downloadUrl,
+      serverDownloadUrl: slot.result.serverDownloadUrl,
       filename: slot.result.filename,
       title: slot.result.title,
     });
@@ -967,84 +1181,647 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
   const isWaveformActive =
     (phase === 'playing_prefix' || phase === 'revealed_playing_tail') && !isPaused;
 
+  const todayBestAttempt = useMemo(
+    () => getBestAttemptForDate(todayDateStr, attempts),
+    [attempts, todayDateStr]
+  );
+  const todayAttemptsCount = useMemo(
+    () => getAttemptsForDate(todayDateStr, attempts).length,
+    [attempts, todayDateStr]
+  );
+  const yesterdayBestAttempt = useMemo(
+    () => getBestAttemptForDate(yesterdayDateStr, attempts),
+    [attempts, yesterdayDateStr]
+  );
+  const yesterdayAttemptsCount = useMemo(
+    () => getAttemptsForDate(yesterdayDateStr, attempts).length,
+    [attempts, yesterdayDateStr]
+  );
+  const previousDaysItems = useMemo(
+    () => archiveItems.filter((item) => item.dateStr !== todayDateStr),
+    [archiveItems, todayDateStr]
+  );
+  const filteredArchiveItems = useMemo(() => {
+    return archiveItems.filter((item) => {
+      const [y, m] = item.dateStr.split('-');
+      if (selectedArchiveYear && y !== selectedArchiveYear) return false;
+      if (selectedArchiveMonth !== 'all' && m !== selectedArchiveMonth) return false;
+      return true;
+    });
+  }, [archiveItems, selectedArchiveMonth, selectedArchiveYear]);
+
   return (
-    <div className="max-w-6xl mx-auto pb-24 px-1 sm:px-3">
+    <div className="max-w-6xl mx-auto pb-24 px-1 sm:px-3 space-y-5">
+      {/* 4-TAB PERMANENT ARCHIVE & DAILY QUIZ NAVIGATION */}
+      <section
+        aria-label="Kunlik Qurʼon viktorinasi boʻlimlari va doimiy arxiv"
+        className="rounded-3xl bg-[#F8F5EC] dark:bg-[#06241E] border border-[#063D32]/15 dark:border-[#C6A45C]/30 p-4 sm:p-5 shadow-sm space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold tracking-wider text-[#063D32] dark:text-[#C6A45C]">
+              ASAKA ZIYO · DOIMIY QURʼON VIKTORINASI ARXIVI
+            </p>
+            <h2 className="text-base sm:text-lg font-display font-bold text-[#042B25] dark:text-[#F8F5EC]">
+              Har kungi 10 ta savol abadiy saqlanadi — istalgan sanani qayta yeching
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono-numbers tabular-nums">
+            <span className="px-3 py-1.5 rounded-xl bg-[#063D32] text-[#F8F5EC] border border-[#C6A45C]/40 font-semibold">
+              Faol sana: {activeQuizDateStr}
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-[#041D18] text-[#042B25] dark:text-[#DCC58C] border border-[#063D32]/15 dark:border-[#C6A45C]/25 font-semibold">
+              Arxiv: {archiveItems.length} kun
+            </span>
+          </div>
+        </div>
+
+        {/* 4 Section Tabs: 1. BUGUNGI | 2. KECHAGI | 3. OLDINGILAR | 4. ARXIVLAR */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {(
+            [
+              {
+                id: 'today' as QuizArchiveSectionTab,
+                title: '1. BUGUNGI',
+                sub: `${todayDateStr} · 10 savol`,
+                icon: Sparkles,
+              },
+              {
+                id: 'yesterday' as QuizArchiveSectionTab,
+                title: '2. KECHAGI',
+                sub: `${yesterdayDateStr} · 10 savol`,
+                icon: Clock,
+              },
+              {
+                id: 'previous' as QuizArchiveSectionTab,
+                title: '3. OLDINGILAR',
+                sub: `${previousDaysItems.length} ta kun`,
+                icon: History,
+              },
+              {
+                id: 'archive' as QuizArchiveSectionTab,
+                title: '4. ARXIVLAR',
+                sub: 'Sana · Yil · Oy',
+                icon: Archive,
+              },
+            ]
+          ).map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSectionTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                disabled={isAnyVideoRendering}
+                onClick={() => handleSelectArchiveTab(tab.id)}
+                className={`min-h-[54px] px-3.5 py-2.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                  isActive
+                    ? 'bg-[#063D32] text-[#F8F5EC] border-[#C6A45C] shadow-md'
+                    : 'bg-white/80 dark:bg-[#041D18] text-[#042B25] dark:text-[#F8F5EC] border-[#063D32]/15 dark:border-[#C6A45C]/20 hover:border-[#C6A45C]'
+                }`}
+              >
+                <span
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    isActive
+                      ? 'bg-[#C6A45C]/25 text-[#DCC58C]'
+                      : 'bg-[#063D32]/10 dark:bg-white/5 text-[#063D32] dark:text-[#C6A45C]'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate">{tab.title}</div>
+                  <div
+                    className={`text-[10px] font-mono-numbers truncate ${
+                      isActive ? 'text-[#DCC58C]' : 'text-[#5C746C] dark:text-[#8FA69E]'
+                    }`}
+                  >
+                    {tab.sub}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Section 1: BUGUNGI Summary */}
+        {activeSectionTab === 'today' && (
+          <div className="rounded-2xl bg-white/80 dark:bg-[#041D18] border border-[#063D32]/12 dark:border-[#C6A45C]/25 p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-[#042B25] dark:text-[#F8F5EC] flex items-center gap-2">
+                <span>Bugungi viktorina ({todayDateStr}) — 10 ta savol</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-mono-numbers">
+                  10 savol
+                </span>
+              </div>
+              <p className="text-xs text-[#5C746C] dark:text-[#8FA69E]">
+                {todayBestAttempt
+                  ? `Bugungi eng yaxshi natijangiz: ${todayBestAttempt.score} / ${todayBestAttempt.total} (${todayBestAttempt.percentage}%) · Urinishlar: ${todayAttemptsCount} marta`
+                  : 'Bugungi 10 ta savol tayyor. Viktorinani boshlang yoki istalgan qori tilovatida tinglang.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeQuizDateStr !== todayDateStr ? (
+                <button
+                  type="button"
+                  onClick={() => handleOpenArchiveDate(todayDateStr)}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-[#063D32] hover:bg-[#075747] text-[#F8F5EC] border border-[#C6A45C]/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5 text-[#DCC58C]" />
+                  <span>Bugungi 10 ta savolni ochish</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (phase === 'ready') startQuestionPlayback(0);
+                    else handleRestartQuiz();
+                  }}
+                  disabled={phase === 'loading' || !quizSet}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#031814] text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>{phase === 'ready' ? 'Viktorinani boshlash' : 'Boshidan yechish'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Section 2: KECHAGI Summary */}
+        {activeSectionTab === 'yesterday' && (
+          <div className="rounded-2xl bg-white/80 dark:bg-[#041D18] border border-[#063D32]/12 dark:border-[#C6A45C]/25 p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-[#042B25] dark:text-[#F8F5EC] flex items-center gap-2">
+                <span>Kechagi viktorina ({yesterdayDateStr})</span>
+                <span className="px-2 py-0.5 rounded-md bg-[#C6A45C]/20 text-[#042B25] dark:text-[#DCC58C] text-[10px] font-mono-numbers">
+                  10 savol
+                </span>
+              </div>
+              <p className="text-xs text-[#5C746C] dark:text-[#8FA69E]">
+                {archiveStatusBanner
+                  ? archiveStatusBanner
+                  : yesterdayBestAttempt
+                    ? `Kechagi natijangiz: ${yesterdayBestAttempt.score} / ${yesterdayBestAttempt.total} (${yesterdayBestAttempt.percentage}%) · Urinishlar: ${yesterdayAttemptsCount} marta`
+                    : 'Kechagi 10 ta savolni toʻliq qayta tinglab yechishingiz mumkin.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleOpenArchiveDate(yesterdayDateStr)}
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-[#063D32] hover:bg-[#075747] text-[#F8F5EC] border border-[#C6A45C]/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-[#DCC58C]" />
+                <span>Kechagi 10 ta savolni yuklash</span>
+              </button>
+              {quizSet && activeQuizDateStr === yesterdayDateStr && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (phase === 'ready') startQuestionPlayback(0);
+                    else handleRestartQuiz();
+                  }}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] text-[#031814] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Qayta yechish</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Section 3: OLDINGILAR (Previous Days List sorted descending) */}
+        {activeSectionTab === 'previous' && (
+          <div className="rounded-2xl bg-white/80 dark:bg-[#041D18] border border-[#063D32]/12 dark:border-[#C6A45C]/25 p-3.5 sm:p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs sm:text-sm font-bold text-[#042B25] dark:text-[#F8F5EC]">
+                Oldingi kunlar viktorinalari (sana boʻyicha kamayish tartibida)
+              </h3>
+              <span className="text-[11px] font-mono-numbers text-[#5C746C] dark:text-[#8FA69E]">
+                Jami: {archiveItems.length} kun
+              </span>
+            </div>
+
+            {archiveLoading && archiveItems.length === 0 ? (
+              <p className="text-xs text-[#5C746C] dark:text-[#8FA69E] py-3">
+                Arxiv roʻyxati yuklanmoqda...
+              </p>
+            ) : archiveItems.length === 0 ? (
+              <p className="text-xs text-[#5C746C] dark:text-[#8FA69E] py-3">
+                Hozircha arxivlangan viktorinalar topilmadi.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[240px] overflow-y-auto pr-1">
+                {archiveItems.map((item) => {
+                  const bestAtt = getBestAttemptForDate(item.dateStr, attempts);
+                  const attCount = getAttemptsForDate(item.dateStr, attempts).length;
+                  const isOpened = activeQuizDateStr === item.dateStr;
+                  return (
+                    <div
+                      key={item.dateStr}
+                      className={`rounded-xl p-3 border transition-all flex flex-col justify-between gap-2 ${
+                        isOpened
+                          ? 'bg-[#063D32] text-[#F8F5EC] border-[#C6A45C]'
+                          : 'bg-[#F8F5EC]/80 dark:bg-[#06241E] text-[#042B25] dark:text-[#F8F5EC] border-[#063D32]/15 dark:border-[#C6A45C]/20'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono-numbers text-xs font-bold">
+                            {item.dateStr}
+                            {item.dateStr === todayDateStr
+                              ? ' (Bugun)'
+                              : item.dateStr === yesterdayDateStr
+                                ? ' (Kecha)'
+                                : ''}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-mono-numbers font-bold ${
+                              isOpened
+                                ? 'bg-[#C6A45C]/25 text-[#DCC58C]'
+                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            }`}
+                          >
+                            {item.questionCount || 10} ta savol
+                          </span>
+                        </div>
+                        {item.surahPreviewUz && (
+                          <div
+                            className={`text-[11px] truncate ${
+                              isOpened ? 'text-[#D4CFC3]' : 'text-[#5C746C] dark:text-[#8FA69E]'
+                            }`}
+                          >
+                            Suralar: {item.surahPreviewUz}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/10">
+                        <span className="text-[11px] font-mono-numbers">
+                          {bestAtt
+                            ? `Natija: ${bestAtt.score}/${bestAtt.total} (${attCount}x)`
+                            : 'Yechilmagan'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenArchiveDate(item.dateStr)}
+                          className={`min-h-[34px] px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer ${
+                            isOpened
+                              ? 'bg-[#C6A45C] text-[#031814]'
+                              : 'bg-[#063D32] text-[#F8F5EC] hover:bg-[#075747]'
+                          }`}
+                        >
+                          {isOpened ? 'Ochilgan' : 'Ochish'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section 4: ARXIVLAR (Full Historical Archive with Date Picker, Year & Month Navigation) */}
+        {activeSectionTab === 'archive' && (
+          <div className="rounded-2xl bg-white/80 dark:bg-[#041D18] border border-[#063D32]/12 dark:border-[#C6A45C]/25 p-3.5 sm:p-4 space-y-3.5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              {/* Date Picker */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-[#042B25] dark:text-[#DCC58C] flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Aniq sana boʻyicha viktorinani ochish (Date Picker)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={selectedDatePickerStr}
+                    max={todayDateStr}
+                    onChange={(e) => setSelectedDatePickerStr(e.target.value)}
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#06241E] border border-[#063D32]/20 dark:border-[#C6A45C]/35 text-xs font-mono-numbers text-[#042B25] dark:text-[#F8F5EC]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleOpenArchiveDate(selectedDatePickerStr)}
+                    className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-[#063D32] hover:bg-[#075747] text-[#F8F5EC] border border-[#C6A45C]/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <Search className="w-3.5 h-3.5 text-[#DCC58C]" />
+                    <span>Sanani ochish</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Year & Month Filter */}
+              <div className="flex flex-wrap items-center gap-2">
+                {archiveAvailableYears.map((yr) => (
+                  <button
+                    key={yr}
+                    type="button"
+                    onClick={() => {
+                      setSelectedArchiveYear(yr);
+                      setSelectedArchiveMonth('all');
+                    }}
+                    className={`min-h-[36px] px-3 py-1 rounded-xl text-xs font-mono-numbers font-bold border cursor-pointer ${
+                      selectedArchiveYear === yr
+                        ? 'bg-[#063D32] text-[#F8F5EC] border-[#C6A45C]'
+                        : 'bg-white dark:bg-[#06241E] text-[#042B25] dark:text-[#D4CFC3] border-[#063D32]/15 dark:border-[#C6A45C]/25'
+                    }`}
+                  >
+                    {yr}-yil
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Months Filter Row */}
+            {(archiveMonthsByYear[selectedArchiveYear]?.length || 0) > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedArchiveMonth('all')}
+                  className={`min-h-[32px] px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer shrink-0 ${
+                    selectedArchiveMonth === 'all'
+                      ? 'bg-[#C6A45C] text-[#031814] border-[#C6A45C]'
+                      : 'bg-white/70 dark:bg-[#06241E] text-[#042B25] dark:text-[#D4CFC3] border-[#063D32]/15 dark:border-[#C6A45C]/20'
+                  }`}
+                >
+                  Barcha oylar
+                </button>
+                {(archiveMonthsByYear[selectedArchiveYear] || []).map((mm) => (
+                  <button
+                    key={mm}
+                    type="button"
+                    onClick={() => setSelectedArchiveMonth(mm)}
+                    className={`min-h-[32px] px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer shrink-0 ${
+                      selectedArchiveMonth === mm
+                        ? 'bg-[#C6A45C] text-[#031814] border-[#C6A45C]'
+                        : 'bg-white/70 dark:bg-[#06241E] text-[#042B25] dark:text-[#D4CFC3] border-[#063D32]/15 dark:border-[#C6A45C]/20'
+                    }`}
+                  >
+                    {UZBEK_MONTH_NAMES[mm] || `${mm}-oy`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {archiveStatusBanner && (
+              <div className="rounded-xl px-3.5 py-2.5 bg-amber-500/15 border border-amber-500/35 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+                <span>{archiveStatusBanner}</span>
+                <button
+                  type="button"
+                  onClick={() => handleOpenArchiveDate(todayDateStr)}
+                  className="px-3 py-1 rounded-lg bg-[#063D32] text-[#F8F5EC] text-[11px] font-bold cursor-pointer shrink-0"
+                >
+                  Bugungi viktorinaga qaytish
+                </button>
+              </div>
+            )}
+
+            {filteredArchiveItems.length === 0 ? (
+              <p className="text-xs text-[#5C746C] dark:text-[#8FA69E] py-2">
+                Tanlangan yil/oy uchun arxivda viktorina mavjud emas.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[240px] overflow-y-auto pr-1">
+                {filteredArchiveItems.map((item) => {
+                  const bestAtt = getBestAttemptForDate(item.dateStr, attempts);
+                  const attCount = getAttemptsForDate(item.dateStr, attempts).length;
+                  const isOpened = activeQuizDateStr === item.dateStr;
+                  return (
+                    <div
+                      key={item.dateStr}
+                      className={`rounded-xl p-3 border transition-all flex flex-col justify-between gap-2 ${
+                        isOpened
+                          ? 'bg-[#063D32] text-[#F8F5EC] border-[#C6A45C]'
+                          : 'bg-[#F8F5EC]/80 dark:bg-[#06241E] text-[#042B25] dark:text-[#F8F5EC] border-[#063D32]/15 dark:border-[#C6A45C]/20'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono-numbers text-xs font-bold">
+                            {item.dateStr}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-mono-numbers font-bold ${
+                              isOpened
+                                ? 'bg-[#C6A45C]/25 text-[#DCC58C]'
+                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            }`}
+                          >
+                            {item.questionCount || 10} ta savol
+                          </span>
+                        </div>
+                        {item.surahPreviewUz && (
+                          <div
+                            className={`text-[11px] truncate ${
+                              isOpened ? 'text-[#D4CFC3]' : 'text-[#5C746C] dark:text-[#8FA69E]'
+                            }`}
+                          >
+                            Suralar: {item.surahPreviewUz}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/10">
+                        <span className="text-[11px] font-mono-numbers">
+                          {bestAtt
+                            ? `Natija: ${bestAtt.score}/${bestAtt.total} (${attCount}x)`
+                            : 'Yechilmagan'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenArchiveDate(item.dateStr)}
+                          className={`min-h-[34px] px-3 py-1 rounded-lg text-[11px] font-bold cursor-pointer ${
+                            isOpened
+                              ? 'bg-[#C6A45C] text-[#031814]'
+                              : 'bg-[#063D32] text-[#F8F5EC] hover:bg-[#075747]'
+                          }`}
+                        >
+                          {isOpened ? 'Ochilgan' : '10 savolni ochish'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       <div className="grid grid-cols-1 lg:grid-cols-[430px_1fr] gap-6 items-start justify-center">
-        {/* LEFT COLUMN: 9:16 PRO QURAN CINEMA SHORTS STAGE */}
+        {/* LEFT COLUMN: 9:16 LUXURY SACRED CINEMA & MOTION VFX SHORTS STAGE */}
         <div className="w-full max-w-[430px] mx-auto">
-          <div
-            className="relative w-full aspect-[9/16] min-h-[690px] sm:min-h-[735px] rounded-[30px] overflow-hidden border border-[#C6A45C]/45 text-[#F8F5EC] shadow-2xl flex flex-col justify-between p-4 sm:p-5"
-            style={{
-              background: 'linear-gradient(180deg, #02140c 0%, #07291a 52%, #010a06 100%)',
-            }}
-          >
-            {/* Layer 1: Slowly Rotating Transparent Islamic Geometric Mandala SVG */}
+          <div className="qz-stage relative w-full aspect-[9/16] min-h-[710px] sm:min-h-[755px] rounded-[32px] flex flex-col justify-between p-4 sm:p-5">
+            {/* Layer 1: Volumetric God-Rays from Top Center (mix-blend-mode: screen) */}
+            <div aria-hidden="true" className="qz-god-rays" />
+
+            {/* Layer 2: Counter-Rotating 2-Layer Islamic Girih & 16-Pointed Star Mandalas (90s CW & 120s CCW, opacity 0.05) */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden opacity-30"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden z-[1]"
             >
+              {/* Outer 16-Pointed Star Mandala (90s CW) */}
               <svg
-                viewBox="0 0 400 400"
-                className="w-[480px] h-[480px] animate-mandala-slow text-[#C6A45C]"
+                viewBox="0 0 500 500"
+                className="w-[520px] h-[520px] qz-mandala-cw absolute"
+                style={{ opacity: 0.06 }}
                 fill="none"
               >
-                <circle cx="200" cy="200" r="188" stroke="currentColor" strokeWidth="0.9" strokeOpacity="0.45" />
-                <circle cx="200" cy="200" r="154" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.35" />
-                <circle cx="200" cy="200" r="112" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.3" />
-                <circle cx="200" cy="200" r="68" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.28" />
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <g key={i} transform={`rotate(${i * 30} 200 200)`}>
+                <defs>
+                  <linearGradient id="qzGoldMandalaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#8A6621" />
+                    <stop offset="25%" stopColor="#DFBD69" />
+                    <stop offset="50%" stopColor="#FFF6C8" />
+                    <stop offset="75%" stopColor="#D4AF37" />
+                    <stop offset="100%" stopColor="#7A5818" />
+                  </linearGradient>
+                </defs>
+                <circle cx="250" cy="250" r="236" stroke="url(#qzGoldMandalaGrad)" strokeWidth="1.4" />
+                <circle cx="250" cy="250" r="204" stroke="url(#qzGoldMandalaGrad)" strokeWidth="1.1" />
+                <circle cx="250" cy="250" r="158" stroke="url(#qzGoldMandalaGrad)" strokeWidth="1.1" />
+                {Array.from({ length: 16 }).map((_, i) => (
+                  <g key={`star16_${i}`} transform={`rotate(${i * 22.5} 250 250)`}>
                     <polygon
-                      points="200,18 228,110 200,152 172,110"
-                      stroke="currentColor"
-                      strokeWidth="0.8"
-                      strokeOpacity="0.35"
+                      points="250,14 272,118 250,185 228,118"
+                      stroke="url(#qzGoldMandalaGrad)"
+                      strokeWidth="1.2"
+                    />
+                    <line
+                      x1="250"
+                      y1="14"
+                      x2="250"
+                      y2="250"
+                      stroke="url(#qzGoldMandalaGrad)"
+                      strokeWidth="0.6"
                     />
                   </g>
                 ))}
-                <rect
-                  x="96"
-                  y="96"
-                  width="208"
-                  height="208"
-                  stroke="currentColor"
-                  strokeWidth="0.8"
-                  strokeOpacity="0.3"
-                />
-                <rect
-                  x="96"
-                  y="96"
-                  width="208"
-                  height="208"
-                  transform="rotate(45 200 200)"
-                  stroke="currentColor"
-                  strokeWidth="0.8"
-                  strokeOpacity="0.3"
-                />
+              </svg>
+
+              {/* Inner Mamluk/Timurid Girih Interlocking Rosette (120s CCW) */}
+              <svg
+                viewBox="0 0 420 420"
+                className="w-[400px] h-[400px] qz-mandala-ccw absolute"
+                style={{ opacity: 0.055 }}
+                fill="none"
+              >
+                <circle cx="210" cy="210" r="190" stroke="#DFBD69" strokeWidth="1.2" />
+                <circle cx="210" cy="210" r="126" stroke="#FFF6C8" strokeWidth="1" />
+                <circle cx="210" cy="210" r="68" stroke="#D4AF37" strokeWidth="1.2" />
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <g key={`girih8_${i}`} transform={`rotate(${i * 45} 210 210)`}>
+                    <rect
+                      x="92"
+                      y="92"
+                      width="236"
+                      height="236"
+                      rx="10"
+                      stroke="#DFBD69"
+                      strokeWidth="1.2"
+                    />
+                    <polygon
+                      points="210,24 242,96 210,142 178,96"
+                      stroke="#FFF6C8"
+                      strokeWidth="1"
+                    />
+                  </g>
+                ))}
               </svg>
             </div>
 
-            {/* Layer 2: Drifting Golden Light Particles Canvas */}
+            {/* Layer 3: Ambient Golden Bokeh & Dust Particles Canvas */}
             <canvas
               ref={particleCanvasRef}
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 w-full h-full"
+              className="pointer-events-none absolute inset-0 w-full h-full z-[1]"
             />
 
-            {/* Layer 3: Subtle Radial Illumination Halo */}
-            <div
+            {/* Layer 4: Cinematic Dark Vignette on Edges */}
+            <div aria-hidden="true" className="qz-vignette" />
+
+            {/* Layer 5: Heartbeat Tension Glow in Final 1.5 Seconds */}
+            {phase === 'countdown_waiting' && !isPaused && timerRemainingMs <= 1500 && (
+              <div aria-hidden="true" className="qz-heartbeat-glow" />
+            )}
+
+            {/* Layer 6: Perimeter Golden Laser Line (Depletes smoothly along screen edge during countdown) */}
+            <svg
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(circle at 50% 24%, rgba(220,197,140,0.16) 0%, rgba(16,185,129,0.06) 44%, transparent 74%)',
-              }}
-            />
+              className="pointer-events-none absolute inset-0 w-full h-full z-[5]"
+              viewBox="0 0 430 764"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="qzPerimeterGoldLaser" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#8A6621" />
+                  <stop offset="25%" stopColor="#DFBD69" />
+                  <stop offset="50%" stopColor="#FFF6C8" />
+                  <stop offset="75%" stopColor="#D4AF37" />
+                  <stop offset="100%" stopColor="#7A5818" />
+                </linearGradient>
+                <linearGradient id="qzPerimeterTensionLaser" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#F59E0B" />
+                  <stop offset="50%" stopColor="#FEF08A" />
+                  <stop offset="100%" stopColor="#EF4444" />
+                </linearGradient>
+              </defs>
+              <rect
+                x="3"
+                y="3"
+                width="424"
+                height="758"
+                rx="30"
+                ry="30"
+                fill="none"
+                stroke="rgba(223, 189, 105, 0.16)"
+                strokeWidth="2"
+              />
+              <rect
+                x="3"
+                y="3"
+                width="424"
+                height="758"
+                rx="30"
+                ry="30"
+                fill="none"
+                pathLength={100}
+                strokeDasharray="100"
+                strokeDashoffset={
+                  phase === 'revealed_playing_tail'
+                    ? 0
+                    : phase === 'countdown_waiting'
+                      ? Math.max(0, 100 - timerProgressPct)
+                      : 0
+                }
+                stroke={
+                  phase === 'revealed_playing_tail'
+                    ? '#10B981'
+                    : phase === 'countdown_waiting' && timerRemainingMs <= 1500
+                      ? 'url(#qzPerimeterTensionLaser)'
+                      : 'url(#qzPerimeterGoldLaser)'
+                }
+                strokeWidth={phase === 'countdown_waiting' ? '3.5' : '2'}
+                strokeLinecap="round"
+                style={{
+                  filter:
+                    phase === 'revealed_playing_tail'
+                      ? 'drop-shadow(0 0 10px rgba(16, 185, 129, 0.85))'
+                      : phase === 'countdown_waiting' && timerRemainingMs <= 1500
+                        ? 'drop-shadow(0 0 14px rgba(245, 158, 11, 0.95))'
+                        : 'drop-shadow(0 0 8px rgba(223, 189, 105, 0.65))',
+                  transition: 'stroke-dashoffset 60ms linear',
+                }}
+              />
+            </svg>
 
-            {/* 1. TOP PROGRESS BAR & SHORTS HEADER */}
+            {/* 1. TOP PROGRESS BAR, LUMINOUS DIAMOND INDICATORS & SHORTS HEADER */}
             <header className="relative z-10 space-y-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2" aria-label="Viktorina bosqichlari">
+              <div className="flex items-center justify-between gap-2">
+                {/* 4 Luminous Diamond/Circle Stage Indicators */}
+                <div className="flex items-center gap-2.5" aria-label="Viktorina bosqichlari">
                   {[0, 1, 2, 3].map((circleIdx) => {
                     const thresholdQuestion = circleIdx * 3;
                     const isCompleted =
@@ -1054,70 +1831,80 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                     return (
                       <span
                         key={circleIdx}
-                        className={`w-3 h-3 rounded-full transition-all duration-300 border ${
+                        className={`w-3.5 h-3.5 rotate-45 rounded-[3px] transition-all duration-300 border flex items-center justify-center ${
                           isCompleted
-                            ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.65)]'
+                            ? 'bg-emerald-400 border-[#FFF6C8] shadow-[0_0_12px_rgba(52,211,153,0.85)]'
                             : isActive
-                              ? 'bg-[#DCC58C] border-[#F8F5EC] scale-110 shadow-[0_0_10px_rgba(220,197,140,0.75)]'
-                              : 'bg-white/10 border-[#C6A45C]/40'
+                              ? 'qz-gold-foil-bg border-[#FFF6C8] scale-125 shadow-[0_0_14px_rgba(255,246,200,0.9)]'
+                              : 'bg-black/40 border-[#DFBD69]/40'
                         }`}
-                      />
+                      >
+                        {(isCompleted || isActive) && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#FFFDF7]" />
+                        )}
+                      </span>
                     );
                   })}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono-numbers tabular-nums px-2.5 py-1 rounded-lg bg-[#063D32]/80 border border-[#C6A45C]/35 text-[#DCC58C]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-mono-numbers tabular-nums px-2.5 py-1 rounded-lg bg-black/35 border border-[#DFBD69]/40 text-[#FFF8E8]">
+                    {activeQuizDateStr}
+                  </span>
+                  <span className="text-xs font-mono-numbers tabular-nums px-2.5 py-1 rounded-lg bg-[#093322]/90 border border-[#DFBD69]/65 text-[#FFF6C8] font-bold shadow-[0_0_12px_rgba(223,189,105,0.2)]">
                     {phase === 'finished' ? '10 / 10' : `${currentIndex + 1} / 10`}
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsTickMuted((prev) => !prev)}
                     aria-label={isTickMuted ? 'Soat ovozini yoqish' : 'Soat ovozini oʻchirish'}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-[#C6A45C]/25 text-[#DCC58C] transition-colors cursor-pointer"
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-black/35 hover:bg-black/55 border border-[#DFBD69]/40 text-[#DFBD69] transition-colors cursor-pointer"
                   >
                     {isTickMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              {/* 10-question micro-segments */}
+              {/* 10-question Metallic Gold & Emerald Micro-Segments */}
               <div className="grid grid-cols-10 gap-1">
                 {Array.from({ length: 10 }).map((_, idx) => {
                   const ans = answersMap[idx];
                   const q = quizSet?.questions?.[idx];
-                  let segClass = 'bg-white/12';
+                  let segClass = 'bg-white/15';
                   if (ans && q) {
                     segClass =
                       ans.selectedIndex === q.correctIndex
-                        ? 'bg-emerald-400'
+                        ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]'
                         : 'bg-rose-400/90';
                   } else if (idx === currentIndex && phase !== 'finished') {
-                    segClass = 'bg-[#DCC58C]';
+                    segClass = 'qz-gold-foil-bg shadow-[0_0_10px_rgba(255,246,200,0.8)]';
                   }
                   return (
                     <div
                       key={idx}
-                      className={`h-1 rounded-full transition-colors duration-300 ${segClass}`}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${segClass}`}
                     />
                   );
                 })}
               </div>
 
-              {/* Title + Reciter + Streak */}
+              {/* Brand Title + Reciter + Streak */}
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <div className="min-w-0">
-                  <h1 className="text-sm sm:text-base font-display font-bold tracking-wide text-[#F8F5EC] truncate">
-                    Pro Quran Cinema Quiz
+                  <h1 className="text-[clamp(0.88rem,2.5vw,1.02rem)] font-display font-bold tracking-wider qz-gold-foil-text truncate">
+                    ASAKA ZIYO · QURʼON VIKTORINASI
                   </h1>
-                  <p className="text-[11px] text-[#C6A45C] truncate">
-                    {quizSet?.reciterName ||
-                      reciters.find((r) => r.id === selectedReciterId)?.name ||
-                      'Shayx Mishariy al-Afosiy'}
+                  <p className="text-[11px] text-[#FFF8E8]/80 truncate flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#DFBD69]" />
+                    <span>
+                      {quizSet?.reciterName ||
+                        reciters.find((r) => r.id === selectedReciterId)?.name ||
+                        'Shayx Mishariy al-Afosiy'}
+                    </span>
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-bold tabular-nums text-amber-300 shrink-0">
-                  <Flame className="w-4 h-4 fill-amber-400 text-amber-400" />
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/35 border border-[#DFBD69]/40 text-xs font-bold tabular-nums text-[#FFF6C8] shrink-0">
+                  <Flame className="w-3.5 h-3.5 fill-[#DFBD69] text-[#DFBD69]" />
                   <span>{streak.count}</span>
                 </div>
               </div>
@@ -1126,15 +1913,19 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
             {/* 2. CENTER BODY BY PHASE */}
             {phase === 'loading' && (
               <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 space-y-4">
-                <div className="w-16 h-16 rounded-2xl cinema-gold-glass border border-[#C6A45C]/50 flex items-center justify-center">
-                  <Headphones className="w-8 h-8 text-[#DCC58C] animate-pulse" />
+                <div className="w-16 h-16 rounded-2xl qz-obsidian-card flex items-center justify-center">
+                  <Headphones className="w-8 h-8 text-[#DFBD69] animate-pulse" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-base font-display font-bold text-[#F8F5EC]">
-                    10 ta noyob Shorts tayyorlanmoqda
+                  <h2 className="text-base font-display font-bold qz-gold-foil-text">
+                    {activeQuizDateStr === todayDateStr
+                      ? '10 ta noyob Shorts tayyorlanmoqda'
+                      : `${activeQuizDateStr} sanadagi arxiv yuklanmoqda`}
                   </h2>
-                  <p className="text-xs text-[#D4CFC3]/85 leading-relaxed max-w-xs mx-auto">
-                    Gemini AI tilovat audiosini tahlil qilib pauza nuqtalari va javob variantlarini tayyorlamoqda, oyat tarjimasi va tafsiri esa Qurʼon boʻlimi bazasidan olinmoqda...
+                  <p className="text-xs text-[#FFF8E8]/80 leading-relaxed max-w-xs mx-auto">
+                    {activeQuizDateStr === todayDateStr
+                      ? 'Tilovat audiosi tahlil qilinib, pauza nuqtalari, yashirin kalima va Tafsiri Hilol maʼnolari tayyorlanmoqda...'
+                      : 'Doimiy Firestore arxividan tanlangan sananing 10 ta oyat savoli va qori audiosi yuklanmoqda...'}
                   </p>
                 </div>
               </div>
@@ -1144,26 +1935,40 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
               <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 space-y-4">
                 <div
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${
-                    isQuotaLimited
+                    isQuotaLimited || archiveStatusBanner
                       ? 'bg-amber-500/15 border-amber-400/40'
                       : 'bg-rose-500/15 border-rose-400/40'
                   }`}
                 >
                   <AlertTriangle
-                    className={`w-7 h-7 ${isQuotaLimited ? 'text-amber-300' : 'text-rose-300'}`}
+                    className={`w-7 h-7 ${
+                      isQuotaLimited || archiveStatusBanner ? 'text-amber-300' : 'text-rose-300'
+                    }`}
                   />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-base font-display font-bold text-[#F8F5EC]">
-                    {isQuotaLimited
-                      ? 'Kunlik AI kvotasi vaqtincha tugadi'
-                      : 'Audio tahlilni yuklab boʻlmadi'}
+                  <h2 className="text-base font-display font-bold text-[#FFF8E8]">
+                    {archiveStatusBanner
+                      ? 'Tanlangan sanada viktorina topilmadi'
+                      : isQuotaLimited
+                        ? 'Kunlik AI kvotasi vaqtincha tugadi'
+                        : 'Audio tahlilni yuklab boʻlmadi'}
                   </h2>
-                  <p className="text-xs text-[#F8F5EC]/85 leading-relaxed max-w-xs mx-auto">
+                  <p className="text-xs text-[#FFF8E8]/85 leading-relaxed max-w-xs mx-auto">
                     {errorMessage}
                   </p>
                 </div>
                 <div className="flex flex-col items-center gap-2.5 w-full max-w-[260px]">
+                  {activeQuizDateStr !== todayDateStr && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenArchiveDate(todayDateStr)}
+                      className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#010805] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Sparkles className="w-4 h-4 shrink-0" />
+                      <span>Bugungi viktorinani ochish ({todayDateStr})</span>
+                    </button>
+                  )}
                   {quotaFallbackQuizzes.length > 0 && (
                     <button
                       type="button"
@@ -1171,7 +1976,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                         const archived = quotaFallbackQuizzes[0];
                         if (!archived) return;
                         stopAllActiveTimersAndAudio();
-                        setQuizSet(archived);
+                        setQuizSet(rebindQuizSetToReciter(archived, selectedReciterId, reciters));
                         setQuizSource('archive');
                         setCurrentIndex(0);
                         setSelectedOption(null);
@@ -1181,7 +1986,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                         setErrorMessage('');
                         setPhase('ready');
                       }}
-                      className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#031814] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                      className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#010805] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <History className="w-4 h-4 shrink-0" />
                       <span>Mavjud arxiv viktorinani ochish</span>
@@ -1189,8 +1994,14 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                   )}
                   <button
                     type="button"
-                    onClick={() => void loadQuiz(selectedReciterId, true)}
-                    className="w-full min-h-[44px] px-5 py-2.5 rounded-xl bg-[#C6A45C] hover:bg-[#DCC58C] text-[#031814] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                    onClick={() =>
+                      void loadQuiz(
+                        selectedReciterId,
+                        activeQuizDateStr === todayDateStr,
+                        activeQuizDateStr
+                      )
+                    }
+                    className="w-full min-h-[44px] px-5 py-2.5 rounded-xl qz-gold-foil-bg text-[#010805] font-bold text-xs flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
                   >
                     <RefreshCw className="w-4 h-4 shrink-0" />
                     <span>Qayta urinish</span>
@@ -1200,43 +2011,43 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
             )}
 
             {phase === 'finished' && quizSet && (
-              <div className="relative z-10 flex-1 flex flex-col justify-between py-2.5 overflow-y-auto pr-1 space-y-3">
-                <div className="rounded-2xl cinema-gold-glass border border-[#C6A45C]/45 p-4 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#C6A45C]/20 border border-[#C6A45C]/50 mx-auto flex items-center justify-center">
-                    <Trophy className="w-6 h-6 text-[#DCC58C]" />
+              <div className="relative z-10 flex-1 flex flex-col justify-between py-2 overflow-y-auto pr-1 space-y-3">
+                <div className="rounded-2xl qz-obsidian-card p-4 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl qz-gold-foil-bg mx-auto flex items-center justify-center shadow-[0_0_24px_rgba(223,189,105,0.45)]">
+                    <Trophy className="w-6 h-6 text-[#010805]" />
                   </div>
                   <div>
-                    <p className="text-[11px] tracking-widest text-[#C6A45C] font-semibold">
-                      Kunlik viktorina yakunlandi
+                    <p className="text-[11px] tracking-widest text-[#DFBD69] font-semibold uppercase">
+                      Viktorina yakunlandi · {quizSet.dateStr}
                     </p>
-                    <h2 className="text-2xl font-display font-bold text-[#F8F5EC] tabular-nums mt-0.5">
+                    <h2 className="text-2xl font-display font-bold qz-gold-foil-text tabular-nums mt-0.5">
                       {finishedSummary.score} / {finishedSummary.total} ({finishedSummary.percentage}%)
                     </h2>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-                    <div className="py-1.5 border-r border-[#C6A45C]/20">
+                    <div className="py-1.5 border-r border-[#DFBD69]/25">
                       <div className="text-sm font-bold text-emerald-300 tabular-nums">
                         {finishedSummary.score}
                       </div>
                       <div className="text-[11px] text-emerald-200/80">Toʻgʻri</div>
                     </div>
-                    <div className="py-1.5 border-r border-[#C6A45C]/20">
+                    <div className="py-1.5 border-r border-[#DFBD69]/25">
                       <div className="text-sm font-bold text-rose-300 tabular-nums">
                         {finishedSummary.incorrectCount}
                       </div>
                       <div className="text-[11px] text-rose-200/80">Notoʻgʻri</div>
                     </div>
                     <div className="py-1.5">
-                      <div className="text-sm font-bold text-[#DCC58C] tabular-nums">
+                      <div className="text-sm font-bold text-[#FFF6C8] tabular-nums">
                         {streak.count} kun
                       </div>
-                      <div className="text-[11px] text-[#D4CFC3]/80">Muntazamlik</div>
+                      <div className="text-[11px] text-[#FFF8E8]/75">Muntazamlik</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-2.5 max-h-[285px] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[275px] overflow-y-auto pr-1">
                   {quizSet.questions.map((rawQ, idx) => {
                     const q = enrichedById[rawQ.id] || normalizeQuizQuestion(rawQ);
                     const ans = answersMap[idx];
@@ -1244,10 +2055,10 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                     return (
                       <div
                         key={q.id}
-                        className="rounded-xl cinema-gold-glass border border-[#C6A45C]/25 p-3 space-y-2"
+                        className="rounded-xl bg-black/35 border border-[#DFBD69]/35 p-3 space-y-2 backdrop-blur-md"
                       >
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-[#DCC58C]">
+                          <span className="font-bold text-[#FFF6C8]">
                             {idx + 1}. {q.surahNameUz} surasi, {q.ayahNumberInSurah}-oyat
                           </span>
                           <span
@@ -1268,36 +2079,24 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                         </div>
                         <p
                           dir="rtl"
-                          className="font-arabic-cinema text-base leading-loose text-[#F8F5EC] text-right"
+                          className="qz-arabic-calligraphy text-base leading-loose text-right"
                         >
                           {q.fullArabicText}
                         </p>
                         {q.translationUz ? (
-                          <div className="text-[11px] text-[#D4CFC3] leading-relaxed border-t border-[#C6A45C]/15 pt-1.5 space-y-0.5">
+                          <div className="text-[11px] text-[#FFF8E8]/90 leading-relaxed border-t border-[#DFBD69]/20 pt-1.5 space-y-0.5">
                             <p>{q.translationUz}</p>
-                            <p className="text-[10px] text-[#C6A45C]/90">
-                              Tarjima: {q.translatorName || 'Shayx Muhammad Sodiq Muhammad Yusuf'}
+                            <p className="text-[10px] text-[#DFBD69]">
+                              Tafsiri Hilol — {q.translatorName || 'Shayx Muhammad Sodiq Muhammad Yusuf'}
                             </p>
                           </div>
                         ) : (
-                          <p className="text-[10px] text-[#8FA69E] border-t border-[#C6A45C]/15 pt-1.5">
+                          <p className="text-[10px] text-[#FFF8E8]/60 border-t border-[#DFBD69]/20 pt-1.5">
                             Tarjima matni hozircha yuklanmadi.
                           </p>
                         )}
-                        <div className="text-[10px] text-[#D4CFC3]/85 leading-relaxed bg-black/20 rounded-lg p-2">
-                          <span className="font-semibold text-[#DCC58C]">
-                            {q.tafsirScope === 'ayah'
-                              ? 'Oyat tafsiri: '
-                              : q.tafsirScope === 'surah'
-                                ? 'Sura sharhi (Tafsiri Hilol): '
-                                : 'Tafsir: '}
-                          </span>
-                          {q.tafsirTextUz
-                            ? q.tafsirTextUz
-                            : 'Ushbu oyat uchun tafsir matni bazada hozircha mavjud emas'}
-                        </div>
                         <div className="flex items-center justify-between pt-1 gap-2">
-                          <span className="text-[10px] text-[#8FA69E] truncate">
+                          <span className="text-[10px] text-[#FFF8E8]/70 truncate">
                             {q.reciterName} ·{' '}
                             {ans?.selectedIndex !== null && ans?.selectedIndex !== undefined
                               ? `Tanlov: ${q.options[ans.selectedIndex]}`
@@ -1310,14 +2109,14 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                                 setInspectedQuestionIndex(idx);
                                 setIsTafsirPanelOpen(true);
                               }}
-                              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-[#C6A45C]/30 text-[#F8F5EC] text-[11px] font-semibold cursor-pointer whitespace-nowrap"
+                              className="min-h-[34px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-[#DFBD69]/35 text-[#FFF8E8] text-[11px] font-semibold cursor-pointer whitespace-nowrap"
                             >
                               Tafsir
                             </button>
                             <button
                               type="button"
                               onClick={() => handlePlayReviewAyah(q, idx)}
-                              className="min-h-[36px] px-3 py-1 rounded-lg bg-[#C6A45C]/20 hover:bg-[#C6A45C]/30 border border-[#C6A45C]/40 text-[#DCC58C] text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                              className="min-h-[34px] px-3 py-1 rounded-lg bg-[#DFBD69]/20 hover:bg-[#DFBD69]/30 border border-[#DFBD69]/50 text-[#FFF6C8] text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                             >
                               <Play className="w-3 h-3" />
                               <span>
@@ -1332,12 +2131,14 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-xs font-bold text-[#DCC58C]">
-                    10 ta savolning har biri uchun mustaqil MP4 video (1.mp4 – 10.mp4)
+                  <div className="text-xs font-bold text-[#FFF6C8]">
+                    10 ta savol uchun mustaqil MP4 video (quiz-01.mp4 – quiz-10.mp4)
                   </div>
                   <div className="grid grid-cols-5 gap-1.5">
                     {quizSet.questions.map((_, idx) => {
-                      const slot = questionExports[idx + 1];
+                      const partNum = idx + 1;
+                      const mp4Name = formatQuizMp4Filename(partNum);
+                      const slot = questionExports[partNum];
                       const isRendering = slot?.status === 'rendering';
                       const isReady = slot?.status === 'ready';
                       return (
@@ -1345,18 +2146,24 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                           key={idx}
                           type="button"
                           disabled={isRendering}
-                          onClick={() => void handleExportSingleQuestionVideo(idx)}
-                          className={`min-h-[40px] px-1 rounded-xl font-mono-numbers text-xs font-bold border transition-all cursor-pointer flex flex-col items-center justify-center ${
+                          onClick={() => {
+                            if (isReady) {
+                              void handleDownloadReadyQuestionVideo(idx);
+                            } else {
+                              void handleExportSingleQuestionVideo(idx);
+                            }
+                          }}
+                          className={`min-h-[40px] px-1 rounded-xl font-mono-numbers text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center justify-center ${
                             isReady
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
+                              ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400'
                               : isRendering
-                                ? 'bg-[#C6A45C]/30 text-[#DCC58C] border-[#C6A45C]'
-                                : 'bg-white/10 hover:bg-white/20 text-[#F8F5EC] border-[#C6A45C]/30'
+                                ? 'bg-[#DFBD69]/30 text-[#FFF6C8] border-[#DFBD69]'
+                                : 'bg-black/40 hover:bg-black/60 text-[#FFF8E8] border-[#DFBD69]/35'
                           }`}
                         >
-                          <span>{idx + 1}.mp4</span>
-                          <span className="text-[9px] opacity-80">
-                            {isRendering ? `${slot.progressPct}%` : isReady ? 'Tayyor' : 'Yuklab ol'}
+                          <span>{mp4Name}</span>
+                          <span className="text-[9px] opacity-85">
+                            {isRendering ? `${slot.progressPct}%` : isReady ? 'Yuklab ol' : 'Yaratish'}
                           </span>
                         </button>
                       );
@@ -1365,7 +2172,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                   <button
                     type="button"
                     onClick={handleRestartQuiz}
-                    className="w-full min-h-[44px] rounded-xl bg-white/10 hover:bg-white/15 border border-[#C6A45C]/35 text-[#F8F5EC] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    className="w-full min-h-[44px] rounded-xl qz-gold-foil-bg text-[#010805] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer mt-1 shadow-lg"
                   >
                     <RotateCcw className="w-4 h-4" />
                     <span>Qayta ishlash</span>
@@ -1374,69 +2181,173 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
               </div>
             )}
 
-            {/* ACTIVE CINEMA QUIZ STAGE */}
+            {/* ACTIVE SACRED CINEMA QUIZ STAGE */}
             {currentQuestion &&
               phase !== 'loading' &&
               phase !== 'error' &&
               phase !== 'finished' && (
                 <>
-                  <main className="relative z-10 flex-1 flex flex-col justify-center my-2.5 space-y-3">
+                  <main className="relative z-10 flex-1 flex flex-col justify-center my-1.5 space-y-2.5">
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={currentQuestion.id}
-                        initial={{ opacity: 0, scale: 0.94, y: 14 }}
+                        initial={{ opacity: 0, scale: 0.95, y: 16 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96, y: -10 }}
-                        transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-                        className="p-[1px] rounded-[22px] bg-gradient-to-br from-[#DCC58C]/65 via-[#C6A45C]/25 to-[#DCC58C]/50 shadow-2xl"
+                        exit={{ opacity: 0, scale: 0.96, y: -12 }}
+                        transition={{ duration: 0.42, ease: [0.34, 1.56, 0.64, 1] }}
+                        className="space-y-2.5"
                       >
-                        <div className="rounded-[21px] cinema-gold-glass p-4 sm:p-5 space-y-2.5">
-                          {/* Card Address Header */}
-                          <div className="flex items-center justify-between text-xs border-b border-[#C6A45C]/20 pb-2">
-                            <span className="font-semibold text-[#DCC58C]">
-                              {currentQuestion.surahNameUz} surasi, {currentQuestion.ayahNumberInSurah}-oyat
-                            </span>
-                            <span className="font-arabic-cinema text-base text-[#C6A45C]" dir="rtl">
-                              {currentQuestion.surahNameAr}
-                            </span>
+                        {/* Stagger Step 1 (0ms): ORNAMENTAL GOLD SURAH CARTOUCHE */}
+                        <motion.div
+                          initial={{ opacity: 0, y: 14 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0, duration: 0.38, ease: [0.34, 1.56, 0.64, 1] }}
+                          className="qz-surah-cartouche rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2"
+                        >
+                          {/* Left Arabesque Finial SVG */}
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 28 28"
+                            className="w-5 h-5 shrink-0 text-[#DFBD69]"
+                            fill="none"
+                          >
+                            <path
+                              d="M14 2L17.5 10.5L26 14L17.5 17.5L14 26L10.5 17.5L2 14L10.5 10.5L14 2Z"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              fill="rgba(223,189,105,0.2)"
+                            />
+                            <circle cx="14" cy="14" r="3" fill="#FFF6C8" />
+                          </svg>
+
+                          <div className="text-center min-w-0 flex-1">
+                            <div className="text-[clamp(0.75rem,2.2vw,0.86rem)] font-display font-bold qz-gold-foil-text truncate">
+                              {currentQuestion.surahNameUz} surasi · {currentQuestion.ayahNumberInSurah}-oyat
+                            </div>
+                            <div className="text-[10px] text-[#FFF8E8]/70 font-mono-numbers">
+                              Kanonik oyat: {currentQuestion.ayahKey}
+                            </div>
                           </div>
 
-                          {/* Arabic Ayah Text with Gold-White Glow + Animated Reveal supporting start/middle/end */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span
+                              dir="rtl"
+                              className="font-arabic-cinema text-lg text-[#FFF6C8] drop-shadow-[0_2px_8px_rgba(223,189,105,0.4)]"
+                            >
+                              {currentQuestion.surahNameAr}
+                            </span>
+                            {/* Right Arabesque Finial SVG */}
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 28 28"
+                              className="w-5 h-5 shrink-0 text-[#DFBD69]"
+                              fill="none"
+                            >
+                              <path
+                                d="M14 2L17.5 10.5L26 14L17.5 17.5L14 26L10.5 17.5L2 14L10.5 10.5L14 2Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                fill="rgba(223,189,105,0.2)"
+                              />
+                              <circle cx="14" cy="14" r="3" fill="#FFF6C8" />
+                            </svg>
+                          </div>
+                        </motion.div>
+
+                        {/* Stagger Step 2 (65ms): FROSTED OBSIDIAN GLASS CARD WITH 4 ARABESQUE CORNERS & SPECULAR SWEEP */}
+                        <motion.div
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.065, duration: 0.42, ease: [0.34, 1.56, 0.64, 1] }}
+                          className="qz-obsidian-card rounded-[24px] p-4 sm:p-5 space-y-2.5"
+                        >
+                          {/* 4 Oriental Arabesque Corner Ornaments (SVG) */}
+                          {[
+                            'top-2 left-2 rotate-0',
+                            'top-2 right-2 rotate-90',
+                            'bottom-2 right-2 rotate-180',
+                            'bottom-2 left-2 -rotate-90',
+                          ].map((posClass, cIdx) => (
+                            <svg
+                              key={cIdx}
+                              aria-hidden="true"
+                              viewBox="0 0 32 32"
+                              className={`pointer-events-none absolute w-5 h-5 text-[#DFBD69]/75 ${posClass}`}
+                              fill="none"
+                            >
+                              <path
+                                d="M2 20V6C2 3.79086 3.79086 2 6 2H20"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M6 14V8C6 6.89543 6.89543 6 8 6H14"
+                                stroke="#FFF6C8"
+                                strokeWidth="1.1"
+                                strokeLinecap="round"
+                              />
+                              <circle cx="6" cy="6" r="1.8" fill="#FFF6C8" />
+                            </svg>
+                          ))}
+
+                          {/* 4. ARABIC AYAH WITH CALLIGRAPHIC RTL PERFECTION & HIDDEN WORD CAPSULE / 3D REVEAL */}
                           <div
                             dir="rtl"
-                            className="font-arabic-cinema text-[clamp(1.4rem,4.4vw,1.98rem)] leading-[2.2] text-center py-1.5 select-text"
+                            className="font-arabic-cinema text-[clamp(1.38rem,4.3vw,1.92rem)] leading-[2.25] text-center py-1 px-1 select-text"
                           >
                             {currentQuestion.hidePos !== 'start' &&
                               (currentQuestion.maskedArabicBefore || currentQuestion.maskedArabicPrefix) && (
-                                <span className="cinema-gold-text-glow">
+                                <span className="qz-arabic-calligraphy">
                                   {currentQuestion.maskedArabicBefore || currentQuestion.maskedArabicPrefix}{' '}
                                 </span>
                               )}
+
                             {phase === 'revealed_playing_tail' ? (
-                              <motion.span
-                                initial={{ y: -16, scale: 0.8, opacity: 0 }}
-                                animate={{ y: 0, scale: 1, opacity: 1 }}
-                                transition={{ type: 'spring', stiffness: 360, damping: 18 }}
-                                className="inline-block px-2.5 py-0.5 rounded-xl bg-emerald-500/25 border border-emerald-400 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.45)] mx-1"
-                              >
-                                {currentQuestion.hiddenWord}
-                                {currentQuestion.hidePos === 'end' && currentQuestion.trailingMarker
-                                  ? ` ${currentQuestion.trailingMarker}`
-                                  : ''}
-                              </motion.span>
+                              <span className="relative inline-block mx-1.5 align-middle">
+                                {/* Expanding Golden-Emerald Light Ring */}
+                                <span aria-hidden="true" className="qz-reveal-ring" />
+                                {/* 16 Golden-Emerald Sparkle Burst Particles */}
+                                {Array.from({ length: 16 }).map((_, spIdx) => (
+                                  <span
+                                    key={spIdx}
+                                    aria-hidden="true"
+                                    className="qz-sparkle-dot"
+                                    style={
+                                      {
+                                        '--spark-angle': `${spIdx * 22.5}deg`,
+                                        '--spark-dist': `${28 + (spIdx % 3) * 12}px`,
+                                      } as React.CSSProperties
+                                    }
+                                  />
+                                ))}
+                                {/* 3D Spring Revealed Arabic Word */}
+                                <motion.span
+                                  initial={{ rotateX: -85, scale: 0.65, y: -12, opacity: 0 }}
+                                  animate={{ rotateX: 0, scale: 1, y: 0, opacity: 1 }}
+                                  transition={{
+                                    duration: 0.55,
+                                    ease: [0.34, 1.56, 0.64, 1],
+                                  }}
+                                  className="inline-block px-3 py-0.5 rounded-full bg-gradient-to-r from-[#047857] via-[#059669] to-[#10B981] border border-[#FFF6C8] text-[#FFFDF7] shadow-[0_0_28px_rgba(16,185,129,0.75)]"
+                                >
+                                  {currentQuestion.hiddenWord}
+                                  {currentQuestion.hidePos === 'end' && currentQuestion.trailingMarker
+                                    ? ` ${currentQuestion.trailingMarker}`
+                                    : ''}
+                                </motion.span>
+                              </span>
                             ) : (
                               <span
-                                className={`inline-block px-3 py-0.5 mx-1 rounded-xl border border-dashed text-base align-middle transition-colors duration-200 ${
-                                  phase === 'countdown_waiting'
-                                    ? 'border-[#DCC58C] bg-[#C6A45C]/20 text-[#DCC58C]'
-                                    : 'border-[#C6A45C]/50 bg-white/5 text-[#C6A45C]/75'
-                                }`}
+                                className="qz-hidden-capsule text-base sm:text-lg"
+                                title="Berkitilgan oyat kalimasi"
                               >
-                                [ . . . ]
+                                [ &nbsp;؟&nbsp; ]
                               </span>
                             )}
+
                             {currentQuestion.maskedArabicAfter && (
-                              <span className="cinema-gold-text-glow">
+                              <span className="qz-arabic-calligraphy">
                                 {' '}
                                 {currentQuestion.maskedArabicAfter}
                                 {phase === 'revealed_playing_tail' &&
@@ -1448,78 +2359,142 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                             )}
                           </div>
 
-                          {/* Uzbek Translation Subtitle (Shown cleanly on reveal so hidden word isn't spoiled prematurely) */}
-                          {phase === 'revealed_playing_tail' && currentQuestion.translationUz && (
-                            <p className="text-[11px] sm:text-xs text-[#D4CFC3]/95 text-center leading-relaxed line-clamp-3 px-1">
-                              {currentQuestion.translationUz}
-                            </p>
-                          )}
+                          {/* 3. DELICATE GOLD DIVIDER & "TAFSIRI HILOL" MEANING PRESENTATION */}
+                          <div className="space-y-1.5 pt-0.5">
+                            <div
+                              aria-hidden="true"
+                              className="h-[1px] w-full"
+                              style={{
+                                background:
+                                  'linear-gradient(90deg, transparent 0%, rgba(223,189,105,0.65) 50%, transparent 100%)',
+                              }}
+                            />
+                            {phase === 'revealed_playing_tail' && currentQuestion.translationUz ? (
+                              <motion.div
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.35 }}
+                                className="text-center px-2 space-y-0.5"
+                              >
+                                <p className="text-[clamp(0.74rem,2.1vw,0.84rem)] text-[#FFFDF7] font-medium leading-relaxed line-clamp-3 drop-shadow-[0_1px_8px_rgba(255,246,200,0.25)]">
+                                  «{currentQuestion.translationUz}»
+                                </p>
+                                <p className="text-[10px] font-semibold tracking-wider uppercase qz-gold-foil-text">
+                                  Tafsiri Hilol · Shayx Muhammad Sodiq Muhammad Yusuf
+                                </p>
+                              </motion.div>
+                            ) : (
+                              <div className="text-center text-[10px] tracking-wider uppercase text-[#FFF8E8]/60 font-medium">
+                                Javob ochilganda «Tafsiri Hilol» maʼno tarjimasi namoyon boʻladi
+                              </div>
+                            )}
+                          </div>
 
-                          {/* Real-time Web Audio Frequency Visualizer */}
+                          {/* 5. DUAL-LAYER SYMMETRICAL LIQUID GOLD AUDIO VISUALIZER */}
                           <div
                             aria-hidden="true"
-                            className="flex items-end justify-center gap-1 h-7 pt-1"
+                            className="relative flex items-center justify-center gap-[3px] h-9 pt-1"
                           >
+                            {/* Calm Golden Horizon Line when Paused/Idle */}
+                            <div
+                              className="pointer-events-none absolute left-6 right-6 h-[1.5px] rounded-full transition-opacity duration-300"
+                              style={{
+                                opacity: isWaveformActive ? 0.22 : 0.78,
+                                background:
+                                  'linear-gradient(90deg, transparent 0%, #DFBD69 25%, #FFF6C8 50%, #D4AF37 75%, transparent 100%)',
+                                boxShadow: '0 0 10px rgba(223, 189, 105, 0.55)',
+                              }}
+                            />
                             {waveBins.map((amp, bIdx) => {
-                              const mirrorWeight =
-                                1 - Math.abs(bIdx - VISUALIZER_BAR_COUNT / 2) / (VISUALIZER_BAR_COUNT / 2) * 0.35;
-                              const barHeightPx = isWaveformActive
-                                ? Math.max(4, Math.round(amp * 26 * mirrorWeight))
-                                : 4;
+                              const half = VISUALIZER_BAR_COUNT / 2;
+                              const symDist = Math.abs(bIdx - (half - 0.5)) / half;
+                              const mirrorEnvelope = Math.max(0.25, Math.cos(symDist * Math.PI * 0.48));
+                              const symmetricBinIdx = Math.min(
+                                waveBins.length - 1,
+                                Math.floor(symDist * (waveBins.length * 0.75))
+                              );
+                              const symAmp = waveBins[symmetricBinIdx] ?? amp;
+                              const outerHeightPx = isWaveformActive
+                                ? Math.max(4, Math.round(symAmp * 32 * mirrorEnvelope))
+                                : 3;
+                              const innerHeightPx = isWaveformActive
+                                ? Math.max(2, Math.round(outerHeightPx * 0.58))
+                                : 2;
                               return (
-                                <span
+                                <div
                                   key={bIdx}
-                                  className={`w-1 rounded-full transition-[height,background-color] duration-75 ${
-                                    phase === 'revealed_playing_tail'
-                                      ? 'bg-emerald-400/85'
-                                      : isWaveformActive
-                                        ? 'bg-gradient-to-t from-[#C6A45C] to-[#F5E6BE]'
-                                        : 'bg-[#C6A45C]/30'
-                                  }`}
-                                  style={{ height: `${barHeightPx}px` }}
-                                />
+                                  className="relative flex items-center justify-center w-1.5 h-full"
+                                >
+                                  {/* Outer Liquid Gold Halo Bar */}
+                                  <span
+                                    className="w-1.5 rounded-full transition-[height] duration-75"
+                                    style={{
+                                      height: `${outerHeightPx}px`,
+                                      background:
+                                        phase === 'revealed_playing_tail'
+                                          ? 'linear-gradient(180deg, #34D399 0%, #059669 50%, #34D399 100%)'
+                                          : 'linear-gradient(180deg, #8A6621 0%, #DFBD69 30%, #FFF6C8 50%, #D4AF37 75%, #7A5818 100%)',
+                                      boxShadow: isWaveformActive
+                                        ? phase === 'revealed_playing_tail'
+                                          ? '0 0 8px rgba(52,211,153,0.6)'
+                                          : '0 0 8px rgba(223,189,105,0.55)'
+                                        : 'none',
+                                    }}
+                                  />
+                                  {/* Inner Bright Core Layer */}
+                                  {isWaveformActive && (
+                                    <span
+                                      className="pointer-events-none absolute w-[3px] rounded-full bg-[#FFFDF7]/90 transition-[height] duration-75"
+                                      style={{ height: `${innerHeightPx}px` }}
+                                    />
+                                  )}
+                                </div>
                               );
                             })}
                           </div>
 
                           {/* Playback Status & Transport Controls */}
-                          <div className="flex items-center justify-between pt-1.5 border-t border-[#C6A45C]/15">
-                            <div className="flex items-center gap-1.5 text-[11px] text-[#D4CFC3]">
+                          <div className="flex items-center justify-between pt-1.5 border-t border-[#DFBD69]/20">
+                            <div className="flex items-center gap-1.5 text-[11px] text-[#FFF8E8]/90 min-w-0">
                               {isBufferingAudio ? (
-                                <span className="flex items-center gap-1.5 text-[#DCC58C] font-semibold animate-pulse">
-                                  <Headphones className="w-3.5 h-3.5" />
-                                  Audio yuklanmoqda...
+                                <span className="flex items-center gap-1.5 text-[#FFF6C8] font-semibold animate-pulse truncate">
+                                  <Headphones className="w-3.5 h-3.5 shrink-0 text-[#DFBD69]" />
+                                  <span>Audio yuklanmoqda...</span>
                                 </span>
                               ) : isWaveformActive ? (
-                                <span className="flex items-center gap-1.5 text-emerald-300 font-semibold">
-                                  <Sparkles className="w-3.5 h-3.5" />
-                                  {phase === 'revealed_playing_tail'
-                                    ? 'Toʻliq oyat eshittirilmoqda'
-                                    : 'Qori tilovat qilmoqda'}
+                                <span className="flex items-center gap-1.5 text-emerald-300 font-semibold truncate">
+                                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                                  <span>
+                                    {phase === 'revealed_playing_tail'
+                                      ? 'Toʻliq oyat tilovati'
+                                      : 'Qori tilovat qilmoqda'}
+                                  </span>
                                 </span>
                               ) : phase === 'countdown_waiting' && !isPaused ? (
-                                <span className="flex items-center gap-1.5 text-[#DCC58C] font-semibold">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  {currentQuestion.hidePos === 'start'
-                                    ? 'Oyat boshidagi soʻzni toping'
-                                    : currentQuestion.hidePos === 'middle'
-                                      ? 'Tushib qolgan soʻzni toping'
-                                      : 'Oxirgi soʻzni toping'}
+                                <span className="flex items-center gap-1.5 text-[#FFF6C8] font-semibold truncate">
+                                  <Clock className="w-3.5 h-3.5 shrink-0 text-[#DFBD69]" />
+                                  <span>
+                                    {currentQuestion.hidePos === 'start'
+                                      ? 'Oyat boshidagi kalimani toping'
+                                      : currentQuestion.hidePos === 'middle'
+                                        ? 'Yashiringan kalimani toping'
+                                        : 'Oxirgi kalimani toping'}
+                                  </span>
                                 </span>
                               ) : isPaused ? (
                                 <span className="text-amber-300 font-semibold">Pauza qilindi</span>
                               ) : (
-                                <span className="text-[#C6A45C]">Boshlashga tayyor</span>
+                                <span className="text-[#DFBD69] font-medium">Boshlashga tayyor</span>
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={handleReplayCurrentPrefix}
                                 disabled={phase === 'revealed_playing_tail'}
                                 aria-label="Oyat boshidan qayta tinglash"
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 disabled:opacity-40 border border-[#C6A45C]/25 text-[#F8F5EC] cursor-pointer"
+                                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-black/35 hover:bg-black/55 disabled:opacity-40 border border-[#DFBD69]/35 text-[#FFF8E8] cursor-pointer"
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </button>
@@ -1528,7 +2503,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                                 onClick={handleTogglePlayPause}
                                 disabled={phase === 'revealed_playing_tail'}
                                 aria-label={isPaused || phase === 'ready' ? 'Ijro etish' : 'Pauza'}
-                                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-[#C6A45C] hover:bg-[#DCC58C] disabled:opacity-40 text-[#031814] font-bold cursor-pointer"
+                                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl qz-gold-foil-bg disabled:opacity-40 text-[#010805] font-bold cursor-pointer shadow-[0_0_14px_rgba(223,189,105,0.4)]"
                               >
                                 {isPaused || phase === 'ready' ? (
                                   <Play className="w-4 h-4 fill-current" />
@@ -1538,85 +2513,116 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                               </button>
                             </div>
                           </div>
-                        </div>
+                        </motion.div>
+
+                        {/* Stagger Step 3 (130ms): TENSION COUNTDOWN RING & LIQUID GOLD PROGRESS BAR */}
+                        <motion.div
+                          initial={{ opacity: 0, y: 14 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.13, duration: 0.38, ease: [0.34, 1.56, 0.64, 1] }}
+                          className="flex items-center gap-3 px-1.5 py-1 rounded-2xl bg-black/30 border border-[#DFBD69]/25 backdrop-blur-md"
+                        >
+                          <div className="relative w-13 h-13 shrink-0 flex items-center justify-center">
+                            <svg className="w-13 h-13 -rotate-90" viewBox="0 0 60 60">
+                              <circle
+                                cx="30"
+                                cy="30"
+                                r={ringRadius}
+                                fill="none"
+                                stroke="rgba(255,248,232,0.12)"
+                                strokeWidth="4.5"
+                              />
+                              <circle
+                                cx="30"
+                                cy="30"
+                                r={ringRadius}
+                                fill="none"
+                                stroke={
+                                  phase === 'revealed_playing_tail'
+                                    ? '#10B981'
+                                    : timerRemainingMs <= 1500 && phase === 'countdown_waiting'
+                                      ? '#F59E0B'
+                                      : '#DFBD69'
+                                }
+                                strokeWidth="4.5"
+                                strokeLinecap="round"
+                                strokeDasharray={ringCircumference}
+                                strokeDashoffset={ringDashOffset}
+                                style={{
+                                  filter:
+                                    phase === 'revealed_playing_tail'
+                                      ? 'drop-shadow(0 0 8px rgba(16,185,129,0.85))'
+                                      : timerRemainingMs <= 1500 && phase === 'countdown_waiting'
+                                        ? 'drop-shadow(0 0 10px rgba(245,158,11,0.95))'
+                                        : 'drop-shadow(0 0 8px rgba(223,189,105,0.8))',
+                                }}
+                              />
+                            </svg>
+                            <span
+                              className={`absolute text-[11px] font-mono-numbers tabular-nums font-bold ${
+                                phase === 'countdown_waiting' && timerRemainingMs <= 1500
+                                  ? 'text-amber-300 scale-110'
+                                  : 'text-[#FFF8E8]'
+                              }`}
+                            >
+                              {phase === 'revealed_playing_tail'
+                                ? '✓'
+                                : `${(timerRemainingMs / 1000).toFixed(1)}s`}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 space-y-1.5 pr-1">
+                            <div className="flex items-center justify-between text-[11px] font-semibold">
+                              <span
+                                className={
+                                  phase === 'countdown_waiting' && timerRemainingMs <= 1500
+                                    ? 'text-amber-300 animate-pulse'
+                                    : 'text-[#FFF8E8]/90'
+                                }
+                              >
+                                {phase === 'countdown_waiting'
+                                  ? timerRemainingMs <= 1500
+                                    ? 'Vaqt tugamoqda — tanlang!'
+                                    : 'Javob tanlash vaqti'
+                                  : phase === 'revealed_playing_tail'
+                                    ? 'Toʻgʻri kalima ochildi'
+                                    : 'Pauza nuqtasida 3.5s taymer'}
+                              </span>
+                              <span className="font-mono-numbers tabular-nums text-[#FFF6C8]">
+                                {Math.round(timerProgressPct)}%
+                              </span>
+                            </div>
+                            <div className="w-full h-2.5 rounded-full bg-black/50 overflow-hidden border border-[#DFBD69]/35 p-[1px]">
+                              <div
+                                className="h-full rounded-full transition-all duration-75"
+                                style={{
+                                  width: `${phase === 'revealed_playing_tail' ? 100 : timerProgressPct}%`,
+                                  background:
+                                    phase === 'revealed_playing_tail'
+                                      ? 'linear-gradient(90deg, #047857 0%, #10B981 50%, #34D399 100%)'
+                                      : timerRemainingMs <= 1500 && phase === 'countdown_waiting'
+                                        ? 'linear-gradient(90deg, #D97706 0%, #FBBF24 50%, #EF4444 100%)'
+                                        : 'linear-gradient(90deg, #8A6621 0%, #DFBD69 30%, #FFF6C8 60%, #D4AF37 100%)',
+                                  boxShadow:
+                                    phase === 'revealed_playing_tail'
+                                      ? '0 0 12px rgba(16,185,129,0.75)'
+                                      : '0 0 12px rgba(223,189,105,0.65)',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
                       </motion.div>
                     </AnimatePresence>
-
-                    {/* 3.5-SECOND GOLDEN NEON CIRCULAR RING + LINEAR PROGRESS BAR */}
-                    <div className="flex items-center gap-3 px-1">
-                      <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-                        <svg className="w-14 h-14 -rotate-90" viewBox="0 0 60 60">
-                          <circle
-                            cx="30"
-                            cy="30"
-                            r={ringRadius}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.12)"
-                            strokeWidth="4.5"
-                          />
-                          <circle
-                            cx="30"
-                            cy="30"
-                            r={ringRadius}
-                            fill="none"
-                            stroke={phase === 'revealed_playing_tail' ? '#10b981' : '#DCC58C'}
-                            strokeWidth="4.5"
-                            strokeLinecap="round"
-                            strokeDasharray={ringCircumference}
-                            strokeDashoffset={ringDashOffset}
-                            style={{
-                              filter:
-                                phase === 'revealed_playing_tail'
-                                  ? 'drop-shadow(0 0 8px rgba(16,185,129,0.75))'
-                                  : 'drop-shadow(0 0 8px rgba(220,197,140,0.75))',
-                            }}
-                          />
-                        </svg>
-                        <span className="absolute text-[11px] font-mono-numbers tabular-nums font-bold text-[#F8F5EC]">
-                          {phase === 'revealed_playing_tail'
-                            ? '✓'
-                            : `${(timerRemainingMs / 1000).toFixed(1)}s`}
-                        </span>
-                      </div>
-
-                      <div className="flex-1 space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-medium">
-                          <span className="text-[#D4CFC3]/90">
-                            {phase === 'countdown_waiting'
-                              ? 'Javob tanlash vaqti'
-                              : phase === 'revealed_playing_tail'
-                                ? 'Toʻgʻri javob aniqlandi'
-                                : 'Pauza nuqtasida 3.5s taymer yoqiladi'}
-                          </span>
-                          <span className="font-mono-numbers tabular-nums text-[#DCC58C]">
-                            {Math.round(timerProgressPct)}%
-                          </span>
-                        </div>
-                        <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden border border-[#C6A45C]/25">
-                          <div
-                            className={`h-full rounded-full transition-colors duration-200 ${
-                              phase === 'revealed_playing_tail'
-                                ? 'bg-emerald-400'
-                                : timerRemainingMs <= 1200 && phase === 'countdown_waiting'
-                                  ? 'bg-amber-400'
-                                  : 'bg-gradient-to-r from-[#C6A45C] to-[#F5E6BE]'
-                            }`}
-                            style={{
-                              width: `${phase === 'revealed_playing_tail' ? 100 : timerProgressPct}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </main>
 
-                  {/* BOTTOM: 4 GLASSMORPHIC ANSWER BUTTONS OR START CTA */}
-                  <footer className="relative z-10 space-y-2.5">
+                  {/* 7. BOTTOM: 4 ANSWER BUTTONS WITH RUB EL HIZB 8-POINTED STAR BADGES & 65MS STAGGER */}
+                  <footer className="relative z-10 space-y-2">
                     {phase === 'ready' && currentIndex === 0 ? (
                       <button
                         type="button"
                         onClick={() => startQuestionPlayback(0)}
-                        className="w-full min-h-[56px] rounded-2xl bg-gradient-to-r from-[#C6A45C] via-[#DCC58C] to-[#C6A45C] text-[#031814] font-display font-bold text-base shadow-xl flex items-center justify-center gap-2.5 hover:brightness-105 transition-transform duration-200 cinema-spring active:scale-[0.98] cursor-pointer"
+                        className="w-full min-h-[56px] rounded-2xl qz-gold-foil-bg text-[#010805] font-display font-bold text-base shadow-[0_12px_32px_rgba(212,175,55,0.4)] flex items-center justify-center gap-2.5 hover:brightness-105 transition-transform duration-200 cinema-spring active:scale-[0.98] cursor-pointer"
                       >
                         <Play className="w-5 h-5 fill-current" />
                         <span>Tilovatni boshlash</span>
@@ -1628,40 +2634,99 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                           const isSelected = selectedOption === idx;
                           const isCorrectOption = idx === currentQuestion.correctIndex;
                           const isRevealed = phase === 'revealed_playing_tail';
+                          const arabicNumerals = ['١', '٢', '٣', '٤'];
 
-                          let btnStyle =
-                            'cinema-gold-glass border-[#C6A45C]/35 text-[#F8F5EC] hover:border-[#DCC58C] hover:-translate-y-0.5';
-
+                          let stateClass = '';
                           if (isRevealed) {
                             if (isCorrectOption) {
-                              btnStyle =
-                                'bg-emerald-600/95 border-emerald-300 text-white shadow-[0_0_24px_rgba(16,185,129,0.55)] scale-[1.02]';
+                              stateClass = 'qz-answer-btn-correct';
                             } else if (isSelected && !isCorrectOption) {
-                              btnStyle =
-                                'bg-rose-600/80 border-rose-300 text-white';
+                              stateClass = 'qz-answer-btn-wrong';
                             } else {
-                              btnStyle =
-                                'bg-[#06241E]/45 border-white/10 text-white/40';
+                              stateClass = 'qz-answer-btn-dimmed';
                             }
                           } else if (isSelected) {
-                            btnStyle =
-                              'bg-[#C6A45C]/25 border-[#DCC58C] text-[#DCC58C] shadow-[0_0_16px_rgba(198,164,92,0.35)]';
+                            stateClass = 'qz-answer-btn-selected';
                           }
 
                           return (
-                            <button
+                            <motion.button
                               key={`${currentQuestion.id}_opt_${idx}`}
                               type="button"
                               disabled={isRevealed}
                               onClick={() => handleSelectOption(idx)}
-                              dir="rtl"
-                              className={`min-h-[60px] px-3 py-2.5 rounded-2xl border font-arabic-cinema text-xl sm:text-[22px] leading-relaxed flex items-center justify-center gap-2 text-center transition-all duration-300 cinema-spring cursor-pointer active:scale-[0.97] ${btnStyle}`}
+                              initial={{ opacity: 0, y: 18 }}
+                              animate={{
+                                opacity: isRevealed && !isCorrectOption && !isSelected ? 0.35 : 1,
+                                y: 0,
+                                scale: isRevealed
+                                  ? isCorrectOption
+                                    ? 1.03
+                                    : 0.96
+                                  : 1,
+                              }}
+                              transition={{
+                                delay: 0.195 + idx * 0.065,
+                                duration: 0.38,
+                                ease: [0.34, 1.56, 0.64, 1],
+                              }}
+                              className={`qz-answer-btn min-h-[60px] px-3 py-2 rounded-2xl flex items-center justify-between gap-2 cursor-pointer active:scale-[0.97] ${stateClass}`}
                             >
-                              {isRevealed && isCorrectOption && (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-100 shrink-0" />
-                              )}
-                              <span>{optWord}</span>
-                            </button>
+                              {/* Left 8-Pointed Islamic Star (Rub el Hizb) Number Badge */}
+                              <span className="relative w-7 h-7 shrink-0 flex items-center justify-center">
+                                <svg
+                                  aria-hidden="true"
+                                  viewBox="0 0 36 36"
+                                  className="w-7 h-7"
+                                  fill="none"
+                                >
+                                  <rect
+                                    x="7"
+                                    y="7"
+                                    width="22"
+                                    height="22"
+                                    rx="2"
+                                    stroke={isRevealed && isCorrectOption ? '#FFFDF7' : '#DFBD69'}
+                                    strokeWidth="1.5"
+                                    fill={
+                                      isRevealed && isCorrectOption
+                                        ? 'rgba(255,255,255,0.22)'
+                                        : 'rgba(223,189,105,0.14)'
+                                    }
+                                  />
+                                  <rect
+                                    x="7"
+                                    y="7"
+                                    width="22"
+                                    height="22"
+                                    rx="2"
+                                    transform="rotate(45 18 18)"
+                                    stroke={isRevealed && isCorrectOption ? '#FFFDF7' : '#FFF6C8'}
+                                    strokeWidth="1.5"
+                                    fill={
+                                      isRevealed && isCorrectOption
+                                        ? 'rgba(255,255,255,0.22)'
+                                        : 'rgba(138,102,33,0.28)'
+                                    }
+                                  />
+                                </svg>
+                                <span
+                                  className={`absolute text-xs font-bold ${
+                                    isRevealed && isCorrectOption ? 'text-white' : 'text-[#FFF6C8]'
+                                  }`}
+                                >
+                                  {isRevealed && isCorrectOption ? '✓' : arabicNumerals[idx] || idx + 1}
+                                </span>
+                              </span>
+
+                              {/* Arabic Option Word */}
+                              <span
+                                dir="rtl"
+                                className="flex-1 font-arabic-cinema text-[clamp(1.22rem,3.6vw,1.45rem)] leading-relaxed text-center text-[#FFFDF7] truncate"
+                              >
+                                {optWord}
+                              </span>
+                            </motion.button>
                           );
                         })}
                       </div>
@@ -1672,10 +2737,10 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                         <button
                           type="button"
                           onClick={() => setAutoAdvanceEnabled((prev) => !prev)}
-                          className={`min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`min-h-[42px] px-3 py-1.5 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                             autoAdvanceEnabled
                               ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                              : 'bg-white/8 border-[#C6A45C]/30 text-[#D4CFC3] hover:border-[#DCC58C]'
+                              : 'bg-black/40 border-[#DFBD69]/35 text-[#FFF8E8]/85 hover:border-[#FFF6C8]'
                           }`}
                         >
                           {autoAdvanceEnabled ? 'Avto-oʻtish: Yoqilgan' : 'Avto-oʻtish: Oʻchiq'}
@@ -1683,10 +2748,10 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                         <button
                           type="button"
                           onClick={handleProceedToNextQuestion}
-                          className={`flex-1 min-h-[44px] px-4 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                          className={`flex-1 min-h-[42px] px-4 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                             isTailFinishedWaitingNext
-                              ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 text-[#031814] shadow-lg'
-                              : 'bg-[#C6A45C] hover:bg-[#DCC58C] text-[#031814]'
+                              ? 'bg-gradient-to-r from-[#047857] via-[#10B981] to-[#34D399] text-[#FFFDF7] border border-[#FFF6C8] shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+                              : 'qz-gold-foil-bg text-[#010805]'
                           }`}
                         >
                           <span>
@@ -1892,29 +2957,40 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                 </h2>
               </div>
               <span className="text-xs font-mono-numbers tabular-nums text-[#063D32] dark:text-[#DCC58C] font-semibold">
-                {todayDateStr}
+                {activeQuizDateStr}
               </span>
             </div>
 
             <p className="text-xs sm:text-sm text-[#2C4A42] dark:text-[#D4CFC3] leading-relaxed">
-              Har kuni turli juz va suralardan takrorlanmas 10 ta oyat tanlanadi. Video eksport ikkita mustaqil qismga (1–5 va 6–10-savollar) ajratilgan — Android Chrome va PWA ilovasida tez render va toʻgʻridan-toʻgʻri MP4 yuklab olish bilan ishlaydi.
+              Har kuni turli juz va suralardan takrorlanmas 10 ta oyat tanlanadi va doimiy arxivda saqlanadi. Har bir savol uchun mustaqil haqiqiy MP4 video (<code className="font-mono-numbers">quiz-01.mp4</code> – <code className="font-mono-numbers">quiz-10.mp4</code>, 1080×1920, H.264 + AAC) yaratiladi.
             </p>
 
-            {/* Primary Generator */}
+            {/* Primary Reload / Today Selector */}
             <button
               type="button"
               disabled={phase === 'loading' || isAnyVideoRendering}
-              onClick={() => void loadQuiz(selectedReciterId, true)}
+              onClick={() =>
+                void loadQuiz(
+                  selectedReciterId,
+                  activeQuizDateStr === todayDateStr,
+                  activeQuizDateStr
+                )
+              }
               className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-[#063D32] hover:bg-[#075747] disabled:opacity-50 text-[#F8F5EC] border border-[#C6A45C]/45 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
             >
               <Sparkles className="w-4 h-4 text-[#DCC58C] shrink-0" />
-              <span>Kunlik 10 ta Shorts yaratish</span>
+              <span>
+                {activeQuizDateStr === todayDateStr
+                  ? 'Bugungi 10 ta savolni yangilash / tekshirish'
+                  : `${activeQuizDateStr} sanadagi 10 ta savolni qayta yuklash`}
+              </span>
             </button>
 
-            {/* 10 Individual Question MP4 Video Export Cards (1.mp4 through 10.mp4) */}
+            {/* 10 Individual Question MP4 Video Export Cards (quiz-01.mp4 through quiz-10.mp4) */}
             <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
               {quizSet?.questions?.map((rawQ, qIdx) => {
                 const partNum = qIdx + 1;
+                const mp4Filename = formatQuizMp4Filename(partNum);
                 const slot = questionExports[partNum];
                 const isRendering = slot?.status === 'rendering';
                 const isReady = slot?.status === 'ready';
@@ -1928,10 +3004,10 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                   >
                     <div className="flex items-center justify-between gap-2 text-xs">
                       <span className="font-bold text-[#042B25] dark:text-[#DCC58C]">
-                        {partNum}-savol: {q.surahNameUz} ({partNum}.mp4)
+                        {partNum}-savol: {q.surahNameUz} ({mp4Filename})
                       </span>
                       <span className="font-mono-numbers tabular-nums text-[11px] text-[#5C746C] dark:text-[#8FA69E]">
-                        {isReady && slot.result ? `${slot.result.sizeMb} MB` : '9:16'}
+                        {isReady && slot.result ? `${slot.result.sizeMb} MB` : '9:16 · MP4'}
                       </span>
                     </div>
 
@@ -1943,7 +3019,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                         className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 disabled:opacity-45 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-sm"
                       >
                         <Film className="w-4 h-4 shrink-0" />
-                        <span>{partNum}.mp4 videoni yaratish</span>
+                        <span>{mp4Filename} videoni yaratish</span>
                       </button>
                     )}
 
@@ -1985,10 +3061,10 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                       <div className="rounded-xl bg-[#041D18] border border-emerald-400/40 p-3 space-y-2.5 text-[#F8F5EC]">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-emerald-300">
-                            {partNum}.mp4 tayyor ({slot.result.sizeMb} MB)
+                            {slot.result.filename} tayyor ({slot.result.sizeMb} MB)
                           </span>
                           <span className="font-mono-numbers text-[10px] text-[#8FA69E]">
-                            1080×1920
+                            1080×1920 · MP4
                           </span>
                         </div>
                         <video
@@ -1998,14 +3074,14 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                           className="w-full max-w-[160px] mx-auto aspect-[9/16] rounded-xl border border-[#C6A45C]/35 bg-black object-contain"
                         />
                         <div className="grid grid-cols-1 gap-1.5">
-                          <a
-                            href={slot.result.downloadUrl}
-                            download={slot.result.filename}
-                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
+                          <button
+                            type="button"
+                            onClick={() => void handleDownloadReadyQuestionVideo(qIdx)}
+                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#C6A45C] to-[#DCC58C] hover:brightness-105 text-[#031814] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                           >
                             <Download className="w-3.5 h-3.5 shrink-0" />
-                            <span>{partNum}.mp4 faylni yuklab olish</span>
-                          </a>
+                            <span>{slot.result.filename} faylni yuklab olish</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => void handleShareSingleQuestionVideo(qIdx)}
@@ -2062,7 +3138,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
               <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-bold text-[#042B25] dark:text-[#DCC58C] flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>Qorini tanlash (Qurʼon boʻlimi yagona bazasi)</span>
+                  <span>Qorini tanlash (savollar oʻzgarmaydi, faqat tilovat ovozi yangilanadi)</span>
                 </label>
                 <span className="text-[11px] text-[#5C746C] dark:text-[#8FA69E] tabular-nums">
                   {reciters.filter((r) => getQuranReciterAudioCapabilities(r).quizReady).length} / {reciters.length} tayyor
@@ -2117,10 +3193,10 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
                 <span>
                   Manba:{' '}
                   {quizSource === 'gemini_audio'
-                    ? 'Gemini Audio + JSON'
-                    : quizSource === 'archive'
-                      ? 'Arxiv viktorina'
-                      : 'Saqlangan toʻplam'}
+                    ? 'Gemini Audio + JSON (Arxivlangan)'
+                    : quizSource.includes('archive') || quizSource.includes('firestore')
+                      ? 'Doimiy Firestore arxivi'
+                      : 'Saqlangan kanonik toʻplam'}
                 </span>
                 <span>Kanonik matn: Uthmani</span>
               </div>
@@ -2132,7 +3208,7 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-display font-bold text-[#042B25] dark:text-[#F8F5EC] flex items-center gap-2">
                 <History className="w-4 h-4 text-[#C6A45C]" />
-                <span>Soʻnggi Natijalar</span>
+                <span>Soʻnggi Natijalar va Urinishlar Tarixi</span>
               </h3>
               <span className="text-xs text-[#5C746C] dark:text-[#8FA69E] tabular-nums">
                 {attempts.length} ta urinish
@@ -2145,14 +3221,19 @@ const createInitialQuestionExports = (): Record<number, QuizPartExportSlot> => {
               </p>
             ) : (
               <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                {attempts.slice(0, 6).map((att) => (
+                {attempts.slice(0, 8).map((att) => (
                   <div
                     key={att.id}
                     className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-white/75 dark:bg-[#041D18] border border-[#063D32]/10 dark:border-[#C6A45C]/15"
                   >
                     <div>
-                      <div className="font-semibold text-[#042B25] dark:text-[#F8F5EC]">
-                        {att.dateStr}
+                      <div className="font-semibold text-[#042B25] dark:text-[#F8F5EC] flex items-center gap-1.5">
+                        <span>{att.dateStr}</span>
+                        {att.attemptNumber ? (
+                          <span className="px-1.5 py-0.5 rounded bg-[#063D32]/10 dark:bg-white/10 text-[10px] font-mono-numbers">
+                            {att.attemptNumber}-urinish
+                          </span>
+                        ) : null}
                       </div>
                       <div className="text-[10px] text-[#5C746C] dark:text-[#8FA69E]">
                         {reciters.find((r) => r.id === att.reciterId)?.name || att.reciterId}

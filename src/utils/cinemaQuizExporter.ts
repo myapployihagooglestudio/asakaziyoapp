@@ -39,7 +39,8 @@ export interface CinemaExportResult {
 
 export interface QuizPartExportOptions {
   questionsPart: QuranQuizQuestion[];
-  partIndex: number;
+  questionNumber?: number; // 1..10
+  partIndex: number; // 1..10 (alias for questionNumber)
   partRangeLabel: string;
   globalStartNumber: number;
   totalQuizQuestions?: number;
@@ -58,13 +59,73 @@ export interface QuizPartExportOptions {
 
 export interface QuizPartExportResult {
   jobId: string;
+  questionNumber: number;
   partIndex: number;
   filename: string;
   downloadUrl: string;
   previewUrl: string;
+  serverDownloadUrl?: string;
   sizeBytes: number;
   durationMs: number;
   mimeType: 'video/mp4';
+  ftypVerified: boolean;
+}
+
+export function formatQuizMp4Filename(questionNumber: number): string {
+  const safeNum = Math.max(1, Math.min(10, Math.floor(Number(questionNumber) || 1)));
+  return `quiz-${String(safeNum).padStart(2, '0')}.mp4`;
+}
+
+export function verifyMp4BinaryBuffer(arrayBuf: ArrayBuffer): {
+  valid: boolean;
+  ftypFound: boolean;
+  error?: string;
+} {
+  if (!arrayBuf || arrayBuf.byteLength < 4096) {
+    return {
+      valid: false,
+      ftypFound: false,
+      error: `Video fayl hajmi juda kichik (${arrayBuf?.byteLength || 0} bayt).`,
+    };
+  }
+  const bytes = new Uint8Array(arrayBuf, 0, Math.min(64, arrayBuf.byteLength));
+  const headText = Array.from(bytes.slice(0, 24))
+    .map((b) => String.fromCharCode(b))
+    .join('')
+    .trim()
+    .toLowerCase();
+
+  if (
+    headText.startsWith('<!doctype') ||
+    headText.startsWith('<html') ||
+    headText.startsWith('<head') ||
+    headText.startsWith('{') ||
+    headText.startsWith('[')
+  ) {
+    return {
+      valid: false,
+      ftypFound: false,
+      error: 'Server video oʻrniga HTML yoki JSON javob qaytardi.',
+    };
+  }
+
+  // ISO BMFF MP4 magic signature: bytes[4..7] == 'ftyp' (0x66, 0x74, 0x79, 0x70)
+  const ftypFound =
+    bytes.length >= 8 &&
+    bytes[4] === 0x66 &&
+    bytes[5] === 0x74 &&
+    bytes[6] === 0x79 &&
+    bytes[7] === 0x70;
+
+  if (!ftypFound) {
+    return {
+      valid: false,
+      ftypFound: false,
+      error: 'Fayl haqiqiy MP4 konteyner emas (ftyp imzosi topilmadi).',
+    };
+  }
+
+  return { valid: true, ftypFound: true };
 }
 
 interface GoldParticle {
@@ -150,6 +211,99 @@ function wrapTextLines(
   return lines;
 }
 
+function createMetallicGoldGradient(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number
+): CanvasGradient {
+  const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+  grad.addColorStop(0, '#8A6621');
+  grad.addColorStop(0.25, '#DFBD69');
+  grad.addColorStop(0.5, '#FFF6C8');
+  grad.addColorStop(0.75, '#D4AF37');
+  grad.addColorStop(1, '#7A5818');
+  return grad;
+}
+
+function drawArabesqueCornerOrnaments(
+  ctx: CanvasRenderingContext2D,
+  cardX: number,
+  cardY: number,
+  cardW: number,
+  cardH: number
+) {
+  const corners = [
+    { x: cardX + 22, y: cardY + 22, sx: 1, sy: 1 },
+    { x: cardX + cardW - 22, y: cardY + 22, sx: -1, sy: 1 },
+    { x: cardX + cardW - 22, y: cardY + cardH - 22, sx: -1, sy: -1 },
+    { x: cardX + 22, y: cardY + cardH - 22, sx: 1, sy: -1 },
+  ];
+  for (const c of corners) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(c.sx, c.sy);
+    ctx.strokeStyle = 'rgba(223, 189, 105, 0.82)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 38);
+    ctx.lineTo(0, 8);
+    ctx.quadraticCurveTo(0, 0, 8, 0);
+    ctx.lineTo(38, 0);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255, 246, 200, 0.68)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(10, 26);
+    ctx.lineTo(10, 12);
+    ctx.lineTo(26, 12);
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFF6C8';
+    ctx.beginPath();
+    ctx.arc(10, 10, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawRubElHizbBadge(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  label: string,
+  isRevealedCorrect: boolean
+) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  const half = size / 2;
+  for (let rot = 0; rot < 2; rot++) {
+    ctx.save();
+    ctx.rotate((rot * Math.PI) / 4);
+    drawRoundedRect(ctx, -half, -half, size, size, 5);
+    ctx.fillStyle = isRevealedCorrect
+      ? 'rgba(255, 255, 255, 0.25)'
+      : rot === 0
+        ? 'rgba(223, 189, 105, 0.16)'
+        : 'rgba(138, 102, 33, 0.32)';
+    ctx.fill();
+    ctx.strokeStyle = isRevealedCorrect ? '#FFFDF7' : rot === 0 ? '#DFBD69' : '#FFF6C8';
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.direction = 'ltr';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = isRevealedCorrect ? '#FFFFFF' : '#FFF6C8';
+  ctx.font = '700 28px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(label, 0, 2);
+  ctx.restore();
+}
+
 function drawIslamicMandala(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -157,40 +311,47 @@ function drawIslamicMandala(
   radius: number,
   angleRad: number
 ) {
+  // Layer 1: Outer 16-Pointed Star Mandala (CW)
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(angleRad);
-  ctx.strokeStyle = 'rgba(212, 178, 106, 0.13)';
+  ctx.strokeStyle = 'rgba(223, 189, 105, 0.06)';
   ctx.lineWidth = 2;
 
-  [1.0, 0.86, 0.64, 0.42].forEach((scale) => {
+  [1.0, 0.86, 0.66].forEach((scale) => {
     ctx.beginPath();
     ctx.arc(0, 0, radius * scale, 0, Math.PI * 2);
     ctx.stroke();
   });
 
-  const folds = 12;
-  for (let i = 0; i < folds; i++) {
-    const theta = (i * Math.PI * 2) / folds;
+  const folds16 = 16;
+  for (let i = 0; i < folds16; i++) {
+    const theta = (i * Math.PI * 2) / folds16;
     ctx.save();
     ctx.rotate(theta);
     ctx.beginPath();
-    ctx.moveTo(0, -radius * 0.25);
-    ctx.lineTo(radius * 0.18, -radius * 0.64);
+    ctx.moveTo(0, -radius * 0.22);
+    ctx.lineTo(radius * 0.12, -radius * 0.62);
     ctx.lineTo(0, -radius * 0.98);
-    ctx.lineTo(-radius * 0.18, -radius * 0.64);
+    ctx.lineTo(-radius * 0.12, -radius * 0.62);
     ctx.closePath();
     ctx.stroke();
     ctx.restore();
   }
+  ctx.restore();
 
-  for (let pass = 0; pass < 2; pass++) {
+  // Layer 2: Inner Mamluk/Timurid Girih Rosette (CCW)
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-angleRad * 0.75);
+  ctx.strokeStyle = 'rgba(255, 246, 200, 0.055)';
+  ctx.lineWidth = 2;
+  for (let pass = 0; pass < 4; pass++) {
     ctx.save();
-    ctx.rotate((pass * Math.PI) / 4);
-    ctx.strokeRect(-radius * 0.52, -radius * 0.52, radius * 1.04, radius * 1.04);
+    ctx.rotate((pass * Math.PI) / 8);
+    ctx.strokeRect(-radius * 0.48, -radius * 0.48, radius * 0.96, radius * 0.96);
     ctx.restore();
   }
-
   ctx.restore();
 }
 
@@ -198,10 +359,10 @@ function createGoldParticles(): GoldParticle[] {
   return Array.from({ length: 42 }).map((_, i) => ({
     x: (i * 197) % WIDTH,
     y: (i * 313) % HEIGHT,
-    r: 1.5 + (i % 4) * 1.1,
-    speedY: 22 + (i % 5) * 12,
+    r: 1.8 + (i % 4) * 1.2,
+    speedY: 20 + (i % 5) * 11,
     drift: (i % 2 === 0 ? 1 : -1) * (8 + (i % 3) * 5),
-    alpha: 0.25 + (i % 5) * 0.12,
+    alpha: 0.22 + (i % 5) * 0.11,
     phase: i * 0.7,
   }));
 }
@@ -211,30 +372,56 @@ function drawBackdrop(
   particles: GoldParticle[],
   elapsed: number
 ) {
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  bgGrad.addColorStop(0, '#02140c');
-  bgGrad.addColorStop(0.5, '#07291a');
-  bgGrad.addColorStop(1, '#010a06');
+  // 1. Deep Emerald Velvet & Cosmic Night Radial Gradient
+  const bgGrad = ctx.createRadialGradient(WIDTH * 0.5, HEIGHT * 0.25, 40, WIDTH * 0.5, HEIGHT * 0.45, HEIGHT * 0.85);
+  bgGrad.addColorStop(0, '#093322');
+  bgGrad.addColorStop(0.45, '#03170f');
+  bgGrad.addColorStop(1, '#010805');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  const haloGrad = ctx.createRadialGradient(WIDTH / 2, 540, 40, WIDTH / 2, 540, 620);
-  haloGrad.addColorStop(0, 'rgba(198, 164, 92, 0.20)');
-  haloGrad.addColorStop(0.5, 'rgba(16, 185, 129, 0.06)');
-  haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = haloGrad;
+  // 2. Volumetric God-Rays from Top Center
+  ctx.save();
+  const rayPulse = 0.5 + 0.3 * Math.sin(elapsed * 0.8);
+  const rayGrad = ctx.createRadialGradient(WIDTH / 2, -60, 20, WIDTH / 2, 420, 880);
+  rayGrad.addColorStop(0, `rgba(255, 246, 200, ${0.18 * rayPulse})`);
+  rayGrad.addColorStop(0.42, `rgba(223, 189, 105, ${0.09 * rayPulse})`);
+  rayGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = rayGrad;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.restore();
 
-  drawIslamicMandala(ctx, WIDTH / 2, 650, 520, elapsed * 0.08);
+  // 3. Dual Counter-Rotating Islamic Girih & 16-Pointed Star Mandalas
+  drawIslamicMandala(ctx, WIDTH / 2, 650, 540, elapsed * 0.07);
 
-  for (const p of particles) {
+  // 4. Ambient Golden Bokeh & Dust Particles
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
     const py = (((p.y - elapsed * p.speedY) % HEIGHT) + HEIGHT) % HEIGHT;
     const px = p.x + Math.sin(elapsed * 0.9 + p.phase) * p.drift;
-    ctx.fillStyle = `rgba(220, 197, 140, ${p.alpha})`;
-    ctx.beginPath();
-    ctx.arc(px, py, p.r, 0, Math.PI * 2);
-    ctx.fill();
+    if (i % 4 === 0) {
+      const bokeh = ctx.createRadialGradient(px, py, 0, px, py, p.r * 3.2);
+      bokeh.addColorStop(0, `rgba(255, 246, 200, ${p.alpha})`);
+      bokeh.addColorStop(0.5, `rgba(223, 189, 105, ${p.alpha * 0.45})`);
+      bokeh.addColorStop(1, 'rgba(212, 175, 55, 0)');
+      ctx.fillStyle = bokeh;
+      ctx.beginPath();
+      ctx.arc(px, py, p.r * 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(255, 246, 200, ${p.alpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
+
+  // 5. Cinematic Dark Edge Vignette
+  const vigGrad = ctx.createRadialGradient(WIDTH / 2, HEIGHT / 2, WIDTH * 0.35, WIDTH / 2, HEIGHT / 2, HEIGHT * 0.62);
+  vigGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vigGrad.addColorStop(1, 'rgba(1, 8, 5, 0.68)');
+  ctx.fillStyle = vigGrad;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
 }
 
 function drawQuestionFrame(params: {
@@ -269,33 +456,62 @@ function drawQuestionFrame(params: {
     localElapsed >= prefixDurSec && localElapsed < prefixDurSec + countdownDurSec;
   const isRevealed = localElapsed >= prefixDurSec + countdownDurSec;
 
+  const timerRatio = isPrefix
+    ? 1
+    : isCountdown
+      ? Math.max(0, 1 - (localElapsed - prefixDurSec) / countdownDurSec)
+      : 0;
+  const remainingSec = isPrefix
+    ? countdownDurSec
+    : isCountdown
+      ? Math.max(0, countdownDurSec - (localElapsed - prefixDurSec))
+      : 0;
+
   drawBackdrop(ctx, particles, elapsedGlobal);
 
-  // Top Header Bar
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 34px "Plus Jakarta Sans", sans-serif';
+  // Perimeter Golden Laser Line & Heartbeat Glow in final 1.5s
+  ctx.save();
+  drawRoundedRect(ctx, 16, 16, WIDTH - 32, HEIGHT - 32, 44);
+  if (isCountdown && remainingSec <= 1.5) {
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
+    ctx.shadowColor = 'rgba(239, 68, 68, 0.85)';
+    ctx.shadowBlur = 32;
+    ctx.lineWidth = 6;
+  } else {
+    ctx.strokeStyle = isRevealed ? 'rgba(16, 185, 129, 0.75)' : 'rgba(223, 189, 105, 0.45)';
+    ctx.lineWidth = 3.5;
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Top Header Bar with Metallic Gold Foil
+  ctx.fillStyle = createMetallicGoldGradient(ctx, 72, 85, 620, 125);
+  ctx.font = '700 34px "Cinzel", "Plus Jakarta Sans", serif';
   ctx.textAlign = 'left';
   ctx.fillText('ASAKA ZIYO · QUR’ON VIKTORINASI', 72, 118);
 
-  ctx.fillStyle = 'rgba(248, 245, 236, 0.76)';
+  ctx.fillStyle = 'rgba(255, 248, 232, 0.82)';
   ctx.font = '500 26px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(question.reciterName, 72, 162);
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#F8F5EC';
+  ctx.fillStyle = '#FFF6C8';
   ctx.font = '700 32px "JetBrains Mono", monospace';
   ctx.fillText(`${questionIndex + 1} / ${totalQuestions}`, WIDTH - 72, 118);
 
-  // 4 progress circles + linear 10-question micro-segments
+  // 4 Luminous Diamond Indicators + 10-question micro-segments
   const activeGroup = Math.min(3, Math.floor((questionIndex / Math.max(1, totalQuestions)) * 4));
   for (let c = 0; c < 4; c++) {
-    const cx = 72 + c * 36 + 10;
+    const cx = 72 + c * 38 + 12;
     const cy = 205;
-    ctx.beginPath();
-    ctx.arc(cx, cy, c === activeGroup ? 11 : 9, 0, Math.PI * 2);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
+    const sz = c === activeGroup ? 16 : 13;
     ctx.fillStyle =
-      c < activeGroup ? '#10b981' : c === activeGroup ? '#DCC58C' : 'rgba(255,255,255,0.16)';
-    ctx.fill();
+      c < activeGroup ? '#10B981' : c === activeGroup ? '#DFBD69' : 'rgba(255,255,255,0.16)';
+    ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+    ctx.restore();
   }
 
   const segTotalW = WIDTH - 260;
@@ -307,60 +523,60 @@ function drawQuestionFrame(params: {
     drawRoundedRect(ctx, sx, 200, segW, 10, 5);
     ctx.fillStyle =
       s < questionIndex
-        ? '#10b981'
+        ? '#10B981'
         : s === questionIndex
-          ? '#DCC58C'
+          ? '#DFBD69'
           : 'rgba(255, 255, 255, 0.14)';
     ctx.fill();
   }
 
-  // Central Glassmorphic Ayah Card
+  // Ornamental Gold Surah Cartouche + Frosted Obsidian Glass Ayah Card
   const cardX = 64;
   const cardY = 265;
   const cardW = WIDTH - 128;
   const cardH = 740;
 
   const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-  cardGrad.addColorStop(0, 'rgba(7, 41, 26, 0.78)');
-  cardGrad.addColorStop(1, 'rgba(2, 20, 12, 0.88)');
+  cardGrad.addColorStop(0, 'rgba(4, 24, 16, 0.84)');
+  cardGrad.addColorStop(1, 'rgba(2, 14, 9, 0.92)');
   drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 42);
   ctx.fillStyle = cardGrad;
   ctx.fill();
 
-  const borderGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-  borderGrad.addColorStop(0, 'rgba(220, 197, 140, 0.62)');
-  borderGrad.addColorStop(0.5, 'rgba(198, 164, 92, 0.24)');
-  borderGrad.addColorStop(1, 'rgba(220, 197, 140, 0.55)');
+  const borderGrad = createMetallicGoldGradient(ctx, cardX, cardY, cardX + cardW, cardY + cardH);
   ctx.strokeStyle = borderGrad;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  drawArabesqueCornerOrnaments(ctx, cardX, cardY, cardW, cardH);
+
+  // Ornamental Surah Cartouche Header inside Card
+  drawRoundedRect(ctx, cardX + 42, cardY + 26, cardW - 84, 68, 22);
+  ctx.fillStyle = 'rgba(9, 51, 34, 0.75)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(223, 189, 105, 0.65)';
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 28px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = '#FFF6C8';
+  ctx.font = '700 27px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(
-    `${question.surahNameUz} surasi, ${question.ayahNumberInSurah}-oyat`,
-    cardX + 46,
-    cardY + 68
+    `${question.surahNameUz} surasi · ${question.ayahNumberInSurah}-oyat`,
+    cardX + 68,
+    cardY + 69
   );
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(220, 197, 140, 0.9)';
+  ctx.fillStyle = '#DFBD69';
   ctx.font = '700 36px "Amiri Quran", "Amiri", serif';
-  ctx.fillText(question.surahNameAr, cardX + cardW - 46, cardY + 72);
-
-  ctx.strokeStyle = 'rgba(198, 164, 92, 0.22)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 46, cardY + 102);
-  ctx.lineTo(cardX + cardW - 46, cardY + 102);
-  ctx.stroke();
+  ctx.fillText(question.surahNameAr, cardX + cardW - 68, cardY + 71);
 
   const revealAnimT = isRevealed
     ? Math.min(1, (localElapsed - (prefixDurSec + countdownDurSec)) / 0.45)
     : 0;
   const trailSuffix = question.trailingMarker ? ` ${question.trailingMarker}` : '';
-  const hiddenOrBlank = isRevealed ? question.hiddenWord : '[ ______ ]';
+  const hiddenOrBlank = isRevealed ? `« ${question.hiddenWord} »` : '[  ؟  ]';
   const displayArabic =
     question.hidePos === 'start'
       ? `${hiddenOrBlank} ${question.maskedArabicAfter}${isRevealed ? trailSuffix : ''}`.trim()
@@ -378,69 +594,68 @@ function drawQuestionFrame(params: {
 
   arLines.slice(0, 4).forEach((line, idx) => {
     ctx.shadowColor = isRevealed
-      ? `rgba(16, 185, 129, ${0.42 * revealAnimT})`
-      : 'rgba(198, 164, 92, 0.35)';
+      ? `rgba(16, 185, 129, ${0.48 * revealAnimT})`
+      : 'rgba(212, 175, 55, 0.38)';
     ctx.shadowBlur = 18;
     ctx.fillStyle = '#FFFDF7';
     ctx.fillText(line, WIDTH / 2, arStartY + idx * arLineHeight);
   });
   ctx.restore();
 
-  // Official Uzbek Meaning Subtitle (Shown cleanly on reveal so hidden word isn't spoiled prematurely)
+  // Delicate Gold Divider + Tafsiri Hilol Meaning Presentation
+  ctx.strokeStyle = 'rgba(223, 189, 105, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 70, cardY + cardH - 182);
+  ctx.lineTo(cardX + cardW - 70, cardY + cardH - 182);
+  ctx.stroke();
+
   if (isRevealed && question.translationUz) {
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(212, 207, 195, 0.90)';
+    ctx.fillStyle = '#FFF8E8';
     ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
-    const uzLines = wrapTextLines(ctx, question.translationUz, cardW - 110).slice(0, 2);
-    const uzBaseY = cardY + cardH - 138;
+    const uzLines = wrapTextLines(ctx, `«${question.translationUz}»`, cardW - 110).slice(0, 2);
+    const uzBaseY = cardY + cardH - 142;
     uzLines.forEach((line, idx) => {
-      ctx.fillText(line, WIDTH / 2, uzBaseY + idx * 35);
+      ctx.fillText(line, WIDTH / 2, uzBaseY + idx * 34);
     });
+    ctx.fillStyle = '#DFBD69';
+    ctx.font = '700 18px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('TAFSIRI HILOL · SHAYX MUHAMMAD SODIQ MUHAMMAD YUSUF', WIDTH / 2, cardY + cardH - 76);
     ctx.restore();
   }
 
-  // Real-Time Golden Audio Frequency Visualizer
+  // Dual-Layer Symmetrical Liquid Gold Audio Frequency Visualizer
   analyser.getByteFrequencyData(freqBuf as Uint8Array<ArrayBuffer>);
   const barCount = 32;
   const barWidth = 14;
   const barGap = 10;
   const totalWaveWidth = barCount * (barWidth + barGap) - barGap;
   const waveStartX = (WIDTH - totalWaveWidth) / 2;
-  const waveBaseY = cardY + cardH - 36;
+  const waveCenterY = cardY + cardH - 36;
 
   for (let b = 0; b < barCount; b++) {
     const symIdx = Math.abs(b - barCount / 2);
     const binIdx = Math.min(freqBuf.length - 1, Math.floor((symIdx / (barCount / 2)) * 24));
-    const amp = isCountdown ? 0.08 : (freqBuf[binIdx] || 0) / 255;
-    const barH = Math.max(8, Math.round(amp * 54));
+    const amp = isCountdown ? 0.06 : (freqBuf[binIdx] || 0) / 255;
+    const barH = Math.max(6, Math.round(amp * 48));
     const bx = waveStartX + b * (barWidth + barGap);
-    drawRoundedRect(ctx, bx, waveBaseY - barH, barWidth, barH, 6);
+    drawRoundedRect(ctx, bx, waveCenterY - barH / 2, barWidth, barH, 6);
     ctx.fillStyle = isRevealed
-      ? 'rgba(16, 185, 129, 0.85)'
-      : 'rgba(220, 197, 140, 0.82)';
+      ? 'rgba(16, 185, 129, 0.88)'
+      : '#DFBD69';
     ctx.fill();
   }
 
   // 3.5s Golden Neon Circular Countdown Ring + Linear Bar
-  const timerRatio = isPrefix
-    ? 1
-    : isCountdown
-      ? Math.max(0, 1 - (localElapsed - prefixDurSec) / countdownDurSec)
-      : 0;
-  const remainingSec = isPrefix
-    ? countdownDurSec
-    : isCountdown
-      ? Math.max(0, countdownDurSec - (localElapsed - prefixDurSec))
-      : 0;
-
   const ringCx = WIDTH / 2;
   const ringCy = 1140;
   const ringR = 84;
 
   ctx.beginPath();
   ctx.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.strokeStyle = 'rgba(255, 248, 232, 0.14)';
   ctx.lineWidth = 12;
   ctx.stroke();
 
@@ -454,8 +669,8 @@ function drawQuestionFrame(params: {
       -Math.PI / 2,
       -Math.PI / 2 + Math.PI * 2 * (isRevealed ? 1 : timerRatio)
     );
-    ctx.strokeStyle = isRevealed ? '#10b981' : '#DCC58C';
-    ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.85)' : 'rgba(220, 197, 140, 0.85)';
+    ctx.strokeStyle = isRevealed ? '#10B981' : remainingSec <= 1.5 && isCountdown ? '#F59E0B' : '#DFBD69';
+    ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.85)' : 'rgba(223, 189, 105, 0.85)';
     ctx.shadowBlur = 22;
     ctx.lineWidth = 12;
     ctx.lineCap = 'round';
@@ -464,7 +679,7 @@ function drawQuestionFrame(params: {
   }
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = isRevealed ? '#6ee7b7' : '#FFFDF7';
+  ctx.fillStyle = isRevealed ? '#6EE7B7' : '#FFFDF7';
   ctx.font = '700 34px "JetBrains Mono", monospace';
   ctx.fillText(isRevealed ? '✓' : `${remainingSec.toFixed(1)}s`, ringCx, ringCy + 12);
 
@@ -473,20 +688,21 @@ function drawQuestionFrame(params: {
   const barY = 1265;
   const barW = WIDTH - 192;
   drawRoundedRect(ctx, barX, barY, barW, 18, 9);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.fill();
 
   const fillW = Math.max(18, barW * (isRevealed ? 1 : timerRatio));
   drawRoundedRect(ctx, barX, barY, fillW, 18, 9);
-  ctx.fillStyle = isRevealed ? '#10b981' : '#DCC58C';
+  ctx.fillStyle = isRevealed ? '#10B981' : createMetallicGoldGradient(ctx, barX, barY, barX + barW, barY);
   ctx.fill();
 
-  // Bottom 2x2 Glassmorphic Answer Option Cards
+  // Bottom 2x2 Glassmorphic Answer Option Cards with Rub el Hizb 8-Pointed Star Badges
   const gridX = 64;
   const gridY = 1335;
   const gap = 26;
   const optW = (WIDTH - 128 - gap) / 2;
   const optH = 195;
+  const arabicNumerals = ['١', '٢', '٣', '٤'];
 
   question.options.forEach((optWord, idx) => {
     const col = idx % 2;
@@ -498,33 +714,46 @@ function drawQuestionFrame(params: {
     drawRoundedRect(ctx, ox, oy, optW, optH, 30);
     if (isRevealed && isCorrectOpt) {
       ctx.save();
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.92)';
-      ctx.shadowColor = 'rgba(16, 185, 129, 0.72)';
-      ctx.shadowBlur = 32;
+      const greenGrad = ctx.createLinearGradient(ox, oy, ox + optW, oy + optH);
+      greenGrad.addColorStop(0, '#047857');
+      greenGrad.addColorStop(0.5, '#10B981');
+      greenGrad.addColorStop(1, '#34D399');
+      ctx.fillStyle = greenGrad;
+      ctx.shadowColor = 'rgba(16, 185, 129, 0.78)';
+      ctx.shadowBlur = 34;
       ctx.fill();
       ctx.restore();
-      ctx.strokeStyle = '#a7f3d0';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#FFF6C8';
+      ctx.lineWidth = 3.5;
       ctx.stroke();
     } else {
-      ctx.fillStyle = isRevealed ? 'rgba(6, 36, 30, 0.45)' : 'rgba(6, 36, 30, 0.85)';
+      ctx.fillStyle = isRevealed ? 'rgba(4, 24, 16, 0.35)' : 'rgba(6, 36, 25, 0.88)';
       ctx.fill();
-      ctx.strokeStyle = isRevealed ? 'rgba(255, 255, 255, 0.12)' : 'rgba(198, 164, 92, 0.42)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = isRevealed ? 'rgba(255, 255, 255, 0.12)' : 'rgba(223, 189, 105, 0.55)';
+      ctx.lineWidth = 2.2;
       ctx.stroke();
     }
+
+    drawRubElHizbBadge(
+      ctx,
+      ox + 54,
+      oy + optH / 2,
+      44,
+      isRevealed && isCorrectOpt ? '✓' : arabicNumerals[idx] || String(idx + 1),
+      isRevealed && isCorrectOpt
+    );
 
     ctx.save();
     ctx.direction = 'rtl';
     ctx.textAlign = 'center';
-    ctx.fillStyle = isRevealed && !isCorrectOpt ? 'rgba(255,255,255,0.4)' : '#FFFDF7';
+    ctx.fillStyle = isRevealed && !isCorrectOpt ? 'rgba(255,255,255,0.35)' : '#FFFDF7';
     ctx.font = '700 46px "Amiri Quran", "Scheherazade New", "Amiri", serif';
-    ctx.fillText(optWord, ox + optW / 2, oy + optH / 2 + 16, optW - 44);
+    ctx.fillText(optWord, ox + optW / 2 + 22, oy + optH / 2 + 16, optW - 110);
     ctx.restore();
   });
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(220, 197, 140, 0.7)';
+  ctx.fillStyle = 'rgba(223, 189, 105, 0.78)';
   ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(
     `Asaka Ziyo · 1080×1920 · ${question.surahNameUz} (${question.ayahKey})`,
@@ -744,37 +973,27 @@ async function transcodeToServerMp4(params: {
 }): Promise<Blob> {
   const { rawBlob, mp4Filename, signal } = params;
   const endpoint = `/api/quran-quiz/export-mp4?filename=${encodeURIComponent(mp4Filename)}`;
-  try {
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': rawBlob.type || 'video/webm',
-      },
-      body: rawBlob,
-      signal,
-    });
-    if (!resp.ok) {
-      const errPayload = await resp.json().catch(() => ({}));
-      throw new Error(
-        errPayload?.error || `Server MP4 konvertatsiyasida xatolik (HTTP ${resp.status}).`
-      );
-    }
-    const mp4Blob = await resp.blob();
-    if (!mp4Blob || mp4Blob.size < 1024) {
-      throw new Error('Server boʻsh MP4 video qaytardi.');
-    }
-    return new Blob([mp4Blob], { type: 'video/mp4' });
-  } catch (err: any) {
-    if (err?.name === 'AbortError' || signal?.aborted) {
-      throw err;
-    }
-    if (rawBlob.type.toLowerCase().includes('mp4') && rawBlob.size >= 1024) {
-      return rawBlob;
-    }
-    throw err instanceof Error
-      ? err
-      : new Error('Videoni MP4 formatiga konvertatsiya qilib boʻlmadi.');
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': rawBlob.type || 'video/webm',
+    },
+    body: rawBlob,
+    signal,
+  });
+  const ct = (resp.headers.get('content-type') || '').toLowerCase();
+  if (!resp.ok || ct.includes('text/html') || ct.includes('application/json')) {
+    const errPayload = await resp.json().catch(() => ({}));
+    throw new Error(
+      errPayload?.error || `Server MP4 konvertatsiyasida xatolik (HTTP ${resp.status}).`
+    );
   }
+  const arrayBuf = await resp.arrayBuffer();
+  const check = verifyMp4BinaryBuffer(arrayBuf);
+  if (!check.valid) {
+    throw new Error(check.error || 'Server yaroqsiz MP4 fayl qaytardi.');
+  }
+  return new Blob([arrayBuf], { type: 'video/mp4' });
 }
 
 /**
@@ -1481,30 +1700,41 @@ function drawStaticQuestionKeyframe(params: {
   drawBackdrop(ctx, particles, 0.4 + localIndex * 1.15);
 
   // Header
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 33px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = createMetallicGoldGradient(ctx, 72, 90, 560, 125);
+  ctx.font = '800 32px "Plus Jakarta Sans", sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText(`ASAKA ZIYO · SHORTS (${partRangeLabel})`, 72, 118);
 
-  ctx.fillStyle = 'rgba(248, 245, 236, 0.78)';
-  ctx.font = '500 26px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = 'rgba(255, 248, 231, 0.82)';
+  ctx.font = '600 25px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(question.reciterName, 72, 162);
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#F8F5EC';
+  ctx.fillStyle = '#FFF8E7';
   ctx.font = '700 32px "JetBrains Mono", monospace';
   ctx.fillText(`${globalNumber} / ${totalQuizQuestions}`, WIDTH - 72, 118);
 
-  // 4 progress circles + part segments
+  // 4 Luminous Diamond Progress Indicators + part segments
   const activeGroup = Math.min(3, Math.floor((localIndex / Math.max(1, partTotal)) * 4));
   for (let c = 0; c < 4; c++) {
-    const cx = 72 + c * 36 + 10;
+    const cx = 72 + c * 36 + 12;
     const cy = 205;
-    ctx.beginPath();
-    ctx.arc(cx, cy, c === activeGroup ? 11 : 9, 0, Math.PI * 2);
+    const r = c === activeGroup ? 11 : 8.5;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
     ctx.fillStyle =
-      c < activeGroup ? '#10b981' : c === activeGroup ? '#DCC58C' : 'rgba(255,255,255,0.16)';
-    ctx.fill();
+      c < activeGroup
+        ? '#10B981'
+        : c === activeGroup
+          ? createMetallicGoldGradient(ctx, -r, -r, r, r)
+          : 'rgba(255,248,231,0.16)';
+    if (c === activeGroup) {
+      ctx.shadowColor = 'rgba(223, 189, 105, 0.75)';
+      ctx.shadowBlur = 14;
+    }
+    ctx.fillRect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+    ctx.restore();
   }
 
   const segTotalW = WIDTH - 260;
@@ -1516,59 +1746,78 @@ function drawStaticQuestionKeyframe(params: {
     drawRoundedRect(ctx, sx, 200, segW, 10, 5);
     ctx.fillStyle =
       s < localIndex
-        ? '#10b981'
+        ? '#10B981'
         : s === localIndex
           ? isRevealed
-            ? '#10b981'
-            : '#DCC58C'
+            ? '#10B981'
+            : createMetallicGoldGradient(ctx, sx, 200, sx + segW, 210)
           : 'rgba(255, 255, 255, 0.14)';
     ctx.fill();
   }
 
-  // Central Glassmorphic Ayah Card
+  // Central Frosted Obsidian Glass Ayah Card
   const cardX = 64;
-  const cardY = 265;
+  const cardY = 258;
   const cardW = WIDTH - 128;
-  const cardH = 740;
+  const cardH = 748;
 
   const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-  cardGrad.addColorStop(0, 'rgba(7, 41, 26, 0.80)');
-  cardGrad.addColorStop(1, 'rgba(2, 20, 12, 0.90)');
-  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 42);
+  cardGrad.addColorStop(0, 'rgba(4, 24, 16, 0.82)');
+  cardGrad.addColorStop(0.5, 'rgba(7, 38, 25, 0.76)');
+  cardGrad.addColorStop(1, 'rgba(2, 14, 9, 0.88)');
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 38);
   ctx.fillStyle = cardGrad;
   ctx.fill();
 
-  const borderGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-  borderGrad.addColorStop(0, isRevealed ? 'rgba(16, 185, 129, 0.72)' : 'rgba(220, 197, 140, 0.65)');
-  borderGrad.addColorStop(0.5, 'rgba(198, 164, 92, 0.25)');
-  borderGrad.addColorStop(1, isRevealed ? 'rgba(16, 185, 129, 0.62)' : 'rgba(220, 197, 140, 0.55)');
+  const borderGrad = isRevealed
+    ? (() => {
+        const g = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+        g.addColorStop(0, 'rgba(16, 185, 129, 0.85)');
+        g.addColorStop(0.5, 'rgba(223, 189, 105, 0.5)');
+        g.addColorStop(1, 'rgba(52, 211, 153, 0.8)');
+        return g;
+      })()
+    : createMetallicGoldGradient(ctx, cardX, cardY, cardX + cardW, cardY + cardH);
   ctx.strokeStyle = borderGrad;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
+
+  // 4 Oriental Arabesque Corner Ornaments
+  drawArabesqueCornerOrnaments(ctx, cardX, cardY, cardW, cardH);
+
+  // Ornamental Gold Surah Cartouche Badge inside top of card
+  const cartoucheW = Math.min(cardW - 96, 760);
+  const cartoucheH = 68;
+  const cartoucheX = WIDTH / 2 - cartoucheW / 2;
+  const cartoucheY = cardY + 28;
+  drawRoundedRect(ctx, cartoucheX, cartoucheY, cartoucheW, cartoucheH, 34);
+  const cartGrad = ctx.createLinearGradient(cartoucheX, cartoucheY, cartoucheX + cartoucheW, cartoucheY + cartoucheH);
+  cartGrad.addColorStop(0, 'rgba(138, 102, 33, 0.25)');
+  cartGrad.addColorStop(0.5, 'rgba(4, 24, 16, 0.92)');
+  cartGrad.addColorStop(1, 'rgba(138, 102, 33, 0.25)');
+  ctx.fillStyle = cartGrad;
+  ctx.fill();
+  ctx.strokeStyle = createMetallicGoldGradient(ctx, cartoucheX, cartoucheY, cartoucheX + cartoucheW, cartoucheY);
+  ctx.lineWidth = 1.6;
   ctx.stroke();
 
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 28px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = createMetallicGoldGradient(ctx, cartoucheX + 28, cartoucheY, cartoucheX + 420, cartoucheY + cartoucheH);
+  ctx.font = '800 26px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(
-    `${question.surahNameUz} surasi, ${question.ayahNumberInSurah}-oyat`,
-    cardX + 46,
-    cardY + 68
+    `${question.surahNameUz} surasi · ${question.ayahNumberInSurah}-oyat`,
+    cartoucheX + 32,
+    cartoucheY + 43
   );
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(220, 197, 140, 0.9)';
-  ctx.font = '700 36px "Amiri Quran", "Amiri", serif';
-  ctx.fillText(question.surahNameAr, cardX + cardW - 46, cardY + 72);
+  ctx.fillStyle = '#FFF6C8';
+  ctx.font = '700 34px "Amiri Quran", "Scheherazade New", "Amiri", serif';
+  ctx.fillText(question.surahNameAr, cartoucheX + cartoucheW - 32, cartoucheY + 46);
 
-  ctx.strokeStyle = 'rgba(198, 164, 92, 0.22)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 46, cardY + 102);
-  ctx.lineTo(cardX + cardW - 46, cardY + 102);
-  ctx.stroke();
-
+  // Arabic Ayah + Hidden Word Capsule [  ؟  ]
   const trailSuffix = question.trailingMarker ? ` ${question.trailingMarker}` : '';
-  const hiddenOrBlank = isRevealed ? question.hiddenWord : '[ ______ ]';
+  const hiddenOrBlank = isRevealed ? `﴿ ${question.hiddenWord} ﴾` : '[  ؟  ]';
   const displayArabic =
     question.hidePos === 'start'
       ? `${hiddenOrBlank} ${question.maskedArabicAfter}${isRevealed ? trailSuffix : ''}`.trim()
@@ -1581,43 +1830,68 @@ function drawStaticQuestionKeyframe(params: {
   ctx.textAlign = 'center';
   ctx.font = '700 54px "Amiri Quran", "Scheherazade New", "Amiri", serif';
   const arLines = wrapTextLines(ctx, displayArabic, cardW - 110);
-  const arStartY = cardY + (arLines.length <= 2 ? 275 : 220);
-  const arLineHeight = 96;
+  const arStartY = cardY + (arLines.length <= 2 ? 250 : 205);
+  const arLineHeight = 104;
 
   arLines.slice(0, 4).forEach((line, idx) => {
-    ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.45)' : 'rgba(198, 164, 92, 0.35)';
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = '#FFFDF7';
-    ctx.fillText(line, WIDTH / 2, arStartY + idx * arLineHeight);
+    const ly = arStartY + idx * arLineHeight;
+    ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.45)' : 'rgba(223, 189, 105, 0.35)';
+    ctx.shadowBlur = 20;
+    const textGrad = ctx.createLinearGradient(cardX + 60, ly - 44, cardX + cardW - 60, ly + 14);
+    textGrad.addColorStop(0, '#FFFDF9');
+    textGrad.addColorStop(0.55, '#FFF8E7');
+    textGrad.addColorStop(1, isRevealed ? '#A7F3D0' : '#DFBD69');
+    ctx.fillStyle = textGrad;
+    ctx.fillText(line, WIDTH / 2, ly);
   });
   ctx.restore();
 
+  // Tafsiri Hilol Meaning Reveal
   if (isRevealed && question.translationUz) {
     ctx.save();
+    const divY = cardY + cardH - 188;
+    const divGrad = ctx.createLinearGradient(cardX + 90, divY, cardX + cardW - 90, divY);
+    divGrad.addColorStop(0, 'rgba(223, 189, 105, 0)');
+    divGrad.addColorStop(0.5, 'rgba(223, 189, 105, 0.65)');
+    divGrad.addColorStop(1, 'rgba(223, 189, 105, 0)');
+    ctx.strokeStyle = divGrad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cardX + 90, divY);
+    ctx.lineTo(cardX + cardW - 90, divY);
+    ctx.stroke();
+
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(212, 207, 195, 0.94)';
-    ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
-    const uzLines = wrapTextLines(ctx, question.translationUz, cardW - 110).slice(0, 2);
-    const uzBaseY = cardY + cardH - 138;
+    ctx.fillStyle = '#DFBD69';
+    ctx.font = '700 17px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('SHAYX MUHAMMAD SODIQ MUHAMMAD YUSUF — «TAFSIRI HILOL»', WIDTH / 2, divY + 26);
+
+    ctx.fillStyle = 'rgba(255, 248, 231, 0.94)';
+    ctx.font = '500 23px "Plus Jakarta Sans", sans-serif';
+    const uzLines = wrapTextLines(ctx, `«${question.translationUz}»`, cardW - 110).slice(0, 2);
+    const uzBaseY = divY + 60;
     uzLines.forEach((line, idx) => {
-      ctx.fillText(line, WIDTH / 2, uzBaseY + idx * 35);
+      ctx.fillText(line, WIDTH / 2, uzBaseY + idx * 32);
     });
     ctx.restore();
   }
 
-  // Symmetrical Golden Wave Decoration
-  const barCount = 32;
-  const barWidth = 14;
-  const barGap = 10;
+  // Dual-Layer Symmetrical Liquid Gold Waveform
+  const barCount = 36;
+  const barWidth = 12;
+  const barGap = 9;
   const totalWaveWidth = barCount * (barWidth + barGap) - barGap;
   const waveStartX = (WIDTH - totalWaveWidth) / 2;
-  const waveBaseY = cardY + cardH - 36;
+  const waveBaseY = cardY + cardH - 34;
   for (let b = 0; b < barCount; b++) {
-    const dist = Math.abs(b - barCount / 2) / (barCount / 2);
-    const barH = Math.max(8, Math.round((1 - dist * 0.7) * (isRevealed ? 42 : 34)));
+    const dist = Math.abs(b - (barCount - 1) / 2) / (barCount / 2);
+    const harmonic = Math.abs(Math.sin(b * 0.55)) * 0.45 + 0.55;
+    const barH = Math.max(8, Math.round((1 - dist * 0.72) * harmonic * (isRevealed ? 44 : 36)));
     const bx = waveStartX + b * (barWidth + barGap);
-    drawRoundedRect(ctx, bx, waveBaseY - barH, barWidth, barH, 6);
-    ctx.fillStyle = isRevealed ? 'rgba(16, 185, 129, 0.85)' : 'rgba(220, 197, 140, 0.82)';
+    drawRoundedRect(ctx, bx, waveBaseY - barH / 2, barWidth, barH, 6);
+    ctx.fillStyle = isRevealed
+      ? 'rgba(52, 211, 153, 0.88)'
+      : createMetallicGoldGradient(ctx, bx, waveBaseY - barH / 2, bx, waveBaseY + barH / 2);
     ctx.fill();
   }
 
@@ -1627,15 +1901,17 @@ function drawStaticQuestionKeyframe(params: {
   const ringR = 84;
   ctx.beginPath();
   ctx.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.strokeStyle = 'rgba(255, 248, 231, 0.12)';
   ctx.lineWidth = 12;
   ctx.stroke();
 
   ctx.save();
   ctx.beginPath();
   ctx.arc(ringCx, ringCy, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2);
-  ctx.strokeStyle = isRevealed ? '#10b981' : '#DCC58C';
-  ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.85)' : 'rgba(220, 197, 140, 0.85)';
+  ctx.strokeStyle = isRevealed
+    ? '#10B981'
+    : createMetallicGoldGradient(ctx, ringCx - ringR, ringCy - ringR, ringCx + ringR, ringCy + ringR);
+  ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.85)' : 'rgba(223, 189, 105, 0.85)';
   ctx.shadowBlur = 22;
   ctx.lineWidth = 12;
   ctx.lineCap = 'round';
@@ -1643,7 +1919,7 @@ function drawStaticQuestionKeyframe(params: {
   ctx.restore();
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = isRevealed ? '#6ee7b7' : '#FFFDF7';
+  ctx.fillStyle = isRevealed ? '#6EE7B7' : '#FFF8E7';
   ctx.font = '700 34px "JetBrains Mono", monospace';
   ctx.fillText(isRevealed ? '✓' : '3.5s', ringCx, ringCy + 12);
 
@@ -1651,19 +1927,20 @@ function drawStaticQuestionKeyframe(params: {
   const barX = 96;
   const barY = 1265;
   const barW = WIDTH - 192;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.fillStyle = 'rgba(255, 248, 231, 0.12)';
   ctx.fillRect(barX, barY, barW, 18);
   if (isRevealed) {
-    ctx.fillStyle = '#10b981';
+    ctx.fillStyle = '#10B981';
     ctx.fillRect(barX, barY, barW, 18);
   }
 
-  // Bottom 2x2 Options
+  // Bottom 2x2 Options with Rub el Hizb (١، ٢، ٣، ٤) Badges
   const gridX = 64;
   const gridY = 1335;
   const gap = 26;
   const optW = (WIDTH - 128 - gap) / 2;
   const optH = 195;
+  const arabicNumerals = ['١', '٢', '٣', '٤'];
 
   question.options.forEach((optWord, idx) => {
     const col = idx % 2;
@@ -1672,36 +1949,55 @@ function drawStaticQuestionKeyframe(params: {
     const oy = gridY + row * (optH + gap);
     const isCorrectOpt = idx === question.correctIndex;
 
+    ctx.save();
+    if (isRevealed && !isCorrectOpt) {
+      ctx.globalAlpha = 0.35;
+    }
+
     drawRoundedRect(ctx, ox, oy, optW, optH, 30);
     if (isRevealed && isCorrectOpt) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.92)';
+      const correctGrad = ctx.createLinearGradient(ox, oy, ox + optW, oy + optH);
+      correctGrad.addColorStop(0, '#047857');
+      correctGrad.addColorStop(0.5, '#10B981');
+      correctGrad.addColorStop(1, '#34D399');
+      ctx.fillStyle = correctGrad;
       ctx.shadowColor = 'rgba(16, 185, 129, 0.72)';
-      ctx.shadowBlur = 32;
+      ctx.shadowBlur = 34;
       ctx.fill();
-      ctx.restore();
-      ctx.strokeStyle = '#a7f3d0';
+      ctx.strokeStyle = '#FFF6C8';
       ctx.lineWidth = 3;
       ctx.stroke();
     } else {
-      ctx.fillStyle = isRevealed ? 'rgba(6, 36, 30, 0.45)' : 'rgba(6, 36, 30, 0.85)';
+      const optGrad = ctx.createLinearGradient(ox, oy, ox + optW, oy + optH);
+      optGrad.addColorStop(0, 'rgba(6, 34, 23, 0.88)');
+      optGrad.addColorStop(1, 'rgba(3, 18, 12, 0.94)');
+      ctx.fillStyle = optGrad;
       ctx.fill();
-      ctx.strokeStyle = isRevealed ? 'rgba(255, 255, 255, 0.12)' : 'rgba(198, 164, 92, 0.42)';
+      ctx.strokeStyle = createMetallicGoldGradient(ctx, ox, oy, ox + optW, oy + optH);
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    ctx.save();
+    // 8-pointed Rub el Hizb Star Badge
+    drawRubElHizbBadge(
+      ctx,
+      ox + 48,
+      oy + optH / 2,
+      26,
+      isRevealed && isCorrectOpt ? '✓' : arabicNumerals[idx] || String(idx + 1),
+      Boolean(isRevealed && isCorrectOpt)
+    );
+
     ctx.direction = 'rtl';
     ctx.textAlign = 'center';
-    ctx.fillStyle = isRevealed && !isCorrectOpt ? 'rgba(255,255,255,0.4)' : '#FFFDF7';
+    ctx.fillStyle = isRevealed && isCorrectOpt ? '#FFFFFF' : '#FFF8E7';
     ctx.font = '700 46px "Amiri Quran", "Scheherazade New", "Amiri", serif';
-    ctx.fillText(optWord, ox + optW / 2, oy + optH / 2 + 16, optW - 44);
+    ctx.fillText(optWord, ox + optW / 2 + 18, oy + optH / 2 + 16, optW - 110);
     ctx.restore();
   });
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(220, 197, 140, 0.72)';
+  ctx.fillStyle = 'rgba(223, 189, 105, 0.78)';
   ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(
     `Asaka Ziyo · 1080×1920 · ${question.surahNameUz} (${question.ayahKey})`,
@@ -1711,9 +2007,9 @@ function drawStaticQuestionKeyframe(params: {
 }
 
 /**
- * Generates an independent 5-question (1-5 or 6-10) 9:16 1080x1920 H.264/AAC MP4
- * using client-shaped Arabic Canvas keyframes and server-side FFmpeg audio/video assembly.
- * Works reliably across Android Chrome and installed PWA standalone mode without MediaRecorder lag.
+ * Generates an independent 1-question (`quiz-01.mp4` .. `quiz-10.mp4`) 9:16 1080x1920 H.264/AAC MP4
+ * using client-shaped Arabic Canvas keyframes and server-side FFmpeg audio/video assembly,
+ * followed by binary `ftyp` verification so HTML or corrupted files can never be saved.
  */
 export async function exportQuizPartMP4Video(
   options: QuizPartExportOptions
@@ -1721,6 +2017,7 @@ export async function exportQuizPartMP4Video(
   const {
     questionsPart,
     partIndex,
+    questionNumber: rawQuestionNumber,
     partRangeLabel,
     globalStartNumber,
     totalQuizQuestions = 10,
@@ -1732,23 +2029,29 @@ export async function exportQuizPartMP4Video(
     signal,
   } = options;
 
+  const questionNumber = Math.max(
+    1,
+    Math.min(10, Math.floor(Number(rawQuestionNumber ?? partIndex ?? globalStartNumber ?? 1)))
+  );
+  const canonicalFilename = formatQuizMp4Filename(questionNumber);
+
   if (!Array.isArray(questionsPart) || questionsPart.length === 0) {
-    throw new Error(`${partIndex}-video uchun savollar topilmadi.`);
+    throw new Error(`${canonicalFilename} uchun savol maʼlumoti topilmadi.`);
   }
+
+  onProgress?.(4, `${canonicalFilename} uchun shriftlar va 1080×1920 kadrlar tayyorlanmoqda...`);
+  try {
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+  } catch {
+    // ignore font API errors
+  }
+
   if (signal?.aborted) {
     throw new DOMException('Eksport bekor qilindi.', 'AbortError');
   }
 
-  onProgress?.(2, `${partIndex}-video (${partRangeLabel}): shrift va kadrlar tayyorlanmoqda...`);
-  try {
-    if (document.fonts?.ready) {
-      await document.fonts.ready;
-    }
-  } catch {
-    // ignore
-  }
-
-  const normalizedPart = questionsPart.map((q) => normalizeQuizQuestion(q));
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
@@ -1758,34 +2061,59 @@ export async function exportQuizPartMP4Video(
   }
 
   const particles = createGoldParticles();
-  const toJpg = () => canvas.toDataURL('image/jpeg', 0.9);
+  const normalizedQuestions = questionsPart.slice(0, 1).map((q) => normalizeQuizQuestion(q));
+  const primaryQuestion = normalizedQuestions[0];
 
-  // Intro frame with part label
+  // 1. Render Intro JPEG
   drawIntroFrame({
     ctx,
     particles,
-    elapsed: 0.2,
-    reciterName,
-    quizDateStr: `${quizDateStr ? `${quizDateStr} · ` : ''}${partIndex}-qism (${partRangeLabel}-savollar)`,
-    totalQuestions: normalizedPart.length,
+    elapsed: 0.3,
+    reciterName: reciterName || primaryQuestion.reciterName,
+    quizDateStr,
+    totalQuestions: 1,
   });
-  const introJpgBase64 = toJpg();
+  const introJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
 
-  const questionPayloads = normalizedPart.map((q, localIdx) => {
-    const common = {
+  // 2. Render Outro JPEG
+  drawOutroFrame({
+    ctx,
+    particles,
+    elapsed: 1.5,
+    reciterName: reciterName || primaryQuestion.reciterName,
+    quizDateStr,
+    totalQuestions: 1,
+    scoreSummary,
+  });
+  const outroJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
+
+  // 3. Render Question Prefix & Reveal JPEGs
+  const renderedQuestionsPayload = normalizedQuestions.map((q, idx) => {
+    drawStaticQuestionKeyframe({
       ctx,
       question: q,
-      localIndex: localIdx,
-      partTotal: normalizedPart.length,
-      globalNumber: globalStartNumber + localIdx,
+      localIndex: idx,
+      partTotal: 1,
+      globalNumber: questionNumber,
       totalQuizQuestions,
-      partRangeLabel,
+      partRangeLabel: partRangeLabel || `${questionNumber}-savol`,
+      isRevealed: false,
       particles,
-    };
-    drawStaticQuestionKeyframe({ ...common, isRevealed: false });
-    const prefixJpgBase64 = toJpg();
-    drawStaticQuestionKeyframe({ ...common, isRevealed: true });
-    const revealJpgBase64 = toJpg();
+    });
+    const prefixJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
+
+    drawStaticQuestionKeyframe({
+      ctx,
+      question: q,
+      localIndex: idx,
+      partTotal: 1,
+      globalNumber: questionNumber,
+      totalQuizQuestions,
+      partRangeLabel: partRangeLabel || `${questionNumber}-savol`,
+      isRevealed: true,
+      particles,
+    });
+    const revealJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
 
     return {
       id: q.id,
@@ -1795,132 +2123,185 @@ export async function exportQuizPartMP4Video(
       reciterId: q.reciterId,
       reciterName: q.reciterName,
       audioUrl: q.audioUrl,
-      fallbackAudioUrl: q.fallbackAudioUrl || '',
-      hidePos: q.hidePos || 'end',
-      pauseRatio: q.pauseRatio ?? 0.72,
-      resumeRatio: q.resumeRatio ?? q.pauseRatio ?? 0.72,
+      fallbackAudioUrl: q.fallbackAudioUrl,
+      hidePos: q.hidePos,
+      pauseRatio: q.pauseRatio,
+      resumeRatio: q.resumeRatio,
       pauseBeforeLastWordMs: q.pauseBeforeLastWordMs,
       prefixJpgBase64,
       revealJpgBase64,
     };
   });
 
-  drawOutroFrame({
-    ctx,
-    particles,
-    elapsed: 1.4,
-    reciterName,
-    quizDateStr: `${quizDateStr ? `${quizDateStr} · ` : ''}${partIndex}-qism (${partRangeLabel})`,
-    totalQuestions: normalizedPart.length,
-    scoreSummary,
-  });
-  const outroJpgBase64 = toJpg();
-
   if (signal?.aborted) {
     throw new DOMException('Eksport bekor qilindi.', 'AbortError');
   }
 
-  onProgress?.(5, `${partIndex}-video server FFmpeg konveyeriga yuborilmoqda...`);
+  onProgress?.(12, `${canonicalFilename} server FFmpeg render navbatiga yuborilmoqda...`);
   const startResp = await fetch('/api/quran-quiz/render-video/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    signal,
     body: JSON.stringify({
-      partIndex,
+      questionNumber,
+      partIndex: questionNumber,
       quizDateStr,
-      reciterName,
+      reciterId: primaryQuestion.reciterId,
+      reciterName: reciterName || primaryQuestion.reciterName,
       countdownMs,
       introJpgBase64,
       outroJpgBase64,
-      questions: questionPayloads,
+      questions: renderedQuestionsPayload,
     }),
+    signal,
   });
+
   const startData = await startResp.json().catch(() => ({}));
   if (!startResp.ok || !startData?.success || !startData?.jobId) {
     throw new Error(
-      startData?.error || `Server video renderini boshlay olmadi (HTTP ${startResp.status}).`
+      startData?.error || `${canonicalFilename} render jarayonini boshlashda xatolik (HTTP ${startResp.status}).`
     );
   }
 
   const jobId = String(startData.jobId);
+  const pollStartedAt = Date.now();
+  const maxPollMs = 180000;
 
-  while (true) {
+  while (Date.now() - pollStartedAt < maxPollMs) {
     if (signal?.aborted) {
       throw new DOMException('Eksport bekor qilindi.', 'AbortError');
     }
 
-    await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => {
-        signal?.removeEventListener('abort', onAbort);
-        resolve();
-      }, 600);
-      const onAbort = () => {
-        window.clearTimeout(timer);
-        reject(new DOMException('Eksport bekor qilindi.', 'AbortError'));
-      };
-      signal?.addEventListener('abort', onAbort, { once: true });
-    });
+    await new Promise((r) => setTimeout(r, 650));
 
     const statusResp = await fetch(`/api/quran-quiz/render-video/status/${encodeURIComponent(jobId)}`, {
       signal,
-      cache: 'no-store',
     });
-    const st = await statusResp.json().catch(() => ({}));
-    if (!statusResp.ok || !st?.success) {
-      throw new Error(st?.error || `Render holatini tekshirishda xatolik (HTTP ${statusResp.status}).`);
+    const statusData = await statusResp.json().catch(() => ({}));
+    if (!statusResp.ok || !statusData?.success) {
+      throw new Error(
+        statusData?.error || `${canonicalFilename} holatini tekshirishda xatolik (HTTP ${statusResp.status}).`
+      );
     }
 
-    const pct = Math.max(5, Math.min(100, Number(st.progressPct) || 5));
-    onProgress?.(pct, String(st.stageLabel || `${partIndex}-video tayyorlanmoqda...`));
+    const pct = Math.min(92, Math.max(14, Number(statusData.progressPct) || 20));
+    onProgress?.(pct, String(statusData.stageLabel || `${canonicalFilename} render qilinmoqda...`));
 
-    if (st.status === 'error') {
-      throw new Error(st.error || `${partIndex}-video tayyorlashda xatolik yuz berdi.`);
+    if (statusData.status === 'error') {
+      throw new Error(statusData.error || `${canonicalFilename} render jarayonida xatolik yuz berdi.`);
     }
 
-    if (st.status === 'ready') {
-      onProgress?.(100, String(st.stageLabel || `${partIndex}-video tayyor!`));
+    if (statusData.status === 'ready') {
+      const serverDownloadUrl =
+        statusData.downloadUrl || `/api/quran-quiz/render-video/download/${encodeURIComponent(jobId)}?download=1`;
+      const serverPreviewUrl =
+        statusData.previewUrl || `/api/quran-quiz/render-video/download/${encodeURIComponent(jobId)}`;
+
+      onProgress?.(95, `${canonicalFilename} MP4 fayli tekshirilmoqda...`);
+      const dlResp = await fetch(serverDownloadUrl, { signal });
+      const dlCt = (dlResp.headers.get('content-type') || '').toLowerCase();
+      if (!dlResp.ok || dlCt.includes('text/html') || dlCt.includes('application/json')) {
+        throw new Error(
+          `Server MP4 oʻrniga notoʻgʻri javob qaytardi (HTTP ${dlResp.status}, Content-Type: ${dlCt || 'nomaʼlum'}).`
+        );
+      }
+
+      const mp4Buffer = await dlResp.arrayBuffer();
+      const verification = verifyMp4BinaryBuffer(mp4Buffer);
+      if (!verification.valid) {
+        throw new Error(verification.error || `${canonicalFilename} MP4 ftyp tekshiruvidan oʻtmadi.`);
+      }
+
+      const verifiedBlob = new Blob([mp4Buffer], { type: 'video/mp4' });
+      const localObjectUrl = URL.createObjectURL(verifiedBlob);
+
+      onProgress?.(100, `${canonicalFilename} yuklab olishga tayyor!`);
       return {
         jobId,
-        partIndex,
-        filename: String(st.filename),
-        downloadUrl: String(st.downloadUrl),
-        previewUrl: String(st.previewUrl),
-        sizeBytes: Number(st.sizeBytes) || 0,
-        durationMs: Number(st.durationMs) || 0,
+        questionNumber,
+        partIndex: questionNumber,
+        filename: canonicalFilename,
+        downloadUrl: localObjectUrl,
+        previewUrl: localObjectUrl,
+        serverDownloadUrl,
+        sizeBytes: mp4Buffer.byteLength,
+        durationMs: Number(statusData.durationMs) || 12000,
         mimeType: 'video/mp4',
+        ftypVerified: true,
       };
     }
   }
+
+  throw new Error(`${canonicalFilename} render vaqti tugadi. Iltimos, qayta urinib koʻring.`);
 }
 
 export async function triggerServerMp4Download(params: {
   downloadUrl: string;
+  serverDownloadUrl?: string;
   filename: string;
   onProgress?: (msg: string) => void;
 }): Promise<void> {
+  const safeFilename = params.filename?.endsWith('.mp4')
+    ? params.filename
+    : `${params.filename || 'quiz-01'}.mp4`;
+
   try {
-    params.onProgress?.('Video fayl serverdan yuklab olinmoqda...');
-    const resp = await fetch(params.downloadUrl);
-    const contentType = resp.headers.get('content-type') || '';
+    params.onProgress?.(`${safeFilename} tekshirilmoqda va yuklab olinmoqda...`);
 
-    if (!resp.ok || contentType.includes('text/html')) {
-      const errText = await resp.text().catch(() => '');
-      if (errText.includes('<!DOCTYPE') || errText.includes('<html')) {
-        throw new Error('Server video oʻrniga HTML sahifa qaytardi. Video hali tayyor emas yoki xatolik yuz berdi.');
+    const candidateUrls = Array.from(
+      new Set([params.downloadUrl, params.serverDownloadUrl || ''].filter(Boolean))
+    );
+    let verifiedBuffer: ArrayBuffer | null = null;
+    let lastError: Error | null = null;
+
+    for (const targetUrl of candidateUrls) {
+      try {
+        const resp = await fetch(targetUrl);
+        const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+
+        // Guard against redirect to SPA login/index.html
+        if (resp.redirected && resp.url && !resp.url.includes('/api/quran-quiz/')) {
+          throw new Error('Yuklab olish havolasi boshqa sahifaga yoʻnaltirildi.');
+        }
+
+        if (!resp.ok || contentType.includes('text/html') || contentType.includes('application/json')) {
+          const errText = await resp.text().catch(() => '');
+          if (errText.includes('<!DOCTYPE') || errText.includes('<html')) {
+            throw new Error(
+              'Server video oʻrniga HTML sahifa qaytardi. Iltimos, videoni qayta yarating.'
+            );
+          }
+          try {
+            const parsed = JSON.parse(errText);
+            if (parsed?.error) throw new Error(parsed.error);
+          } catch (jsonErr) {
+            if (jsonErr instanceof Error && !jsonErr.message.includes('JSON')) {
+              throw jsonErr;
+            }
+          }
+          throw new Error(`Video yuklab olishda xatolik (HTTP ${resp.status}).`);
+        }
+
+        const buf = await resp.arrayBuffer();
+        const check = verifyMp4BinaryBuffer(buf);
+        if (!check.valid) {
+          throw new Error(check.error || 'Yaroqsiz MP4 fayl.');
+        }
+        verifiedBuffer = buf;
+        break;
+      } catch (err: any) {
+        lastError = err instanceof Error ? err : new Error(String(err));
       }
-      throw new Error(`Video yuklab olishda xatolik (HTTP ${resp.status}).`);
     }
 
-    const rawBlob = await resp.blob();
-    if (!rawBlob || rawBlob.size < 4096 || rawBlob.type.includes('text/html')) {
-      throw new Error('Serverdan kelgan video fayl notoʻgʻri yoki boʻsh.');
+    if (!verifiedBuffer) {
+      throw lastError || new Error('MP4 videoni yuklab boʻlmadi.');
     }
 
-    const videoBlob = new Blob([rawBlob], { type: 'video/mp4' });
+    const videoBlob = new Blob([verifiedBuffer], { type: 'video/mp4' });
     const url = URL.createObjectURL(videoBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = params.filename;
+    a.download = safeFilename;
     a.rel = 'noopener noreferrer';
     a.style.display = 'none';
     document.body.appendChild(a);
@@ -1938,33 +2319,42 @@ export async function triggerServerMp4Download(params: {
 export async function shareServerMp4Video(params: {
   previewUrl: string;
   downloadUrl: string;
+  serverDownloadUrl?: string;
   filename: string;
   title: string;
 }): Promise<void> {
+  const safeFilename = params.filename?.endsWith('.mp4')
+    ? params.filename
+    : `${params.filename || 'quiz-01'}.mp4`;
   try {
     if (
       typeof navigator !== 'undefined' &&
       typeof navigator.share === 'function'
     ) {
-      const resp = await fetch(params.previewUrl);
-      if (resp.ok) {
-        const blob = await resp.blob();
-        const file = new File([blob], params.filename, { type: 'video/mp4' });
-        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: params.title,
-            text: `${params.title} — Asaka Ziyo`,
-          });
-          return;
+      const resp = await fetch(params.previewUrl || params.downloadUrl);
+      const ct = (resp.headers.get('content-type') || '').toLowerCase();
+      if (resp.ok && !ct.includes('text/html')) {
+        const buf = await resp.arrayBuffer();
+        const check = verifyMp4BinaryBuffer(buf);
+        if (check.valid) {
+          const file = new File([buf], safeFilename, { type: 'video/mp4' });
+          if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: params.title,
+              text: `${params.title} — Asaka Ziyo`,
+            });
+            return;
+          }
         }
       }
     }
   } catch (err: any) {
     if (err?.name === 'AbortError') return;
   }
-  triggerServerMp4Download({
+  await triggerServerMp4Download({
     downloadUrl: params.downloadUrl,
-    filename: params.filename,
+    serverDownloadUrl: params.serverDownloadUrl,
+    filename: safeFilename,
   });
 }

@@ -281,7 +281,7 @@
     },
     "DailyQuranQuiz": {
       "title": "DailyQuranQuiz",
-      "description": "Daily 10-ayah audio Quran quiz set generated via Gemini audio + JSON analysis",
+      "description": "Permanent canonical daily 10-ayah audio Quran quiz set archived by date (YYYY-MM-DD)",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -290,6 +290,7 @@
         "reciterName": { "type": "string" },
         "questions": { "type": "array" },
         "usedAyahKeys": { "type": "array" },
+        "schemaVersion": { "type": "number" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
@@ -297,7 +298,7 @@
     },
     "QuranQuizAttempt": {
       "title": "QuranQuizAttempt",
-      "description": "User attempt results for Daily Quran Audio Quiz",
+      "description": "User attempt results and retry history for Daily Quran Audio Quiz",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -305,6 +306,7 @@
         "dateStr": { "type": "string" },
         "reciterId": { "type": "string" },
         "userId": { "type": "string" },
+        "attemptNumber": { "type": "number" },
         "score": { "type": "number" },
         "incorrectCount": { "type": "number" },
         "total": { "type": "number" },
@@ -313,6 +315,37 @@
         "completedAt": { "type": "string" }
       },
       "required": ["id", "quizId", "dateStr", "score", "total", "completedAt"]
+    },
+    "QuranQuizRenderJob": {
+      "title": "QuranQuizRenderJob",
+      "description": "Persistent server-side FFmpeg 1080x1920 MP4 render job state for individual quiz questions (quiz-01.mp4 .. quiz-10.mp4)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string" },
+        "questionNumber": { "type": "number" },
+        "partIndex": { "type": "number" },
+        "quizDateStr": { "type": "string" },
+        "reciterId": { "type": "string" },
+        "reciterName": { "type": "string" },
+        "ayahKey": { "type": "string" },
+        "status": { "type": "string", "enum": ["queued", "rendering", "ready", "error"] },
+        "progressPct": { "type": "number" },
+        "stageLabel": { "type": "string" },
+        "error": { "type": "string" },
+        "filename": { "type": "string" },
+        "outputPath": { "type": "string" },
+        "sizeBytes": { "type": "number" },
+        "durationMs": { "type": "number" },
+        "videoCodec": { "type": "string" },
+        "audioCodec": { "type": "string" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "ftypVerified": { "type": "boolean" },
+        "createdAtMs": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["jobId", "questionNumber", "status", "filename", "createdAtMs"]
     }
   },
   "firestore": {
@@ -402,11 +435,16 @@
     },
     "/dailyQuranQuizzes/{quizId}": {
       "schema": "DailyQuranQuiz",
-      "description": "Daily 10-ayah audio Quran quiz sets per date and reciter"
+      "description": "Permanent canonical daily 10-ayah audio Quran quiz archive"
     },
     "/quranQuizAttempts/{attemptId}": {
       "schema": "QuranQuizAttempt",
       "description": "Completed attempt scores and answers for Daily Quran Audio Quiz"
+    },
+    "/quranQuizRenderJobs/{jobId}": {
+      "schema": "QuranQuizRenderJob",
+      "description": "Persistent server-side FFmpeg render jobs for individual quiz MP4 videos"
     }
   }
 }
+
