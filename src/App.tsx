@@ -74,6 +74,7 @@ import { IslamicAchievementsView } from './components/features/profile/IslamicAc
 import { SmartTvModal } from './components/features/tv/SmartTvModal';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
+import { PrivacyPolicyModal } from './components/features/legal/PrivacyPolicyModal';
 import { pageTransitionVariants } from './utils/motionSystem';
 import {
   subscribeToMessages,
@@ -114,6 +115,10 @@ export default function App() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isTvModalOpen, setIsTvModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isOffline, setIsOffline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine === false : false
+  );
 
   // Prayer schedule with central database service
   const [prayerSchedule, setPrayerSchedule] = useState<PrayerSchedule>(() =>
@@ -337,11 +342,21 @@ export default function App() {
       }
     };
 
+    const handleOpenPrivacyModal = () => setIsPrivacyModalOpen(true);
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('keydown', handleGlobalKeyDown);
+    window.addEventListener('asaka-open-privacy-modal', handleOpenPrivacyModal);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     return () => {
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('keydown', handleGlobalKeyDown);
+      window.removeEventListener('asaka-open-privacy-modal', handleOpenPrivacyModal);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -452,6 +467,20 @@ export default function App() {
 
         {/* Telegram-Style Top Heads-Up Notification Banner */}
         <TelegramHeadsUpBanner onNavigate={handleNavigate} />
+
+        {/* Graceful Offline Mode Banner */}
+        {isOffline && (
+          <div
+            role="status"
+            className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-3"
+          >
+            <div className="px-4 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center justify-between gap-2">
+              <span>
+                Oflayn rejim: internet aloqasi yoʻq. Namoz vaqtlari, Qurʼon matnlari, hadis va zikrlar saqlangan keshdan ishlamoqda.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Main Content Area */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 lg:pb-12">
@@ -760,6 +789,13 @@ export default function App() {
         onClose={() => setIsOnboardingOpen(false)}
         settings={settings}
         onUpdateSettings={handleUpdateSettings}
+      />
+
+      {/* Privacy Policy & Data Safety Modal */}
+      <PrivacyPolicyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        onOpenAccountDelete={() => handleNavigate('profile')}
       />
 
       {/* Persistent Global Audio Mini/Expanded Player */}

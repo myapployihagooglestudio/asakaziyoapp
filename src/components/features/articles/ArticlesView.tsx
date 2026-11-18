@@ -49,6 +49,8 @@ import {
   Pin,
   Archive,
   Film,
+  Flag,
+  Ban,
 } from 'lucide-react';
 
 export type ContentHubCategory =
@@ -136,7 +138,17 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [commentName, setCommentName] = useState('');
   const [commentText, setCommentText] = useState('');
+  const [commentNotice, setCommentNotice] = useState<string | null>(null);
   const [userRating, setUserRating] = useState<number | null>(null);
+  const [blockedAuthors, setBlockedAuthors] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('asaka_ziyo_blocked_authors_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [reportedCommentIds, setReportedCommentIds] = useState<string[]>([]);
 
   // Sync articles, hadiths, dhikrs, announcements, news in real time from Firestore
   useEffect(() => {
@@ -223,11 +235,56 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!readingArticle || !commentText.trim()) return;
+    const cleanText = commentText.trim();
+    if (/(https?:\/\/|t\.me\/|bit\.ly)/i.test(cleanText)) {
+      setCommentNotice('Izohlarda reklama yoki tashqi havola joylashtirish taqiqlanadi.');
+      return;
+    }
+    if (cleanText.length > 600) {
+      setCommentNotice('Izoh matni 600 belgidan oshmasligi kerak.');
+      return;
+    }
+    setCommentNotice(null);
     addArticleComment(readingArticle.id, {
       authorName: commentName.trim() || 'Foydalanuvchi',
-      text: commentText.trim(),
+      text: cleanText,
     });
     setCommentText('');
+  };
+
+  const handleReportComment = async (comm: { id: string; authorName: string; text: string }) => {
+    if (!readingArticle) return;
+    setReportedCommentIds((prev) => [...prev, comm.id]);
+    setCommentNotice('Shikoyatingiz moderatorlarga yuborildi. Zarur boʻlsa muallifni bloklashingiz mumkin.');
+    try {
+      await fetch('/api/ugc/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentType: 'article_comment',
+          contentId: readingArticle.id,
+          commentId: comm.id,
+          authorName: comm.authorName,
+          reportedText: comm.text,
+          reason: 'Nomaqbul izoh / Foydalanuvchi shikoyati',
+        }),
+      });
+    } catch {
+      // keep local confirmation
+    }
+  };
+
+  const handleBlockAuthor = (authorName: string) => {
+    const clean = authorName.trim();
+    if (!clean) return;
+    const updated = Array.from(new Set([...blockedAuthors, clean]));
+    setBlockedAuthors(updated);
+    try {
+      localStorage.setItem('asaka_ziyo_blocked_authors_v1', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    setCommentNotice(`«${clean}» izohlari siz uchun yashirildi.`);
   };
 
   // Font size classes for Reader View
@@ -1091,17 +1148,47 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                 <span>Fikr-mulohazalar ({readingArticle.comments?.length || 0})</span>
               </h4>
 
+              {commentNotice && (
+                <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-700 dark:text-amber-300 text-[11px] font-semibold">
+                  {commentNotice}
+                </div>
+              )}
+
               {readingArticle.comments && readingArticle.comments.length > 0 && (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {readingArticle.comments.map((comm) => (
-                    <div key={comm.id} className="p-3 rounded-xl bg-stone-50 dark:bg-[#091a18] text-xs space-y-1">
-                      <div className="flex items-center justify-between text-stone-500 text-[10px]">
-                        <span className="font-bold text-stone-800 dark:text-stone-200">{comm.authorName}</span>
-                        <span>{comm.createdAt}</span>
-                      </div>
-                      <p className="text-stone-700 dark:text-stone-300">{comm.text}</p>
-                    </div>
-                  ))}
+                <div className="space-y-2 max-h-56 overflow-y-auto">
+                  {readingArticle.comments
+                    .filter((comm) => !blockedAuthors.includes((comm.authorName || '').trim()))
+                    .map((comm) => {
+                      const isReported = reportedCommentIds.includes(comm.id);
+                      return (
+                        <div key={comm.id} className="p-3 rounded-xl bg-stone-50 dark:bg-[#091a18] text-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-stone-500 text-[10px]">
+                            <span className="font-bold text-stone-800 dark:text-stone-200">{comm.authorName}</span>
+                            <span>{comm.createdAt}</span>
+                          </div>
+                          <p className="text-stone-700 dark:text-stone-300">{comm.text}</p>
+                          <div className="flex items-center gap-3 pt-1 border-t border-stone-200/60 dark:border-white/5 text-[10px]">
+                            <button
+                              type="button"
+                              disabled={isReported}
+                              onClick={() => handleReportComment(comm)}
+                              className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 hover:underline disabled:opacity-50 cursor-pointer"
+                            >
+                              <Flag className="w-3 h-3" />
+                              <span>{isReported ? 'Shikoyat yuborildi' : 'Shikoyat qilish'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleBlockAuthor(comm.authorName)}
+                              className="inline-flex items-center gap-1 text-rose-500 hover:underline cursor-pointer"
+                            >
+                              <Ban className="w-3 h-3" />
+                              <span>Bloklash</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
 

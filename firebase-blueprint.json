@@ -346,6 +346,24 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["jobId", "questionNumber", "status", "filename", "createdAtMs"]
+    },
+    "UGCReport": {
+      "title": "UGCReport",
+      "description": "User-submitted moderation report for comments or community content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "contentType": { "type": "string" },
+        "contentId": { "type": "string" },
+        "commentId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "reportedText": { "type": "string", "maxLength": 1000 },
+        "reason": { "type": "string", "maxLength": 200 },
+        "reporterId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending_review", "reviewed", "resolved", "dismissed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "contentId", "reason", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -444,6 +462,10 @@
     "/quranQuizRenderJobs/{jobId}": {
       "schema": "QuranQuizRenderJob",
       "description": "Persistent server-side FFmpeg render jobs for individual quiz MP4 videos"
+    },
+    "/ugcReports/{reportId}": {
+      "schema": "UGCReport",
+      "description": "User moderation reports for comments and user-generated content"
     }
   }
 }

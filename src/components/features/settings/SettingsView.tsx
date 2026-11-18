@@ -926,7 +926,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('asaka-open-privacy-modal'))}
+              className="text-xs text-[#c5a869] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>{getLocalizedText('Maxfiylik siyosati & Maʼlumotlar xavfsizligi')}</span>
+            </button>
+            <a
+              href="/delete-account"
+              className="text-xs text-rose-400 hover:underline font-semibold flex items-center gap-1"
+            >
+              <span>{getLocalizedText('Akkaunt va maʼlumotlarni oʻchirish')}</span>
+            </a>
             <button
               onClick={onOpenAdmin}
               className="text-xs text-[#c5a869] hover:underline font-semibold flex items-center gap-1 cursor-pointer"

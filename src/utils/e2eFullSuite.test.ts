@@ -520,10 +520,10 @@ async function runFullE2ESuite() {
   // ---------------------------------------------------------------------------
   // 6. ENTERPRISE ADMIN CONTROL CENTER (29 MODULES), 8-ROLE RBAC & MEDIA ENGINE
   // ---------------------------------------------------------------------------
-  console.log('\n--- 6. Testing Enterprise Admin Control Center (29 Modules), 8-Role RBAC & Media Library ---');
+  console.log('\n--- 6. Testing Enterprise Admin Control Center (27 Modules + Dashboard), 8-Role RBAC & Media Library ---');
   assert(
-    ENTERPRISE_ADMIN_MODULES.length === 30,
-    'Enterprise Admin Control Center defines central dashboard + all 29 independent management modules'
+    ENTERPRISE_ADMIN_MODULES.length === 28,
+    'Enterprise Admin Control Center defines central dashboard + all 27 active management modules'
   );
 
   // Test 8 Administrator Roles & Module-Specific Permissions
@@ -1095,8 +1095,8 @@ async function runFullE2ESuite() {
     apkInfoRes.status === 200 &&
       apkInfoJson.success === true &&
       apkInfoJson.packageId === 'uz.asakaziyo.app' &&
-      (apkInfoJson.version === '2.1.0' || apkInfoJson.version === '2.0.0') &&
-      (apkInfoJson.buildCode === 210 || apkInfoJson.buildCode === 200),
+      (apkInfoJson.version === '3.0.0' || apkInfoJson.version === '2.1.0' || apkInfoJson.version === '2.0.0') &&
+      (apkInfoJson.buildCode === 300 || apkInfoJson.buildCode === 210 || apkInfoJson.buildCode === 200),
     'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app) & release build'
   );
   assert(
@@ -1121,7 +1121,7 @@ async function runFullE2ESuite() {
   assert(
     apkDownloadRes.status === 200 &&
       apkContentType.includes('application/vnd.android.package-archive') &&
-      apkDisposition.includes('Asaka-Ziyo-v2.0.0.apk'),
+      (apkDisposition.includes('Asaka-Ziyo-v3.0.0.apk') || apkDisposition.includes('Asaka-Ziyo-v2.0.0.apk')),
     'APK TEST 4: GET /api/apk/download streams with Content-Type: application/vnd.android.package-archive'
   );
   assert(

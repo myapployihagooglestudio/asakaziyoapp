@@ -16,6 +16,22 @@ import { getActiveAdminToken, fetchCollectionFromFirestore } from './firebaseCli
 import { recordAdminAuditLog, broadcastEvent } from './databaseService';
 import { VERIFIED_MISHARY_FATIHA_ALIGNMENT } from './quranAudioSyncEngine';
 
+function resolveReciterApiBaseUrl(): string {
+  const configured = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+  if (configured) return configured;
+  if (
+    typeof window !== 'undefined' &&
+    window.location?.origin?.startsWith('http') &&
+    window.location.hostname !== 'appassets.androidplatform.net'
+  ) {
+    return '';
+  }
+  if (typeof process !== 'undefined' && Boolean((process as any)?.versions?.node)) {
+    return (process.env?.API_BASE_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
+  }
+  return '';
+}
+
 export interface ReciterProfile {
   id: string; // e.g. "mishary", "suwayd", "reciter-1741234567"
   name: string;
@@ -758,7 +774,7 @@ export async function createOrUpdateReciter(
     };
 
     // Persist to Firebase Firestore via authenticated backend API FIRST
-    const baseUrl = typeof window !== 'undefined' && window.location?.origin ? '' : 'http://localhost:3000';
+    const baseUrl = resolveReciterApiBaseUrl();
     const token = getActiveAdminToken();
     const res = await fetch(`${baseUrl}/api/admin/reciters`, {
       method: 'POST',
@@ -858,8 +874,9 @@ export async function saveSurahAudioOverrideRecord(params: {
       updatedAt: new Date().toISOString(),
     };
 
+    const baseUrl = resolveReciterApiBaseUrl();
     const token = getActiveAdminToken();
-    const res = await fetch('/api/admin/quran-audio', {
+    const res = await fetch(`${baseUrl}/api/admin/quran-audio`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -921,8 +938,9 @@ export async function uploadSingleSurahAudio(params: {
       throw new Error('Sura raqami 1 va 114 oraligʻida boʻlishi kerak.');
     }
 
+    const baseUrl = resolveReciterApiBaseUrl();
     const token = getActiveAdminToken();
-    const res = await fetch('/api/admin/quran-audio/upload-surah', {
+    const res = await fetch(`${baseUrl}/api/admin/quran-audio/upload-surah`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -1213,7 +1231,7 @@ export async function deleteReciterLibrary(params: {
   }
 
   try {
-    const baseUrl = typeof window !== 'undefined' && window.location?.origin ? '' : 'http://localhost:3000';
+    const baseUrl = resolveReciterApiBaseUrl();
     const token = getActiveAdminToken();
     const res = await fetch(`${baseUrl}/api/admin/reciters/delete-library`, {
       method: 'POST',
@@ -1323,7 +1341,7 @@ export async function triggerGeminiAiAlignment(params: {
 }): Promise<{ success: boolean; alignment?: QuranAudioAlignmentRecord; error?: string }> {
   try {
     const { reciterId, surahNumber } = params;
-    const baseUrl = typeof window !== 'undefined' && window.location?.origin ? '' : 'http://localhost:3000';
+    const baseUrl = resolveReciterApiBaseUrl();
     const token = getActiveAdminToken();
     const res = await fetch(`${baseUrl}/api/admin/quran-audio/ai-align`, {
       method: 'POST',

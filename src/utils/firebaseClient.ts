@@ -643,8 +643,6 @@ export const ADMIN_WRITE_COLLECTIONS = new Set([
   'dailyQuizzes',
   'messages',
   'mosqueEvents',
-  'academyLessons',
-  'charityCampaigns',
   'digitalBooks',
   'imamQuestions',
   'quranReciters',
@@ -670,10 +668,19 @@ function sanitizeForFirestore(val: any): any {
 }
 
 function getApiBaseUrl(): string {
-  if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http')) {
+  const configured = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+  if (configured) return configured;
+  if (
+    typeof window !== 'undefined' &&
+    window.location?.origin?.startsWith('http') &&
+    window.location.hostname !== 'appassets.androidplatform.net'
+  ) {
     return window.location.origin;
   }
-  return 'http://127.0.0.1:3000';
+  if (typeof process !== 'undefined' && Boolean((process as any)?.versions?.node)) {
+    return (process.env?.API_BASE_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
+  }
+  return '';
 }
 
 export async function syncDocToFirestore(

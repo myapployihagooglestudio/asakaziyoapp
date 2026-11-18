@@ -406,39 +406,7 @@ service cloud.firestore {
       );
     }
 
-    // 25. Islamic Learning Academy (Lessons & Tracks)
-    match /academyLessons/{lessonId} {
-      allow read: if true;
-      allow write: if isValidId(lessonId) && (isContentAdmin() || isVerifiedServerWrite('academyLessons', lessonId));
-    }
-
-    // 26. Student Academy Progress
-    match /studentProgress/{studentId} {
-      allow read, write: if isValidId(studentId) && (
-        !isSignedIn() || request.auth.uid == studentId || isAnyAdmin() || isVerifiedServerWrite('studentProgress', studentId)
-      );
-    }
-
-    // 27. Charity Campaigns & Financial Reports
-    match /charityCampaigns/{campaignId} {
-      allow read: if true;
-      allow create, delete: if isValidId(campaignId) && (isSuperAdmin() || isVerifiedServerWrite('charityCampaigns', campaignId));
-      allow update: if isValidId(campaignId) && (
-        isSuperAdmin() ||
-        isVerifiedServerWrite('charityCampaigns', campaignId) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs']) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['pledgedAmountUzs', 'updatedAt'])
-      );
-    }
-
-    // 28. Charity Pledges & Donations
-    match /charityPledges/{pledgeId} {
-      allow read: if isAnyAdmin() || (!isSignedIn() || request.auth.uid == resource.data.userId);
-      allow create: if isValidId(pledgeId) && incoming().amountUzs is number;
-      allow update, delete: if isValidId(pledgeId) && (isSuperAdmin() || isVerifiedServerWrite('charityPledges', pledgeId));
-    }
-
-    // 29. Ramadan & Voluntary Fasting Assistant
+    // 25. Ramadan & Voluntary Fasting Assistant (Legacy IDs removed: academyLessons, studentProgress, charityCampaigns, charityPledges)
     match /fastingJournals/{journalId} {
       allow read, write: if isValidId(journalId) && (
         !isSignedIn() || request.auth.uid == incoming().userId || (resource != null && resource.data.userId == request.auth.uid) || isSuperAdmin() || isVerifiedServerWrite('fastingJournals', journalId)
@@ -587,6 +555,21 @@ service cloud.firestore {
         isContentAdmin()
       );
       allow delete: if isValidId(jobId) && (isSuperAdmin() || isVerifiedServerWrite('quranQuizRenderJobs', jobId));
+    }
+
+    // 36. User-Generated Content Moderation Reports (Google Play UGC Compliance)
+    match /ugcReports/{reportId} {
+      allow create: if isValidId(reportId) && (
+        isVerifiedServerWrite('ugcReports', reportId) ||
+        (
+          incoming().contentId is string && incoming().contentId.size() <= 128 &&
+          incoming().reason is string && incoming().reason.size() <= 200 &&
+          incoming().status == 'pending_review'
+        )
+      );
+      allow read, update, delete: if isValidId(reportId) && (
+        isAnyAdmin() || isVerifiedServerWrite('ugcReports', reportId)
+      );
     }
   }
 }

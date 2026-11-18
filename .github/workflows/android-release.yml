@@ -1,4 +1,4 @@
-name: Build & Publish Signed ASAKA ZIYO Android APK & AAB
+name: Build & Verify ASAKA ZIYO Android Release (AAB & APK · API 36)
 
 on:
   push:
@@ -8,17 +8,30 @@ on:
 
 jobs:
   build-android:
-    name: Compile, Sign & Verify Android Release (APK + AAB)
+    name: Test, Bundle Web, & Build Signed Android App Bundle (AAB)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies & Verify Web Build
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Sync Web Bundle into Android Assets
+        run: |
+          rm -rf android/app/src/main/assets/public
+          mkdir -p android/app/src/main/assets/public
+          cp -r dist/* android/app/src/main/assets/public/
 
       - name: Setup Java JDK 17
         uses: actions/setup-java@v4
@@ -26,27 +39,42 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK 34
+      - name: Setup Android SDK (API 36)
         uses: android-actions/setup-android@v3
 
-      - name: Install Frontend Dependencies & Build Production Bundle
-        run: |
-          npm install
-          npm run build
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
-      - name: Copy Web Assets to Android Asset Directory
+      - name: Decode Release Keystore & Google Services (if configured in Secrets)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          mkdir -p android/app/src/main/assets/public
-          cp -r dist/* android/app/src/main/assets/public/
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+            echo "ANDROID_KEYSTORE_PATH=$(pwd)/android/release-keystore.jks" >> $GITHUB_ENV
+          fi
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          fi
 
-      - name: Generate Signed Standalone APK & Verify Binary Structure
+      - name: Build Signed Release AAB & APK (or Unsigned Check when Secrets Absent)
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          node scripts/build-android-apk.cjs
+          if [ -n "$ANDROID_KEYSTORE_PATH" ] && [ -f "$ANDROID_KEYSTORE_PATH" ]; then
+            gradle bundleRelease assembleRelease
+          else
+            gradle bundleRelease -PallowUnsignedRelease=true
+          fi
 
-      - name: Upload Signed Release APK Artifact
+      - name: Upload Play Store AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v2.0.0-Release-APK
-          path: |
-            public/Asaka-Ziyo-v2.0.0.apk
-            public/Asaka-Ziyo-v1.0.0.apk
+          name: asaka-ziyo-v3.0.0-aab
+          path: android/app/build/outputs/bundle/release/*.aab

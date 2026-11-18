@@ -192,6 +192,23 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
                   {t('navigation:settings', 'Sozlamalar')}
                 </button>
               </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('asaka-open-privacy-modal'))}
+                  className="hover:text-[#063D32] dark:hover:text-[#DFBD69] transition-colors cursor-pointer"
+                >
+                  Maxfiylik siyosati (Privacy Policy)
+                </button>
+              </li>
+              <li>
+                <a
+                  href="/delete-account"
+                  className="hover:text-[#063D32] dark:hover:text-[#DFBD69] transition-colors inline-flex items-center gap-1"
+                >
+                  <span>Akkauntni oʻchirish</span>
+                </a>
+              </li>
               <li className="pt-2 space-y-1 text-[11px] text-[#526B62] dark:text-[#9CB5AC] font-mono-numbers">
                 <div>UTC+5 · Asia/Tashkent</div>
                 <div>Qibla: 241° (WSW)</div>
@@ -203,7 +220,10 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
         {/* Quiet copyright */}
         <div className="pt-7 border-t border-[#063D32]/12 dark:border-[#DFBD69]/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#526B62] dark:text-[#9CB5AC]">
           <p>© {new Date().getFullYear()} ASAKA ZIYO. Barcha huquqlar himoyalangan.</p>
-          <div className="flex items-center gap-3 font-semibold text-[#8A6621] dark:text-[#DFBD69]">
+          <div className="flex flex-wrap items-center gap-4 font-semibold text-[#8A6621] dark:text-[#DFBD69]">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              Maxfiylik siyosati
+            </a>
             <span>{t('common:appTagline')}</span>
           </div>
         </div>

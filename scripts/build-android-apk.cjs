@@ -125,7 +125,14 @@ console.log('  Updated assets/public/index.html with relative stylesheet and cla
 // Step 3: Package, 4-byte align, and cryptographically sign (JAR v1 + APK Signature Scheme v2 & v3)
 console.log('[3/6] Packaging 4-byte aligned APK v3.0.0 and signing with RSA-2048 (v1 + v2 + v3)...');
 
-const templateApkPath = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.0.0.apk');
+const RELEASE_DIR = path.join(DATA_DIR, 'release');
+fs.mkdirSync(RELEASE_DIR, { recursive: true });
+const templateCandidates = [
+  path.join(RELEASE_DIR, 'Asaka-Ziyo-v3.0.0.apk'),
+  path.join(PUBLIC_DIR, 'Asaka-Ziyo-v3.0.0.apk'),
+  path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.0.0.apk'),
+];
+const templateApkPath = templateCandidates.find((p) => fs.existsSync(p)) || templateCandidates[0];
 const keystorePath = path.join(DATA_DIR, 'asaka_release.jks');
 const outputTempApk = path.join(WORK_DIR, 'Asaka-Ziyo-v3.0.0-signed.apk');
 const officialLogoPngPath = path.join(PUBLIC_DIR, 'pwa-192x192.png');
@@ -498,16 +505,10 @@ with zipfile.ZipFile(apk_path, "r") as z:
 );
 console.log('  [PASS] Cryptographic v1 + v2 + v3 signatures, 4-byte alignment, and WebView bundle verified.');
 
-// Step 5: Publish APK and update metadata
-console.log('[5/6] Publishing signed APK v3.0.0 and updating release metadata...');
-const finalApkV30 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v3.0.0.apk');
-const finalApkV21 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.1.0.apk');
-const finalApkV2 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v2.0.0.apk');
-const finalApkV1 = path.join(PUBLIC_DIR, 'Asaka-Ziyo-v1.0.0.apk');
+// Step 5: Publish single canonical APK to data/release/ and update metadata
+console.log('[5/6] Publishing signed APK v3.0.0 to data/release/ and updating release metadata...');
+const finalApkV30 = path.join(RELEASE_DIR, 'Asaka-Ziyo-v3.0.0.apk');
 fs.copyFileSync(outputTempApk, finalApkV30);
-fs.copyFileSync(outputTempApk, finalApkV21);
-fs.copyFileSync(outputTempApk, finalApkV2);
-fs.copyFileSync(outputTempApk, finalApkV1);
 
 const finalStat = fs.statSync(finalApkV30);
 const finalSha256 = crypto.createHash('sha256').update(fs.readFileSync(finalApkV30)).digest('hex');
@@ -521,9 +522,9 @@ const metaData = {
   version: '3.0.0',
   buildCode: 300,
   minSdk: 24,
-  targetSdk: 34,
-  minAndroid: 'Android 8.0+ (API 24 – API 35)',
-  targetAndroid: 'Android 14 / 15 / 16 (API 34–35)',
+  targetSdk: 36,
+  minAndroid: 'Android 7.0+ (API 24 – API 36)',
+  targetAndroid: 'Android 16 (API 36)',
   sizeBytes: finalStat.size,
   fileSizeDisplay: `${sizeMb} MB`,
   sha256Checksum: finalSha256,
@@ -534,7 +535,7 @@ const metaData = {
   resourcesArscVerified: true,
   pkcs7Signed: true,
   downloadUrl: '/api/apk/download',
-  directUrl: '/Asaka-Ziyo-v3.0.0.apk',
+  directUrl: '/api/apk/download',
   releaseDate,
   verifiedAt: new Date().toISOString(),
 };

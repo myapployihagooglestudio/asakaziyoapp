@@ -712,10 +712,6 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'prayerJournal',
   'tasbihSessions',
   'mosqueEvents',
-  'academyLessons',
-  'studentProgress',
-  'charityCampaigns',
-  'charityPledges',
   'fastingJournals',
   'digitalBooks',
   'bookBookmarks',
@@ -732,6 +728,7 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'userProgress',
   'contentLikes',
   'contentViews',
+  'ugcReports',
   '_diagnostics',
   '_metadata',
 ]);
@@ -5304,6 +5301,7 @@ app.get('/api/admin/storage-stats', requireAdminAuth, (_req: Request, res: Respo
 // ---------------------------------------------------------------------------
 // 5.8. NATIVE ANDROID APK RELEASE METADATA & VERIFIED BINARY DOWNLOAD STREAMING
 // ---------------------------------------------------------------------------
+const APK_RELEASE_PATH_V3 = path.join(DATA_DIR, 'release', 'Asaka-Ziyo-v3.0.0.apk');
 const APK_PUBLIC_PATH_V3 = path.join(__dirname, 'public', 'Asaka-Ziyo-v3.0.0.apk');
 const APK_PUBLIC_PATH_V2 = path.join(__dirname, 'public', 'Asaka-Ziyo-v2.0.0.apk');
 const APK_PUBLIC_PATH_V1 = path.join(__dirname, 'public', 'Asaka-Ziyo-v1.0.0.apk');
@@ -5315,7 +5313,9 @@ function resolveVerifiedApkFile(): {
   sha256: string;
   metadata: any;
 } | null {
-  const candidatePath = fs.existsSync(APK_PUBLIC_PATH_V3)
+  const candidatePath = fs.existsSync(APK_RELEASE_PATH_V3)
+    ? APK_RELEASE_PATH_V3
+    : fs.existsSync(APK_PUBLIC_PATH_V3)
     ? APK_PUBLIC_PATH_V3
     : fs.existsSync(APK_PUBLIC_PATH_V2)
     ? APK_PUBLIC_PATH_V2
@@ -5365,19 +5365,22 @@ app.get('/api/apk/info', (_req: Request, res: Response) => {
     buf[3] === 0x04;
 
   const sizeMb = (resolved.sizeBytes / (1024 * 1024)).toFixed(2);
+  const resolvedVersion = resolved.metadata.version || '3.0.0';
+  const resolvedBuildCode = resolved.metadata.buildCode || 300;
+  const resolvedTargetSdk = resolved.metadata.targetSdk || 36;
   return res.json({
     success: true,
     appName: 'ASAKA ZIYO',
     packageId: resolved.metadata.packageId || 'uz.asakaziyo.app',
-    version: resolved.metadata.version || '2.0.0',
-    buildCode: resolved.metadata.buildCode || 200,
+    version: resolvedVersion,
+    buildCode: resolvedBuildCode,
     minSdk: resolved.metadata.minSdk || 24,
-    targetSdk: resolved.metadata.targetSdk || 34,
-    minAndroid: 'Android 7.0+ (API 24 – API 34)',
+    targetSdk: resolvedTargetSdk,
+    minAndroid: `Android 7.0+ (API 24 – API ${resolvedTargetSdk})`,
     sizeBytes: resolved.sizeBytes,
     fileSizeDisplay: `${sizeMb} MB`,
     sha256Checksum: resolved.sha256,
-    signatureScheme: resolved.metadata.signatureScheme || 'JAR v1 + APK Signature Scheme v2 (RSA-2048 SHA-256 PKCS#7)',
+    signatureScheme: resolved.metadata.signatureScheme || 'JAR v1 + APK Signature Scheme v2 & v3 (RSA-2048 SHA-256)',
     certificateSubject:
       resolved.metadata.certificateSubject ||
       'CN=ASAKA ZIYO Official Release, OU=Mobile Engineering, O=ASAKA ZIYO, L=Asaka, ST=Andijan, C=UZ',
@@ -5387,8 +5390,8 @@ app.get('/api/apk/info', (_req: Request, res: Response) => {
     pkcs7Signed: Boolean(resolved.metadata.pkcs7Signed ?? isZipMagic),
     bundledAssetsCount: resolved.metadata.bundledAssetsCount || 15,
     downloadUrl: '/api/apk/download',
-    directUrl: '/Asaka-Ziyo-v2.0.0.apk',
-    releaseDate: resolved.metadata.releaseDate || '2026-03-31',
+    directUrl: `/Asaka-Ziyo-v${resolvedVersion}.apk`,
+    releaseDate: resolved.metadata.releaseDate || '2026-11-18',
   });
 });
 
@@ -5401,13 +5404,14 @@ function streamVerifiedApkResponse(req: Request, res: Response) {
     });
   }
 
+  const versionStr = resolved.metadata.version || '3.0.0';
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', 'attachment; filename="Asaka-Ziyo-v2.0.0.apk"');
+  res.setHeader('Content-Disposition', `attachment; filename="Asaka-Ziyo-v${versionStr}.apk"`);
   res.setHeader('Content-Length', String(resolved.sizeBytes));
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('Cache-Control', 'no-store, no-transform');
   res.setHeader('X-APK-Package-Id', 'uz.asakaziyo.app');
-  res.setHeader('X-APK-Version', '2.0.0');
+  res.setHeader('X-APK-Version', versionStr);
   res.setHeader('X-APK-SHA256', resolved.sha256);
 
   if (req.method === 'HEAD') {
@@ -5425,8 +5429,263 @@ function streamVerifiedApkResponse(req: Request, res: Response) {
 }
 
 app.get('/api/apk/download', streamVerifiedApkResponse);
+app.get('/Asaka-Ziyo-v3.0.0.apk', streamVerifiedApkResponse);
 app.get('/Asaka-Ziyo-v2.0.0.apk', streamVerifiedApkResponse);
 app.get('/Asaka-Ziyo-v1.0.0.apk', streamVerifiedApkResponse);
+
+// ---------------------------------------------------------------------------
+// 5.9. GOOGLE PLAY COMPLIANCE: UGC REPORT, ACCOUNT DELETION & PUBLIC LEGAL PAGES
+// ---------------------------------------------------------------------------
+app.post('/api/ugc/report', sensitiveActionLimiter, async (req: Request, res: Response) => {
+  try {
+    const { contentType, contentId, commentId, authorName, reportedText, reason, reporterId } = req.body || {};
+    if (!contentId || !reason) {
+      return res.status(400).json({ success: false, error: 'Shikoyat sababi va kontent ID talab qilinadi.' });
+    }
+    const reportId = `ugc_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const reportRecord = {
+      id: reportId,
+      contentType: String(contentType || 'article_comment').slice(0, 64),
+      contentId: String(contentId).slice(0, 128),
+      commentId: String(commentId || '').slice(0, 128),
+      authorName: String(authorName || 'Nomaʼlum').slice(0, 120),
+      reportedText: String(reportedText || '').slice(0, 1000),
+      reason: String(reason).slice(0, 200),
+      reporterId: String(reporterId || 'anonymous').slice(0, 128),
+      status: 'pending_review',
+      createdAt: new Date().toISOString(),
+    };
+
+    const db = readDatabase();
+    if (!Array.isArray((db as any).ugcReports)) {
+      (db as any).ugcReports = [];
+    }
+    (db as any).ugcReports.unshift(reportRecord);
+    if (!Array.isArray(db.inquiries)) {
+      db.inquiries = [];
+    }
+    db.inquiries.unshift({
+      id: reportId,
+      userName: `UGC Moderatsiya (${reportRecord.reporterId})`,
+      subject: `Shikoyat: ${reportRecord.reason}`,
+      message: `Muallif: ${reportRecord.authorName}\nIzoh ID: ${reportRecord.commentId}\nMatn: ${reportRecord.reportedText}`,
+      createdAt: reportRecord.createdAt,
+      status: 'pending',
+    } as any);
+    writeDatabase(db);
+
+    await Promise.allSettled([
+      serverWriteFirestoreDoc('ugcReports', reportId, reportRecord),
+      serverWriteFirestoreDoc('inquiries', reportId, {
+        id: reportId,
+        userName: `UGC Moderatsiya (${reportRecord.reporterId})`,
+        subject: `Shikoyat: ${reportRecord.reason}`,
+        message: `Muallif: ${reportRecord.authorName} | Matn: ${reportRecord.reportedText}`,
+        status: 'pending',
+        createdAt: reportRecord.createdAt,
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      reportId,
+      message: 'Shikoyatingiz moderatorlarga yuborildi va tez orada koʻrib chiqiladi.',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Shikoyatni yuborishda xatolik.' });
+  }
+});
+
+app.post('/api/user/delete-account', sensitiveActionLimiter, async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    let verifiedUid: string | null = null;
+
+    if (idToken && adminAuthInstance) {
+      try {
+        const decoded = await adminAuthInstance.verifyIdToken(idToken);
+        verifiedUid = decoded.uid;
+      } catch {
+        return res.status(401).json({
+          success: false,
+          error: 'Sessiya muddati tugagan. Akkauntni oʻchirish uchun tizimga qayta kiring.',
+        });
+      }
+    } else if (req.body?.uid && typeof req.body.uid === 'string' && !idToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'Akkauntni oʻchirish uchun tasdiqlangan Firebase ID tokeni talab qilinadi.',
+      });
+    } else if (idToken && firebaseConfig?.apiKey) {
+      // Fallback: verify Firebase ID token using Firebase Auth REST accounts:lookup
+      try {
+        const resp = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseConfig.apiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          }
+        );
+        const lookupJson = await resp.json().catch(() => ({}));
+        if (resp.ok && Array.isArray(lookupJson.users) && lookupJson.users[0]?.localId) {
+          verifiedUid = String(lookupJson.users[0].localId);
+        }
+      } catch {
+        // handled below
+      }
+    }
+
+    if (!verifiedUid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Foydalanuvchi identifikatori tasdiqlanmadi.',
+      });
+    }
+
+    // 1. Purge user-owned records from Firestore collections
+    const userCollections = [
+      'users',
+      'khatmPlans',
+      'prayerJournal',
+      'tasbihSessions',
+      'fastingJournals',
+      'userAchievements',
+      'aiConversations',
+      'bookBookmarks',
+      'fcmTokens',
+    ];
+
+    const deletedPaths: string[] = [];
+    await serverDeleteFirestoreDoc('users', verifiedUid).then((r) => {
+      if (r.success) deletedPaths.push(`users/${verifiedUid}`);
+    }).catch(() => {});
+
+    for (const col of userCollections) {
+      if (adminFirestoreInstance) {
+        try {
+          const snap = await adminFirestoreInstance.collection(col).where('userId', '==', verifiedUid).get();
+          for (const d of snap.docs) {
+            await d.ref.delete();
+            deletedPaths.push(`${col}/${d.id}`);
+          }
+        } catch {
+          // continue best-effort cleanup
+        }
+      }
+    }
+
+    // 2. Purge local JSON records referencing verifiedUid
+    const db = readDatabase();
+    if (Array.isArray((db as any).users)) {
+      (db as any).users = (db as any).users.filter((u: any) => u?.id !== verifiedUid && u?.uid !== verifiedUid);
+    }
+    if (Array.isArray((db as any).aiConversations)) {
+      (db as any).aiConversations = (db as any).aiConversations.filter((c: any) => c?.userId !== verifiedUid);
+    }
+    writeDatabase(db);
+
+    // 3. Delete Firebase Auth user if Admin SDK is initialized
+    let authDeletedByServer = false;
+    if (adminAuthInstance) {
+      try {
+        await adminAuthInstance.deleteUser(verifiedUid);
+        authDeletedByServer = true;
+      } catch {
+        authDeletedByServer = false;
+      }
+    }
+
+    return res.json({
+      success: true,
+      uid: verifiedUid,
+      deletedRecordsCount: deletedPaths.length,
+      authDeletedByServer,
+      message: 'Foydalanuvchi maʼlumotlari xavfsiz tozalandi.',
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Akkaunt maʼlumotlarini oʻchirishda xatolik yuz berdi.',
+    });
+  }
+});
+
+app.get('/privacy', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Maxfiylik Siyosati — ASAKA ZIYO</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;background:#031814;color:#F8F5EC;line-height:1.65;margin:0;padding:32px 16px}
+    main{max-width:820px;margin:0 auto;background:#06251F;border:1px solid rgba(223,189,105,.35);border-radius:20px;padding:32px}
+    h1,h2{color:#DFBD69}
+    a{color:#6EE7B7}
+    ul{padding-left:20px}
+    .meta{color:#B8D4CA;font-size:14px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ASAKA ZIYO — Maxfiylik Siyosati (Privacy Policy)</h1>
+    <p class="meta">Soʻnggi yangilanish: 2026-yil 18-noyabr · Paket ID: <code>uz.asakaziyo.app</code> · Aloqa: <a href="mailto:asakaziyo0@gmail.com">asakaziyo0@gmail.com</a></p>
+    <h2>1. Umumiy qoidalar</h2>
+    <p>ASAKA ZIYO («MuhammadSolih Hoji» Jomeʼ Masjidi maʼrifiy ekotizimi) foydalanuvchilar shaxsiy hayoti va maxfiyligini hurmat qiladi. Ilovadan asosiy boʻlimlar (Qurʼon, Namoz vaqtlari, Hadislar, Zikrlar) uchun roʻyxatdan oʻtmasdan ham foydalanish mumkin.</p>
+    <h2>2. Qanday maʼlumotlar yigʻiladi</h2>
+    <ul>
+      <li><strong>Akkaunt maʼlumotlari (ixtiyoriy):</strong> Email yoki Google orqali kirganingizda ism, email manzili va profil rasmi (Firebase Authentication orqali).</li>
+      <li><strong>Ilova sozlamalari va ibodat rejalari:</strong> Sevimli oyatlar, xatm rejasi, namoz eslatmalari va tasbeh statistikasi (foydalanuvchi akkauntiga biriktirilgan holda).</li>
+      <li><strong>Bildirishnomalar tokeni:</strong> Faqat ruxsat berilganda azon va muhim eʼlonlarni yetkazish uchun FCM qurilma tokeni.</li>
+      <li><strong>Joylashuv (faqat ilova ochiq paytda va ruxsat berilganda):</strong> Qibla yoʻnalishi (241°) va mahalliy namoz jadvali uchun; joylashuv fonda kuzatilmaydi va uchinchi tomonlarga sotilmaydi.</li>
+      <li><strong>Kamera va Mikrofon (ixtiyoriy):</strong> Faqat foydalanuvchi oʻzi profil rasmi olganda yoki ovozli savol/qidiruv tugmasini bosganda ishlatiladi.</li>
+    </ul>
+    <h2>3. Uchinchi tomon xizmatlari</h2>
+    <p>Ilova autentifikatsiya va bulut sinxronizatsiyasi uchun Google Firebase (Auth, Firestore, Cloud Messaging) hamda Qurʼon tilovati audiosi uchun ishonchli audio serverlardan foydalanadi. Reklama SDK lari va foydalanuvchi kuzatuvchi (ad-tracking) tizimlar ishlatilmaydi.</p>
+    <h2>4. Maʼlumotlarni oʻchirish</h2>
+    <p>Foydalanuvchi istalgan vaqtda ilova ichidagi <em>Shaxsiy Profil &rarr; Akkauntni Butunlay Oʻchirish</em> tugmasi orqali yoki <a href="/delete-account">/delete-account</a> sahifasidagi koʻrsatma boʻyicha oʻz akkaunti va barcha shaxsiy yozuvlarini oʻchirishi mumkin.</p>
+    <h2>5. Bogʻlanish</h2>
+    <p>Savollar va maxfiylik boʻyicha murojaatlar: <a href="mailto:asakaziyo0@gmail.com">asakaziyo0@gmail.com</a></p>
+  </main>
+</body>
+</html>`);
+});
+
+app.get('/delete-account', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Akkaunt va Maʼlumotlarni Oʻchirish — ASAKA ZIYO</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;background:#031814;color:#F8F5EC;line-height:1.65;margin:0;padding:32px 16px}
+    main{max-width:760px;margin:0 auto;background:#06251F;border:1px solid rgba(223,189,105,.35);border-radius:20px;padding:32px}
+    h1,h2{color:#DFBD69}
+    a{color:#6EE7B7}
+    ol,ul{padding-left:20px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ASAKA ZIYO — Akkaunt va Shaxsiy Maʼlumotlarni Oʻchirish</h1>
+    <p>Google Play maʼlumotlar xavfsizligi talablariga muvofiq siz ASAKA ZIYO akkauntingizni va unga bogʻlangan barcha shaxsiy maʼlumotlarni mustaqil ravishda oʻchirishingiz mumkin.</p>
+    <h2>Ilova ichida tezkor oʻchirish:</h2>
+    <ol>
+      <li>ASAKA ZIYO ilovasini oching va <strong>Profil</strong> boʻlimiga kiring.</li>
+      <li>Pastdagi <strong>«Xavfsizlik &amp; Akkauntni Oʻchirish»</strong> blokidan <strong>«Akkauntni Butunlay Oʻchirish»</strong> tugmasini bosing.</li>
+      <li>Tasdiqlashdan soʻng Firebase Authentication akkauntingiz va Firestoreʼdagi barcha shaxsiy yozuvlaringiz (profil, xatm rejalari, namoz kundaligi, tasbeh seanslari, roʻza qaydlari, AI suhbatlari va FCM tokeni) butunlay oʻchiriladi.</li>
+    </ol>
+    <h2>Ilovaga kira olmasangiz (Email orqali soʻrov):</h2>
+    <p>Roʻyxatdan oʻtgan email manzilingizdan <a href="mailto:asakaziyo0@gmail.com?subject=ASAKA%20ZIYO%20Akkauntni%20Ochirish">asakaziyo0@gmail.com</a> manziliga «Akkauntni oʻchirish» mavzusi bilan xat yuboring. Soʻrov 72 soat ichida bajariladi.</p>
+  </main>
+</body>
+</html>`);
+});
 
 // Explicit API 404 JSON Guard — prevents any /api/* request from falling through to Vite/SPA index.html
 app.all('/api/*', (req: Request, res: Response) => {

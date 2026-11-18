@@ -1,13 +1,13 @@
 /**
- * ASAKA ZIYO — Native Android & Web Runtime Permissions Manager (Android 10 – Android 16 / API 29–35)
+ * ASAKA ZIYO — Native Android & Web Runtime Permissions Manager (Android 7 – Android 16 / API 24–36)
  *
  * Implements Google Play User Data & Permission Policy compliant, on-demand permission handling:
  * 1. Bildirishnomalar (Notifications): POST_NOTIFICATIONS (Android 13+), Exact Alarms, FCM & Local Heads-up
  * 2. Kamera (Camera): CAMERA (on-demand only for profile photo / capture)
  * 3. Mikrofon (Microphone): RECORD_AUDIO (on-demand only for voice messages / audio search)
  * 4. Telefon (Phone): Safe ACTION_DIAL intent (zero invasive READ_PHONE_STATE or call-log permissions)
- * 5. Suratlar va videolar (Photos & Videos): Android Photo Picker + READ_MEDIA_IMAGES / READ_MEDIA_VIDEO /
- *    Android 14+ READ_MEDIA_VISUAL_USER_SELECTED partial access
+ * 5. Suratlar va videolar (Photos & Videos): Privacy-preserving Android System Photo Picker & Scoped MediaStore
+ *    (no broad READ_MEDIA_IMAGES / READ_MEDIA_VIDEO storage access required)
  * 6. Joylashuv (Location): ACCESS_COARSE_LOCATION & ACCESS_FINE_LOCATION (foreground only, no background location)
  * 7. Musiqa va audio (Music & Audio): FOREGROUND_SERVICE_MEDIA_PLAYBACK, MediaSession & READ_MEDIA_AUDIO
  */
@@ -124,12 +124,11 @@ export const PERMISSION_DEFINITIONS: Omit<
     denialImpactUz:
       'Cheklansa, faqat foydalanuvchi oʻzi tanlagan rasm/videolar (Android Photo Picker) bilan ishlaydi.',
     androidPermissions: [
-      'android.permission.READ_MEDIA_IMAGES (Android 13+)',
-      'android.permission.READ_MEDIA_VIDEO (Android 13+)',
-      'android.permission.READ_MEDIA_VISUAL_USER_SELECTED (Android 14+ Partial Access)',
+      'Android System Photo Picker (ACTION_PICK_IMAGES)',
+      'Scoped MediaStore / Downloads Export (API 29+)',
     ],
     androidVersionNoteUz:
-      'Android 14–16 da «Faqat tanlangan surat/videolar» (Partial Access) va Photo Picker toʻliq qoʻllab-quvvatlanadi.',
+      'Google Play maxfiylik talablariga muvofiq keng galereya ruxsatisiz faqat foydalanuvchi tanlagan surat va MP4 saqlashdan foydalanadi.',
   },
   {
     key: 'location',
@@ -370,7 +369,26 @@ export async function requestAppPermission(
   // 1. If running in Native Android APK and native bridge supports runtime permission request:
   if (bridge?.requestRuntimePermission) {
     try {
-      const nativeResult = bridge.requestRuntimePermission(key);
+      let nativeResult = bridge.requestRuntimePermission(key);
+      if (nativeResult === 'prompt' && typeof window !== 'undefined') {
+        nativeResult = await new Promise<string>((resolve) => {
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            window.removeEventListener('asaka-native-permission-result', onPermResult);
+            clearTimeout(timer);
+            try {
+              resolve(bridge.checkPermissionStatus?.(key) || 'prompt');
+            } catch {
+              resolve('prompt');
+            }
+          };
+          const onPermResult = () => finish();
+          const timer = setTimeout(finish, 15000);
+          window.addEventListener('asaka-native-permission-result', onPermResult, { once: true });
+        });
+      }
       if (nativeResult === 'granted' || nativeResult === 'limited') {
         map[key] = { status: nativeResult, denialCount: 0, lastUpdatedAt: nowIso };
         saveStoredMap(map);
@@ -378,6 +396,17 @@ export async function requestAppPermission(
         return {
           status: nativeResult,
           messageUz: 'Ruxsat muvaffaqiyatli berildi va faollashtirildi.',
+        };
+      }
+      if (nativeResult === 'denied') {
+        const prevDenials = (map[key]?.denialCount || 0) + 1;
+        map[key] = { status: 'denied', denialCount: prevDenials, lastUpdatedAt: nowIso };
+        saveStoredMap(map);
+        emitUpdate();
+        const def = PERMISSION_DEFINITIONS.find((d) => d.key === key);
+        return {
+          status: 'denied',
+          messageUz: `${def?.titleUz || 'Ruxsat'} rad etildi. Zarur boʻlsa Android Ilova Sozlamalari orqali yoqishingiz mumkin.`,
         };
       }
     } catch {
@@ -546,11 +575,14 @@ export function openAndroidAppSettings(): { openedNative: boolean; guideMessageU
   };
 }
 
-// Auto-sync permissions when user returns to the app from Android system settings
+// Auto-sync permissions when user returns to the app or native dialog resolves
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       syncLivePermissionsState().catch(() => {});
     }
+  });
+  window.addEventListener('asaka-native-permission-result', () => {
+    syncLivePermissionsState().catch(() => {});
   });
 }

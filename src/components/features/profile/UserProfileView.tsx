@@ -39,8 +39,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ favorites, onN
   const [isSignUp, setIsSignUp] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [userActivity, setUserActivity] = useState<any[]>([]);
-  const [quizScores, setQuizScores] = useState<any[]>([]);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -100,7 +99,11 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ favorites, onN
       setCurrentUser(res.user);
       setStatusMsg('Google orqali muvaffaqiyatli kirdingiz!');
     } catch (err: any) {
-      setAuthError(err.message || 'Google orqali kirishda xatolik');
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/operation-not-supported-in-this-environment') {
+        setAuthError('Ushbu qurilma/brauzerda Google qalqib chiquvchi oynasi bloklandi. Iltimos, Email va parol orqali kiring.');
+      } else {
+        setAuthError(err?.message || 'Google orqali kirishda xatolik');
+      }
     }
   };
 
@@ -115,16 +118,78 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ favorites, onN
   };
 
   const handleDeleteAccount = async () => {
-    if (window.confirm('Haqiqatan ham akkauntingizni va barcha shaxsiy maʼlumotlaringizni oʻchirib yubormoqchimisiz? Bu amalni ortga qaytarib boʻlmaydi.')) {
-      try {
-        if (auth.currentUser) {
-          await deleteUser(auth.currentUser);
-        }
+    if (
+      !window.confirm(
+        'Haqiqatan ham akkauntingizni va barcha shaxsiy maʼlumotlaringizni butunlay oʻchirib yubormoqchimisiz? Bu amalni ortga qaytarib boʻlmaydi.'
+      )
+    ) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setAuthError(null);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
         setCurrentUser(null);
-        setStatusMsg('Akkauntingiz oʻchirildi.');
-      } catch (err: any) {
-        setAuthError(err.message || 'Akkauntni oʻchirishda xatolik (qayta kirish talab qilinishi mumkin)');
+        setStatusMsg('Lokal profil maʼlumotlari tozalandi.');
+        return;
       }
+
+      // 1. Purge user records on backend & Firestore using verified Firebase ID token
+      try {
+        const idToken = await user.getIdToken();
+        const delResp = await fetch('/api/user/delete-account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+        if (!delResp.ok) {
+          const errJson = await delResp.json().catch(() => ({}));
+          if (delResp.status === 401 || delResp.status === 403) {
+            throw new Error(errJson.error || 'Akkaunt egasini tasdiqlash rad etildi.');
+          }
+        }
+      } catch (serverErr: any) {
+        if (serverErr?.message?.includes('tasdiqlash')) {
+          throw serverErr;
+        }
+      }
+
+      // 2. Delete Firebase Auth account (client SDK requires recent login)
+      try {
+        await deleteUser(user);
+      } catch (authDelErr: any) {
+        if (authDelErr?.code === 'auth/requires-recent-login') {
+          throw new Error(
+            'Xavfsizlik sababli akkauntni oʻchirishdan oldin tizimdan chiqib qayta kiring va yana urinib koʻring.'
+          );
+        }
+        throw authDelErr;
+      }
+
+      // 3. Clear personal localStorage caches
+      try {
+        localStorage.removeItem('asaka_user_profile_meta');
+        localStorage.removeItem('asaka_ziyo_favorites');
+        localStorage.removeItem('asaka_ziyo_app_user_id_v1');
+      } catch {
+        // ignore
+      }
+
+      setCurrentUser(null);
+      setDisplayName('');
+      setUsername('');
+      setPhone('');
+      setPhotoUrl('');
+      setStatusMsg('Akkauntingiz va barcha shaxsiy maʼlumotlaringiz butunlay oʻchirildi.');
+    } catch (err: any) {
+      setAuthError(err?.message || 'Akkauntni oʻchirishda xatolik yuz berdi.');
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -426,24 +491,42 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({ favorites, onN
         </Card>
       </div>
 
-      {/* Account Security & Deletion Section */}
-      {currentUser && (
-        <Card elevated className="p-6 space-y-4 border-rose-500/30">
+      {/* Account Security, Privacy Policy & Deletion Section */}
+      <Card elevated className="p-6 space-y-4 border-rose-500/30">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-md font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
             <Shield className="w-4 h-4 text-rose-400" />
-            <span>Xavfsizlik & Akkauntni Oʻchirish</span>
+            <span>Maxfiylik va Akkaunt Xavfsizligi</span>
           </h3>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
-            Siz oʻz shaxsiy maʼlumotlaringizni va akkauntingizni istalgan vaqtda toʻliq oʻchirib yuborish huquqiga egasiz.
-          </p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('asaka-open-privacy-modal'))}
+            className="text-xs font-bold text-[#c5a869] hover:underline cursor-pointer"
+          >
+            Maxfiylik siyosati & Maʼlumotlar xavfsizligi →
+          </button>
+        </div>
+        <p className="text-xs text-stone-500 dark:text-stone-400">
+          Siz oʻz shaxsiy maʼlumotlaringizni va akkauntingizni istalgan vaqtda toʻliq oʻchirib yuborish huquqiga egasiz.{' '}
+          <a href="/delete-account" className="text-[#c5a869] underline font-semibold">
+            Akkauntni oʻchirish yoʻriqnomasi
+          </a>
+        </p>
+        {currentUser && (
           <div>
-            <Button variant="secondary" size="sm" onClick={handleDeleteAccount} className="text-rose-400 hover:text-rose-300 border border-rose-500/30">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isDeletingAccount}
+              onClick={handleDeleteAccount}
+              className="text-rose-400 hover:text-rose-300 border border-rose-500/30"
+            >
               <Trash2 className="w-4 h-4 mr-1.5" />
-              <span>Akkauntni Butunlay Oʻchirish</span>
+              <span>{isDeletingAccount ? 'Oʻchirilmoqda...' : 'Akkauntni Butunlay Oʻchirish'}</span>
             </Button>
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 };

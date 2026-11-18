@@ -3,9 +3,26 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def keystoreProps = new Properties()
+def rootKeystoreFile = rootProject.file("../keystore.properties")
+def androidKeystoreFile = rootProject.file("keystore.properties")
+if (rootKeystoreFile.exists()) {
+    keystoreProps.load(new FileInputStream(rootKeystoreFile))
+} else if (androidKeystoreFile.exists()) {
+    keystoreProps.load(new FileInputStream(androidKeystoreFile))
+}
+
+def resolveSigningValue = { String propKey, String envKey ->
+    return keystoreProps.getProperty(propKey) ?: System.getenv(envKey)
+}
+
 android {
     namespace "uz.asakaziyo.app"
     compileSdk rootProject.ext.compileSdkVersion
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId "uz.asakaziyo.app"
@@ -20,14 +37,26 @@ android {
         }
     }
 
+    bundle {
+        abi {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        language {
+            enableSplit = true
+        }
+    }
+
     signingConfigs {
         release {
-            def keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            def keystorePath = resolveSigningValue("storeFile", "ANDROID_KEYSTORE_PATH")
             if (keystorePath != null && new File(keystorePath).exists()) {
                 storeFile file(keystorePath)
-                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "asakaziyo"
-                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                storePassword resolveSigningValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias resolveSigningValue("keyAlias", "ANDROID_KEY_ALIAS") ?: "asakaziyo"
+                keyPassword resolveSigningValue("keyPassword", "ANDROID_KEY_PASSWORD")
                 enableV1Signing true
                 enableV2Signing true
                 enableV3Signing true
@@ -37,13 +66,16 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
-            shrinkResources false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+
+            def keystorePath = resolveSigningValue("storeFile", "ANDROID_KEYSTORE_PATH")
+            if (keystorePath != null && new File(keystorePath).exists()) {
                 signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
+            } else if (!project.hasProperty("allowUnsignedRelease")) {
+                // Never silently sign Play Store release artifacts with the debug key
+                signingConfig null
             }
         }
         debug {
@@ -75,4 +107,8 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.5.1')
     implementation 'com.google.firebase:firebase-messaging-ktx'
     implementation 'com.google.firebase:firebase-firestore-ktx'
+}
+
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
 }

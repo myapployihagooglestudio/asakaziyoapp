@@ -7,9 +7,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { INITIAL_ASAKA_PRAYER_SCHEDULE } from './data/prayerTimesData';
 import { ASAKA_ZIYO_APK_RELEASE } from './utils/apkPackage';
 
-const CLOUD_API_ORIGIN = 'https://ais-pre-fapx6w2wmpoi5wsmt2tmpj-481023568002.asia-southeast1.run.app';
-const NATIVE_ADMIN_PASS_KEY = 'asaka_ziyo_native_admin_pass_v1';
-const ADMIN_SESSION_STORAGE_KEY = 'asaka_ziyo_admin_session_v1';
+const CLOUD_API_ORIGIN: string = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 function isRunningInNativeAndroidApk(): boolean {
   if (typeof window === 'undefined') return false;
@@ -27,16 +25,8 @@ function createJsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-function handleOfflineNativeApiRequest(path: string, init?: RequestInit): Response {
+function handleOfflineNativeApiRequest(path: string): Response {
   const cleanPath = path.split('?')[0];
-  let bodyObj: Record<string, unknown> = {};
-  try {
-    if (init?.body && typeof init.body === 'string') {
-      bodyObj = JSON.parse(init.body);
-    }
-  } catch {
-    // ignore non-JSON body
-  }
 
   if (cleanPath === '/api/health') {
     return createJsonResponse({
@@ -105,85 +95,27 @@ function handleOfflineNativeApiRequest(path: string, init?: RequestInit): Respon
     });
   }
 
-  if (cleanPath === '/api/admin/auth') {
-    const username = String(bodyObj.username || '').trim().toLowerCase();
-    const password = String(bodyObj.password || '');
-    const expectedPass = localStorage.getItem(NATIVE_ADMIN_PASS_KEY) || 'menageradmin1';
-    if (username !== 'menageradmin') {
-      return createJsonResponse(
-        {
-          success: false,
-          error: 'Kirish rad etildi: Administrator foydalanuvchi nomi (login) notoʻgʻri kiritildi.',
-        },
-        403
-      );
-    }
-    if (password !== expectedPass && password !== 'menageradmin1') {
-      return createJsonResponse(
-        {
-          success: false,
-          error: 'Administrator foydalanuvchi nomi (login) yoki parol notoʻgʻri kiritildi.',
-        },
-        401
-      );
-    }
-    const token = `asaka_admin_native_${Date.now()}.verified`;
-    return createJsonResponse({
-      success: true,
-      token,
-      admin: {
-        uid: 'admin-asakaziyo0',
-        username: 'menageradmin',
-        email: 'asakaziyo0@gmail.com',
-        role: 'SUPER_ADMIN',
-        isActive: true,
-        displayName: 'Asaka Ziyo Bosh Maʼmuri',
-        lastLoginAt: new Date().toISOString(),
-      },
-    });
-  }
-
   if (cleanPath === '/api/admin/session') {
-    try {
-      const raw =
-        sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) ||
-        localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.admin?.username === 'menageradmin' && typeof parsed?.token === 'string') {
-          return createJsonResponse({
-            success: true,
-            authenticated: true,
-            admin: parsed.admin,
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
     return createJsonResponse({ success: false, authenticated: false }, 401);
   }
 
   if (cleanPath === '/api/admin/logout') {
-    return createJsonResponse({ success: true, message: 'Administrator sessiyasi xavfsiz yakunlandi.' });
+    return createJsonResponse({ success: true, message: 'Administrator sessiyasi yakunlandi.' });
   }
 
-  if (cleanPath === '/api/admin/change-password') {
-    const newPass = String(bodyObj.newPassword || '');
-    if (newPass.length >= 8) {
-      try {
-        localStorage.setItem(NATIVE_ADMIN_PASS_KEY, newPass);
-      } catch {
-        // ignore
-      }
-      return createJsonResponse({
-        success: true,
-        username: 'menageradmin',
-        email: 'asakaziyo0@gmail.com',
-        message: 'Administrator paroli muvaffaqiyatli yangilandi.',
-      });
-    }
-    return createJsonResponse({ success: false, error: 'Parol kamida 8 ta belgidan iborat boʻlishi lozim.' }, 400);
+  if (
+    cleanPath.startsWith('/api/admin/') ||
+    cleanPath === '/api/ugc/report' ||
+    cleanPath === '/api/user/delete-account'
+  ) {
+    return createJsonResponse(
+      {
+        success: false,
+        offline: true,
+        error: 'Ushbu amal uchun internet aloqasi va rasmiy server ulanishi talab qilinadi.',
+      },
+      503
+    );
   }
 
   if (cleanPath === '/api/apk/info') {
@@ -195,7 +127,7 @@ function handleOfflineNativeApiRequest(path: string, init?: RequestInit): Respon
       success: true,
       configured: false,
       model: 'gemini-3-flash-preview',
-      status: 'ready',
+      status: 'offline',
     });
   }
 
@@ -203,7 +135,7 @@ function handleOfflineNativeApiRequest(path: string, init?: RequestInit): Respon
     return createJsonResponse({ success: true, conversations: [] });
   }
 
-  return createJsonResponse({ success: true, offline: true, data: {} });
+  return createJsonResponse({ success: false, offline: true, data: {} }, 503);
 }
 
 if (typeof window !== 'undefined' && isRunningInNativeAndroidApk()) {
@@ -224,12 +156,12 @@ if (typeof window !== 'undefined' && isRunningInNativeAndroidApk()) {
     }
 
     if (apiPath) {
-      if (navigator.onLine !== false && apiPath !== '/api/admin/auth' && apiPath !== '/api/admin/session') {
+      if (navigator.onLine !== false && CLOUD_API_ORIGIN.startsWith('https://')) {
         try {
           const isLongRunningMediaRoute =
             apiPath.startsWith('/api/quran-quiz/') || apiPath.startsWith('/api/apk/download');
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), isLongRunningMediaRoute ? 120000 : 5000);
+          const timer = setTimeout(() => controller.abort(), isLongRunningMediaRoute ? 120000 : 8000);
           const remoteRes = await origFetch(`${CLOUD_API_ORIGIN}${apiPath}`, {
             ...init,
             signal: controller.signal,
@@ -249,15 +181,14 @@ if (typeof window !== 'undefined' && isRunningInNativeAndroidApk()) {
           ) {
             return remoteRes;
           }
-          // For explicit 4xx/5xx JSON API errors on quran-quiz routes, return the real JSON error response
-          if (apiPath.startsWith('/api/quran-quiz/') && ct.includes('application/json')) {
+          if (ct.includes('application/json')) {
             return remoteRes;
           }
         } catch {
-          // Fall through to native APK local handler
+          // Fall through to native APK offline handler
         }
       }
-      return handleOfflineNativeApiRequest(apiPath, init);
+      return handleOfflineNativeApiRequest(apiPath);
     }
 
     return origFetch(input, init);

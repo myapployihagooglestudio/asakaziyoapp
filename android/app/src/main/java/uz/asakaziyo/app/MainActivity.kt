@@ -2,6 +2,7 @@ package uz.asakaziyo.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -20,6 +21,7 @@ import android.view.Window
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -28,6 +30,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -36,16 +39,41 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 /**
- * ASAKA ZIYO — Main Native Android Activity (v3.0.0 · Build 300)
+ * ASAKA ZIYO — Main Native Android Activity (v3.0.0 · Build 300 · Target API 36)
  * Hosts the bundled offline-capable application via a virtual HTTPS origin
- * (https://appassets.androidplatform.net/index.html) with root-relative asset resolution,
- * 7-category runtime permissions bridge (Android 10–16), Telegram-style Heads-Up notifications,
- * hardware acceleration, system bar styling, and hardware back-button support.
+ * (https://appassets.androidplatform.net/index.html) with hardened WebView security,
+ * Android 10–16 runtime permissions bridge, Android Photo Picker support,
+ * real AlarmManager prayer notifications, and system bar styling.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private var triedFileFallback = false
+    private var pendingPermissionGroupKey: String? = null
+    private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = fileUploadCallback
+        fileUploadCallback = null
+        if (callback == null) return@registerForActivityResult
+
+        if (result.resultCode != Activity.RESULT_OK || result.data == null) {
+            callback.onReceiveValue(null)
+            return@registerForActivityResult
+        }
+
+        val data = result.data!!
+        val uris = mutableListOf<Uri>()
+        data.clipData?.let { clip ->
+            for (i in 0 until clip.itemCount) {
+                clip.getItemAt(i).uri?.let { uris.add(it) }
+            }
+        } ?: data.data?.let { uris.add(it) }
+
+        callback.onReceiveValue(if (uris.isEmpty()) null else uris.toTypedArray())
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +88,8 @@ class MainActivity : AppCompatActivity() {
 
         ensureHighImportanceNotificationChannels()
 
-        WebView.setWebContentsDebuggingEnabled(true)
+        // Enable WebView remote inspection strictly in debug builds (never in Play Store release)
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
         webView = WebView(this)
         webView.setBackgroundColor(Color.parseColor("#031814"))
@@ -71,18 +100,14 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
-        settings.allowFileAccess = true
+        settings.allowFileAccess = false
         settings.allowContentAccess = true
-        @Suppress("DEPRECATION")
-        settings.allowFileAccessFromFileURLs = true
-        @Suppress("DEPRECATION")
-        settings.allowUniversalAccessFromFileURLs = true
         settings.loadsImagesAutomatically = true
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
-        settings.javaScriptCanOpenWindowsAutomatically = true
+        settings.javaScriptCanOpenWindowsAutomatically = false
         settings.cacheMode = WebSettings.LOAD_DEFAULT
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -105,7 +130,12 @@ class MainActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
-                if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("https://t.me/")) {
+                if (
+                    url.startsWith("tel:") ||
+                    url.startsWith("mailto:") ||
+                    url.startsWith("https://t.me/") ||
+                    url.startsWith("https://islom.uz")
+                ) {
                     try {
                         val action = if (url.startsWith("tel:")) Intent.ACTION_DIAL else Intent.ACTION_VIEW
                         startActivity(Intent(action, Uri.parse(url)))
@@ -123,21 +153,67 @@ class MainActivity : AppCompatActivity() {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true && !triedFileFallback) {
                     triedFileFallback = true
-                    view?.loadUrl("file:///android_asset/public/index.html")
+                    view?.loadUrl("https://appassets.androidplatform.net/index.html")
                 }
             }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(cm: ConsoleMessage?): Boolean {
-                if (cm != null) {
+                if (BuildConfig.DEBUG && cm != null) {
                     Log.d("ASAKA_ZIYO_WEBVIEW", "[${cm.messageLevel()}] ${cm.message()} (${cm.sourceId()}:${cm.lineNumber()})")
                 }
                 return true
             }
 
             override fun onPermissionRequest(request: PermissionRequest?) {
-                request?.grant(request.resources)
+                if (request == null) return
+                val originStr = request.origin?.toString() ?: ""
+                if (!originStr.startsWith("https://appassets.androidplatform.net")) {
+                    request.deny()
+                    return
+                }
+                val grantable = mutableListOf<String>()
+                for (resource in request.resources) {
+                    when (resource) {
+                        PermissionRequest.RESOURCE_VIDEO_CAPTURE -> {
+                            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                grantable.add(resource)
+                            }
+                        }
+                        PermissionRequest.RESOURCE_AUDIO_CAPTURE -> {
+                            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                grantable.add(resource)
+                            }
+                        }
+                    }
+                }
+                if (grantable.isNotEmpty()) {
+                    request.grant(grantable.toTypedArray())
+                } else {
+                    request.deny()
+                }
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                fileUploadCallback?.onReceiveValue(null)
+                fileUploadCallback = filePathCallback
+                return try {
+                    val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                    }
+                    fileChooserLauncher.launch(intent)
+                    true
+                } catch (e: Exception) {
+                    fileUploadCallback?.onReceiveValue(null)
+                    fileUploadCallback = null
+                    false
+                }
             }
         }
 
@@ -159,6 +235,27 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 7001) {
+            val groupKey = pendingPermissionGroupKey ?: return
+            pendingPermissionGroupKey = null
+            val granted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            val statusStr = if (granted) "granted" else "denied"
+            webView.post {
+                val safeKey = groupKey.replace("'", "")
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('asaka-native-permission-result',{detail:{key:'$safeKey',status:'$statusStr'}}));",
+                    null
+                )
+            }
+        }
+    }
+
     private fun ensureHighImportanceNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -168,7 +265,7 @@ class MainActivity : AppCompatActivity() {
                     "Namoz Oldidan Eslatmalar (5–30 daqiqa)",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Namoz vaqti kirishidan oldin Telegram uslubidagi Heads-Up eslatma"
+                    description = "Namoz vaqti kirishidan oldin eslatma"
                     enableVibration(true)
                 },
                 NotificationChannel(
@@ -176,7 +273,7 @@ class MainActivity : AppCompatActivity() {
                     "Namoz Vaqti va Azon Eslatmalari",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Aynan namoz vaqti kirganda Azon va Heads-Up bildirishnoma"
+                    description = "Namoz vaqti kirganda Azon va bildirishnoma"
                     enableVibration(true)
                 },
                 NotificationChannel(
@@ -184,7 +281,7 @@ class MainActivity : AppCompatActivity() {
                     "Masjid va Admin Muhim Eʼlonlari",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Asaka Jome masjidi muhim eʼlonlari va tezkor xabarlar"
+                    description = "Asaka Jomeʼ masjidi muhim eʼlonlari"
                     enableVibration(true)
                 },
                 NotificationChannel(
@@ -218,39 +315,20 @@ class MainActivity : AppCompatActivity() {
         var assetRelPath: String? = null
         if (cleanUrl.startsWith("https://appassets.androidplatform.net")) {
             assetRelPath = cleanUrl.removePrefix("https://appassets.androidplatform.net")
-        } else if (cleanUrl.startsWith("http://appassets.androidplatform.net")) {
-            assetRelPath = cleanUrl.removePrefix("http://appassets.androidplatform.net")
-        } else if (
-            cleanUrl.startsWith("file:///assets/") ||
-            cleanUrl.startsWith("file:///images/") ||
-            cleanUrl.startsWith("file:///pwa-") ||
-            cleanUrl.startsWith("file:///icon.svg") ||
-            cleanUrl.startsWith("file:///apple-touch-icon.png") ||
-            cleanUrl.startsWith("file:///favicon.ico") ||
-            cleanUrl.startsWith("file:///manifest.")
-        ) {
-            assetRelPath = cleanUrl.removePrefix("file://")
         }
 
         if (assetRelPath == null) return null
 
-        while (assetRelPath!!.startsWith("/")) {
+        while (assetRelPath.startsWith("/")) {
             assetRelPath = assetRelPath.substring(1)
         }
         if (assetRelPath.isEmpty()) {
             assetRelPath = "index.html"
         }
 
+        // Never fake API success responses for /api/* routes — let network/fetch layer handle API calls
         if (assetRelPath.startsWith("api/")) {
-            val jsonBytes = "{\"success\":true,\"offline\":true,\"data\":{}}".toByteArray(Charsets.UTF_8)
-            return WebResourceResponse(
-                "application/json",
-                "UTF-8",
-                200,
-                "OK",
-                mapOf("Access-Control-Allow-Origin" to "*"),
-                ByteArrayInputStream(jsonBytes)
-            )
+            return null
         }
 
         return try {
@@ -272,7 +350,6 @@ class MainActivity : AppCompatActivity() {
                 200,
                 "OK",
                 mapOf(
-                    "Access-Control-Allow-Origin" to "*",
                     "Cache-Control" to "no-cache"
                 ),
                 stream
@@ -284,7 +361,7 @@ class MainActivity : AppCompatActivity() {
                 "UTF-8",
                 404,
                 "Not Found",
-                mapOf("Access-Control-Allow-Origin" to "*"),
+                emptyMap(),
                 ByteArrayInputStream(ByteArray(0))
             )
         }
@@ -326,20 +403,8 @@ class MainActivity : AppCompatActivity() {
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
-            "photos_videos" -> {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-                } else {
-                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-                }
-            }
-            "music_audio" -> {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    arrayOf(Manifest.permission.READ_MEDIA_AUDIO)
-                } else {
-                    emptyArray()
-                }
-            }
+            // Photos/videos & online streaming Quran audio use Photo Picker / MediaStore scoped storage
+            "photos_videos", "music_audio", "phone" -> emptyArray()
             else -> emptyArray()
         }
     }
@@ -368,7 +433,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun checkPermission(groupKey: String): String {
+        fun checkPermissionStatus(groupKey: String): String {
+            if (groupKey == "notifications" && Build.VERSION.SDK_INT < 33) {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                return if (nm.areNotificationsEnabled()) "granted" else "denied"
+            }
             val perms = mapPermissionGroupToAndroidStrings(groupKey)
             if (perms.isEmpty()) return "granted"
             val allGranted = perms.all {
@@ -378,16 +447,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun requestPermission(groupKey: String): String {
+        fun requestRuntimePermission(groupKey: String): String {
             val perms = mapPermissionGroupToAndroidStrings(groupKey)
             if (perms.isEmpty()) return "granted"
             val missing = perms.filter {
                 ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
             }
             if (missing.isEmpty()) return "granted"
+            pendingPermissionGroupKey = groupKey
             ActivityCompat.requestPermissions(this@MainActivity, missing.toTypedArray(), 7001)
             return "prompt"
         }
+
+        // Legacy method aliases preserved for compatibility
+        @JavascriptInterface
+        fun checkPermission(groupKey: String): String = checkPermissionStatus(groupKey)
+
+        @JavascriptInterface
+        fun requestPermission(groupKey: String): String = requestRuntimePermission(groupKey)
 
         @JavascriptInterface
         fun openAppSettings() {
@@ -401,14 +478,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun dialPhoneNumber(phone: String) {
+        fun openDialer(phone: String) {
             try {
-                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")).apply {
+                val sanitized = phone.replace(Regex("[^+0-9*#]"), "")
+                if (sanitized.isBlank()) return
+                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$sanitized")).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 startActivity(intent)
             } catch (_: Exception) {}
         }
+
+        @JavascriptInterface
+        fun dialPhoneNumber(phone: String) = openDialer(phone)
 
         @JavascriptInterface
         fun showHeadsUpNotification(title: String, body: String, channelId: String, targetView: String) {
@@ -425,7 +507,7 @@ class MainActivity : AppCompatActivity() {
                 )
                 val resolvedChannel = if (channelId.isNotBlank()) channelId else "asaka_ziyo_prayer_adhan"
                 val builder = NotificationCompat.Builder(this@MainActivity, resolvedChannel)
-                    .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                    .setSmallIcon(R.mipmap.ic_launcher)
                     .setContentTitle(title)
                     .setContentText(body)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -451,16 +533,24 @@ class MainActivity : AppCompatActivity() {
             channelId: String,
             playAdhan: Boolean
         ) {
-            Log.d("ASAKA_ZIYO_ALARM", "Scheduled prayer alarm #$alarmId at $triggerAtMillis ($title)")
+            AsakaPrayerAlarmReceiver.scheduleExactAlarm(
+                context = applicationContext,
+                alarmId = alarmId,
+                triggerAtMillis = triggerAtMillis,
+                title = title,
+                body = body,
+                channelId = channelId,
+                playAdhan = playAdhan
+            )
         }
 
         @JavascriptInterface
         fun cancelScheduledPrayerNotifications() {
-            Log.d("ASAKA_ZIYO_ALARM", "Cancelled previous scheduled prayer alarms before rescheduling")
+            AsakaPrayerAlarmReceiver.cancelAllAlarms(applicationContext)
         }
 
         @JavascriptInterface
-        fun getAppVersion(): String = "3.0.0"
+        fun getAppVersion(): String = BuildConfig.VERSION_NAME
 
         @JavascriptInterface
         fun isNativeApp(): Boolean = true
