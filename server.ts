@@ -4167,9 +4167,11 @@ async function resolvePersistentRenderJob(jobId: string) {
 
 app.post(
   '/api/quran-quiz/render-video/start',
-  express.json({ limit: '18mb' }),
+  express.json({ limit: '28mb' }),
   (req: Request, res: Response) => {
     try {
+      const rendererVersion = String(req.body?.rendererVersion || '').trim();
+      const forceRebuild = Boolean(req.body?.forceRebuild);
       const questionNumber = Number(req.body?.questionNumber ?? req.body?.partIndex);
       const quizDateStr = String(req.body?.quizDateStr || '').trim();
       const reciterId = String(req.body?.reciterId || '').trim();
@@ -4180,6 +4182,8 @@ app.post(
       const questions = Array.isArray(req.body?.questions) ? req.body.questions : [];
 
       const job = startQuizPartRenderJob({
+        rendererVersion,
+        forceRebuild,
         questionNumber,
         partIndex: questionNumber,
         quizDateStr,
@@ -4194,6 +4198,7 @@ app.post(
       return res.json({
         success: true,
         jobId: job.jobId,
+        rendererVersion: job.rendererVersion,
         questionNumber: job.questionNumber,
         partIndex: job.partIndex,
         status: job.status,
@@ -4222,6 +4227,7 @@ app.get('/api/quran-quiz/render-video/status/:jobId', async (req: Request, res: 
   return res.json({
     success: true,
     jobId: job.jobId,
+    rendererVersion: job.rendererVersion,
     questionNumber: job.questionNumber,
     partIndex: job.partIndex,
     status: job.status,

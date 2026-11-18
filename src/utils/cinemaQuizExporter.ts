@@ -762,6 +762,8 @@ function drawQuestionFrame(params: {
   );
 }
 
+export const QUIZ_VIDEO_RENDERER_VERSION = 'sacred-cinema-v3';
+
 function drawIntroFrame(params: {
   ctx: CanvasRenderingContext2D;
   particles: GoldParticle[];
@@ -769,39 +771,122 @@ function drawIntroFrame(params: {
   reciterName: string;
   quizDateStr: string;
   totalQuestions: number;
+  questionNumber?: number;
+  surahLabel?: string;
 }) {
-  const { ctx, particles, elapsed, reciterName, quizDateStr, totalQuestions } = params;
+  const {
+    ctx,
+    particles,
+    elapsed,
+    reciterName,
+    quizDateStr,
+    totalQuestions,
+    questionNumber,
+    surahLabel,
+  } = params;
   drawBackdrop(ctx, particles, elapsed);
 
-  drawRoundedRect(ctx, 96, 620, WIDTH - 192, 680, 48);
-  ctx.fillStyle = 'rgba(7, 41, 26, 0.82)';
+  // Outer Luxury Perimeter Frame
+  ctx.save();
+  drawRoundedRect(ctx, 20, 20, WIDTH - 40, HEIGHT - 40, 44);
+  ctx.strokeStyle = createMetallicGoldGradient(ctx, 20, 20, WIDTH - 20, HEIGHT - 20);
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  const cardX = 72;
+  const cardY = 470;
+  const cardW = WIDTH - 144;
+  const cardH = 980;
+
+  const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+  cardGrad.addColorStop(0, 'rgba(4, 24, 16, 0.88)');
+  cardGrad.addColorStop(0.5, 'rgba(7, 40, 27, 0.84)');
+  cardGrad.addColorStop(1, 'rgba(2, 12, 8, 0.94)');
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 46);
+  ctx.fillStyle = cardGrad;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(220, 197, 140, 0.65)';
+
+  ctx.strokeStyle = createMetallicGoldGradient(ctx, cardX, cardY, cardX + cardW, cardY + cardH);
   ctx.lineWidth = 3;
   ctx.stroke();
 
+  drawArabesqueCornerOrnaments(ctx, cardX, cardY, cardW, cardH);
+
+  // Top Rub el Hizb 8-Pointed Star Emblem
+  drawRubElHizbBadge(
+    ctx,
+    WIDTH / 2,
+    cardY + 115,
+    46,
+    questionNumber ? String(questionNumber) : '۞',
+    false
+  );
+
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 34px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('ASAKA ZIYO', WIDTH / 2, 750);
+  ctx.fillStyle = createMetallicGoldGradient(ctx, WIDTH / 2 - 260, cardY + 195, WIDTH / 2 + 260, cardY + 240);
+  ctx.font = '800 32px "Cinzel", "Plus Jakarta Sans", serif';
+  ctx.fillText('ASAKA ZIYO · SACRED CINEMA', WIDTH / 2, cardY + 225);
 
   ctx.fillStyle = '#FFFDF7';
-  ctx.font = '700 58px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText("Kunlik Qur'on", WIDTH / 2, 855);
-  ctx.fillText('Viktorinasi', WIDTH / 2, 928);
+  ctx.font = '800 62px "Cinzel", "Plus Jakarta Sans", serif';
+  ctx.fillText("QUR'ONI KARIM", WIDTH / 2, cardY + 325);
 
-  ctx.fillStyle = '#10b981';
-  ctx.font = '700 34px "JetBrains Mono", monospace';
-  ctx.fillText(`${totalQuestions} TA SAVOL · TOʻLIQ QIROAT`, WIDTH / 2, 1020);
+  ctx.fillStyle = createMetallicGoldGradient(ctx, WIDTH / 2 - 280, cardY + 355, WIDTH / 2 + 280, cardY + 415);
+  ctx.font = '800 52px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('AUDIO VIKTORINASI', WIDTH / 2, cardY + 398);
 
-  ctx.fillStyle = 'rgba(248, 245, 236, 0.84)';
-  ctx.font = '600 30px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText(`Qori: ${reciterName}`, WIDTH / 2, 1120);
+  // Ornamental Cartouche Pill
+  const pillW = 680;
+  const pillH = 74;
+  const pillX = (WIDTH - pillW) / 2;
+  const pillY = cardY + 455;
+  drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 37);
+  ctx.fillStyle = 'rgba(6, 61, 50, 0.65)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(223, 189, 105, 0.72)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#6EE7B7';
+  ctx.font = '700 30px "JetBrains Mono", monospace';
+  ctx.fillText(
+    questionNumber
+      ? `${questionNumber}-SAVOL · ${surahLabel || "QUR'ON OYATI"}`
+      : `${totalQuestions} TA SAVOL · TOʻLIQ QIROAT`,
+    WIDTH / 2,
+    pillY + 47
+  );
+
+  // Delicate Gold Divider
+  const divY = cardY + 595;
+  const divGrad = ctx.createLinearGradient(cardX + 90, divY, cardX + cardW - 90, divY);
+  divGrad.addColorStop(0, 'rgba(223, 189, 105, 0)');
+  divGrad.addColorStop(0.5, 'rgba(223, 189, 105, 0.75)');
+  divGrad.addColorStop(1, 'rgba(223, 189, 105, 0)');
+  ctx.strokeStyle = divGrad;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 90, divY);
+  ctx.lineTo(cardX + cardW - 90, divY);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 248, 232, 0.72)';
+  ctx.font = '600 24px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('TADABBUR VA HOFIZA SINOVI · 9:16 SHORTS', WIDTH / 2, cardY + 655);
+
+  ctx.fillStyle = '#FFF8E8';
+  ctx.font = '700 34px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(`Qori: ${reciterName}`, WIDTH / 2, cardY + 725);
+
+  ctx.fillStyle = '#DFBD69';
+  ctx.font = '600 24px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('Maʼnolar tarjimasi: «Tafsiri Hilol»', WIDTH / 2, cardY + 785);
 
   if (quizDateStr) {
-    ctx.fillStyle = 'rgba(220, 197, 140, 0.78)';
-    ctx.font = '500 26px "JetBrains Mono", monospace';
-    ctx.fillText(quizDateStr, WIDTH / 2, 1175);
+    ctx.fillStyle = 'rgba(255, 246, 200, 0.82)';
+    ctx.font = '600 26px "JetBrains Mono", monospace';
+    ctx.fillText(`Sana: ${quizDateStr}`, WIDTH / 2, cardY + 855);
   }
 }
 
@@ -816,29 +901,41 @@ function drawTransitionFrame(params: {
   const { ctx, particles, elapsed, nextQuestion, nextIndex, totalQuestions } = params;
   drawBackdrop(ctx, particles, elapsed);
 
-  drawRoundedRect(ctx, 110, 740, WIDTH - 220, 420, 40);
-  ctx.fillStyle = 'rgba(7, 41, 26, 0.85)';
+  const cardX = 88;
+  const cardY = 680;
+  const cardW = WIDTH - 176;
+  const cardH = 540;
+
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 42);
+  ctx.fillStyle = 'rgba(4, 24, 16, 0.88)';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(220, 197, 140, 0.55)';
-  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = createMetallicGoldGradient(ctx, cardX, cardY, cardX + cardW, cardY + cardH);
+  ctx.lineWidth = 3;
   ctx.stroke();
+  drawArabesqueCornerOrnaments(ctx, cardX, cardY, cardW, cardH);
+
+  drawRubElHizbBadge(ctx, WIDTH / 2, cardY + 105, 38, String(nextIndex + 1), false);
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 30px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('KEYINGI SAVOL', WIDTH / 2, 850);
+  ctx.fillStyle = '#DFBD69';
+  ctx.font = '700 28px "Cinzel", "Plus Jakarta Sans", serif';
+  ctx.fillText('KEYINGI SAVOL', WIDTH / 2, cardY + 205);
 
   ctx.fillStyle = '#FFFDF7';
-  ctx.font = '700 68px "JetBrains Mono", monospace';
-  ctx.fillText(`${nextIndex + 1} / ${totalQuestions}`, WIDTH / 2, 955);
+  ctx.font = '800 68px "JetBrains Mono", monospace';
+  ctx.fillText(`${nextIndex + 1} / ${totalQuestions}`, WIDTH / 2, cardY + 305);
 
-  ctx.fillStyle = '#6ee7b7';
-  ctx.font = '600 32px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = '#6EE7B7';
+  ctx.font = '700 32px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(
-    `${nextQuestion.surahNameUz} surasi, ${nextQuestion.ayahNumberInSurah}-oyat`,
+    `${nextQuestion.surahNameUz} surasi · ${nextQuestion.ayahNumberInSurah}-oyat`,
     WIDTH / 2,
-    1045
+    cardY + 395
   );
+
+  ctx.fillStyle = '#FFF6C8';
+  ctx.font = '700 38px "Amiri Quran", "Amiri", serif';
+  ctx.fillText(nextQuestion.surahNameAr, WIDTH / 2, cardY + 465);
 }
 
 function drawOutroFrame(params: {
@@ -848,6 +945,9 @@ function drawOutroFrame(params: {
   reciterName: string;
   quizDateStr: string;
   totalQuestions: number;
+  questionNumber?: number;
+  surahLabel?: string;
+  ayahKey?: string;
   scoreSummary?: {
     score: number;
     incorrectCount?: number;
@@ -862,65 +962,123 @@ function drawOutroFrame(params: {
     reciterName,
     quizDateStr,
     totalQuestions,
+    questionNumber,
+    surahLabel,
+    ayahKey,
     scoreSummary,
   } = params;
 
   drawBackdrop(ctx, particles, elapsed);
 
-  drawRoundedRect(ctx, 84, 520, WIDTH - 168, 860, 48);
-  ctx.fillStyle = 'rgba(7, 41, 26, 0.88)';
+  // Outer Luxury Perimeter Frame
+  ctx.save();
+  drawRoundedRect(ctx, 20, 20, WIDTH - 40, HEIGHT - 40, 44);
+  ctx.strokeStyle = createMetallicGoldGradient(ctx, 20, 20, WIDTH - 20, HEIGHT - 20);
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  const cardX = 72;
+  const cardY = 460;
+  const cardW = WIDTH - 144;
+  const cardH = 980;
+
+  const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+  cardGrad.addColorStop(0, 'rgba(4, 24, 16, 0.90)');
+  cardGrad.addColorStop(0.5, 'rgba(7, 42, 29, 0.86)');
+  cardGrad.addColorStop(1, 'rgba(2, 12, 8, 0.95)');
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 46);
+  ctx.fillStyle = cardGrad;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(220, 197, 140, 0.68)';
+  ctx.strokeStyle = createMetallicGoldGradient(ctx, cardX, cardY, cardX + cardW, cardY + cardH);
   ctx.lineWidth = 3;
   ctx.stroke();
 
+  drawArabesqueCornerOrnaments(ctx, cardX, cardY, cardW, cardH);
+
+  drawRubElHizbBadge(ctx, WIDTH / 2, cardY + 115, 46, '✓', true);
+
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#DCC58C';
-  ctx.font = '700 36px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('ASAKA ZIYO', WIDTH / 2, 665);
+  ctx.fillStyle = createMetallicGoldGradient(ctx, WIDTH / 2 - 250, cardY + 195, WIDTH / 2 + 250, cardY + 240);
+  ctx.font = '800 34px "Cinzel", "Plus Jakarta Sans", serif';
+  ctx.fillText('ASAKA ZIYO · QUR’ON VIKTORINASI', WIDTH / 2, cardY + 230);
 
   ctx.fillStyle = '#FFFDF7';
-  ctx.font = '700 54px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('Viktorina Yakunlandi', WIDTH / 2, 755);
+  ctx.font = '800 54px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(
+    questionNumber ? `${questionNumber}-Savol Yakunlandi` : 'Viktorina Yakunlandi',
+    WIDTH / 2,
+    cardY + 320
+  );
 
   if (scoreSummary) {
-    ctx.fillStyle = '#10b981';
-    ctx.font = '700 92px "JetBrains Mono", monospace';
-    ctx.fillText(`${scoreSummary.score} / ${scoreSummary.total}`, WIDTH / 2, 905);
+    ctx.fillStyle = '#10B981';
+    ctx.font = '800 92px "JetBrains Mono", monospace';
+    ctx.fillText(`${scoreSummary.score} / ${scoreSummary.total}`, WIDTH / 2, cardY + 455);
 
-    ctx.fillStyle = '#DCC58C';
+    ctx.fillStyle = '#DFBD69';
     ctx.font = '700 38px "JetBrains Mono", monospace';
-    ctx.fillText(`Natija: ${scoreSummary.percentage}%`, WIDTH / 2, 975);
+    ctx.fillText(`Natija: ${scoreSummary.percentage}%`, WIDTH / 2, cardY + 525);
   } else {
-    ctx.fillStyle = '#10b981';
-    ctx.font = '700 62px "JetBrains Mono", monospace';
-    ctx.fillText(`${totalQuestions} / ${totalQuestions} SAVOL`, WIDTH / 2, 915);
+    const pillW = 680;
+    const pillH = 92;
+    const pillX = (WIDTH - pillW) / 2;
+    const pillY = cardY + 390;
+    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 34);
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.18)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.72)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#6EE7B7';
+    ctx.font = '800 38px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText(
+      surahLabel || `${totalQuestions} / ${totalQuestions} SAVOL`,
+      WIDTH / 2,
+      pillY + 58
+    );
   }
 
-  ctx.strokeStyle = 'rgba(198, 164, 92, 0.25)';
+  const divY = cardY + 565;
+  const divGrad = ctx.createLinearGradient(cardX + 90, divY, cardX + cardW - 90, divY);
+  divGrad.addColorStop(0, 'rgba(223, 189, 105, 0)');
+  divGrad.addColorStop(0.5, 'rgba(223, 189, 105, 0.72)');
+  divGrad.addColorStop(1, 'rgba(223, 189, 105, 0)');
+  ctx.strokeStyle = divGrad;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(160, 1050);
-  ctx.lineTo(WIDTH - 160, 1050);
+  ctx.moveTo(cardX + 90, divY);
+  ctx.lineTo(cardX + cardW - 90, divY);
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(248, 245, 236, 0.9)';
-  ctx.font = '600 30px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText(`Qori: ${reciterName}`, WIDTH / 2, 1130);
+  ctx.fillStyle = '#FFF8E8';
+  ctx.font = '700 32px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(`Qori: ${reciterName}`, WIDTH / 2, cardY + 645);
 
-  ctx.fillStyle = 'rgba(212, 207, 195, 0.82)';
-  ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('Tarjima: Shayx Muhammad Sodiq Muhammad Yusuf', WIDTH / 2, 1190);
+  ctx.fillStyle = '#DFBD69';
+  ctx.font = '600 25px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('Shayx Muhammad Sodiq Muhammad Yusuf', WIDTH / 2, cardY + 715);
 
-  if (quizDateStr) {
-    ctx.fillStyle = 'rgba(220, 197, 140, 0.72)';
-    ctx.font = '500 24px "JetBrains Mono", monospace';
-    ctx.fillText(quizDateStr, WIDTH / 2, 1255);
+  ctx.fillStyle = 'rgba(255, 248, 232, 0.80)';
+  ctx.font = '600 24px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('«Tafsiri Hilol» asosida tayyorlandi', WIDTH / 2, cardY + 760);
+
+  if (quizDateStr || ayahKey) {
+    ctx.fillStyle = 'rgba(223, 189, 105, 0.85)';
+    ctx.font = '600 25px "JetBrains Mono", monospace';
+    ctx.fillText(
+      [quizDateStr ? `Sana: ${quizDateStr}` : '', ayahKey ? `Oyat: ${ayahKey}` : '']
+        .filter(Boolean)
+        .join(' · '),
+      WIDTH / 2,
+      cardY + 835
+    );
   }
 
-  ctx.fillStyle = '#DCC58C';
+  ctx.fillStyle = createMetallicGoldGradient(ctx, WIDTH / 2 - 220, HEIGHT - 90, WIDTH / 2 + 220, HEIGHT - 45);
   ctx.font = '700 24px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('Asaka Ziyo · 1080×1920 Shorts', WIDTH / 2, HEIGHT - 54);
+  ctx.fillText('ASAKA ZIYO · 1080×1920 SACRED CINEMA SHORTS', WIDTH / 2, HEIGHT - 54);
 }
 
 function scheduleTickSound(
@@ -1683,6 +1841,7 @@ function drawStaticQuestionKeyframe(params: {
   totalQuizQuestions: number;
   partRangeLabel: string;
   isRevealed: boolean;
+  phaseStage?: 'reciting' | 'reciting_alt' | 'countdown' | 'revealed';
   particles: GoldParticle[];
 }) {
   const {
@@ -1694,18 +1853,50 @@ function drawStaticQuestionKeyframe(params: {
     totalQuizQuestions,
     partRangeLabel,
     isRevealed,
+    phaseStage = isRevealed ? 'revealed' : 'reciting',
     particles,
   } = params;
 
-  drawBackdrop(ctx, particles, 0.4 + localIndex * 1.15);
+  const isCountdownStage = phaseStage === 'countdown';
+  const isAltReciting = phaseStage === 'reciting_alt';
+  const stageElapsed =
+    phaseStage === 'reciting'
+      ? 0.45 + localIndex * 1.15
+      : phaseStage === 'reciting_alt'
+        ? 1.85 + localIndex * 1.15
+        : phaseStage === 'countdown'
+          ? 3.2 + localIndex * 1.15
+          : 5.1 + localIndex * 1.15;
+
+  drawBackdrop(ctx, particles, stageElapsed);
+
+  // Outer Perimeter Golden Laser Frame (pulses amber/gold in countdown, emerald in reveal)
+  ctx.save();
+  drawRoundedRect(ctx, 18, 18, WIDTH - 36, HEIGHT - 36, 44);
+  if (isCountdownStage) {
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.88)';
+    ctx.shadowColor = 'rgba(245, 158, 11, 0.75)';
+    ctx.shadowBlur = 28;
+    ctx.lineWidth = 4.5;
+  } else if (isRevealed) {
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.82)';
+    ctx.shadowColor = 'rgba(16, 185, 129, 0.65)';
+    ctx.shadowBlur = 24;
+    ctx.lineWidth = 4;
+  } else {
+    ctx.strokeStyle = createMetallicGoldGradient(ctx, 18, 18, WIDTH - 18, HEIGHT - 18);
+    ctx.lineWidth = 3;
+  }
+  ctx.stroke();
+  ctx.restore();
 
   // Header
   ctx.fillStyle = createMetallicGoldGradient(ctx, 72, 90, 560, 125);
-  ctx.font = '800 32px "Plus Jakarta Sans", sans-serif';
+  ctx.font = '800 32px "Cinzel", "Plus Jakarta Sans", serif';
   ctx.textAlign = 'left';
   ctx.fillText(`ASAKA ZIYO · SHORTS (${partRangeLabel})`, 72, 118);
 
-  ctx.fillStyle = 'rgba(255, 248, 231, 0.82)';
+  ctx.fillStyle = 'rgba(255, 248, 231, 0.86)';
   ctx.font = '600 25px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(question.reciterName, 72, 162);
 
@@ -1714,8 +1905,25 @@ function drawStaticQuestionKeyframe(params: {
   ctx.font = '700 32px "JetBrains Mono", monospace';
   ctx.fillText(`${globalNumber} / ${totalQuizQuestions}`, WIDTH - 72, 118);
 
-  // 4 Luminous Diamond Progress Indicators + part segments
-  const activeGroup = Math.min(3, Math.floor((localIndex / Math.max(1, partTotal)) * 4));
+  // Stage Status Pill on Top Right under Question Counter
+  ctx.font = '700 20px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = isRevealed
+    ? '#6EE7B7'
+    : isCountdownStage
+      ? '#FCD34D'
+      : '#DFBD69';
+  ctx.fillText(
+    isRevealed
+      ? '✓ JAVOB VA TAFSIRI HILOL'
+      : isCountdownStage
+        ? '⏱ 3.5 SONIYA TAYMER'
+        : '🔊 QIROAT TINGLANMOQDA',
+    WIDTH - 72,
+    160
+  );
+
+  // 4 Luminous Diamond Progress Indicators + 10-question micro-segments
+  const activeGroup = Math.min(3, Math.floor(((globalNumber - 1) / Math.max(1, totalQuizQuestions)) * 4));
   for (let c = 0; c < 4; c++) {
     const cx = 72 + c * 36 + 12;
     const cy = 205;
@@ -1739,15 +1947,16 @@ function drawStaticQuestionKeyframe(params: {
 
   const segTotalW = WIDTH - 260;
   const segStartX = 240;
-  const segGap = 10;
-  const segW = (segTotalW - segGap * Math.max(0, partTotal - 1)) / Math.max(1, partTotal);
-  for (let s = 0; s < partTotal; s++) {
+  const segGap = 8;
+  const segCount = Math.max(1, totalQuizQuestions);
+  const segW = (segTotalW - segGap * Math.max(0, segCount - 1)) / segCount;
+  for (let s = 0; s < segCount; s++) {
     const sx = segStartX + s * (segW + segGap);
     drawRoundedRect(ctx, sx, 200, segW, 10, 5);
     ctx.fillStyle =
-      s < localIndex
+      s < globalNumber - 1
         ? '#10B981'
-        : s === localIndex
+        : s === globalNumber - 1
           ? isRevealed
             ? '#10B981'
             : createMetallicGoldGradient(ctx, sx, 200, sx + segW, 210)
@@ -1762,9 +1971,9 @@ function drawStaticQuestionKeyframe(params: {
   const cardH = 748;
 
   const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-  cardGrad.addColorStop(0, 'rgba(4, 24, 16, 0.82)');
-  cardGrad.addColorStop(0.5, 'rgba(7, 38, 25, 0.76)');
-  cardGrad.addColorStop(1, 'rgba(2, 14, 9, 0.88)');
+  cardGrad.addColorStop(0, 'rgba(4, 24, 16, 0.84)');
+  cardGrad.addColorStop(0.5, 'rgba(7, 38, 25, 0.78)');
+  cardGrad.addColorStop(1, 'rgba(2, 14, 9, 0.90)');
   drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 38);
   ctx.fillStyle = cardGrad;
   ctx.fill();
@@ -1772,14 +1981,14 @@ function drawStaticQuestionKeyframe(params: {
   const borderGrad = isRevealed
     ? (() => {
         const g = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
-        g.addColorStop(0, 'rgba(16, 185, 129, 0.85)');
-        g.addColorStop(0.5, 'rgba(223, 189, 105, 0.5)');
-        g.addColorStop(1, 'rgba(52, 211, 153, 0.8)');
+        g.addColorStop(0, 'rgba(16, 185, 129, 0.88)');
+        g.addColorStop(0.5, 'rgba(223, 189, 105, 0.65)');
+        g.addColorStop(1, 'rgba(52, 211, 153, 0.85)');
         return g;
       })()
     : createMetallicGoldGradient(ctx, cardX, cardY, cardX + cardW, cardY + cardH);
   ctx.strokeStyle = borderGrad;
-  ctx.lineWidth = 2.4;
+  ctx.lineWidth = 2.6;
   ctx.stroke();
 
   // 4 Oriental Arabesque Corner Ornaments
@@ -1835,8 +2044,12 @@ function drawStaticQuestionKeyframe(params: {
 
   arLines.slice(0, 4).forEach((line, idx) => {
     const ly = arStartY + idx * arLineHeight;
-    ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.45)' : 'rgba(223, 189, 105, 0.35)';
-    ctx.shadowBlur = 20;
+    ctx.shadowColor = isRevealed
+      ? 'rgba(16, 185, 129, 0.52)'
+      : isCountdownStage
+        ? 'rgba(245, 158, 11, 0.45)'
+        : 'rgba(223, 189, 105, 0.38)';
+    ctx.shadowBlur = 22;
     const textGrad = ctx.createLinearGradient(cardX + 60, ly - 44, cardX + cardW - 60, ly + 14);
     textGrad.addColorStop(0, '#FFFDF9');
     textGrad.addColorStop(0.55, '#FFF8E7');
@@ -1846,33 +2059,46 @@ function drawStaticQuestionKeyframe(params: {
   });
   ctx.restore();
 
-  // Tafsiri Hilol Meaning Reveal
+  // Tafsiri Hilol Meaning Reveal OR Active Stage Prompt inside bottom of card
+  const divY = cardY + cardH - 188;
+  const divGrad = ctx.createLinearGradient(cardX + 90, divY, cardX + cardW - 90, divY);
+  divGrad.addColorStop(0, 'rgba(223, 189, 105, 0)');
+  divGrad.addColorStop(0.5, 'rgba(223, 189, 105, 0.65)');
+  divGrad.addColorStop(1, 'rgba(223, 189, 105, 0)');
+  ctx.strokeStyle = divGrad;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 90, divY);
+  ctx.lineTo(cardX + cardW - 90, divY);
+  ctx.stroke();
+
   if (isRevealed && question.translationUz) {
     ctx.save();
-    const divY = cardY + cardH - 188;
-    const divGrad = ctx.createLinearGradient(cardX + 90, divY, cardX + cardW - 90, divY);
-    divGrad.addColorStop(0, 'rgba(223, 189, 105, 0)');
-    divGrad.addColorStop(0.5, 'rgba(223, 189, 105, 0.65)');
-    divGrad.addColorStop(1, 'rgba(223, 189, 105, 0)');
-    ctx.strokeStyle = divGrad;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cardX + 90, divY);
-    ctx.lineTo(cardX + cardW - 90, divY);
-    ctx.stroke();
-
     ctx.textAlign = 'center';
     ctx.fillStyle = '#DFBD69';
     ctx.font = '700 17px "Plus Jakarta Sans", sans-serif';
     ctx.fillText('SHAYX MUHAMMAD SODIQ MUHAMMAD YUSUF — «TAFSIRI HILOL»', WIDTH / 2, divY + 26);
 
-    ctx.fillStyle = 'rgba(255, 248, 231, 0.94)';
+    ctx.fillStyle = 'rgba(255, 248, 231, 0.95)';
     ctx.font = '500 23px "Plus Jakarta Sans", sans-serif';
     const uzLines = wrapTextLines(ctx, `«${question.translationUz}»`, cardW - 110).slice(0, 2);
     const uzBaseY = divY + 60;
     uzLines.forEach((line, idx) => {
       ctx.fillText(line, WIDTH / 2, uzBaseY + idx * 32);
     });
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = isCountdownStage ? '#FCD34D' : '#DFBD69';
+    ctx.font = '700 21px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText(
+      isCountdownStage
+        ? 'YASHIRIN KALIMANI TOPING — VAQT KETMOQDA!'
+        : 'QIROATNI DIQQAT BILAN TINGLANG · [  ؟  ] KALIMANI TOPING',
+      WIDTH / 2,
+      divY + 52
+    );
     ctx.restore();
   }
 
@@ -1885,13 +2111,17 @@ function drawStaticQuestionKeyframe(params: {
   const waveBaseY = cardY + cardH - 34;
   for (let b = 0; b < barCount; b++) {
     const dist = Math.abs(b - (barCount - 1) / 2) / (barCount / 2);
-    const harmonic = Math.abs(Math.sin(b * 0.55)) * 0.45 + 0.55;
-    const barH = Math.max(8, Math.round((1 - dist * 0.72) * harmonic * (isRevealed ? 44 : 36)));
+    const phaseShift = isAltReciting ? 1.45 : isRevealed ? 0.75 : 0;
+    const harmonic = Math.abs(Math.sin(b * 0.62 + phaseShift)) * 0.55 + 0.45;
+    const maxAmp = isCountdownStage ? 12 : isRevealed ? 46 : isAltReciting ? 48 : 36;
+    const barH = Math.max(8, Math.round((1 - dist * 0.72) * harmonic * maxAmp));
     const bx = waveStartX + b * (barWidth + barGap);
     drawRoundedRect(ctx, bx, waveBaseY - barH / 2, barWidth, barH, 6);
     ctx.fillStyle = isRevealed
-      ? 'rgba(52, 211, 153, 0.88)'
-      : createMetallicGoldGradient(ctx, bx, waveBaseY - barH / 2, bx, waveBaseY + barH / 2);
+      ? 'rgba(52, 211, 153, 0.90)'
+      : isCountdownStage
+        ? 'rgba(252, 211, 77, 0.55)'
+        : createMetallicGoldGradient(ctx, bx, waveBaseY - barH / 2, bx, waveBaseY + barH / 2);
     ctx.fill();
   }
 
@@ -1901,36 +2131,46 @@ function drawStaticQuestionKeyframe(params: {
   const ringR = 84;
   ctx.beginPath();
   ctx.arc(ringCx, ringCy, ringR, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255, 248, 231, 0.12)';
+  ctx.strokeStyle = 'rgba(255, 248, 231, 0.14)';
   ctx.lineWidth = 12;
   ctx.stroke();
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(ringCx, ringCy, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2);
+  const ringArcSweep = isCountdownStage ? Math.PI * 1.45 : Math.PI * 2;
+  ctx.arc(ringCx, ringCy, ringR, -Math.PI / 2, -Math.PI / 2 + ringArcSweep);
   ctx.strokeStyle = isRevealed
     ? '#10B981'
-    : createMetallicGoldGradient(ctx, ringCx - ringR, ringCy - ringR, ringCx + ringR, ringCy + ringR);
-  ctx.shadowColor = isRevealed ? 'rgba(16, 185, 129, 0.85)' : 'rgba(223, 189, 105, 0.85)';
-  ctx.shadowBlur = 22;
+    : isCountdownStage
+      ? '#F59E0B'
+      : createMetallicGoldGradient(ctx, ringCx - ringR, ringCy - ringR, ringCx + ringR, ringCy + ringR);
+  ctx.shadowColor = isRevealed
+    ? 'rgba(16, 185, 129, 0.88)'
+    : isCountdownStage
+      ? 'rgba(245, 158, 11, 0.92)'
+      : 'rgba(223, 189, 105, 0.85)';
+  ctx.shadowBlur = 24;
   ctx.lineWidth = 12;
   ctx.lineCap = 'round';
   ctx.stroke();
   ctx.restore();
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = isRevealed ? '#6EE7B7' : '#FFF8E7';
+  ctx.fillStyle = isRevealed ? '#6EE7B7' : isCountdownStage ? '#FDE68A' : '#FFF8E7';
   ctx.font = '700 34px "JetBrains Mono", monospace';
   ctx.fillText(isRevealed ? '✓' : '3.5s', ringCx, ringCy + 12);
 
-  // Linear Timer Track at exact x=96, y=1265, w=888, h=18 (FFmpeg overlays sliding bar for prefix!)
+  // Linear Timer Track at exact x=96, y=1265, w=888, h=18 (FFmpeg overlays sliding bar for countdown!)
   const barX = 96;
   const barY = 1265;
   const barW = WIDTH - 192;
-  ctx.fillStyle = 'rgba(255, 248, 231, 0.12)';
+  ctx.fillStyle = 'rgba(255, 248, 231, 0.14)';
   ctx.fillRect(barX, barY, barW, 18);
   if (isRevealed) {
     ctx.fillStyle = '#10B981';
+    ctx.fillRect(barX, barY, barW, 18);
+  } else if (!isCountdownStage) {
+    ctx.fillStyle = createMetallicGoldGradient(ctx, barX, barY, barX + barW, barY);
     ctx.fillRect(barX, barY, barW, 18);
   }
 
@@ -1961,20 +2201,31 @@ function drawStaticQuestionKeyframe(params: {
       correctGrad.addColorStop(0.5, '#10B981');
       correctGrad.addColorStop(1, '#34D399');
       ctx.fillStyle = correctGrad;
-      ctx.shadowColor = 'rgba(16, 185, 129, 0.72)';
-      ctx.shadowBlur = 34;
+      ctx.shadowColor = 'rgba(16, 185, 129, 0.78)';
+      ctx.shadowBlur = 36;
       ctx.fill();
       ctx.strokeStyle = '#FFF6C8';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.2;
       ctx.stroke();
+
+      // Golden Particle Burst around Correct Answer Card
+      for (let pIdx = 0; pIdx < 14; pIdx++) {
+        const ang = (pIdx * Math.PI * 2) / 14;
+        const px = ox + optW / 2 + Math.cos(ang) * (optW * 0.44);
+        const py = oy + optH / 2 + Math.sin(ang) * (optH * 0.44);
+        ctx.fillStyle = pIdx % 2 === 0 ? '#FFF6C8' : '#34D399';
+        ctx.beginPath();
+        ctx.arc(px, py, pIdx % 2 === 0 ? 4.5 : 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       const optGrad = ctx.createLinearGradient(ox, oy, ox + optW, oy + optH);
-      optGrad.addColorStop(0, 'rgba(6, 34, 23, 0.88)');
-      optGrad.addColorStop(1, 'rgba(3, 18, 12, 0.94)');
+      optGrad.addColorStop(0, 'rgba(6, 34, 23, 0.90)');
+      optGrad.addColorStop(1, 'rgba(3, 18, 12, 0.95)');
       ctx.fillStyle = optGrad;
       ctx.fill();
       ctx.strokeStyle = createMetallicGoldGradient(ctx, ox, oy, ox + optW, oy + optH);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.2;
       ctx.stroke();
     }
 
@@ -1997,7 +2248,7 @@ function drawStaticQuestionKeyframe(params: {
   });
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(223, 189, 105, 0.78)';
+  ctx.fillStyle = 'rgba(223, 189, 105, 0.82)';
   ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(
     `Asaka Ziyo · 1080×1920 · ${question.surahNameUz} (${question.ayahKey})`,
@@ -2039,7 +2290,7 @@ export async function exportQuizPartMP4Video(
     throw new Error(`${canonicalFilename} uchun savol maʼlumoti topilmadi.`);
   }
 
-  onProgress?.(4, `${canonicalFilename} uchun shriftlar va 1080×1920 kadrlar tayyorlanmoqda...`);
+  onProgress?.(4, `${canonicalFilename} uchun shriftlar va 1080×1920 Sacred Cinema kadrlar tayyorlanmoqda...`);
   try {
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       await document.fonts.ready;
@@ -2063,8 +2314,9 @@ export async function exportQuizPartMP4Video(
   const particles = createGoldParticles();
   const normalizedQuestions = questionsPart.slice(0, 1).map((q) => normalizeQuizQuestion(q));
   const primaryQuestion = normalizedQuestions[0];
+  const surahSummaryLabel = `${primaryQuestion.surahNameUz} surasi · ${primaryQuestion.ayahNumberInSurah}-oyat`;
 
-  // 1. Render Intro JPEG
+  // 1. Render Intro JPEG (Sacred Cinema v3)
   drawIntroFrame({
     ctx,
     particles,
@@ -2072,10 +2324,12 @@ export async function exportQuizPartMP4Video(
     reciterName: reciterName || primaryQuestion.reciterName,
     quizDateStr,
     totalQuestions: 1,
+    questionNumber,
+    surahLabel: surahSummaryLabel,
   });
-  const introJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
+  const introJpgBase64 = canvas.toDataURL('image/jpeg', 0.94);
 
-  // 2. Render Outro JPEG
+  // 2. Render Outro JPEG (Sacred Cinema v3)
   drawOutroFrame({
     ctx,
     particles,
@@ -2083,11 +2337,14 @@ export async function exportQuizPartMP4Video(
     reciterName: reciterName || primaryQuestion.reciterName,
     quizDateStr,
     totalQuestions: 1,
+    questionNumber,
+    surahLabel: surahSummaryLabel,
+    ayahKey: primaryQuestion.ayahKey,
     scoreSummary,
   });
-  const outroJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
+  const outroJpgBase64 = canvas.toDataURL('image/jpeg', 0.94);
 
-  // 3. Render Question Prefix & Reveal JPEGs
+  // 3. Render Multi-Stage Question Keyframes (Reciting A, Reciting B, Countdown, Reveal)
   const renderedQuestionsPayload = normalizedQuestions.map((q, idx) => {
     drawStaticQuestionKeyframe({
       ctx,
@@ -2098,9 +2355,38 @@ export async function exportQuizPartMP4Video(
       totalQuizQuestions,
       partRangeLabel: partRangeLabel || `${questionNumber}-savol`,
       isRevealed: false,
+      phaseStage: 'reciting',
       particles,
     });
-    const prefixJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
+    const prefixJpgBase64 = canvas.toDataURL('image/jpeg', 0.94);
+
+    drawStaticQuestionKeyframe({
+      ctx,
+      question: q,
+      localIndex: idx,
+      partTotal: 1,
+      globalNumber: questionNumber,
+      totalQuizQuestions,
+      partRangeLabel: partRangeLabel || `${questionNumber}-savol`,
+      isRevealed: false,
+      phaseStage: 'reciting_alt',
+      particles,
+    });
+    const recitingAltJpgBase64 = canvas.toDataURL('image/jpeg', 0.94);
+
+    drawStaticQuestionKeyframe({
+      ctx,
+      question: q,
+      localIndex: idx,
+      partTotal: 1,
+      globalNumber: questionNumber,
+      totalQuizQuestions,
+      partRangeLabel: partRangeLabel || `${questionNumber}-savol`,
+      isRevealed: false,
+      phaseStage: 'countdown',
+      particles,
+    });
+    const countdownJpgBase64 = canvas.toDataURL('image/jpeg', 0.94);
 
     drawStaticQuestionKeyframe({
       ctx,
@@ -2111,9 +2397,10 @@ export async function exportQuizPartMP4Video(
       totalQuizQuestions,
       partRangeLabel: partRangeLabel || `${questionNumber}-savol`,
       isRevealed: true,
+      phaseStage: 'revealed',
       particles,
     });
-    const revealJpgBase64 = canvas.toDataURL('image/jpeg', 0.92);
+    const revealJpgBase64 = canvas.toDataURL('image/jpeg', 0.94);
 
     return {
       id: q.id,
@@ -2129,6 +2416,8 @@ export async function exportQuizPartMP4Video(
       resumeRatio: q.resumeRatio,
       pauseBeforeLastWordMs: q.pauseBeforeLastWordMs,
       prefixJpgBase64,
+      recitingAltJpgBase64,
+      countdownJpgBase64,
       revealJpgBase64,
     };
   });
@@ -2137,11 +2426,12 @@ export async function exportQuizPartMP4Video(
     throw new DOMException('Eksport bekor qilindi.', 'AbortError');
   }
 
-  onProgress?.(12, `${canonicalFilename} server FFmpeg render navbatiga yuborilmoqda...`);
+  onProgress?.(12, `${canonicalFilename} server FFmpeg Sacred Cinema render navbatiga yuborilmoqda...`);
   const startResp = await fetch('/api/quran-quiz/render-video/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      rendererVersion: QUIZ_VIDEO_RENDERER_VERSION,
       questionNumber,
       partIndex: questionNumber,
       quizDateStr,

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { PrayerSchedule, Ayah, HadithItem } from '../../../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { PrayerSchedule, Ayah, HadithItem, AnnouncementItem } from '../../../types';
 import {
   getNextPrayerCalculation,
   NextPrayerInfo,
@@ -14,12 +14,12 @@ import {
   ADHAN_TRACKS,
   AdhanPlayerState,
 } from '../../../utils/notificationService';
+import { getStoredAnnouncements, isPubliclyPublished } from '../../../utils/databaseService';
 import {
   GeometricPattern,
   IslamicStarEmblem,
   ArabesqueCornerOrnaments,
   VolumetricGodRays,
-  CalligraphyBasmalahBadge,
 } from '../../ui/GeometricPattern';
 import {
   Tv,
@@ -39,6 +39,8 @@ import {
   Smartphone,
   Users,
   Compass,
+  Megaphone,
+  Monitor,
 } from 'lucide-react';
 
 interface SmartTvModalProps {
@@ -48,6 +50,8 @@ interface SmartTvModalProps {
   dailyAyah: Ayah;
   dailyHadith: HadithItem;
 }
+
+type TvFocusableZone = 'prev' | 'play' | 'next' | 'mode' | 'fullscreen' | 'close';
 
 function formatSecondsHms(sec: number): string {
   const safe = Math.max(0, Math.floor(sec));
@@ -78,10 +82,20 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
     isWaitingForIqamah: boolean;
   } | null>(null);
 
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() =>
+    getStoredAnnouncements().filter(isPubliclyPublished)
+  );
+  const [activeAnnouncementIdx, setActiveAnnouncementIdx] = useState(0);
+
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [displayMode, setDisplayMode] = useState<'landscape' | 'totem'>('landscape');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [focusedZone, setFocusedZone] = useState<'play' | 'prev' | 'next' | 'fullscreen' | 'close'>('play');
+  const [focusedZone, setFocusedZone] = useState<TvFocusableZone>('play');
+  const [viewportInfo, setViewportInfo] = useState<{ w: number; h: number }>({
+    w: typeof window !== 'undefined' ? window.innerWidth : 1920,
+    h: typeof window !== 'undefined' ? window.innerHeight : 1080,
+  });
+
   const [playerState, setPlayerState] = useState<AdhanPlayerState>({
     playingTrackId: null,
     track: null,
@@ -98,8 +112,44 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
   const playBtnRef = useRef<HTMLButtonElement>(null);
   const prevBtnRef = useRef<HTMLButtonElement>(null);
   const nextBtnRef = useRef<HTMLButtonElement>(null);
+  const modeBtnRef = useRef<HTMLButtonElement>(null);
   const fullscreenBtnRef = useRef<HTMLButtonElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Sync live announcements & viewport dimensions for HD / Full HD / 4K adaptation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const refreshData = () => {
+      setAnnouncements(getStoredAnnouncements().filter(isPubliclyPublished));
+    };
+    const handleResize = () => {
+      setViewportInfo({ w: window.innerWidth, h: window.innerHeight });
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    refreshData();
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('fullscreenchange', handleResize);
+    window.addEventListener('asaka_ziyo_db_updated', refreshData);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('fullscreenchange', handleResize);
+      window.removeEventListener('asaka_ziyo_db_updated', refreshData);
+    };
+  }, [isOpen]);
+
+  // Rotate announcements every 9 seconds for 24/7 Mosque Display
+  useEffect(() => {
+    if (!isOpen || announcements.length <= 1) return;
+    const rot = setInterval(() => {
+      setActiveAnnouncementIdx((prev) => (prev + 1) % announcements.length);
+    }, 9000);
+    return () => clearInterval(rot);
+  }, [isOpen, announcements.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -200,6 +250,16 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
     if (!isOpen) return;
     playBtnRef.current?.focus();
 
+    const focusZoneElement = (zone: TvFocusableZone) => {
+      setFocusedZone(zone);
+      if (zone === 'play') playBtnRef.current?.focus();
+      if (zone === 'prev') prevBtnRef.current?.focus();
+      if (zone === 'next') nextBtnRef.current?.focus();
+      if (zone === 'mode') modeBtnRef.current?.focus();
+      if (zone === 'fullscreen') fullscreenBtnRef.current?.focus();
+      if (zone === 'close') closeBtnRef.current?.focus();
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Backspace') {
         e.preventDefault();
@@ -211,38 +271,34 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
         handleToggleFullscreen();
         return;
       }
-      const order: ('prev' | 'play' | 'next' | 'fullscreen' | 'close')[] = [
-        'prev',
-        'play',
-        'next',
-        'fullscreen',
-        'close',
-      ];
+      if (e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setDisplayMode((prev) => (prev === 'landscape' ? 'totem' : 'landscape'));
+        return;
+      }
+      const order: TvFocusableZone[] = ['prev', 'play', 'next', 'mode', 'fullscreen', 'close'];
       const idx = order.indexOf(focusedZone);
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
         const nextZone = order[(idx + 1) % order.length];
-        setFocusedZone(nextZone);
-        if (nextZone === 'play') playBtnRef.current?.focus();
-        if (nextZone === 'prev') prevBtnRef.current?.focus();
-        if (nextZone === 'next') nextBtnRef.current?.focus();
-        if (nextZone === 'fullscreen') fullscreenBtnRef.current?.focus();
-        if (nextZone === 'close') closeBtnRef.current?.focus();
+        focusZoneElement(nextZone);
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         const prevZone = order[(idx - 1 + order.length) % order.length];
-        setFocusedZone(prevZone);
-        if (prevZone === 'play') playBtnRef.current?.focus();
-        if (prevZone === 'prev') prevBtnRef.current?.focus();
-        if (prevZone === 'next') nextBtnRef.current?.focus();
-        if (prevZone === 'fullscreen') fullscreenBtnRef.current?.focus();
-        if (prevZone === 'close') closeBtnRef.current?.focus();
+        focusZoneElement(prevZone);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, focusedZone, onClose]);
+
+  const tvResolutionBadge = useMemo(() => {
+    if (viewportInfo.w >= 3200) return '4K UHD · 16:9';
+    if (viewportInfo.w >= 1800) return 'Full HD 1080p · 16:9';
+    if (viewportInfo.w >= 1200) return 'HD 720p · 16:9';
+    return `${viewportInfo.w}×${viewportInfo.h}`;
+  }, [viewportInfo.h, viewportInfo.w]);
 
   if (!isOpen) return null;
 
@@ -266,82 +322,113 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
   const mm = timeParts[1] || '00';
   const ss = timeParts[2] || '00';
 
+  const currentAnnouncement =
+    announcements.length > 0
+      ? announcements[activeAnnouncementIdx % announcements.length]
+      : null;
+
+  const isLandscapeTv = displayMode === 'landscape';
+
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 qz-stage text-[#FFF8E8] overflow-y-auto flex flex-col justify-between p-4 sm:p-8 lg:p-10 select-none"
+      className={`fixed inset-0 z-50 qz-stage text-[#FFF8E8] select-none ${
+        isLandscapeTv
+          ? 'overflow-y-auto lg:overflow-hidden w-screen h-screen'
+          : 'overflow-y-auto w-screen h-screen'
+      }`}
       role="dialog"
       aria-modal="true"
       aria-label="ASAKA ZIYO — Haramayn Masjid Jamoat Ekrani va Smart TV Rejimi"
     >
-      {/* Multi-Layer Sacred Cinema Backdrop */}
+      {/* Multi-Layer Sacred Cinema Backdrop (GPU compositor-friendly for 24/7 TV operation) */}
       <VolumetricGodRays />
-      <GeometricPattern opacity={0.06} />
-      <div className="qz-vignette" />
+      <GeometricPattern opacity={0.05} />
+      <div className="qz-vignette pointer-events-none" />
 
+      {/* TV OVERSCAN SAFE-AREA CONTAINER:
+          In 16:9 Landscape mode on lg+ screens (1280x720, 1920x1080, 3840x2160),
+          locks to exact 100vw x 100vh with proportional CSS Grid rows so nothing clips or scrolls. */}
       <div
-        className={`relative z-10 w-full mx-auto flex-1 flex flex-col justify-between gap-5 ${
-          displayMode === 'totem' ? 'max-w-[620px]' : 'max-w-[1800px]'
+        className={`relative z-10 w-full mx-auto ${
+          isLandscapeTv
+            ? 'min-h-screen lg:h-screen lg:max-h-screen px-[clamp(12px,2vw,56px)] py-[clamp(10px,1.6vh,36px)] flex flex-col lg:grid lg:grid-rows-[auto_minmax(0,1fr)_auto_auto] gap-[clamp(8px,1.2vh,20px)]'
+            : 'max-w-[680px] min-h-screen px-4 py-5 flex flex-col justify-between gap-4'
         }`}
       >
-        {/* 1. HARAMAYN MOSQUE TOP HEADER */}
-        <div className="relative rounded-3xl qz-obsidian-card px-5 sm:px-8 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-4">
-          <ArabesqueCornerOrnaments size={24} />
+        {/* =====================================================================
+            ROW 1: HARAMAYN MOSQUE TOP HEADER + GIANT LIVE TOSHKENT CLOCK
+            ===================================================================== */}
+        <header className="relative rounded-2xl 2xl:rounded-3xl qz-obsidian-card px-[clamp(14px,1.6vw,36px)] py-[clamp(8px,1.1vh,20px)] flex flex-wrap items-center justify-between gap-3 border border-[#DFBD69]/45">
+          <ArabesqueCornerOrnaments size={20} />
 
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_65%,#010906_100%)] border-2 border-[#DFBD69] flex items-center justify-center shadow-[0_0_26px_rgba(223,189,105,0.35)] shrink-0">
-              <IslamicStarEmblem size={30} className="text-[#FFF6C8]" />
+          {/* Left Mosque Identity & Hijri/Milodiy Dates */}
+          <div className="flex items-center gap-[clamp(10px,1.1vw,22px)] min-w-0">
+            <div className="w-[clamp(44px,3.6vw,76px)] h-[clamp(44px,3.6vw,76px)] rounded-2xl bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_65%,#010906_100%)] border-2 border-[#DFBD69] flex items-center justify-center shadow-[0_0_24px_rgba(223,189,105,0.32)] shrink-0">
+              <IslamicStarEmblem size={28} className="text-[#FFF6C8] w-[60%] h-[60%]" />
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-display text-xl sm:text-3xl font-extrabold tracking-[0.12em] qz-gold-foil-text">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display text-[clamp(1.05rem,1.75vw,2.5rem)] font-extrabold tracking-[0.08em] qz-gold-foil-text leading-tight truncate">
                   ASAKA ZIYO · JOME MASJIDI EKRANI
-                </span>
-                <span className="px-3 py-1 rounded-full bg-[#DFBD69]/18 border border-[#DFBD69]/55 text-[#FFF6C8] text-[11px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#DFBD69]/18 border border-[#DFBD69]/55 text-[#FFF6C8] text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest hidden sm:inline-flex items-center gap-1.5">
                   <Tv className="w-3.5 h-3.5 text-[#DFBD69]" />
-                  <span>Haramayn Jamoat Display</span>
+                  <span>{tvResolutionBadge}</span>
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm text-[#FFF8E8]/85 mt-1">
-                <span className="inline-flex items-center gap-1 font-semibold text-[#DFBD69]">
-                  <MapPin className="w-4 h-4" />
-                  {schedule.location || 'Asaka shahri, Andijon viloyati'}
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[clamp(11px,0.88vw,18px)] text-[#FFF8E8]/90 mt-0.5">
+                <span className="inline-flex items-center gap-1 font-bold text-[#DFBD69]">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span>{schedule.location || 'Asaka shahri, Andijon viloyati'}</span>
                 </span>
-                <span className="text-[#DFBD69]/50">·</span>
-                <span className="font-bold text-emerald-300">{schedule.hijriDate}</span>
+                <span className="text-[#DFBD69]/50">•</span>
+                <span className="font-extrabold text-emerald-300">{schedule.hijriDate}</span>
                 {gregorianDateStr && (
                   <>
-                    <span className="text-[#DFBD69]/50">·</span>
-                    <span className="text-[#FFF8E8]/75 capitalize">{gregorianDateStr}</span>
+                    <span className="text-[#DFBD69]/50 hidden md:inline">•</span>
+                    <span className="text-[#FFF8E8]/80 capitalize hidden md:inline">
+                      {gregorianDateStr}
+                    </span>
                   </>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right Controls: Live Giant Clock + Orientation + Fullscreen + Exit */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 ml-auto">
-            <div className="text-right px-4 py-2 rounded-2xl bg-[#010805]/80 border border-[#DFBD69]/45 shadow-inner">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-[#DFBD69] font-extrabold">
+          {/* Right Giant Digital Clock + Remote D-Pad Action Bar */}
+          <div className="flex items-center gap-[clamp(10px,1.2vw,24px)] ml-auto">
+            <div className="text-right px-[clamp(12px,1.3vw,28px)] py-[clamp(4px,0.6vh,12px)] rounded-2xl bg-[#010805]/90 border border-[#DFBD69]/55 shadow-inner">
+              <div className="text-[clamp(8px,0.6vw,13px)] uppercase tracking-[0.2em] text-[#DFBD69] font-extrabold">
                 Asaka / Toshkent Vaqti
               </div>
-              <div className="text-3xl sm:text-5xl font-mono-numbers font-extrabold text-[#FFF8E8] tracking-wider leading-none mt-0.5">
+              <div className="text-[clamp(1.6rem,2.85vw,4.25rem)] font-mono-numbers tabular-nums font-extrabold text-[#FFF8E8] tracking-wider leading-none mt-0.5">
                 {hh}:{mm}:<span className="text-[#DFBD69]">{ss}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <button
+                ref={modeBtnRef}
                 type="button"
+                onFocus={() => setFocusedZone('mode')}
                 onClick={() =>
                   setDisplayMode((prev) => (prev === 'landscape' ? 'totem' : 'landscape'))
                 }
-                className="px-3.5 py-3 rounded-2xl bg-[#041D13] hover:bg-[#092E1F] border border-[#DFBD69]/45 text-[#FFF6C8] text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                title="Gorizontal TV yoki Vertikal Ustun (Totem) koʻrinishi"
+                className={`px-[clamp(10px,0.9vw,18px)] py-[clamp(8px,1vh,16px)] rounded-2xl bg-[#041D13] hover:bg-[#092E1F] border text-[#FFF6C8] text-[clamp(10px,0.75vw,15px)] font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                  focusedZone === 'mode'
+                    ? 'border-[#FFF6C8] ring-4 ring-[#DFBD69]/60 shadow-[0_0_20px_rgba(223,189,105,0.6)]'
+                    : 'border-[#DFBD69]/45'
+                }`}
+                title="16:9 TV yoki 9:16 Vertikal Ustun koʻrinishi (M)"
               >
-                <Smartphone className="w-4 h-4 text-[#DFBD69]" />
+                {isLandscapeTv ? (
+                  <Smartphone className="w-4 h-4 text-[#DFBD69]" />
+                ) : (
+                  <Monitor className="w-4 h-4 text-[#DFBD69]" />
+                )}
                 <span className="hidden xl:inline">
-                  {displayMode === 'landscape' ? '9:16 Ustun' : '16:9 TV'}
+                  {isLandscapeTv ? '9:16 Ustun' : '16:9 Smart TV'}
                 </span>
               </button>
 
@@ -350,7 +437,11 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
                 type="button"
                 onFocus={() => setFocusedZone('fullscreen')}
                 onClick={handleToggleFullscreen}
-                className="px-3.5 py-3 rounded-2xl bg-[#041D13] hover:bg-[#092E1F] border border-[#DFBD69]/45 text-[#FFF6C8] text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                className={`px-[clamp(10px,0.9vw,18px)] py-[clamp(8px,1vh,16px)] rounded-2xl bg-[#041D13] hover:bg-[#092E1F] border text-[#FFF6C8] text-[clamp(10px,0.75vw,15px)] font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                  focusedZone === 'fullscreen'
+                    ? 'border-[#FFF6C8] ring-4 ring-[#DFBD69]/60 shadow-[0_0_20px_rgba(223,189,105,0.6)]'
+                    : 'border-[#DFBD69]/45'
+                }`}
                 title="Toʻliq ekran (F)"
               >
                 {isFullscreen ? (
@@ -366,61 +457,76 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
                 type="button"
                 onClick={onClose}
                 onFocus={() => setFocusedZone('close')}
-                className="px-4 py-3 rounded-2xl bg-rose-950/70 hover:bg-rose-800/80 border border-rose-400/50 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer transition-all"
+                className={`px-[clamp(10px,1vw,20px)] py-[clamp(8px,1vh,16px)] rounded-2xl bg-rose-950/80 hover:bg-rose-800/90 border text-white font-bold text-[clamp(10px,0.78vw,16px)] flex items-center gap-1.5 cursor-pointer transition-all ${
+                  focusedZone === 'close'
+                    ? 'border-white ring-4 ring-rose-400/70 shadow-[0_0_24px_rgba(244,63,94,0.7)]'
+                    : 'border-rose-400/50'
+                }`}
               >
                 <X className="w-4 h-4" />
                 <span>Yopish</span>
               </button>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* 2. HARAMAYN DUAL COUNTDOWN + 8 PRAYER TIMES CONGREGATION BOARD */}
+        {/* =====================================================================
+            ROW 2 (MAIN STAGE): LEFT MIHRAB COUNTDOWN + RIGHT 8-PRAYER BOARD
+            Stretches proportionally (`minmax(0, 1fr)`) so cards fill 720p/1080p/4K cleanly.
+            ===================================================================== */}
         <div
-          className={`grid grid-cols-1 ${
-            displayMode === 'totem' ? ' gap-5' : 'lg:grid-cols-12 gap-6'
-          } items-stretch`}
+          className={`min-h-0 ${
+            isLandscapeTv
+              ? 'grid grid-cols-1 lg:grid-cols-12 gap-[clamp(10px,1.2vw,24px)] items-stretch'
+              : 'flex flex-col gap-4'
+          }`}
         >
-          {/* Left 5 Cols: Mihrab Sanctuary Countdown (Azon & Jamoat Iqomat) */}
+          {/* Left 4 Cols: Mihrab Sanctuary Dual Countdown (Azon & Jamoat Iqomat) */}
           <div
             className={`${
-              displayMode === 'totem' ? '' : 'lg:col-span-5'
-            } relative rounded-3xl qz-obsidian-card p-6 sm:p-8 flex flex-col justify-between gap-5`}
+              isLandscapeTv ? 'lg:col-span-4' : ''
+            } relative rounded-2xl 2xl:rounded-3xl qz-obsidian-card p-[clamp(12px,1.4vw,28px)] flex flex-col justify-between gap-[clamp(8px,1.1vh,18px)] border border-[#DFBD69]/45 min-h-0`}
           >
-            <ArabesqueCornerOrnaments size={28} />
+            <ArabesqueCornerOrnaments size={22} />
 
-            <div className="flex items-center justify-between gap-3">
-              <CalligraphyBasmalahBadge />
-              <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/45 text-emerald-300 text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+            {/* Top Sanctuary Status Bar */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="px-3 py-1 rounded-full bg-[#DFBD69]/15 border border-[#DFBD69]/45 text-[#FFF6C8] text-[clamp(10px,0.72vw,15px)] font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
+                <span>Haramayn Jamoat Vaqti</span>
+              </span>
+              <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/45 text-emerald-300 text-[clamp(10px,0.72vw,15px)] font-extrabold uppercase tracking-wider flex items-center gap-1.5">
                 <Compass className="w-3.5 h-3.5" />
                 <span>Qibla: {schedule.qiblaAngleDeg || 241}°</span>
               </span>
             </div>
 
             {/* Dual Azon & Iqamah Live Countdowns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-[clamp(8px,0.9vw,16px)] my-auto">
               {/* Next Azon Box */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#010805]/80 border border-[#DFBD69]/45 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#DFBD69] flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
+              <div className="p-[clamp(10px,1.1vw,22px)] rounded-2xl bg-[#010805]/85 border border-[#DFBD69]/50 flex flex-col justify-between gap-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest text-[#DFBD69] flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span>Navbatdagi Azon</span>
                   </span>
-                  <span className="font-arabic text-lg text-[#FFF6C8]">
+                  <span className="font-arabic text-[clamp(1rem,1.25vw,1.75rem)] text-[#FFF6C8] leading-none">
                     {nextInfo.nextPrayer?.nameAr || 'الصلاة'}
                   </span>
                 </div>
-                <div className="text-2xl sm:text-3xl font-display font-extrabold text-[#FFF8E8]">
-                  {nextInfo.nextPrayer?.nameUz || 'Peshin'}{' '}
-                  <span className="text-[#DFBD69] font-mono-numbers text-xl">
-                    ({nextInfo.nextPrayer?.time || '12:30'})
+                <div className="flex items-baseline justify-between gap-2 pt-0.5">
+                  <span className="text-[clamp(1.2rem,1.65vw,2.35rem)] font-display font-extrabold text-[#FFF8E8] truncate">
+                    {nextInfo.nextPrayer?.nameUz || 'Peshin'}
+                  </span>
+                  <span className="text-[#DFBD69] font-mono-numbers tabular-nums font-extrabold text-[clamp(1.1rem,1.45vw,2.1rem)]">
+                    {nextInfo.nextPrayer?.time || '12:30'}
                   </span>
                 </div>
-                <div className="pt-1">
-                  <span className="text-[10px] uppercase tracking-widest text-[#FFF8E8]/60 block">
+                <div className="pt-1 border-t border-[#DFBD69]/20">
+                  <span className="text-[clamp(9px,0.62vw,13px)] uppercase tracking-widest text-[#FFF8E8]/65 block">
                     Azongacha qolgan vaqt:
                   </span>
-                  <div className="text-2xl sm:text-3xl font-mono-numbers font-extrabold qz-gold-foil-text tracking-wider">
+                  <div className="text-[clamp(1.45rem,2.15vw,3.25rem)] font-mono-numbers tabular-nums font-extrabold qz-gold-foil-text tracking-wider leading-tight">
                     {nextInfo.countdownText}
                   </div>
                 </div>
@@ -428,120 +534,144 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
 
               {/* Next Jamoat (Iqamah) Box */}
               <div
-                className={`p-4 sm:p-5 rounded-2xl border space-y-1.5 ${
+                className={`p-[clamp(10px,1.1vw,22px)] rounded-2xl border flex flex-col justify-between gap-1 ${
                   iqamahCountdown?.isWaitingForIqamah
-                    ? 'bg-emerald-950/85 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.4)] animate-pulse'
-                    : 'bg-[#010805]/80 border-emerald-500/40'
+                    ? 'bg-emerald-950/90 border-emerald-400 shadow-[0_0_28px_rgba(16,185,129,0.45)]'
+                    : 'bg-[#010805]/85 border-emerald-500/45'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-300 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5" />
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest text-emerald-300 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {iqamahCountdown?.isWaitingForIqamah
                         ? 'Jamoat Takbirigacha!'
                         : 'Jamoat (Iqomat)'}
                     </span>
                   </span>
-                  <span className="font-arabic text-lg text-emerald-300">إقامة الجماعة</span>
-                </div>
-                <div className="text-2xl sm:text-3xl font-display font-extrabold text-[#FFF8E8]">
-                  {iqamahCountdown?.activePrayerNameUz || nextInfo.nextPrayer?.nameUz || 'Peshin'}{' '}
-                  <span className="text-emerald-300 font-mono-numbers text-xl">
-                    ({iqamahCountdown?.iqamahTime || nextInfo.nextPrayer?.iqamahTime || '13:00'})
+                  <span className="font-arabic text-[clamp(1rem,1.25vw,1.75rem)] text-emerald-300 leading-none">
+                    إقامة الجماعة
                   </span>
                 </div>
-                <div className="pt-1">
-                  <span className="text-[10px] uppercase tracking-widest text-emerald-200/75 block">
+                <div className="flex items-baseline justify-between gap-2 pt-0.5">
+                  <span className="text-[clamp(1.2rem,1.65vw,2.35rem)] font-display font-extrabold text-[#FFF8E8] truncate">
+                    {iqamahCountdown?.activePrayerNameUz || nextInfo.nextPrayer?.nameUz || 'Peshin'}
+                  </span>
+                  <span className="text-emerald-300 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.1rem,1.45vw,2.1rem)]">
+                    {iqamahCountdown?.iqamahTime || nextInfo.nextPrayer?.iqamahTime || '13:00'}
+                  </span>
+                </div>
+                <div className="pt-1 border-t border-emerald-500/25">
+                  <span className="text-[clamp(9px,0.62vw,13px)] uppercase tracking-widest text-emerald-200/75 block">
                     Iqomatgacha qolgan vaqt:
                   </span>
-                  <div className="text-2xl sm:text-3xl font-mono-numbers font-extrabold text-emerald-300 tracking-wider">
-                    {iqamahCountdown ? formatSecondsHms(iqamahCountdown.secondsLeft) : nextInfo.countdownText}
+                  <div className="text-[clamp(1.45rem,2.15vw,3.25rem)] font-mono-numbers tabular-nums font-extrabold text-emerald-300 tracking-wider leading-tight">
+                    {iqamahCountdown
+                      ? formatSecondsHms(iqamahCountdown.secondsLeft)
+                      : nextInfo.countdownText}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Haramayn Congregation Etiquette Reminder */}
-            <div className="p-3.5 rounded-2xl bg-[linear-gradient(90deg,rgba(138,102,33,0.22),rgba(4,29,19,0.9),rgba(138,102,33,0.22))] border border-[#DFBD69]/40 flex items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <div className="text-xs font-extrabold text-[#FFF6C8] uppercase tracking-wider">
-                  🕌 Jamoat odobi: Safni tekislang va telefonni ovozsiz qiling
+            {/* Haramayn Congregation Etiquette Banner */}
+            <div className="px-[clamp(10px,1vw,20px)] py-[clamp(6px,0.8vh,14px)] rounded-2xl bg-[linear-gradient(90deg,rgba(138,102,33,0.22),rgba(4,29,19,0.92),rgba(138,102,33,0.22))] border border-[#DFBD69]/40 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[clamp(10px,0.75vw,15px)] font-extrabold text-[#FFF6C8] uppercase tracking-wider truncate">
+                  🕌 Safni tekislang va telefonni ovozsiz qiling
                 </div>
-                <div className="text-[11px] text-[#FFF8E8]/75">
-                  Namoz vaqtida uyali aloqa vositalarini ovozsiz rejimga oʻtkazishingizni soʻraymiz.
+                <div className="text-[clamp(9px,0.66vw,13px)] text-[#FFF8E8]/75 truncate">
+                  Ibodat xushuʼsi uchun uyali aloqa vositalarini ovozsiz rejimga oʻtkazing.
                 </div>
               </div>
               <span
                 dir="rtl"
-                className="font-arabic text-lg sm:text-xl text-[#DFBD69] shrink-0 hidden sm:inline-block"
+                className="font-arabic text-[clamp(1rem,1.25vw,1.8rem)] text-[#DFBD69] shrink-0 hidden sm:inline-block"
               >
                 استووا واعتدلوا
               </span>
             </div>
 
             {/* Remote-Friendly Adhan Audio Controller */}
-            <div className="space-y-2.5 pt-2 border-t border-[#DFBD69]/25">
-              <div className="flex items-center justify-between text-xs">
+            <div className="space-y-1.5 pt-1.5 border-t border-[#DFBD69]/25">
+              <div className="flex items-center justify-between text-[clamp(10px,0.72vw,15px)]">
                 <span className="font-bold text-[#FFF6C8] truncate">{currentTrack.titleUz}</span>
-                <span className="font-mono-numbers text-[#DFBD69]">{currentTrack.durationLabel}</span>
+                <span className="font-mono-numbers tabular-nums text-[#DFBD69]">
+                  {currentTrack.durationLabel}
+                </span>
               </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <button
                   ref={prevBtnRef}
+                  type="button"
                   onFocus={() => setFocusedZone('prev')}
                   onClick={() => handleCycleTrack(-1)}
-                  className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-[#DFBD69]/35 text-white cursor-pointer"
+                  className={`p-[clamp(8px,0.8vw,14px)] rounded-2xl bg-white/10 hover:bg-white/20 border text-white cursor-pointer transition-all ${
+                    focusedZone === 'prev'
+                      ? 'border-[#FFF6C8] ring-4 ring-[#DFBD69]/65 shadow-[0_0_20px_rgba(223,189,105,0.65)]'
+                      : 'border-[#DFBD69]/35'
+                  }`}
                   title="Oldingi azon maqomi"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4 2xl:w-5 2xl:h-5" />
                 </button>
                 <button
                   ref={playBtnRef}
+                  type="button"
                   onFocus={() => setFocusedZone('play')}
                   onClick={handleTogglePlay}
-                  className="flex-1 py-3 px-5 rounded-2xl qz-gold-foil-bg text-[#010906] font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg cursor-pointer border border-[#FFF6C8]"
+                  className={`flex-1 py-[clamp(8px,0.9vh,16px)] px-4 rounded-2xl qz-gold-foil-bg text-[#010906] font-extrabold text-[clamp(11px,0.82vw,17px)] flex items-center justify-center gap-2 shadow-lg cursor-pointer border transition-all ${
+                    focusedZone === 'play'
+                      ? 'border-white ring-4 ring-[#FFF6C8]/80 shadow-[0_0_28px_rgba(255,246,200,0.8)]'
+                      : 'border-[#FFF6C8]'
+                  }`}
                 >
                   {isPlayingCurrent ? (
                     <>
-                      <Pause className="w-5 h-5 fill-current" />
-                      <span>Azonni Toʻxtatib Turish</span>
+                      <Pause className="w-4 h-4 2xl:w-5 2xl:h-5 fill-current shrink-0" />
+                      <span className="truncate">Azonni Toʻxtatish</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-5 h-5 fill-current" />
-                      <span>Azonni Yangratish (Enter)</span>
+                      <Play className="w-4 h-4 2xl:w-5 2xl:h-5 fill-current shrink-0" />
+                      <span className="truncate">Azonni Yangratish (OK)</span>
                     </>
                   )}
                 </button>
                 {playerState.playingTrackId && (
                   <button
+                    type="button"
                     onClick={() => stopActiveAdhanAudio()}
-                    className="p-3 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 cursor-pointer"
+                    className="p-[clamp(8px,0.8vw,14px)] rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 cursor-pointer"
                     title="Toʻxtatish"
                   >
-                    <Square className="w-5 h-5 fill-current" />
+                    <Square className="w-4 h-4 2xl:w-5 2xl:h-5 fill-current" />
                   </button>
                 )}
                 <button
                   ref={nextBtnRef}
+                  type="button"
                   onFocus={() => setFocusedZone('next')}
                   onClick={() => handleCycleTrack(1)}
-                  className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-[#DFBD69]/35 text-white cursor-pointer"
+                  className={`p-[clamp(8px,0.8vw,14px)] rounded-2xl bg-white/10 hover:bg-white/20 border text-white cursor-pointer transition-all ${
+                    focusedZone === 'next'
+                      ? 'border-[#FFF6C8] ring-4 ring-[#DFBD69]/65 shadow-[0_0_20px_rgba(223,189,105,0.65)]'
+                      : 'border-[#DFBD69]/35'
+                  }`}
                   title="Keyingi azon maqomi"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4 2xl:w-5 2xl:h-5" />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Right 7 Cols: 8 Prayer Times Haramayn Congregation Board (Azon & Iqomat) */}
+          {/* Right 8 Cols: 8 Prayer Times Haramayn Congregation Board (4x2 Proportional Grid) */}
           <div
             className={`${
-              displayMode === 'totem'
-                ? 'grid grid-cols-2 gap-3.5'
-                : 'lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-4'
+              isLandscapeTv
+                ? 'lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 lg:grid-rows-2 gap-[clamp(8px,0.9vw,18px)] min-h-0'
+                : 'grid grid-cols-2 gap-3'
             }`}
           >
             {schedule.times.map((item) => {
@@ -550,66 +680,70 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
               return (
                 <div
                   key={item.key}
-                  className={`relative p-5 rounded-3xl border-2 flex flex-col justify-between transition-all overflow-hidden ${
+                  className={`relative p-[clamp(10px,1.1vw,24px)] rounded-2xl 2xl:rounded-3xl border-2 flex flex-col justify-between transition-all overflow-hidden min-h-0 ${
                     isNext
-                      ? 'bg-[radial-gradient(circle_at_50%_0%,rgba(223,189,105,0.32),rgba(4,29,19,0.95)_75%)] border-[#FFF6C8] shadow-[0_0_36px_rgba(223,189,105,0.38)] scale-[1.02]'
+                      ? 'bg-[radial-gradient(circle_at_50%_0%,rgba(223,189,105,0.34),rgba(4,29,19,0.96)_75%)] border-[#FFF6C8] shadow-[0_0_32px_rgba(223,189,105,0.35)]'
                       : isCurrent
-                      ? 'bg-[#092E1F]/90 border-emerald-400/70 shadow-[0_0_24px_rgba(16,185,129,0.25)]'
-                      : 'qz-obsidian-card border-[#DFBD69]/30'
+                        ? 'bg-[#092E1F]/92 border-emerald-400/80 shadow-[0_0_22px_rgba(16,185,129,0.28)]'
+                        : 'qz-obsidian-card border-[#DFBD69]/35'
                   }`}
                 >
-                  <ArabesqueCornerOrnaments size={18} />
+                  <ArabesqueCornerOrnaments size={16} />
 
-                  <div className="flex items-center justify-between gap-2">
+                  {/* Prayer Name (Uzbek + Arabic) */}
+                  <div className="flex items-center justify-between gap-1.5">
                     <span
-                      className={`text-base sm:text-lg font-display font-extrabold ${
+                      className={`text-[clamp(0.95rem,1.25vw,1.85rem)] font-display font-extrabold truncate ${
                         isNext ? 'text-[#FFF6C8]' : 'text-[#FFF8E8]'
                       }`}
                     >
                       {item.nameUz}
                     </span>
-                    <span className="text-xl font-arabic text-[#DFBD69]">{item.nameAr}</span>
+                    <span className="text-[clamp(1rem,1.3vw,1.9rem)] font-arabic text-[#DFBD69] shrink-0 leading-none">
+                      {item.nameAr}
+                    </span>
                   </div>
 
-                  {/* Azon & Iqomat split display */}
-                  <div className="my-3 space-y-2">
-                    <div className="p-2.5 rounded-2xl bg-[#010805]/70 border border-[#DFBD69]/25 flex items-center justify-between">
-                      <span className="text-[10px] uppercase tracking-wider text-[#DFBD69] font-bold">
-                        {item.iqamahTime ? 'Azon' : 'Kirish'}
+                  {/* Azon & Jamoat (Iqomat) High-Contrast Time Readout */}
+                  <div className="my-auto py-1 space-y-[clamp(4px,0.6vh,10px)]">
+                    <div className="px-[clamp(8px,0.8vw,16px)] py-[clamp(4px,0.6vh,10px)] rounded-xl bg-[#010805]/80 border border-[#DFBD69]/30 flex items-center justify-between gap-2">
+                      <span className="text-[clamp(8px,0.62vw,13px)] uppercase tracking-wider text-[#DFBD69] font-extrabold">
+                        {item.iqamahTime ? 'Azon' : 'Vaqt'}
                       </span>
-                      <span className="text-2xl sm:text-3xl font-mono-numbers font-extrabold text-[#FFF8E8]">
+                      <span className="text-[clamp(1.3rem,1.95vw,3rem)] font-mono-numbers tabular-nums font-extrabold text-[#FFF8E8] leading-none">
                         {item.time}
                       </span>
                     </div>
 
                     <div
-                      className={`p-2.5 rounded-2xl border flex items-center justify-between ${
+                      className={`px-[clamp(8px,0.8vw,16px)] py-[clamp(4px,0.6vh,10px)] rounded-xl border flex items-center justify-between gap-2 ${
                         item.iqamahTime
-                          ? 'bg-emerald-950/65 border-emerald-400/40'
+                          ? 'bg-emerald-950/75 border-emerald-400/45'
                           : 'bg-white/5 border-white/10'
                       }`}
                     >
-                      <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">
+                      <span className="text-[clamp(8px,0.62vw,13px)] uppercase tracking-wider text-emerald-300 font-extrabold">
                         {item.iqamahTime ? 'Jamoat' : 'Maqom'}
                       </span>
-                      <span className="text-xl sm:text-2xl font-mono-numbers font-extrabold text-emerald-300">
-                        {item.iqamahTime || 'Nafl / Vaqt'}
+                      <span className="text-[clamp(1.05rem,1.55vw,2.35rem)] font-mono-numbers tabular-nums font-extrabold text-emerald-300 leading-none">
+                        {item.iqamahTime || 'Sunnat / Nafl'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] font-bold">
+                  {/* Bottom Status Indicator */}
+                  <div className="flex items-center justify-between text-[clamp(9px,0.65vw,14px)] font-extrabold pt-0.5">
                     {isNext ? (
-                      <span className="uppercase tracking-widest text-[#FFF6C8] flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
+                      <span className="uppercase tracking-widest text-[#FFF6C8] flex items-center gap-1 truncate">
+                        <Sparkles className="w-3.5 h-3.5 text-[#DFBD69] shrink-0" />
                         <span>Navbatdagi Namoz</span>
                       </span>
                     ) : isCurrent ? (
-                      <span className="uppercase tracking-widest text-emerald-300">
-                        ● Joriy Vaqt
+                      <span className="uppercase tracking-widest text-emerald-300 truncate">
+                        ● Joriy Namoz Vaqti
                       </span>
                     ) : (
-                      <span className="text-[#FFF8E8]/55">Tasdiqlangan jadval</span>
+                      <span className="text-[#FFF8E8]/55 truncate">Asaka rasmiy jadvali</span>
                     )}
                   </div>
                 </div>
@@ -618,66 +752,138 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
           </div>
         </div>
 
-        {/* 3. BOTTOM SPIRITUAL SCROLL: KUN OYATI & KUN HADISI */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="relative p-5 sm:p-6 rounded-3xl qz-obsidian-card space-y-2">
-            <ArabesqueCornerOrnaments size={20} />
-            <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-widest text-[#DFBD69]">
-              <span className="flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4" />
+        {/* =====================================================================
+            ROW 3: SPIRITUAL WISDOM & LIVE MOSQUE ANNOUNCEMENTS BAR
+            Compact 3-column 10-foot layout: Kun Oyati | Kun Hadisi | Masjid E'loni
+            ===================================================================== */}
+        <div
+          className={`grid grid-cols-1 ${
+            isLandscapeTv ? 'lg:grid-cols-12 gap-[clamp(8px,1vw,20px)]' : 'gap-3'
+          }`}
+        >
+          {/* Kun Oyati (5 cols) */}
+          <div
+            className={`${
+              isLandscapeTv ? 'lg:col-span-5' : ''
+            } relative px-[clamp(12px,1.2vw,24px)] py-[clamp(8px,1vh,16px)] rounded-2xl qz-obsidian-card border border-[#DFBD69]/35 flex flex-col justify-between gap-1`}
+          >
+            <ArabesqueCornerOrnaments size={16} />
+            <div className="flex items-center justify-between gap-2 text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest text-[#DFBD69]">
+              <span className="flex items-center gap-1.5 truncate">
+                <BookOpen className="w-3.5 h-3.5 shrink-0" />
                 <span>Kun Oyati · Tafsiri Hilol</span>
               </span>
-              <span>
-                {dailyAyah.surahNameUz} surasi ({dailyAyah.surahNumber}:{dailyAyah.numberInSurah})
+              <span className="text-emerald-300 shrink-0">
+                {dailyAyah.surahNameUz} ({dailyAyah.surahNumber}:{dailyAyah.numberInSurah})
               </span>
             </div>
             <p
-              className="text-xl sm:text-2xl font-arabic text-right text-[#FFF6C8] leading-loose"
+              className="text-[clamp(1.05rem,1.35vw,2rem)] font-arabic text-right text-[#FFF6C8] leading-snug line-clamp-1"
               dir="rtl"
             >
               {dailyAyah.textAr}
             </p>
-            <p className="text-xs sm:text-sm text-[#FFF8E8]/90 leading-relaxed">
+            <p className="text-[clamp(11px,0.82vw,17px)] text-[#FFF8E8]/92 leading-snug line-clamp-2">
               «{dailyAyah.translationUz}»
             </p>
           </div>
 
-          <div className="relative p-5 sm:p-6 rounded-3xl qz-obsidian-card space-y-2">
-            <ArabesqueCornerOrnaments size={20} />
-            <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-widest text-[#DFBD69]">
-              <span className="flex items-center gap-1.5">
-                <Volume2 className="w-4 h-4" />
+          {/* Kun Hadisi (4 cols) */}
+          <div
+            className={`${
+              isLandscapeTv ? 'lg:col-span-4' : ''
+            } relative px-[clamp(12px,1.2vw,24px)] py-[clamp(8px,1vh,16px)] rounded-2xl qz-obsidian-card border border-[#DFBD69]/35 flex flex-col justify-between gap-1`}
+          >
+            <ArabesqueCornerOrnaments size={16} />
+            <div className="flex items-center justify-between gap-2 text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest text-[#DFBD69]">
+              <span className="flex items-center gap-1.5 truncate">
+                <Volume2 className="w-3.5 h-3.5 shrink-0" />
                 <span>Kun Hadisi · {dailyHadith.collectionNameUz}</span>
               </span>
-              <span className="text-emerald-300">{dailyHadith.grade}</span>
+              <span className="text-emerald-300 shrink-0">{dailyHadith.grade}</span>
             </div>
             <p
-              className="text-xl sm:text-2xl font-arabic text-right text-[#FFF6C8] leading-loose"
+              className="text-[clamp(1.05rem,1.35vw,2rem)] font-arabic text-right text-[#FFF6C8] leading-snug line-clamp-1"
               dir="rtl"
             >
               {dailyHadith.textAr}
             </p>
-            <p className="text-xs sm:text-sm text-[#FFF8E8]/90 leading-relaxed">
+            <p className="text-[clamp(11px,0.82vw,17px)] text-[#FFF8E8]/92 leading-snug line-clamp-2">
               «{dailyHadith.translationUz}»
             </p>
           </div>
+
+          {/* Live Mosque Announcements / Jamoat Xabarnomasi (3 cols) */}
+          <div
+            className={`${
+              isLandscapeTv ? 'lg:col-span-3' : ''
+            } relative px-[clamp(12px,1.2vw,24px)] py-[clamp(8px,1vh,16px)] rounded-2xl bg-[linear-gradient(145deg,rgba(6,61,50,0.88),rgba(2,14,9,0.95))] border border-emerald-400/45 flex flex-col justify-between gap-1`}
+          >
+            <ArabesqueCornerOrnaments size={16} />
+            <div className="flex items-center justify-between gap-2 text-[clamp(9px,0.68vw,14px)] font-extrabold uppercase tracking-widest text-emerald-300">
+              <span className="flex items-center gap-1.5 truncate">
+                <Megaphone className="w-3.5 h-3.5 shrink-0 text-[#DFBD69]" />
+                <span>Masjid Eʼloni</span>
+              </span>
+              {announcements.length > 1 && (
+                <span className="font-mono-numbers tabular-nums text-[#DFBD69]">
+                  {(activeAnnouncementIdx % announcements.length) + 1}/{announcements.length}
+                </span>
+              )}
+            </div>
+            {currentAnnouncement ? (
+              <>
+                <div className="text-[clamp(12px,0.92vw,19px)] font-display font-extrabold text-[#FFF6C8] line-clamp-1">
+                  {currentAnnouncement.title}
+                </div>
+                <p className="text-[clamp(11px,0.78vw,16px)] text-[#FFF8E8]/90 leading-snug line-clamp-2">
+                  {currentAnnouncement.description}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-[clamp(12px,0.92vw,19px)] font-display font-extrabold text-[#FFF6C8]">
+                  Juma va Jamoat Eslatmasi
+                </div>
+                <p className="text-[clamp(11px,0.78vw,16px)] text-[#FFF8E8]/90 leading-snug line-clamp-2">
+                  Jamoat namoziga 15 daqiqa oldin kelib sunnat va zikrlarni ado etishingiz tavsiya etiladi.
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* 4. FOOTER INSTRUCTIONS */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-[#DFBD69]/20 text-xs text-[#FFF8E8]/70">
-          <div>
-            Masjid TV / Pult boshqaruvi:{' '}
-            <strong className="text-[#DFBD69]">← / →</strong> tanlash,{' '}
-            <strong className="text-[#DFBD69]">Enter / OK</strong> Azon ijrosi,{' '}
-            <strong className="text-[#DFBD69]">F</strong> Toʻliq ekran,{' '}
-            <strong className="text-[#DFBD69]">Esc</strong> chiqish.
+        {/* =====================================================================
+            ROW 4: SMART TV / ANDROID TV REMOTE CONTROL FOOTER
+            ===================================================================== */}
+        <footer className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#DFBD69]/25 text-[clamp(10px,0.72vw,15px)] text-[#FFF8E8]/75">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              Masjid Smart TV Pult:{' '}
+              <strong className="text-[#DFBD69]">← / →</strong> Tanlash
+            </span>
+            <span>•</span>
+            <span>
+              <strong className="text-[#DFBD69]">OK / Enter</strong> Azon yangratish
+            </span>
+            <span>•</span>
+            <span>
+              <strong className="text-[#DFBD69]">F</strong> Toʻliq ekran
+            </span>
+            <span>•</span>
+            <span>
+              <strong className="text-[#DFBD69]">M</strong> 16:9 / 9:16 Rejim
+            </span>
+            <span>•</span>
+            <span>
+              <strong className="text-[#DFBD69]">Esc / Back</strong> Chiqish
+            </span>
           </div>
-          <div className="font-mono-numbers text-[#DFBD69]">
-            ASAKA ZIYO — Haramayn Masjid Jamoat Ekrani v2026
+          <div className="font-mono-numbers tabular-nums text-[#DFBD69] font-bold">
+            ASAKA ZIYO · SMART TV DISPLAY ({viewportInfo.w}×{viewportInfo.h})
           </div>
-        </div>
+        </footer>
       </div>
     </div>
   );
 };
-

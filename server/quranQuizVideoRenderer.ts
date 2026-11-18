@@ -12,6 +12,8 @@ import { computeQuestionAudioSlice } from '../src/utils/quranQuizService';
 import type { QuranQuizHidePosition } from '../src/types';
 import { parseMp3DurationMs } from './quranQuizEngine';
 
+export const RENDERER_DESIGN_VERSION = 'sacred-cinema-v3';
+
 export interface RenderQuestionInput {
   id: string;
   ayahKey: string;
@@ -26,10 +28,14 @@ export interface RenderQuestionInput {
   resumeRatio: number;
   pauseBeforeLastWordMs?: number;
   prefixJpgBase64: string;
+  recitingAltJpgBase64?: string;
+  countdownJpgBase64?: string;
   revealJpgBase64: string;
 }
 
 export interface StartQuizPartRenderInput {
+  rendererVersion?: string;
+  forceRebuild?: boolean;
   questionNumber?: number; // 1..10
   partIndex?: number; // 1..10 (backward-compatible alias for questionNumber)
   quizDateStr: string;
@@ -43,6 +49,7 @@ export interface StartQuizPartRenderInput {
 
 export interface RenderJobState {
   jobId: string;
+  rendererVersion: string;
   questionNumber: number; // 1..10
   partIndex: number; // 1..10
   quizDateStr: string;
@@ -85,15 +92,45 @@ ensurePersistentVideoDir();
 function loadPersistentJobsIndex(): void {
   try {
     ensurePersistentVideoDir();
-    if (!fs.existsSync(PERSISTENT_INDEX_FILE)) return;
-    const raw = fs.readFileSync(PERSISTENT_INDEX_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return;
-    for (const item of parsed) {
-      if (item && typeof item.jobId === 'string') {
-        // If a job was ready and its MP4 file still exists on disk, restore it immediately
-        if (item.status === 'ready' && item.outputPath && fs.existsSync(item.outputPath)) {
-          renderJobs.set(item.jobId, item as RenderJobState);
+    const validFiles = new Set<string>();
+    if (fs.existsSync(PERSISTENT_INDEX_FILE)) {
+      const raw = fs.readFileSync(PERSISTENT_INDEX_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item.jobId === 'string') {
+            if (
+              item.rendererVersion === RENDERER_DESIGN_VERSION &&
+              item.status === 'ready' &&
+              item.outputPath &&
+              fs.existsSync(item.outputPath)
+            ) {
+              renderJobs.set(item.jobId, item as RenderJobState);
+              validFiles.add(path.resolve(item.outputPath));
+            } else if (item.outputPath && fs.existsSync(item.outputPath)) {
+              // Purge legacy pre-v3 video files so old design videos are never served
+              try {
+                fs.unlinkSync(item.outputPath);
+              } catch {
+                // ignore unlink error
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Also purge any orphan MP4 files in PERSISTENT_VIDEO_DIR not belonging to sacred-cinema-v3
+    const existingFiles = fs.readdirSync(PERSISTENT_VIDEO_DIR);
+    for (const file of existingFiles) {
+      if (file.endsWith('.mp4')) {
+        const fullPath = path.resolve(PERSISTENT_VIDEO_DIR, file);
+        if (!validFiles.has(fullPath)) {
+          try {
+            fs.unlinkSync(fullPath);
+          } catch {
+            // ignore
+          }
         }
       }
     }
@@ -587,11 +624,21 @@ async function processQuizPartRenderJob(
       const { buffer: mp3Buffer, durationSec } = await fetchValidReciterMp3(q);
       const mp3Path = path.join(job.workDir, `q_${i}.mp3`);
       const prefixImgPath = path.join(job.workDir, `prefix_${i}.jpg`);
+      const recitingAltImgPath = path.join(job.workDir, `reciting_alt_${i}.jpg`);
+      const countdownImgPath = path.join(job.workDir, `countdown_${i}.jpg`);
       const revealImgPath = path.join(job.workDir, `reveal_${i}.jpg`);
 
       await Promise.all([
         fs.promises.writeFile(mp3Path, mp3Buffer),
         fs.promises.writeFile(prefixImgPath, stripBase64DataPrefix(q.prefixJpgBase64)),
+        fs.promises.writeFile(
+          recitingAltImgPath,
+          stripBase64DataPrefix(q.recitingAltJpgBase64 || q.prefixJpgBase64)
+        ),
+        fs.promises.writeFile(
+          countdownImgPath,
+          stripBase64DataPrefix(q.countdownJpgBase64 || q.prefixJpgBase64)
+        ),
         fs.promises.writeFile(revealImgPath, stripBase64DataPrefix(q.revealJpgBase64)),
       ]);
 
@@ -618,34 +665,36 @@ async function processQuizPartRenderJob(
       const prefixFadeStart = Math.max(0, prefixDurSec - Math.min(0.14, prefixDurSec * 0.18));
 
       job.progressPct = basePct + Math.round((0.45 / totalQ) * 72);
-      job.stageLabel = `${job.filename}: ${q.ayahKey} oyati 1080×1920 kadrga yigʻilmoqda...`;
+      job.stageLabel = `${job.filename}: ${q.ayahKey} oyati 1080×1920 Sacred Cinema kadrga yigʻilmoqda...`;
       notifyJobUpdated(job);
 
       const segPath = path.join(job.workDir, `seg_q_${i}.mkv`);
 
-      // Build exact 3-stage filtergraph per question:
-      // Stage 1: Prefix recitation with full gold timer bar (x=96, y=1265, w=888, h=18)
-      // Stage 2: 3.5s sliding countdown bar + synthesized clock ticks
-      // Stage 3: Emerald reveal frame + 3-tone bell chime + remainder/full recitation
+      // Build Sacred Cinema v3 multi-stage animated filtergraph per question:
+      // Stage 1: Animated Qari recitation blending [0:v] (Reciting A) & [1:v] (Reciting B) at 30fps so Golden Waveform & Bokeh pulse
+      // Stage 2: 3.5s Golden Neon Countdown frame [2:v] + sliding Metallic Gold bar (0xDFBD69) + synthesized clock ticks
+      // Stage 3: Emerald Reveal frame [3:v] with Tafsiri Hilol + 3-tone bell chime + remainder/full recitation
       const filterComplex = [
-        `color=c=0xDCC58C:s=888x18:r=30:d=${prefixDurSec.toFixed(3)}[pbar]`,
-        `color=c=0xDCC58C:s=888x18:r=30:d=${countdownSec.toFixed(3)}[cbar]`,
-        `[0:v]scale=1080:1920,fps=30,format=yuv420p,split=2[p_img][c_src]`,
-        `[p_img][pbar]overlay=x=96:y=1265,trim=duration=${prefixDurSec.toFixed(3)},setpts=PTS-STARTPTS[vp]`,
-        `[c_src]split=2[c_bg][c_mask]`,
+        `color=c=0xDFBD69:s=888x18:r=30:d=${prefixDurSec.toFixed(3)}[pbar]`,
+        `color=c=0xDFBD69:s=888x18:r=30:d=${countdownSec.toFixed(3)}[cbar]`,
+        `[0:v]scale=1080:1920,fps=30,format=yuv420p,trim=duration=${prefixDurSec.toFixed(3)},setpts=PTS-STARTPTS[p_a]`,
+        `[1:v]scale=1080:1920,fps=30,format=yuv420p,trim=duration=${prefixDurSec.toFixed(3)},setpts=PTS-STARTPTS[p_b]`,
+        `[p_a][p_b]blend=all_expr='A*(0.5+0.5*cos(2*PI*T/0.65))+B*(0.5-0.5*cos(2*PI*T/0.65))'[p_anim]`,
+        `[p_anim][pbar]overlay=x=96:y=1265,trim=duration=${prefixDurSec.toFixed(3)},setpts=PTS-STARTPTS[vp]`,
+        `[2:v]scale=1080:1920,fps=30,format=yuv420p,split=2[c_bg][c_mask]`,
         `[c_mask]crop=96:18:0:1265[c_left]`,
         `[c_bg]trim=duration=${countdownSec.toFixed(3)},setpts=PTS-STARTPTS[c_base]`,
         `[c_base][cbar]overlay=x='96-888*(t/${countdownSec.toFixed(3)})':y=1265:shortest=1[c_slide]`,
         `[c_slide][c_left]overlay=x=0:y=1265,setpts=PTS-STARTPTS[vc]`,
-        `[1:v]scale=1080:1920,fps=30,format=yuv420p,trim=duration=${revealTotalSec.toFixed(3)},setpts=PTS-STARTPTS[vr]`,
+        `[3:v]scale=1080:1920,fps=30,format=yuv420p,trim=duration=${revealTotalSec.toFixed(3)},setpts=PTS-STARTPTS,fade=t=in:st=0:d=0.18[vr]`,
         `[vp][vc][vr]concat=n=3:v=1:a=0[vout]`,
-        `[2:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,asplit=2[a_in_p][a_in_r]`,
+        `[4:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,asplit=2[a_in_p][a_in_r]`,
         q.hidePos === 'start'
           ? `[a_in_p]atrim=start=${qSlice.offsetSec.toFixed(3)}:duration=${qSlice.durationSec.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.05,apad=whole_dur=${prefixDurSec.toFixed(3)},atrim=0:${prefixDurSec.toFixed(3)}[ap]`
           : `[a_in_p]atrim=start=${qSlice.offsetSec.toFixed(3)}:duration=${qSlice.durationSec.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=out:st=${prefixFadeStart.toFixed(3)}:d=${Math.min(0.14, prefixDurSec * 0.18).toFixed(3)},apad=whole_dur=${prefixDurSec.toFixed(3)},atrim=0:${prefixDurSec.toFixed(3)}[ap]`,
-        `[3:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,atrim=0:${countdownSec.toFixed(3)},asetpts=PTS-STARTPTS[ac]`,
+        `[5:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,atrim=0:${countdownSec.toFixed(3)},asetpts=PTS-STARTPTS[ac]`,
         `[a_in_r]atrim=start=${rSlice.offsetSec.toFixed(3)}:duration=${rSlice.durationSec.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.06,apad=whole_dur=${revealTotalSec.toFixed(3)},atrim=0:${revealTotalSec.toFixed(3)}[ar_voice]`,
-        `[4:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,apad=whole_dur=${revealTotalSec.toFixed(3)},atrim=0:${revealTotalSec.toFixed(3)}[ar_chime]`,
+        `[6:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,apad=whole_dur=${revealTotalSec.toFixed(3)},atrim=0:${revealTotalSec.toFixed(3)}[ar_chime]`,
         `[ar_voice][ar_chime]amix=inputs=2:duration=first:normalize=0[ar]`,
         `[ap][ac][ar]concat=n=3:v=0:a=1[aout]`,
       ].join(';');
@@ -657,9 +706,25 @@ async function processQuizPartRenderJob(
         '-framerate',
         '30',
         '-t',
-        Math.max(prefixDurSec, countdownSec).toFixed(3),
+        prefixDurSec.toFixed(3),
         '-i',
         prefixImgPath,
+        '-loop',
+        '1',
+        '-framerate',
+        '30',
+        '-t',
+        prefixDurSec.toFixed(3),
+        '-i',
+        recitingAltImgPath,
+        '-loop',
+        '1',
+        '-framerate',
+        '30',
+        '-t',
+        countdownSec.toFixed(3),
+        '-i',
+        countdownImgPath,
         '-loop',
         '1',
         '-framerate',
@@ -840,19 +905,22 @@ export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJ
   const reciterId = String(input.reciterId || firstQ?.reciterId || 'mishary').trim();
   const filename = formatCanonicalQuizVideoFilename(questionNumber);
 
-  // Reuse an already-verified ready video for the exact same date, questionNumber, ayahKey & reciter if on disk
-  for (const existing of renderJobs.values()) {
-    if (
-      existing.status === 'ready' &&
-      existing.questionNumber === questionNumber &&
-      existing.quizDateStr === cleanDate &&
-      existing.reciterId === reciterId &&
-      existing.ayahKey === String(firstQ?.ayahKey || '') &&
-      existing.ftypVerified &&
-      existing.outputPath &&
-      fs.existsSync(existing.outputPath)
-    ) {
-      return existing;
+  // Reuse an already-verified ready video ONLY if it matches RENDERER_DESIGN_VERSION ('sacred-cinema-v3')
+  if (!input.forceRebuild) {
+    for (const existing of renderJobs.values()) {
+      if (
+        existing.status === 'ready' &&
+        existing.rendererVersion === RENDERER_DESIGN_VERSION &&
+        existing.questionNumber === questionNumber &&
+        existing.quizDateStr === cleanDate &&
+        existing.reciterId === reciterId &&
+        existing.ayahKey === String(firstQ?.ayahKey || '') &&
+        existing.ftypVerified &&
+        existing.outputPath &&
+        fs.existsSync(existing.outputPath)
+      ) {
+        return existing;
+      }
     }
   }
 
@@ -863,6 +931,7 @@ export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJ
 
   const job: RenderJobState = {
     jobId,
+    rendererVersion: RENDERER_DESIGN_VERSION,
     questionNumber,
     partIndex: questionNumber,
     quizDateStr: cleanDate,
@@ -897,6 +966,9 @@ export function startQuizPartRenderJob(input: StartQuizPartRenderInput): RenderJ
 
 export function hydrateRenderJobFromPersistentStore(record: Partial<RenderJobState> | null | undefined): RenderJobState | null {
   if (!record || !record.jobId) return null;
+  if (record.rendererVersion && record.rendererVersion !== RENDERER_DESIGN_VERSION) {
+    return null;
+  }
   const cleanId = String(record.jobId).trim();
   const existing = renderJobs.get(cleanId);
   if (existing) return existing;
@@ -914,6 +986,7 @@ export function hydrateRenderJobFromPersistentStore(record: Partial<RenderJobSta
 
   const hydrated: RenderJobState = {
     jobId: cleanId,
+    rendererVersion: RENDERER_DESIGN_VERSION,
     questionNumber: qNum,
     partIndex: qNum,
     quizDateStr: String(record.quizDateStr || ''),

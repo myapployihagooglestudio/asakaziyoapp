@@ -41,6 +41,17 @@ import {
   getStoredArticles,
   getStoredAnnouncements,
   getStoredNews,
+  getStoredHadiths,
+  getStoredDhikrs,
+  getStoredQuizQuestions,
+  getStoredAcademyLessons,
+  getStoredMosqueEvents,
+  getStoredDigitalBooks,
+  getStoredMediaPosts,
+  getStoredCharityCampaigns,
+  getStoredImamQuestions,
+  getStoredKhatmPlans,
+  getStoredQuranProgress,
   subscribeToDatabase,
   isPubliclyPublished,
 } from '../../../utils/databaseService';
@@ -50,11 +61,22 @@ import {
   ADHAN_TRACKS,
 } from '../../../utils/notificationService';
 import {
+  SURAHS_LIST,
   QURAN_RECITERS,
   getActiveQuranReciters,
   getReciterSurahAudioUrl,
 } from '../../../data/quranData';
-import { QuranReciter } from '../../../types';
+import {
+  QuranReciter,
+  DhikrItem,
+  AcademyLesson,
+  MosqueEventItem,
+  DigitalBookItem,
+  MediaPost,
+  CharityCampaign,
+  ImamQuestionItem,
+  KhatmPlan,
+} from '../../../types';
 import {
   Clock,
   BookOpen,
@@ -80,6 +102,13 @@ import {
   MessageCircleQuestion,
   Tv,
   Film,
+  HeartHandshake,
+  Library,
+  MapPin,
+  Users,
+  Moon,
+  Flame,
+  Trophy,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -149,7 +178,52 @@ export const HomeView: React.FC<HomeViewProps> = ({
     getStoredNews().filter(isPubliclyPublished)
   );
 
+  // Full Platform Showcase live data states from Firestore / databaseService
+  const [hadithCollection, setHadithCollection] = useState<HadithItem[]>(() =>
+    getStoredHadiths().filter(isPubliclyPublished)
+  );
+  const [dhikrCollection, setDhikrCollection] = useState<DhikrItem[]>(() =>
+    getStoredDhikrs().filter(isPubliclyPublished)
+  );
+  const [quizQuestions, setQuizQuestions] = useState<any[]>(() => getStoredQuizQuestions());
+  const [academyLessons, setAcademyLessons] = useState<AcademyLesson[]>(() =>
+    getStoredAcademyLessons()
+  );
+  const [mosqueEvents, setMosqueEvents] = useState<MosqueEventItem[]>(() =>
+    getStoredMosqueEvents().filter((e) => e.isPublished !== false)
+  );
+  const [digitalBooks, setDigitalBooks] = useState<DigitalBookItem[]>(() =>
+    getStoredDigitalBooks().filter((b) => b.isPublished !== false)
+  );
+  const [mediaPosts, setMediaPosts] = useState<MediaPost[]>(() =>
+    getStoredMediaPosts().filter((m) => m.isPublished !== false)
+  );
+  const [charityCampaigns, setCharityCampaigns] = useState<CharityCampaign[]>(() =>
+    getStoredCharityCampaigns()
+  );
+  const [imamQuestions, setImamQuestions] = useState<ImamQuestionItem[]>(() =>
+    getStoredImamQuestions().filter((q) => q.isPubliclyVisible || q.status === 'answered')
+  );
+  const [khatmPlans, setKhatmPlans] = useState<KhatmPlan[]>(() => getStoredKhatmPlans());
+  const [quranProgress] = useState(() => getStoredQuranProgress());
+  const [homeTasbihCount, setHomeTasbihCount] = useState<number>(0);
+
   useEffect(() => {
+    const refreshShowcaseData = () => {
+      setHadithCollection(getStoredHadiths().filter(isPubliclyPublished));
+      setDhikrCollection(getStoredDhikrs().filter(isPubliclyPublished));
+      setQuizQuestions(getStoredQuizQuestions());
+      setAcademyLessons(getStoredAcademyLessons());
+      setMosqueEvents(getStoredMosqueEvents().filter((e) => e.isPublished !== false));
+      setDigitalBooks(getStoredDigitalBooks().filter((b) => b.isPublished !== false));
+      setMediaPosts(getStoredMediaPosts().filter((m) => m.isPublished !== false));
+      setCharityCampaigns(getStoredCharityCampaigns());
+      setImamQuestions(
+        getStoredImamQuestions().filter((q) => q.isPubliclyVisible || q.status === 'answered')
+      );
+      setKhatmPlans(getStoredKhatmPlans());
+    };
+
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'ARTICLES_UPDATED') {
         setArticles(getStoredArticles());
@@ -166,7 +240,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       if (event.type === 'QURAN_RECITERS_UPDATED' || event.type === 'QURAN_AUDIO_UPDATED') {
         setAvailableReciters(getActiveQuranReciters());
       }
+      refreshShowcaseData();
     });
+
+    window.addEventListener('asaka_ziyo_db_updated', refreshShowcaseData);
 
     const unsubAdhan = subscribeToAdhanPlayerState((state) => {
       setIsAdhanPreviewPlaying(state.isPlaying);
@@ -175,6 +252,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return () => {
       unsubscribe();
       unsubAdhan();
+      window.removeEventListener('asaka_ziyo_db_updated', refreshShowcaseData);
     };
   }, []);
 
@@ -1391,6 +1469,728 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <Download className="w-4 h-4 mr-1.5" />
             <span>Oʻrnatish</span>
           </Button>
+        </Card>
+      </section>
+
+      {/* =======================================================================
+          9. QUR'ONI KARIM MUSHAF & KUNLIK 9:16 AUDIO VIKTORINA SHOWCASE
+          ======================================================================= */}
+      <section className="space-y-5 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#063D32] dark:text-[#DFBD69] block">
+              Kalomulloh Xazinasi va Hofiza Sinovi
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Qurʼoni Karim Mushafi va 9:16 Audio Viktorina
+            </h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button variant="outline" size="sm" onClick={() => onNavigate('quran')}>
+              <span>114 Sura Mushaf</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => onNavigate('quran_quiz')}>
+              <Film className="w-4 h-4 mr-1.5" />
+              <span>9:16 Viktorina va MP4 Eksport</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          {/* Left 7 Cols: 114 Surah Explorer & Tafsiri Hilol Preview */}
+          <Card elevated ornamental className="lg:col-span-7 p-6 sm:p-7 flex flex-col justify-between gap-5">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 border border-[#DFBD69]/35 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8]">
+                  Shayx Muhammad Sodiq Muhammad Yusuf · «Tafsiri Hilol»
+                </span>
+                <span className="text-xs font-mono-numbers text-[#5C746C] dark:text-[#DFBD69]">
+                  Oxirgi oʻqilgan: {quranProgress.lastReadSurah}-sura, {quranProgress.lastReadAyah}-oyat
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {SURAHS_LIST.filter((s) => [1, 2, 18, 36, 55, 67].includes(s.number)).map((surah) => (
+                  <div
+                    key={surah.number}
+                    onClick={() => onNavigate('quran')}
+                    className="p-3.5 rounded-2xl bg-[#F8F5EC] dark:bg-[#041D13]/90 border border-[#063D32]/15 dark:border-[#DFBD69]/30 hover:border-[#DFBD69] transition-all cursor-pointer group flex flex-col justify-between gap-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <RubElHizbBadge size="sm">{surah.number}</RubElHizbBadge>
+                      <span className="font-arabic text-lg text-[#063D32] dark:text-[#DFBD69]">
+                        {surah.nameAr}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-display font-bold text-[#042B25] dark:text-[#FFF8E8] group-hover:text-[#063D32] dark:group-hover:text-[#DFBD69]">
+                        {surah.nameUz} surasi
+                      </div>
+                      <div className="text-[11px] text-[#5C746C] dark:text-[#FFF8E8]/65">
+                        {surah.meaningUz} · {surah.numberOfAyahs} oyat
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#063D32]/12 dark:border-[#DFBD69]/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span className="text-[#5C746C] dark:text-[#FFF8E8]/75">
+                30 pora · 114 sura · 6236 oyat · Oyatma-oyat audio va maʼnolar tarjimasi
+              </span>
+              <button
+                onClick={() => onNavigate('quran')}
+                className="font-bold text-[#063D32] dark:text-[#DFBD69] hover:underline cursor-pointer"
+              >
+                Barcha 114 surani ochish →
+              </button>
+            </div>
+          </Card>
+
+          {/* Right 5 Cols: Luxury Sacred Cinema 9:16 Quran Quiz Live Preview */}
+          <div
+            onClick={() => onNavigate('quran_quiz')}
+            className="lg:col-span-5 relative rounded-3xl qz-stage p-6 border-2 border-[#DFBD69]/65 shadow-[0_24px_70px_rgba(1,9,6,0.75)] flex flex-col justify-between gap-4 cursor-pointer group overflow-hidden"
+          >
+            <VolumetricGodRays />
+            <ArabesqueCornerOrnaments size={22} />
+
+            <div className="relative z-10 flex items-center justify-between gap-2">
+              <span className="px-3 py-1 rounded-full bg-[#DFBD69]/20 border border-[#DFBD69]/55 text-[#FFF6C8] text-[11px] font-extrabold uppercase tracking-wider">
+                9:16 Sacred Cinema Shorts
+              </span>
+              <span className="text-xs font-mono-numbers font-bold text-emerald-300">
+                10 ta savol · MP4 Video
+              </span>
+            </div>
+
+            <div className="relative z-10 p-4 rounded-2xl qz-obsidian-card border border-[#DFBD69]/45 space-y-2.5 text-center">
+              <div className="text-[11px] font-bold text-[#DFBD69] uppercase tracking-widest">
+                Ar-Rahmon surasi · 13-oyat
+              </div>
+              <p dir="rtl" className="font-arabic text-2xl text-[#FFF8E8] leading-relaxed">
+                فَبِأَيِّ آلَاءِ رَبِّكُمَا <span className="qz-hidden-word-capsule mx-1">[  ؟  ]</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {['تُكَذِّبَانِ', 'تَعْلَمُونَ', 'تَشْكُرُونَ', 'تُؤْمِنُونَ'].map((opt, idx) => (
+                  <div
+                    key={opt}
+                    className={`px-3 py-2 rounded-xl border text-sm font-arabic flex items-center justify-between ${
+                      idx === 0
+                        ? 'bg-emerald-600/35 border-emerald-400 text-[#FFF8E8]'
+                        : 'bg-[#041D13]/85 border-[#DFBD69]/35 text-[#FFF8E8]/85'
+                    }`}
+                  >
+                    <span className="text-xs font-bold text-[#DFBD69]">
+                      {['١', '٢', '٣', '٤'][idx]}
+                    </span>
+                    <span dir="rtl">{opt}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between text-xs text-[#FFF8E8]/90 pt-1">
+              <span>Qori tilovati + 3.5s taymer + Tafsiri Hilol</span>
+              <span className="font-extrabold text-[#DFBD69] group-hover:translate-x-1 transition-transform">
+                Viktorinani boshlash →
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =======================================================================
+          10. SAHIH HADISLAR VA SUNNAT XAZINASI SHOWCASE (`hadith`)
+          ======================================================================= */}
+      <section className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#063D32] dark:text-[#DFBD69] block">
+              Paygʻambarimiz ﷺ Sunnatlari
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Sahih Hadislar Toʻplami (Buxoriy, Muslim, Navaviy)
+            </h2>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => onNavigate('hadith')}>
+            <span>Barcha Hadislar ({hadithCollection.length})</span>
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {hadithCollection.slice(0, 3).map((item) => (
+            <Card
+              key={item.id}
+              elevated
+              ornamental
+              interactive
+              onClick={() => onNavigate('hadith')}
+              className="p-6 flex flex-col justify-between gap-4"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <RubElHizbBadge size="sm">{item.number}</RubElHizbBadge>
+                    <span className="text-xs font-bold text-[#063D32] dark:text-[#DFBD69]">
+                      {item.collectionNameUz}
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[11px] font-bold">
+                    {item.grade}
+                  </span>
+                </div>
+
+                <p
+                  dir="rtl"
+                  className="font-arabic text-xl text-[#042B25] dark:text-[#FFF6C8] leading-relaxed text-right line-clamp-2"
+                >
+                  {item.textAr}
+                </p>
+
+                <p className="text-xs sm:text-sm text-[#2C4A42] dark:text-[#FFF8E8]/90 leading-relaxed line-clamp-3 font-editorial italic">
+                  «{item.translationUz}»
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs text-[#5C746C] dark:text-[#FFF8E8]/70">
+                <span className="truncate">Roviy: {item.narratorUz}</span>
+                <span className="font-bold text-[#063D32] dark:text-[#DFBD69] shrink-0">
+                  Oʻqish →
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* =======================================================================
+          11. ZIKR VA DUOLAR HAMDA INTERAKTIV RAQAMLI TASBEH SHOWCASE (`dhikr`)
+          ======================================================================= */}
+      <section className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#063D32] dark:text-[#DFBD69] block">
+              Qalb Xotirjamligi va Kunlik Vazifalar
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Tonggi-Kechki Zikrlar, Duolar va Raqamli Tasbeh
+            </h2>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => onNavigate('dhikr')}>
+            <span>Zikrlar va Tasbeh ({dhikrCollection.length})</span>
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          {/* Left 8 Cols: 2 Featured Dhikr Cards */}
+          <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {dhikrCollection.slice(0, 2).map((dhikr) => (
+              <Card
+                key={dhikr.id}
+                elevated
+                ornamental
+                interactive
+                onClick={() => onNavigate('dhikr')}
+                className="p-6 flex flex-col justify-between gap-4"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-[#063D32] dark:text-[#FFF6C8] font-bold">
+                      {dhikr.categoryTitleUz}
+                    </span>
+                    <span className="font-mono-numbers font-extrabold text-[#063D32] dark:text-[#DFBD69]">
+                      {dhikr.targetCount} marta
+                    </span>
+                  </div>
+                  <h3 className="text-base font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+                    {dhikr.titleUz}
+                  </h3>
+                  <p
+                    dir="rtl"
+                    className="font-arabic text-xl text-[#042B25] dark:text-[#FFF6C8] leading-relaxed text-right line-clamp-2"
+                  >
+                    {dhikr.textAr}
+                  </p>
+                  <p className="text-xs text-[#2C4A42] dark:text-[#FFF8E8]/85 line-clamp-2 leading-relaxed">
+                    «{dhikr.translationUz}»
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs">
+                  <span className="text-[#5C746C] dark:text-[#FFF8E8]/65 truncate">
+                    {dhikr.source}
+                  </span>
+                  <span className="font-bold text-[#063D32] dark:text-[#DFBD69] shrink-0">
+                    Zikr qilish →
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Right 4 Cols: Interactive Mini Digital Tasbih Counter */}
+          <Card
+            variant="emerald"
+            className="lg:col-span-4 p-6 flex flex-col items-center justify-between text-center gap-4 relative overflow-hidden"
+          >
+            <ArabesqueCornerOrnaments size={20} />
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#DFBD69]">
+                Tezkor Raqamli Tasbeh
+              </span>
+              <div className="font-arabic text-2xl text-[#FFF6C8]">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ</div>
+              <div className="text-xs text-[#FFF8E8]/80">Subhanallohi va bihamdihi</div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setHomeTasbihCount((c) => c + 1)}
+              className="w-28 h-28 rounded-full bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_65%,#010906_100%)] border-2 border-[#DFBD69] shadow-[0_0_30px_rgba(223,189,105,0.35)] active:scale-95 transition-transform flex flex-col items-center justify-center cursor-pointer"
+            >
+              <span className="text-3xl font-mono-numbers tabular-nums font-extrabold text-[#FFF6C8]">
+                {homeTasbihCount}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-[#DFBD69] mt-0.5">
+                Bosing · / 33
+              </span>
+            </button>
+
+            <div className="w-full flex items-center justify-between gap-2 pt-2 border-t border-[#DFBD69]/25 text-xs">
+              <button
+                type="button"
+                onClick={() => setHomeTasbihCount(0)}
+                className="text-[#FFF8E8]/70 hover:text-white cursor-pointer"
+              >
+                Nollash
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('dhikr')}
+                className="font-bold text-[#DFBD69] hover:underline cursor-pointer"
+              >
+                Toʻliq Tasbeh Studiyasi →
+              </button>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      {/* =======================================================================
+          12. ISLOMIY AKADEMIYA VA MASJID JAMOAT TADBIRLARI SHOWCASE (`academy` & `mosque_events`)
+          ======================================================================= */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left 7 Cols: Islomiy Akademiya Darslari */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="flex items-center justify-between border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#063D32] dark:text-[#DFBD69] block">
+                Tizimli Ilmiy Darslar
+              </span>
+              <h2 className="text-2xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+                Islomiy Akademiya (Tajvid, Aqida, Fiqh, Siyrat)
+              </h2>
+            </div>
+            <button
+              onClick={() => onNavigate('academy')}
+              className="text-xs font-bold text-[#063D32] dark:text-[#DFBD69] hover:underline cursor-pointer"
+            >
+              Barcha darslar ({academyLessons.length}) →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {academyLessons.slice(0, 4).map((lesson) => (
+              <Card
+                key={lesson.id}
+                elevated
+                interactive
+                onClick={() => onNavigate('academy')}
+                className="p-5 flex flex-col justify-between gap-3"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-[#063D32] dark:text-[#FFF6C8] font-bold">
+                      {lesson.trackTitleUz}
+                    </span>
+                    <span className="font-mono-numbers text-[#5C746C] dark:text-[#DFBD69]">
+                      {lesson.durationMinutes} daqiqa
+                    </span>
+                  </div>
+                  <h3 className="text-base font-display font-bold text-[#042B25] dark:text-[#FFF8E8] line-clamp-2">
+                    {lesson.title}
+                  </h3>
+                  <p className="text-xs text-[#5C746C] dark:text-[#FFF8E8]/75 line-clamp-2">
+                    {lesson.description}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs">
+                  <span className="text-[#2C4A42] dark:text-[#FFF8E8]/80 truncate">
+                    Ustoz: {lesson.instructor}
+                  </span>
+                  <span className="font-bold text-[#063D32] dark:text-[#DFBD69] shrink-0">
+                    Darsni ochish →
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Right 5 Cols: Masjid va Jamoat Tadbirlari (`mosque_events`) */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#063D32] dark:text-[#DFBD69] block">
+                Juma Suhbatlari va Ilmiy Majlislar
+              </span>
+              <h2 className="text-2xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+                Masjid va Jamoat Tadbirlari
+              </h2>
+            </div>
+            <button
+              onClick={() => onNavigate('mosque_events')}
+              className="text-xs font-bold text-[#063D32] dark:text-[#DFBD69] hover:underline cursor-pointer"
+            >
+              Tadbirlar →
+            </button>
+          </div>
+
+          <div className="space-y-3.5">
+            {mosqueEvents.slice(0, 3).map((ev) => (
+              <Card
+                key={ev.id}
+                elevated
+                interactive
+                onClick={() => onNavigate('mosque_events')}
+                className="p-5 space-y-2.5"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-bold">
+                    {ev.date} · {ev.time}
+                  </span>
+                  <span className="text-[11px] text-[#5C746C] dark:text-[#DFBD69] font-semibold flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{ev.registeredUserIds?.length || 0} ishtirokchi</span>
+                  </span>
+                </div>
+                <h3 className="text-base font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+                  {ev.title}
+                </h3>
+                <p className="text-xs text-[#2C4A42] dark:text-[#FFF8E8]/80 line-clamp-2">
+                  {ev.description}
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-[#5C746C] dark:text-[#FFF8E8]/70 pt-1">
+                  <span className="flex items-center gap-1 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-[#DFBD69] shrink-0" />
+                    <span>{ev.location}</span>
+                  </span>
+                  <span className="font-bold text-[#063D32] dark:text-[#DFBD69] shrink-0">
+                    Roʻyxatdan oʻtish →
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* =======================================================================
+          13. RAQAMLI KUTUBXONA VA MEDIA LAVHALAR SHOWCASE (`library` & `media`)
+          ======================================================================= */}
+      <section className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#063D32]/12 dark:border-[#DFBD69]/20 pb-3">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#063D32] dark:text-[#DFBD69] block">
+              Moʻtabar Kitoblar va Audio/Video Maʼruzalar
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Raqamli Islomiy Kutubxona va Media Lavhalar
+            </h2>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => onNavigate('library')}>
+            <Library className="w-4 h-4 mr-1.5" />
+            <span>Kutubxonaga oʻtish ({digitalBooks.length} kitob)</span>
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {digitalBooks.slice(0, 3).map((book) => (
+            <Card
+              key={book.id}
+              elevated
+              ornamental
+              interactive
+              onClick={() => onNavigate('library')}
+              className="p-6 flex flex-col justify-between gap-4"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-[#063D32] dark:text-[#FFF6C8] font-bold">
+                    {book.categoryTitleUz}
+                  </span>
+                  <span className="font-mono-numbers text-[#5C746C] dark:text-[#DFBD69]">
+                    {book.pagesCount} bet
+                  </span>
+                </div>
+                <h3 className="text-lg font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+                  {book.title}
+                </h3>
+                <div className="text-xs font-semibold text-[#063D32] dark:text-[#DFBD69]">
+                  Muallif: {book.author}
+                </div>
+                <p className="text-xs text-[#2C4A42] dark:text-[#FFF8E8]/80 line-clamp-2 leading-relaxed">
+                  {book.description}
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs">
+                <span className="text-[#5C746C] dark:text-[#FFF8E8]/65">
+                  {book.publisher} · {book.year}
+                </span>
+                <span className="font-bold text-[#063D32] dark:text-[#DFBD69]">
+                  Mutolaa qilish →
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {mediaPosts.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+            {mediaPosts.slice(0, 3).map((post) => (
+              <Card
+                key={post.id}
+                elevated
+                interactive
+                onClick={() => onNavigate('articles')}
+                className="p-4 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#063D32] dark:bg-[#DFBD69]/20 flex items-center justify-center text-[#FFF6C8] shrink-0">
+                    <Play className="w-4 h-4 fill-current" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-[#063D32] dark:text-[#DFBD69]">
+                      {post.category} · {post.type.toUpperCase()}
+                    </div>
+                    <div className="text-sm font-bold text-[#042B25] dark:text-[#FFF8E8] truncate">
+                      {post.title}
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[#DFBD69] shrink-0" />
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* =======================================================================
+          14. UMUMIY VIKTORINA, XAYRIYA (VAQF) VA IBODAT REJALARI SHOWCASE
+          ======================================================================= */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Left 4 Cols: Umumiy Islomiy Viktorina (`quiz`) */}
+        <Card
+          elevated
+          ornamental
+          interactive
+          onClick={() => onNavigate('quiz')}
+          className="lg:col-span-4 p-6 flex flex-col justify-between gap-4"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8] flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-[#DFBD69]" />
+                <span>Ilmiy Viktorina</span>
+              </span>
+              <span className="text-xs font-mono-numbers font-bold text-[#063D32] dark:text-[#DFBD69]">
+                {quizQuestions.length || 10}+ savol
+              </span>
+            </div>
+            <h3 className="text-xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Aqida, Fiqh, Siyrat va Hadis Bilim Sinovi
+            </h3>
+            <p className="text-xs text-[#2C4A42] dark:text-[#FFF8E8]/80 leading-relaxed">
+              Moʻtabar manbalar asosida tuzilgan kunlik 10 talik test savollarini yeching va ilmiy darajangizni oshiring.
+            </p>
+          </div>
+          <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs font-bold text-[#063D32] dark:text-[#DFBD69]">
+            <span>Manbali izohlar bilan</span>
+            <span>Sinovni boshlash →</span>
+          </div>
+        </Card>
+
+        {/* Middle 4 Cols: Xayriya va Vaqf Loyihalari (`charity`) */}
+        <Card
+          elevated
+          ornamental
+          interactive
+          onClick={() => onNavigate('charity')}
+          className="lg:col-span-4 p-6 flex flex-col justify-between gap-4"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                <HeartHandshake className="w-3.5 h-3.5" />
+                <span>Xayriya va Vaqf</span>
+              </span>
+              <span className="text-xs font-mono-numbers font-bold text-emerald-600 dark:text-emerald-400">
+                {charityCampaigns.length} faol loyiha
+              </span>
+            </div>
+            <h3 className="text-xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              {charityCampaigns[0]?.title || 'Masjid Obodonchiligi va Ehson Loyihalari'}
+            </h3>
+            {charityCampaigns[0] && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-mono-numbers">
+                  <span className="text-[#5C746C] dark:text-[#FFF8E8]/75">Yigʻildi:</span>
+                  <span className="font-bold text-[#063D32] dark:text-[#DFBD69]">
+                    {Math.min(
+                      100,
+                      Math.round(
+                        (charityCampaigns[0].collectedAmountUzs /
+                          Math.max(1, charityCampaigns[0].targetAmountUzs)) *
+                          100
+                      )
+                    )}
+                    %
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[#F1EBDD] dark:bg-[#010906] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-[#DFBD69]"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          (charityCampaigns[0].collectedAmountUzs /
+                            Math.max(1, charityCampaigns[0].targetAmountUzs)) *
+                            100
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs font-bold text-[#063D32] dark:text-[#DFBD69]">
+            <span>Shaffof hisobot</span>
+            <span>Ehson va loyihalar →</span>
+          </div>
+        </Card>
+
+        {/* Right 4 Cols: Roʻza, Taqvim va Qurʼon Xatmi Rejasi (`khatm_planner`, `fasting`, `calendar`) */}
+        <Card elevated ornamental className="lg:col-span-4 p-6 flex flex-col justify-between gap-4">
+          <div className="space-y-3">
+            <span className="px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8] inline-flex items-center gap-1.5">
+              <Moon className="w-3.5 h-3.5 text-[#DFBD69]" />
+              <span>Shaxsiy Ibodat Rejalari</span>
+            </span>
+            <h3 className="text-xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Xatm Rejasi, Roʻza Kundaligi va Hijriy Taqvim
+            </h3>
+            <div className="grid grid-cols-1 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => onNavigate('khatm_planner')}
+                className="p-2.5 rounded-xl bg-[#F8F5EC] dark:bg-[#041D13] border border-[#063D32]/15 dark:border-[#DFBD69]/30 hover:border-[#DFBD69] flex items-center justify-between text-xs font-bold text-[#042B25] dark:text-[#FFF8E8] cursor-pointer"
+              >
+                <span>📖 Qurʼon Xatmi ({khatmPlans[0]?.completedPages || 0}/604 bet)</span>
+                <span className="text-[#063D32] dark:text-[#DFBD69]">Ochish →</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('fasting')}
+                className="p-2.5 rounded-xl bg-[#F8F5EC] dark:bg-[#041D13] border border-[#063D32]/15 dark:border-[#DFBD69]/30 hover:border-[#DFBD69] flex items-center justify-between text-xs font-bold text-[#042B25] dark:text-[#FFF8E8] cursor-pointer"
+              >
+                <span>🌙 Roʻza va Saharlik/Iftorlik Duolari</span>
+                <span className="text-[#063D32] dark:text-[#DFBD69]">Ochish →</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('calendar')}
+                className="p-2.5 rounded-xl bg-[#F8F5EC] dark:bg-[#041D13] border border-[#063D32]/15 dark:border-[#DFBD69]/30 hover:border-[#DFBD69] flex items-center justify-between text-xs font-bold text-[#042B25] dark:text-[#FFF8E8] cursor-pointer"
+              >
+                <span>📅 Hijriy-Milodiy Islomiy Taqvim</span>
+                <span className="text-[#063D32] dark:text-[#DFBD69]">Ochish →</span>
+              </button>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* =======================================================================
+          15. IMOMGA SAVOL VA ISLOMIY AI YORDAMCHI SHOWCASE (`ask_imam` & `ai_assistant`)
+          ======================================================================= */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Left 6 Cols: Imomga Savol (`ask_imam`) */}
+        <Card
+          elevated
+          ornamental
+          interactive
+          onClick={() => onNavigate('ask_imam')}
+          className="lg:col-span-6 p-6 sm:p-7 flex flex-col justify-between gap-4"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8] flex items-center gap-1.5">
+                <MessageCircleQuestion className="w-4 h-4 text-[#DFBD69]" />
+                <span>Imomga Savol · Ilmiy Javoblar</span>
+              </span>
+              <span className="text-xs font-mono-numbers text-[#5C746C] dark:text-[#DFBD69]">
+                {imamQuestions.length} ta javob
+              </span>
+            </div>
+            <h3 className="text-xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              {imamQuestions[0]?.title || 'Ibodat, Fiqh va Oila Masalalari Boʻyicha Savol Yoʻllang'}
+            </h3>
+            <p className="text-xs sm:text-sm text-[#2C4A42] dark:text-[#FFF8E8]/85 line-clamp-2 leading-relaxed">
+              {imamQuestions[0]?.answerText ||
+                'Ahli sunna val jamoa — Hanafiy mazhabi moʻtabar manbalari asosida ilmiy javoblar oling.'}
+            </p>
+          </div>
+          <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#DFBD69]/20 flex items-center justify-between text-xs font-bold text-[#063D32] dark:text-[#DFBD69]">
+            <span>{imamQuestions[0]?.assignedScholarName || 'Asaka Jome Masjidi Ilmiy Hayʼati'}</span>
+            <span>Savol berish va javoblar →</span>
+          </div>
+        </Card>
+
+        {/* Right 6 Cols: Islomiy AI Yordamchi (`ai_assistant`) */}
+        <Card
+          variant="emerald"
+          interactive
+          onClick={() => onNavigate('ai_assistant')}
+          className="lg:col-span-6 p-6 sm:p-7 flex flex-col justify-between gap-4 relative overflow-hidden"
+        >
+          <ArabesqueCornerOrnaments size={20} />
+          <div className="space-y-3 relative z-10">
+            <div className="flex items-center justify-between">
+              <span className="px-3 py-1 rounded-full bg-[#DFBD69]/20 border border-[#DFBD69]/45 text-xs font-bold text-[#FFF6C8] flex items-center gap-1.5">
+                <Bot className="w-4 h-4 text-[#DFBD69]" />
+                <span>ASAKA ZIYO · Ilmiy AI Yordamchi</span>
+              </span>
+              <span className="text-xs font-mono-numbers text-emerald-300 font-bold">
+                24/7 Manbali Yordam
+              </span>
+            </div>
+            <h3 className="text-xl font-display font-bold text-[#FFF8E8]">
+              Qurʼon Oyatlarini Qidirish, Hadis va Zikrlar Boʻyicha Aqlli Yordamchi
+            </h3>
+            <p className="text-xs sm:text-sm text-[#FFF8E8]/85 leading-relaxed">
+              Tafsiri Hilol, Sahihul Buxoriy va Hanafiy fiqhi manbalariga tayangan holda tezkor maʼrifiy maʼlumot oling.
+            </p>
+          </div>
+          <div className="relative z-10 pt-3 border-t border-[#DFBD69]/25 flex items-center justify-between text-xs font-bold text-[#DFBD69]">
+            <span>Oyat, hadis va duo qidiruvi</span>
+            <span>AI Yordamchini ochish →</span>
+          </div>
         </Card>
       </section>
 
