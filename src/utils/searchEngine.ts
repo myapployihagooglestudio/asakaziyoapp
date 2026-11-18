@@ -22,7 +22,6 @@ import {
   getStoredNews,
   getStoredMediaPosts,
   getStoredDigitalBooks,
-  getStoredAcademyLessons,
   getStoredMosqueEvents,
 } from './databaseService';
 
@@ -35,7 +34,6 @@ export type SearchCategory =
   | 'news'
   | 'announcements'
   | 'books'
-  | 'academy'
   | 'quiz'
   | 'events'
   | 'media';
@@ -449,36 +447,6 @@ export function performGlobalSearch(query: string, category: SearchCategory = 'a
     });
   }
 
-  // 8. Islamic Learning Academy Lessons
-  if (category === 'all' || category === 'academy') {
-    const lessons = getStoredAcademyLessons().filter((l: any) => !l.isArchived);
-    lessons.forEach((l: any) => {
-      const lessonTitle = l.title || l.titleUz || '';
-      const lessonDesc = l.description || l.summaryUz || l.contentMarkdown || '';
-      const lessonInstructor = l.instructor || l.instructorUz || 'Asaka Ziyo';
-      const lessonTrack = l.trackTitleUz || l.trackId || l.track || '';
-      const match =
-        normalizeSearchQuery(lessonTitle).includes(qNorm) ||
-        normalizeSearchQuery(lessonDesc).includes(qNorm) ||
-        normalizeSearchQuery(lessonInstructor).includes(qNorm) ||
-        normalizeSearchQuery(lessonTrack).includes(qNorm);
-      if (match) {
-        results.push({
-          id: `academy-${l.id}`,
-          category: 'academy',
-          categoryLabelUz: 'Ilm Akademiyasi Darsi',
-          title: lessonTitle,
-          subtitle: `Yoʻnalish: ${lessonTrack} · Ustoz: ${lessonInstructor}`,
-          snippet: l.description || l.summaryUz || '',
-          sourceOrAuthor: l.verifiedSource || l.sourceReferenceUz || lessonInstructor,
-          routeTab: 'academy',
-          routeId: l.id,
-          score: 77,
-          arabicText: l.arabicText,
-        });
-      }
-    });
-  }
 
   // 9. Quiz Archive
   if (category === 'all' || category === 'quiz') {

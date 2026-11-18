@@ -137,8 +137,6 @@ async function runFullE2ESuite() {
   const bookResults = performGlobalSearch('Iymon', 'books');
   assert(bookResults.length > 0, 'Global search indexes Islamic Digital Books ("Iymon")');
 
-  const academyResults = performGlobalSearch('Aqida', 'academy');
-  assert(academyResults.length > 0, 'Global search indexes Islamic Learning Academy lessons ("Aqida")');
 
   const eventResults = performGlobalSearch('Juma', 'events');
   assert(eventResults.length > 0, 'Global search indexes Mosque Events ("Juma")');

@@ -28,10 +28,6 @@ import {
   TasbihSession,
   TasbihStats,
   MosqueEventItem,
-  AcademyLesson,
-  StudentProgress,
-  CharityCampaign,
-  UserDonationPledge,
   FastingDayEntry,
   UserFastingJournal,
   DigitalBookItem,
@@ -263,9 +259,6 @@ export type DBEventType =
   | 'PRAYER_JOURNAL_UPDATED'
   | 'TASBIH_STATS_UPDATED'
   | 'MOSQUE_EVENTS_UPDATED'
-  | 'ACADEMY_LESSONS_UPDATED'
-  | 'STUDENT_PROGRESS_UPDATED'
-  | 'CHARITY_CAMPAIGN_UPDATED'
   | 'FASTING_JOURNAL_UPDATED'
   | 'DIGITAL_BOOKS_UPDATED'
   | 'IMAM_QUESTION_SUBMITTED'
@@ -553,15 +546,7 @@ async function syncFromServerApiFallback(): Promise<boolean> {
       safeSetLocalCache(MOSQUE_EVENTS_KEY, sorted);
       broadcastEvent('MOSQUE_EVENTS_UPDATED', sorted);
     }
-    if (Array.isArray(data.academyLessons) && data.academyLessons.length > 0) {
-      safeSetLocalCache(ACADEMY_LESSONS_KEY, data.academyLessons);
-      broadcastEvent('ACADEMY_LESSONS_UPDATED', data.academyLessons);
-    }
-    if (Array.isArray(data.charityCampaigns) && data.charityCampaigns.length > 0) {
-      const sorted = sortFirestoreDocs(data.charityCampaigns);
-      safeSetLocalCache(CHARITY_CAMPAIGNS_KEY, sorted);
-      broadcastEvent('CHARITY_CAMPAIGN_UPDATED', sorted);
-    }
+
     if (Array.isArray(data.digitalBooks) && data.digitalBooks.length > 0) {
       const sorted = sortFirestoreDocs(data.digitalBooks);
       safeSetLocalCache(DIGITAL_BOOKS_KEY, sorted);
@@ -706,11 +691,9 @@ export async function syncWithFirestore(force = false): Promise<void> {
       safeSetLocalCache(DAILY_QUIZZES_CACHE_KEY, existingMap);
     }
 
-    // 9C. Fetch Mosque Events, Academy Lessons, Charity Campaigns, Digital Books, Imam Questions
-    const [eventsRes, academyRes, charityRes, booksRes, imamRes] = await Promise.all([
+    // 9C. Fetch Mosque Events, Digital Books, Imam Questions
+    const [eventsRes, booksRes, imamRes] = await Promise.all([
       fetchCollectionFromFirestore<MosqueEventItem>('mosqueEvents'),
-      fetchCollectionFromFirestore<AcademyLesson>('academyLessons'),
-      fetchCollectionFromFirestore<CharityCampaign>('charityCampaigns'),
       fetchCollectionFromFirestore<DigitalBookItem>('digitalBooks'),
       fetchCollectionFromFirestore<ImamQuestionItem>('imamQuestions'),
     ]);
@@ -719,15 +702,6 @@ export async function syncWithFirestore(force = false): Promise<void> {
       const sortedEvents = sortFirestoreDocs(eventsRes.data as any);
       safeSetLocalCache(MOSQUE_EVENTS_KEY, sortedEvents);
       broadcastEvent('MOSQUE_EVENTS_UPDATED', sortedEvents);
-    }
-    if (academyRes.success && academyRes.data.length > 0) {
-      safeSetLocalCache(ACADEMY_LESSONS_KEY, academyRes.data);
-      broadcastEvent('ACADEMY_LESSONS_UPDATED', academyRes.data);
-    }
-    if (charityRes.success && charityRes.data.length > 0) {
-      const sortedCampaigns = sortFirestoreDocs(charityRes.data as any);
-      safeSetLocalCache(CHARITY_CAMPAIGNS_KEY, sortedCampaigns);
-      broadcastEvent('CHARITY_CAMPAIGN_UPDATED', sortedCampaigns);
     }
     if (booksRes.success && booksRes.data.length > 0) {
       const sortedBooks = sortFirestoreDocs(booksRes.data as any);
@@ -4369,313 +4343,7 @@ export function toggleEventRegistration(eventId: string, userId: string): boolea
   return !isRegistered;
 }
 
-// ---------------------------------------------------------------------------
-// 5. ISLAMIC LEARNING ACADEMY
-// ---------------------------------------------------------------------------
-const ACADEMY_LESSONS_KEY = 'asaka_ziyo_academy_lessons_v1';
-const STUDENT_PROGRESS_KEY = 'asaka_ziyo_student_progress_v1';
 
-export const INITIAL_ACADEMY_LESSONS: AcademyLesson[] = [
-  {
-    id: 'lesson-aqida-01',
-    trackId: 'aqida',
-    trackTitleUz: 'Aqiydai Tahoviya Asoslari',
-    order: 1,
-    title: 'Alloh taoloning Birligi va Sifatlari',
-    description: 'Ahli sunna val jamoa aqidasi boʻyicha tavhid va Alloh taoloning zotiy hamda feʼliy sifatlari.',
-    durationMinutes: 25,
-    instructor: 'Shayx Muhammad Sodiq Muhammad Yusuf rahmatullohi alayh merosi',
-    verifiedSource: '«Aqidatut-Tahoviya sharhi» (Hilol Nashr)',
-    contentMarkdown: `### 1. Alloh taolo Bitta boʻlib, Uning sherigi yoʻqdir.\n\nHech bir narsa Unga oʻxshamaydi va hech bir narsa Uni ojiz qoldira olmaydi. Undan oʻzga hech bir iloh yoʻqdir.\n\n### 2. Qadim Zot\n\nU avvali yoʻq Qadim, intihosi yoʻq Doimiydir. U fano boʻlmas, halok boʻlmas. Faqat U xohlagan narsagina boʻladi.`,
-    quizQuestions: [
-      {
-        question: 'Ahli sunna aqidasiga koʻra Alloh taoloning zotiga xos xususiyat qaysi?',
-        options: ['Sherigi yoʻq, hech narsa Unga oʻxshamaydi', 'Mavjudotlarga oʻxshaydi', 'Biror zamonda paydo boʻlgan', 'Boshqa kuchlarga muhtoj'],
-        correctIndex: 0,
-        explanation: 'Alloh taolo bitta, tengsiz va barcha nuqsonlardan pokdir.',
-        sourceReference: 'Aqidatut-Tahoviya, 1-band',
-      },
-    ],
-  },
-  {
-    id: 'lesson-fiqh-01',
-    trackId: 'fiqh',
-    trackTitleUz: 'Hanafiy Fiqhi: Tahorat va Namoz',
-    order: 1,
-    title: 'Tahoratning Farzlari va Sunnatlari',
-    description: 'Hanafiy mazhabi boʻyicha tahoratning 4 ta farzi, vojiblari va mustahablari.',
-    durationMinutes: 20,
-    instructor: 'Muxtasarul Viqoya sharhi asosida',
-    verifiedSource: '«Kifoya» (Hilol Nashr), 1-jild',
-    contentMarkdown: `### Tahoratning 4 farzi:\n\n1. Yuzni soch chiqqan joydan iyak ostigacha va ikki quloq yumshogʻigacha bir marta yuvish.\n2. Ikki qoʻlni tirsaklari bilan birga yuvish.\n3. Boshning toʻrtdan bir qismiga mash tortish.\n4. Ikki oyoqni toʻpigʻi bilan birga yuvish.`,
-    quizQuestions: [
-      {
-        question: 'Hanafiy mazhabida tahoratning farzlari nechta?',
-        options: ['4 ta', '6 ta', '3 ta', '5 ta'],
-        correctIndex: 0,
-        explanation: 'Tahoratda yuz, ikki qoʻl tirsagi bilan, boshga mash tortish va ikki oyoqni yuvish — 4 farzdir.',
-        sourceReference: 'Kifoya, 1-juz, Tahorat bobi',
-      },
-    ],
-  },
-  {
-    id: 'lesson-tajwid-01',
-    trackId: 'tajwid',
-    trackTitleUz: 'Tajvid Qoidalari',
-    order: 1,
-    title: 'Nun Sakina va Tanvin Qoidalari',
-    description: 'Izhor, Idgʻom, Iqlab va Ixfo qoidalarining amaliy tatbiqi.',
-    durationMinutes: 30,
-    instructor: 'Shayx Ayman Rushdiy Suvayd qoidalari',
-    verifiedSource: '«Muallimi Soniy» va «At-Tajvidul Musavvar»',
-    contentMarkdown: `Nun sakina yoki tanvindan keyin kelgan harflarga qarab 4 xil holat yuz beradi:\n\n1. **Izhor** — 6 tomoq harfi (ء, هـ, ع, ح, غ, خ) kelsa ochiq oʻqiladi.\n2. **Idgʻom** — Yarmalun harflarida qoʻshib oʻqiladi.\n3. **Iqlab** — Ba harfida mimga aylanadi.\n4. **Ixfo** — Qolgan 15 harfda burundan yashirib oʻqiladi.`,
-    quizQuestions: [
-      {
-        question: 'Nun sakina yoki tanvindan keyin tomoq harflari kelsa qaysi qoida boʻladi?',
-        options: ['Izhor', 'Ixfo', 'Idgʻom', 'Iqlab'],
-        correctIndex: 0,
-        explanation: 'Tomoq harflari (ء هـ ع ح غ خ) kelganda nun aniq va ochiq talaffuz qilinadi.',
-        sourceReference: 'At-Tajvidul Musavvar',
-      },
-    ],
-  },
-  {
-    id: 'lesson-seerah-01',
-    trackId: 'seerah',
-    trackTitleUz: 'Nabaviy Siyrat',
-    order: 1,
-    title: 'Paygʻambarimiz (s.a.v.)ning Nasablari va Tavalludlari',
-    description: 'Rasululloh sollallohu alayhi vasallamning muborak oilalari va Fil yilidagi tavalludlari.',
-    durationMinutes: 35,
-    instructor: 'Shayx Muhammad Sodiq Muhammad Yusuf',
-    verifiedSource: '«Nubuvvat va Risolat» hamda «Tarixi Muhammadiy»',
-    contentMarkdown: `Rasululloh sollallohu alayhi vasallam milodiy 571-yil, Robiʼul avval oyining 12-kuni, dushanba tongida Makkai Mukarramada dunyoga keldilar. Otalari Abdulloh, onalari Omina binti Vahbdir.`,
-    quizQuestions: [
-      {
-        question: 'Paygʻambarimiz sollallohu alayhi vasallam qaysi oyda tavallud topganlar?',
-        options: ['Robiʼul avval', 'Ramazon', 'Muharram', 'Rajab'],
-        correctIndex: 0,
-        explanation: 'Rasululloh (s.a.v.) Robiʼul avval oyining 12-kuni dushanbada tavallud topganlar.',
-        sourceReference: 'Tarixi Muhammadiy',
-      },
-    ],
-  },
-];
-
-export function getStoredAcademyLessons(): AcademyLesson[] {
-  return safeGetLocalCache<AcademyLesson[]>(ACADEMY_LESSONS_KEY, INITIAL_ACADEMY_LESSONS);
-}
-
-export async function saveStoredAcademyLesson(
-  lesson: AcademyLesson
-): Promise<{ success: boolean; lesson?: AcademyLesson; error?: string }> {
-  if (isAdminAuthenticated()) {
-    const fsRes = await syncDocToFirestore('academyLessons', lesson.id, lesson as any);
-    if (!fsRes.success) {
-      return { success: false, error: fsRes.error || 'Firestore darsni saqlash rad etildi' };
-    }
-  }
-  const all = getStoredAcademyLessons();
-  const idx = all.findIndex((l) => l.id === lesson.id);
-  const updated = idx >= 0 ? all.map((l, i) => (i === idx ? lesson : l)) : [...all, lesson];
-  safeSetLocalCache(ACADEMY_LESSONS_KEY, updated);
-  broadcastEvent('ACADEMY_LESSONS_UPDATED', updated);
-  return { success: true, lesson };
-}
-
-export async function deleteStoredAcademyLesson(id: string): Promise<{ success: boolean; error?: string }> {
-  if (isAdminAuthenticated()) {
-    const fsRes = await deleteDocFromFirestore('academyLessons', id);
-    if (!fsRes.success) {
-      return { success: false, error: fsRes.error || 'Darsni oʻchirish rad etildi' };
-    }
-  }
-  const updated = getStoredAcademyLessons().filter((l) => l.id !== id);
-  safeSetLocalCache(ACADEMY_LESSONS_KEY, updated);
-  broadcastEvent('ACADEMY_LESSONS_UPDATED', updated);
-  return { success: true };
-}
-
-export function getStoredStudentProgress(userId: string): StudentProgress {
-  const cacheKey = `${STUDENT_PROGRESS_KEY}_${userId}`;
-  return safeGetLocalCache<StudentProgress>(cacheKey, {
-    userId,
-    completedLessons: [],
-    trackProgress: {
-      aqida: { completedCount: 0 },
-      fiqh: { completedCount: 0 },
-      tajwid: { completedCount: 0 },
-      hadith: { completedCount: 0 },
-      seerah: { completedCount: 0 },
-      history: { completedCount: 0 },
-    },
-    enrolledDate: new Date().toISOString().split('T')[0],
-    lastActiveDate: new Date().toISOString().split('T')[0],
-    certificatesEarned: [],
-  });
-}
-
-export function markLessonCompleted(userId: string, lessonId: string, trackId: any): StudentProgress {
-  const progress = getStoredStudentProgress(userId);
-  if (progress.completedLessons.includes(lessonId)) return progress;
-
-  const completed = [...progress.completedLessons, lessonId];
-  const trackObj = progress.trackProgress[trackId as keyof typeof progress.trackProgress] || { completedCount: 0 };
-  const updatedTrack = {
-    ...progress.trackProgress,
-    [trackId]: { ...trackObj, completedCount: trackObj.completedCount + 1 },
-  };
-
-  const updated: StudentProgress = {
-    ...progress,
-    completedLessons: completed,
-    trackProgress: updatedTrack,
-    lastActiveDate: new Date().toISOString().split('T')[0],
-  };
-
-  const cacheKey = `${STUDENT_PROGRESS_KEY}_${userId}`;
-  safeSetLocalCache(cacheKey, updated);
-  broadcastEvent('STUDENT_PROGRESS_UPDATED', updated);
-  syncDocToFirestore('studentProgress', userId, updated).catch(() => {});
-  return updated;
-}
-
-// ---------------------------------------------------------------------------
-// 6. CHARITY & SADAQAH MODULE
-// ---------------------------------------------------------------------------
-const CHARITY_CAMPAIGNS_KEY = 'asaka_ziyo_charity_campaigns_v1';
-const CHARITY_PLEDGES_KEY = 'asaka_ziyo_charity_pledges_v1';
-
-export const INITIAL_CHARITY_CAMPAIGNS: CharityCampaign[] = [
-  {
-    id: 'campaign-masjid-tamir-01',
-    title: 'Asaka Markaziy Jome Masjidi Tahoratxona Taʼmiri',
-    category: 'masjid_tamiri',
-    description: 'Qish mavsumi oldidan masjid tahoratxonasining issiqlik tizimi va sanitariya jihozlarini yangilash loyihasi.',
-    targetAmountUzs: 35000000,
-    collectedAmountUzs: 28500000,
-    pledgedAmountUzs: 3200000,
-    deadlineDate: '2026-12-01',
-    beneficiaryLocation: 'Asaka shahri, Markaziy Jome masjidi',
-    supportingDocuments: [
-      { title: 'Masjid kengashi qarori', docUrl: '#' },
-      { title: 'Loyiha-smeta hujjati', docUrl: '#' },
-    ],
-    isVerified: true,
-    status: 'active',
-    paymentInstructions: {
-      providerName: 'Rasmiy Bank va Click/Payme Oʻtkazmasi',
-      accountReference: 'ASAKA-MASJID-2026-EHSON',
-      legalEntityName: 'Asaka Markaziy Jome Masjidi Jamgʻarmasi',
-    },
-    financialAuditRecords: [
-      {
-        recordId: 'audit-001',
-        date: '2026-11-01',
-        amountUzs: 14000000,
-        purpose: 'Quvurlar va radiatorlar xaridi uchun',
-        verifiedBy: 'Taftish komissiyasi',
-      },
-      {
-        recordId: 'audit-002',
-        date: '2026-11-04',
-        amountUzs: 8500000,
-        purpose: 'Santexnika va keramik qoplamalar',
-        verifiedBy: 'Taftish komissiyasi',
-      },
-    ],
-    publishedAt: '2026-10-25T08:00:00Z',
-    updatedAt: '2026-11-05T08:00:00Z',
-  },
-  {
-    id: 'campaign-talabalar-02',
-    title: 'Ilm Ahliga Koʻmak: Kam Taʼminlangan Talabalar Stipediyasi',
-    category: 'talabalar',
-    description: 'Diniy va dunyoviy ilmlarda aʼlo oʻqiyotgan iqtidorli yoshlar kitob va oʻquv qurollari xaridi uchun moddiy yordam.',
-    targetAmountUzs: 18000000,
-    collectedAmountUzs: 12400000,
-    pledgedAmountUzs: 1500000,
-    deadlineDate: '2026-12-15',
-    beneficiaryLocation: 'Asaka shahri talabalari',
-    supportingDocuments: [{ title: 'Stipendiya nizomi', docUrl: '#' }],
-    isVerified: true,
-    status: 'active',
-    paymentInstructions: {
-      providerName: 'Rasmiy Ehson Hisob Raqami',
-      accountReference: 'ASAKA-TALABA-ZIYO',
-      legalEntityName: 'Asaka Ziyo Maʼrifat Jamgʻarmasi',
-    },
-    financialAuditRecords: [],
-    publishedAt: '2026-11-01T08:00:00Z',
-    updatedAt: '2026-11-01T08:00:00Z',
-  },
-];
-
-export function getStoredCharityCampaigns(): CharityCampaign[] {
-  return safeGetLocalCache<CharityCampaign[]>(CHARITY_CAMPAIGNS_KEY, INITIAL_CHARITY_CAMPAIGNS);
-}
-
-export async function saveStoredCharityCampaign(
-  campaign: CharityCampaign
-): Promise<{ success: boolean; campaign?: CharityCampaign; error?: string }> {
-  const canonical: CharityCampaign = {
-    ...campaign,
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (isAdminAuthenticated()) {
-    const fsRes = await syncDocToFirestore('charityCampaigns', canonical.id, canonical);
-    if (!fsRes.success) {
-      return { success: false, error: fsRes.error || 'Firestore xayriya loyihasini saqlash rad etildi' };
-    }
-  }
-
-  const all = getStoredCharityCampaigns();
-  const index = all.findIndex((c) => c.id === canonical.id);
-  let updated: CharityCampaign[];
-  if (index >= 0) {
-    updated = [...all];
-    updated[index] = canonical;
-  } else {
-    updated = [canonical, ...all];
-  }
-  safeSetLocalCache(CHARITY_CAMPAIGNS_KEY, updated);
-  broadcastEvent('CHARITY_CAMPAIGN_UPDATED', canonical);
-  return { success: true, campaign: canonical };
-}
-
-export async function deleteStoredCharityCampaign(id: string): Promise<{ success: boolean; error?: string }> {
-  if (isAdminAuthenticated()) {
-    const fsRes = await deleteDocFromFirestore('charityCampaigns', id);
-    if (!fsRes.success) {
-      return { success: false, error: fsRes.error || 'Xayriya loyihasini oʻchirish rad etildi' };
-    }
-  }
-  const updated = getStoredCharityCampaigns().filter((c) => c.id !== id);
-  safeSetLocalCache(CHARITY_CAMPAIGNS_KEY, updated);
-  broadcastEvent('CHARITY_CAMPAIGN_UPDATED', updated);
-  return { success: true };
-}
-
-export function recordDonationPledge(pledge: UserDonationPledge): void {
-  const pledges = safeGetLocalCache<UserDonationPledge[]>(CHARITY_PLEDGES_KEY, []);
-  const updated = [pledge, ...pledges];
-  safeSetLocalCache(CHARITY_PLEDGES_KEY, updated);
-
-  // Update campaign pledged amount
-  const campaigns = getStoredCharityCampaigns();
-  const camp = campaigns.find((c) => c.id === pledge.campaignId);
-  if (camp) {
-    const newPledged = camp.pledgedAmountUzs + pledge.amountUzs;
-    const updatedCamp = { ...camp, pledgedAmountUzs: newPledged, updatedAt: new Date().toISOString() };
-    const updatedList = campaigns.map((c) => (c.id === camp.id ? updatedCamp : c));
-    safeSetLocalCache(CHARITY_CAMPAIGNS_KEY, updatedList);
-    broadcastEvent('CHARITY_CAMPAIGN_UPDATED', updatedCamp);
-    setDoc(doc(db, 'charityCampaigns', camp.id), { pledgedAmountUzs: newPledged, updatedAt: updatedCamp.updatedAt }, { merge: true }).catch(() => {});
-  }
-
-  syncDocToFirestore('charityPledges', pledge.id, pledge).catch(() => {});
-}
 
 // ---------------------------------------------------------------------------
 // 7. RAMADAN & VOLUNTARY FASTING ASSISTANT
@@ -4997,16 +4665,6 @@ export const DEFAULT_ACHIEVEMENT_MILESTONES: IslamicAchievementMilestone[] = [
     currentCount: 8,
     isUnlocked: false,
   },
-  {
-    id: 'milestone-academy-first',
-    category: 'academy',
-    titleUz: 'Birinchi Dars',
-    descriptionUz: 'Asaka Ziyo Akademiyasida dastlabki darsni muvaffaqiyatli yakunlash.',
-    iconName: 'CheckCircle2',
-    targetCount: 1,
-    currentCount: 1,
-    isUnlocked: true,
-  },
 ];
 
 export function getStoredUserAchievements(userId: string): PersonalProgressSummary {
@@ -5018,7 +4676,6 @@ export function getStoredUserAchievements(userId: string): PersonalProgressSumma
     prayersCompletedTotal: 15,
     dhikrsCountTotal: 250,
     quizzesCompletedTotal: 2,
-    academyLessonsCompleted: 1,
     isPrivate: true,
     achievements: DEFAULT_ACHIEVEMENT_MILESTONES,
     updatedAt: new Date().toISOString(),

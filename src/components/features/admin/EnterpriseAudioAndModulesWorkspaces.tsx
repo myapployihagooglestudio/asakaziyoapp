@@ -63,13 +63,10 @@ import {
 import {
   getStoredMosqueEvents,
   saveStoredMosqueEvent,
-  getStoredAcademyLessons,
   getStoredDigitalBooks,
   saveStoredDigitalBook,
   getStoredImamQuestions,
   answerImamQuestion,
-  getStoredCharityCampaigns,
-  saveStoredCharityCampaign,
   getStoredQuranBookmarks,
   uploadAdminMediaFile,
   subscribeToDatabase,
@@ -400,7 +397,6 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
   const [newEventInstructor, setNewEventInstructor] = useState('Asaka bosh imom-xatibi');
   const [newEventDesc, setNewEventDesc] = useState('');
 
-  const [academyLessons] = useState(() => getStoredAcademyLessons());
   const [digitalBooks, setDigitalBooks] = useState(() => getStoredDigitalBooks());
   const [newBookTitle, setNewBookTitle] = useState('');
   const [newBookAuthor, setNewBookAuthor] = useState('Shayx Muhammad Sodiq Muhammad Yusuf');
@@ -411,10 +407,7 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
   const [imamAnswerText, setImamAnswerText] = useState('');
   const [imamSourceRef, setImamSourceRef] = useState('«Kifoya» / «Hadis va Hayot»');
 
-  const [charityCampaigns, setCharityCampaigns] = useState(() => getStoredCharityCampaigns());
-  const [newCharityTitle, setNewCharityTitle] = useState('');
-  const [newCharityTarget, setNewCharityTarget] = useState(25000000);
-  const [newCharityDesc, setNewCharityDesc] = useState('');
+
 
   const [visualSettings, setVisualSettings] = useState(() => getEnterpriseVisualSettings());
   const [rbacMatrix, setRbacMatrix] = useState(() => getRbacMatrix());
@@ -2148,39 +2141,6 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
     );
   }
 
-  // --------------------------------------------------------------------------
-  // RENDER MODULE 20: LEARNING ACADEMY & COURSES
-  // --------------------------------------------------------------------------
-  if (activeModule === 'learning_academy') {
-    return (
-      <Card variant="elevated" className="p-6 border-gold/25 space-y-4">
-        <div>
-          <h3 className="text-lg font-serif font-bold text-primary">
-            20. Islom Ilm Akademiyasi va Oʻquv Kurslari ({academyLessons.length} ta dars)
-          </h3>
-          <p className="text-xs text-muted">
-            Aqida, Hanafiy fiqhi, Tajvid va Siyrat oʻquv dasturlari hamda imtihon savollari.
-          </p>
-        </div>
-        <div className="space-y-3">
-          {academyLessons.map((lesson) => (
-            <div key={lesson.id} className="p-4 rounded-xl bg-surface/70 border border-divider">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-primary">
-                  {lesson.trackTitleUz}: {lesson.title}
-                </span>
-                <span className="text-xs text-gold">{lesson.durationMinutes} daqiqa</span>
-              </div>
-              <p className="text-xs text-secondary mt-1">{lesson.description}</p>
-              <div className="text-[11px] text-muted mt-1">
-                Ustoz: {lesson.instructor} · Tasdiqlangan manba: {lesson.verifiedSource}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    );
-  }
 
   // --------------------------------------------------------------------------
   // RENDER MODULE 21: ISLAMIC DIGITAL LIBRARY
@@ -2380,106 +2340,6 @@ export const EnterpriseAudioAndModulesWorkspaces: React.FC<WorkspaceProps> = ({
     );
   }
 
-  // --------------------------------------------------------------------------
-  // RENDER MODULE 23: CHARITY & SADAQAH CAMPAIGNS
-  // --------------------------------------------------------------------------
-  if (activeModule === 'charity_donations') {
-    return (
-      <Card variant="elevated" className="p-6 border-gold/25 space-y-5">
-        <div>
-          <h3 className="text-lg font-serif font-bold text-primary">
-            23. Xayriya, Sadaqa va Vaqf Loyihalari ({charityCampaigns.length} ta faol loyiha)
-          </h3>
-          <p className="text-xs text-muted">
-            Masjid obodonchiligi va ilm ahliga koʻmak loyihalari hamda shaffof taftish hisobotlari.
-          </p>
-        </div>
-
-        {canCreate && (
-          <div className="p-4 rounded-xl bg-surface/60 border border-divider space-y-3">
-            <div className="text-xs font-bold text-primary">Yangi Xayriya Loyihasi Yaratish</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input
-                type="text"
-                placeholder="Loyiha nomi"
-                value={newCharityTitle}
-                onChange={(e) => setNewCharityTitle(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-canvas border border-divider text-xs text-primary"
-              />
-              <input
-                type="number"
-                placeholder="Maqsadli summa (UZS)"
-                value={newCharityTarget}
-                onChange={(e) => setNewCharityTarget(Number(e.target.value))}
-                className="px-3 py-2 rounded-lg bg-canvas border border-divider text-xs text-primary"
-              />
-              <input
-                type="text"
-                placeholder="Loyiha maqsadi va tavsifi"
-                value={newCharityDesc}
-                onChange={(e) => setNewCharityDesc(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-canvas border border-divider text-xs text-primary"
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button
-                variant="primary"
-                onClick={async () => {
-                  if (!newCharityTitle.trim()) return;
-                  const res = await saveStoredCharityCampaign({
-                    id: `campaign-${Date.now()}`,
-                    title: newCharityTitle.trim(),
-                    category: 'masjid_tamiri',
-                    description: newCharityDesc.trim() || newCharityTitle.trim(),
-                    targetAmountUzs: newCharityTarget,
-                    collectedAmountUzs: 0,
-                    pledgedAmountUzs: 0,
-                    deadlineDate: '2026-12-31',
-                    beneficiaryLocation: 'Asaka shahri',
-                    supportingDocuments: [],
-                    isVerified: true,
-                    status: 'active',
-                    paymentInstructions: {
-                      providerName: 'Rasmiy Ehson Hisob Raqami',
-                      accountReference: 'ASAKA-ZIYO-VAQF',
-                      legalEntityName: 'Asaka Markaziy Jome Masjidi',
-                    },
-                    financialAuditRecords: [],
-                    publishedAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  });
-                  if (!res.success) {
-                    onStatusMessage(`Xatolik: ${res.error || 'Xayriya loyihasini saqlash rad etildi'}`, true);
-                    return;
-                  }
-                  setCharityCampaigns(getStoredCharityCampaigns());
-                  setNewCharityTitle('');
-                  setNewCharityDesc('');
-                  onStatusMessage('Yangi xayriya loyihasi Firestore bulutiga nashr etildi.');
-                }}
-              >
-                Loyihani Nashr Etish
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3">
-          {charityCampaigns.map((camp) => (
-            <div key={camp.id} className="p-4 rounded-xl bg-surface/70 border border-divider">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-primary">{camp.title}</span>
-                <span className="text-xs text-gold">
-                  {camp.collectedAmountUzs.toLocaleString()} / {camp.targetAmountUzs.toLocaleString()} UZS
-                </span>
-              </div>
-              <p className="text-xs text-secondary mt-1">{camp.description}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-    );
-  }
 
   // --------------------------------------------------------------------------
   // RENDER MODULE 25: THEMES & VISUAL SETTINGS

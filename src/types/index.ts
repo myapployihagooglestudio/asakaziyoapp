@@ -26,8 +26,6 @@ export type NavigationTab =
   | 'khatm_planner'
   | 'prayer_journal'
   | 'mosque_events'
-  | 'academy'
-  | 'charity'
   | 'fasting'
   | 'library'
   | 'ask_imam'
@@ -566,89 +564,7 @@ export interface MosqueEventItem extends Archivable {
   updatedAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// 5. ISLAMIC LEARNING ACADEMY
-// ---------------------------------------------------------------------------
-export type AcademyTrackKey = 'aqida' | 'fiqh' | 'tajwid' | 'hadith' | 'seerah' | 'history';
 
-export interface AcademyLesson {
-  id: string;
-  trackId: AcademyTrackKey;
-  trackTitleUz: string;
-  order: number;
-  title: string;
-  description: string;
-  durationMinutes: number;
-  instructor: string;
-  verifiedSource: string;
-  audioUrl?: string;
-  videoUrl?: string;
-  contentMarkdown: string;
-  quizQuestions?: {
-    question: string;
-    options: string[];
-    correctIndex: number;
-    explanation: string;
-    sourceReference: string;
-  }[];
-}
-
-export interface StudentProgress {
-  userId: string;
-  completedLessons: string[]; // lesson IDs
-  trackProgress: Record<AcademyTrackKey, { completedCount: number; examScore?: number }>;
-  enrolledDate: string;
-  lastActiveDate: string;
-  certificatesEarned: string[];
-}
-
-// ---------------------------------------------------------------------------
-// 6. CHARITY & SADAQAH MODULE
-// ---------------------------------------------------------------------------
-export type CampaignStatus = 'active' | 'completed' | 'urgent';
-
-export interface CharityCampaign extends Archivable {
-  id: string;
-  title: string;
-  category: 'masjid_tamiri' | 'muhtojlar' | 'talabalar' | 'ramazon_ehson' | 'iftorlik';
-  description: string;
-  targetAmountUzs: number;
-  collectedAmountUzs: number;
-  pledgedAmountUzs: number;
-  deadlineDate: string;
-  beneficiaryLocation: string;
-  supportingDocuments: { title: string; docUrl: string }[];
-  isVerified: boolean;
-  status: CampaignStatus;
-  paymentInstructions: {
-    providerName: string; // Click / Payme / Bank Transfer (Non-credentialed standard payment flow)
-    accountReference: string;
-    legalEntityName: string;
-    officialInvoiceUrl?: string;
-  };
-  financialAuditRecords: {
-    recordId: string;
-    date: string;
-    amountUzs: number;
-    purpose: string;
-    receiptUrl?: string;
-    verifiedBy: string;
-  }[];
-  publishedAt: string;
-  updatedAt: string;
-}
-
-export interface UserDonationPledge {
-  id: string;
-  userId: string;
-  campaignId: string;
-  campaignTitle: string;
-  amountUzs: number;
-  status: 'pledged' | 'confirmed';
-  transactionReference?: string;
-  donatedAt: string;
-  isAnonymous: boolean;
-}
 
 // ---------------------------------------------------------------------------
 // 7. RAMADAN & VOLUNTARY FASTING ASSISTANT
@@ -763,7 +679,6 @@ export interface PersonalProgressSummary {
   prayersCompletedTotal: number;
   dhikrsCountTotal: number;
   quizzesCompletedTotal: number;
-  academyLessonsCompleted: number;
   isPrivate: boolean;
   achievements: IslamicAchievementMilestone[];
   updatedAt: string;

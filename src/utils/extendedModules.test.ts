@@ -33,11 +33,6 @@ import {
   getStoredTasbihStats,
   getStoredMosqueEvents,
   toggleEventRegistration,
-  getStoredAcademyLessons,
-  markLessonCompleted,
-  getStoredStudentProgress,
-  getStoredCharityCampaigns,
-  recordDonationPledge,
   getStoredFastingJournal,
   toggleCompletedFast,
   getStoredDigitalBooks,
@@ -165,54 +160,6 @@ assert(
   'User successfully unregistered from mosque event'
 );
 
-// ---------------------------------------------------------------------------
-// 5. Islamic Learning Academy Tests
-// ---------------------------------------------------------------------------
-console.log('Testing 5: Islamic Learning Academy...');
-const academyLessons = getStoredAcademyLessons();
-assert(academyLessons.length >= 4, 'Academy contains verified structured tracks');
-
-const initialProgress = getStoredStudentProgress('student_user_1');
-assert(initialProgress.completedLessons.length === 0, 'Initial student progress has 0 completed lessons');
-
-const updatedProgress = markLessonCompleted('student_user_1', 'lesson-aqida-01', 'aqida');
-assert(
-  updatedProgress.completedLessons.includes('lesson-aqida-01'),
-  'Lesson marked completed in student progress'
-);
-assert(
-  updatedProgress.trackProgress.aqida.completedCount === 1,
-  'Aqida track completed count incremented to 1'
-);
-
-// ---------------------------------------------------------------------------
-// 6. Charity & Sadaqah Module Tests
-// ---------------------------------------------------------------------------
-console.log('Testing 6: Charity & Sadaqah Module...');
-const campaigns = getStoredCharityCampaigns();
-assert(campaigns.length >= 2, 'Verified charity campaigns are present');
-
-const firstCamp = campaigns[0];
-const initialPledged = firstCamp.pledgedAmountUzs;
-
-recordDonationPledge({
-  id: 'pledge_test_01',
-  userId: 'donor_user_1',
-  campaignId: firstCamp.id,
-  campaignTitle: firstCamp.title,
-  amountUzs: 100000,
-  status: 'pledged',
-  transactionReference: 'TEST-REF-100K',
-  donatedAt: new Date().toISOString(),
-  isAnonymous: true,
-});
-
-const updatedCampaigns = getStoredCharityCampaigns();
-const updatedCamp = updatedCampaigns.find((c) => c.id === firstCamp.id);
-assert(
-  updatedCamp?.pledgedAmountUzs === initialPledged + 100000,
-  'Campaign pledged amount accurately incremented by 100,000 UZS'
-);
 
 // ---------------------------------------------------------------------------
 // 7. Ramadan & Voluntary Fasting Assistant Tests
@@ -276,7 +223,7 @@ assert(Boolean(answeredQ?.answerText?.includes('toʻrtdan biriga')), 'Answer tex
 // ---------------------------------------------------------------------------
 console.log('Testing 10: Personal Islamic Achievements...');
 const userAchievements = getStoredUserAchievements('achieve_user_1');
-assert(userAchievements.achievements.length >= 6, 'Achievements initialized with structured milestones');
+assert(userAchievements.achievements.length >= 5, 'Achievements initialized with structured milestones');
 const fatihaMilestone = userAchievements.achievements.find((m) => m.id === 'milestone-fatiha-recited');
 assert(fatihaMilestone?.isUnlocked === true, 'Fotiha Nuri milestone unlocked upon starting');
 
