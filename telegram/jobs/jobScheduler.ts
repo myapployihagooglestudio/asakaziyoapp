@@ -1,20 +1,29 @@
 /**
- * ASAKA ZIYO — Isolated Telegram Polling & Background Job Scheduler
+ * ASAKA ZIYO — Isolated Telegram Polling & Scheduled Azan/Channel Job Scheduler
  *
- * Manages long-polling mode with explicit diagnostics, error visibility,
- * conflict/unauthorized handling, and graceful backoff without blocking Express.
+ * Manages:
+ * 1. Long-polling loop with explicit diagnostics, 401/409 handling, and backoff.
+ * 2. Scheduled 60-second Asia/Tashkent Azan reminder & daily auto-publishing job
+ *    with strict per-day deduplication.
  */
 
 import { TelegramApiUpdate } from '../types';
 import { TelegramApiClient } from '../api/telegramApiClient';
 import { TelegramLogger } from '../middlewares/logger';
+import { TelegramPrayerAdapter, getTashkentNowParts } from '../prayer/prayerAdapter';
+import { TelegramRepository } from '../database/telegramRepository';
+import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
+import { TelegramPublishingService } from '../publishing/publishingService';
 
 export interface TelegramPollingStatus {
   pollingActive: boolean;
+  schedulerActive: boolean;
   lastPollAt: string | null;
   lastSuccessfulPollAt: string | null;
   lastUpdateAt: string | null;
   updatesProcessedCount: number;
+  azanRemindersDispatched: number;
+  autoChannelPostsDispatched: number;
   consecutiveErrors: number;
   lastError: string | null;
   lastErrorCode: number | null;
@@ -25,14 +34,26 @@ export class TelegramJobScheduler {
   private readonly apiClient: TelegramApiClient;
   private readonly onUpdate: (update: TelegramApiUpdate) => Promise<unknown>;
   private readonly logger: TelegramLogger;
+  private readonly prayerAdapter?: TelegramPrayerAdapter;
+  private readonly repository?: TelegramRepository;
+  private readonly emojiRegistry?: CustomEmojiRegistry;
+  private readonly publishingService?: TelegramPublishingService;
+
   private pollingActive = false;
+  private schedulerActive = false;
   private offset: number | undefined;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private scheduleInterval: ReturnType<typeof setInterval> | null = null;
+
+  private readonly dispatchedAzanKeys = new Set<string>();
+  private readonly dispatchedDailyChannelKeys = new Set<string>();
 
   private lastPollAt: string | null = null;
   private lastSuccessfulPollAt: string | null = null;
   private lastUpdateAt: string | null = null;
   private updatesProcessedCount = 0;
+  private azanRemindersDispatched = 0;
+  private autoChannelPostsDispatched = 0;
   private consecutiveErrors = 0;
   private lastError: string | null = null;
   private lastErrorCode: number | null = null;
@@ -42,10 +63,18 @@ export class TelegramJobScheduler {
     apiClient: TelegramApiClient;
     onUpdate: (update: TelegramApiUpdate) => Promise<unknown>;
     logger: TelegramLogger;
+    prayerAdapter?: TelegramPrayerAdapter;
+    repository?: TelegramRepository;
+    emojiRegistry?: CustomEmojiRegistry;
+    publishingService?: TelegramPublishingService;
   }) {
     this.apiClient = options.apiClient;
     this.onUpdate = options.onUpdate;
     this.logger = options.logger;
+    this.prayerAdapter = options.prayerAdapter;
+    this.repository = options.repository;
+    this.emojiRegistry = options.emojiRegistry;
+    this.publishingService = options.publishingService;
   }
 
   isPolling(): boolean {
@@ -55,10 +84,13 @@ export class TelegramJobScheduler {
   getPollingStatus(): TelegramPollingStatus {
     return {
       pollingActive: this.pollingActive,
+      schedulerActive: this.schedulerActive,
       lastPollAt: this.lastPollAt,
       lastSuccessfulPollAt: this.lastSuccessfulPollAt,
       lastUpdateAt: this.lastUpdateAt,
       updatesProcessedCount: this.updatesProcessedCount,
+      azanRemindersDispatched: this.azanRemindersDispatched,
+      autoChannelPostsDispatched: this.autoChannelPostsDispatched,
       consecutiveErrors: this.consecutiveErrors,
       lastError: this.lastError,
       lastErrorCode: this.lastErrorCode,
@@ -69,7 +101,7 @@ export class TelegramJobScheduler {
   startPolling(): void {
     if (this.pollingActive) return;
     if (!this.apiClient.isConfigured) {
-      this.lastError = 'Cannot start polling: TELEGRAM_BOT_TOKEN is not configured.';
+      this.lastError = 'Cannot start polling: TELEGRAM_BOT_TOKEN1 is not configured.';
       this.lastErrorAt = new Date().toISOString();
       this.logger.warn(this.lastError);
       return;
@@ -87,6 +119,99 @@ export class TelegramJobScheduler {
       this.timer = null;
     }
     this.logger.info('Telegram polling loop stopped');
+  }
+
+  startScheduledJobs(): void {
+    if (this.schedulerActive || !this.apiClient.isConfigured) return;
+    this.schedulerActive = true;
+    this.scheduleInterval = setInterval(() => {
+      this.runScheduledTick(new Date()).catch((err) => {
+        this.logger.error('Telegram scheduled job tick error', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }, 60_000);
+    this.logger.info('Telegram Azan & auto-publish scheduler started (60s interval)');
+  }
+
+  stopScheduledJobs(): void {
+    this.schedulerActive = false;
+    if (this.scheduleInterval) {
+      clearInterval(this.scheduleInterval);
+      this.scheduleInterval = null;
+    }
+  }
+
+  /**
+   * Executes one deterministic scheduler tick (callable directly in automated tests).
+   * - Dispatches personal Azan reminders to subscribed users at exact Tashkent HH:MM.
+   * - Dispatches daily prayer timetable at 05:00 Tashkent to channels with autoPublishPrayerTimes=true.
+   */
+  async runScheduledTick(now: Date = new Date()): Promise<{
+    azanSent: number;
+    channelPostsSent: number;
+  }> {
+    let azanSent = 0;
+    let channelPostsSent = 0;
+
+    if (!this.apiClient.isConfigured || !this.prayerAdapter || !this.repository || !this.emojiRegistry) {
+      return { azanSent, channelPostsSent };
+    }
+
+    const duePrayer = this.prayerAdapter.getDueAzanPrayerAt(now);
+    if (duePrayer) {
+      const dedupeKey = `${duePrayer.dateKey}:${duePrayer.key}`;
+      if (!this.dispatchedAzanKeys.has(dedupeKey)) {
+        this.dispatchedAzanKeys.add(dedupeKey);
+        const subscribers = this.repository
+          .listUsers()
+          .filter((u) => !u.isBlocked && u.prayerNotificationsEnabled);
+
+        for (const sub of subscribers) {
+          const formatted = this.prayerAdapter.formatAzanReminderMessage(
+            duePrayer.key,
+            duePrayer.time,
+            sub.language,
+            this.emojiRegistry
+          );
+          const res = await this.apiClient.sendMessage({
+            chat_id: sub.telegramId,
+            text: formatted.text,
+            ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+          });
+          if (res.ok) {
+            azanSent++;
+            this.azanRemindersDispatched++;
+          }
+        }
+      }
+    }
+
+    // Daily automatic prayer timetable broadcast at 05:00 Asia/Tashkent
+    const parts = getTashkentNowParts(now);
+    if (parts.hhmm === '05:00' && this.publishingService) {
+      const autoChannels = this.repository
+        .listChannels()
+        .filter((c) => c.isActive && c.autoPublishPrayerTimes);
+
+      for (const ch of autoChannels) {
+        const chKey = `${parts.dateKey}:${ch.id}`;
+        if (this.dispatchedDailyChannelKeys.has(chKey)) continue;
+        this.dispatchedDailyChannelKeys.add(chKey);
+
+        const pub = await this.publishingService.publishPrayerScheduleToChannel({
+          channelId: ch.id,
+          prayerAdapter: this.prayerAdapter,
+          createdBy: 'scheduler',
+        });
+        if (pub.success) {
+          channelPostsSent++;
+          this.autoChannelPostsDispatched++;
+        }
+      }
+    }
+
+    return { azanSent, channelPostsSent };
   }
 
   private scheduleNextPoll(delayMs: number): void {
@@ -136,7 +261,7 @@ export class TelegramJobScheduler {
 
     if (res.error_code === 401) {
       this.logger.error(
-        'Telegram polling stopped: 401 Unauthorized — TELEGRAM_BOT_TOKEN is invalid or revoked.',
+        'Telegram polling stopped: 401 Unauthorized — TELEGRAM_BOT_TOKEN1 is invalid or revoked.',
         { errorCode: 401 }
       );
       this.stopPolling();

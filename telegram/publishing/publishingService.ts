@@ -1,14 +1,27 @@
 /**
- * ASAKA ZIYO — Telegram Channel Publishing & History Service
+ * ASAKA ZIYO — Telegram Channel Publishing, Permission Verification & History Service
  *
- * Formats outgoing channel publications using CustomEmojiRegistry (with safe Unicode fallback),
- * dispatches via TelegramApiClient, and records full history in `telegramPublications`.
+ * Verifies bot administrator + `can_post_messages` rights via Telegram Bot API
+ * (`getMe` + `getChat` + `getChatMember`) BEFORE dispatching posts to any channel,
+ * formats messages via CustomEmojiRegistry, and logs full history in `telegramPublications`.
  */
 
 import { TelegramLocale, TelegramPublicationRecord } from '../types';
 import { TelegramApiClient } from '../api/telegramApiClient';
 import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
 import { TelegramRepository } from '../database/telegramRepository';
+import { TelegramPrayerAdapter } from '../prayer/prayerAdapter';
+
+export interface ChannelPermissionCheckResult {
+  ok: boolean;
+  channelId: string;
+  targetChat: string;
+  botId?: number;
+  botStatus?: string;
+  canPostMessages: boolean;
+  chatTitle?: string;
+  reason: string;
+}
 
 export class TelegramPublishingService {
   private readonly apiClient: TelegramApiClient;
@@ -29,13 +42,126 @@ export class TelegramPublishingService {
     return this.repo.listPublications(limit);
   }
 
+  /**
+   * Verifies live via Telegram Bot API whether this bot is an administrator in the
+   * target channel with `can_post_messages === true`.
+   */
+  async verifyChannelPermissions(channelId: string): Promise<ChannelPermissionCheckResult> {
+    const channel = this.repo.getChannel(channelId);
+    if (!channel) {
+      return {
+        ok: false,
+        channelId,
+        targetChat: channelId,
+        canPostMessages: false,
+        reason: `Channel "${channelId}" is not registered in telegramChannels.`,
+      };
+    }
+
+    const targetChat = channel.chatId || channel.username;
+    if (!this.apiClient.isConfigured) {
+      return {
+        ok: false,
+        channelId: channel.id,
+        targetChat,
+        canPostMessages: false,
+        reason: 'TELEGRAM_BOT_TOKEN1 is not configured.',
+      };
+    }
+
+    const me = await this.apiClient.getMe();
+    if (!me.ok || !me.result) {
+      return {
+        ok: false,
+        channelId: channel.id,
+        targetChat,
+        canPostMessages: false,
+        reason: `Cannot identify bot (getMe failed): ${me.description || 'unknown error'}`,
+      };
+    }
+
+    const chatRes = await this.apiClient.getChat(targetChat);
+    if (!chatRes.ok || !chatRes.result) {
+      return {
+        ok: false,
+        channelId: channel.id,
+        targetChat,
+        botId: me.result.id,
+        canPostMessages: false,
+        reason: `Bot cannot access channel ${targetChat}: ${chatRes.description || 'chat not found or bot not added'}`,
+      };
+    }
+
+    const memberRes = await this.apiClient.getChatMember(targetChat, me.result.id);
+    if (!memberRes.ok || !memberRes.result) {
+      return {
+        ok: false,
+        channelId: channel.id,
+        targetChat,
+        botId: me.result.id,
+        chatTitle: chatRes.result.title,
+        canPostMessages: false,
+        reason: `getChatMember failed for ${targetChat}: ${memberRes.description || 'unknown error'}`,
+      };
+    }
+
+    const status = memberRes.result.status;
+    const isAdmin = status === 'administrator' || status === 'creator';
+    const canPost =
+      status === 'creator' ||
+      (status === 'administrator' && memberRes.result.can_post_messages !== false);
+
+    if (!isAdmin) {
+      return {
+        ok: false,
+        channelId: channel.id,
+        targetChat,
+        botId: me.result.id,
+        botStatus: status,
+        chatTitle: chatRes.result.title,
+        canPostMessages: false,
+        reason: `Bot status in ${targetChat} is "${status}" — add the bot as channel administrator with Post Messages permission.`,
+      };
+    }
+
+    if (!canPost) {
+      return {
+        ok: false,
+        channelId: channel.id,
+        targetChat,
+        botId: me.result.id,
+        botStatus: status,
+        chatTitle: chatRes.result.title,
+        canPostMessages: false,
+        reason: `Bot is administrator in ${targetChat}, but "can_post_messages" is disabled.`,
+      };
+    }
+
+    return {
+      ok: true,
+      channelId: channel.id,
+      targetChat,
+      botId: me.result.id,
+      botStatus: status,
+      chatTitle: chatRes.result.title,
+      canPostMessages: true,
+      reason: `Verified: bot is ${status} in ${targetChat} with posting permission.`,
+    };
+  }
+
   async publishToChannel(params: {
     channelId: string;
     category: TelegramPublicationRecord['category'];
     language: TelegramLocale;
     templateText: string;
     createdBy: string;
-  }): Promise<{ success: boolean; record: TelegramPublicationRecord; error?: string }> {
+    skipPermissionPrecheck?: boolean;
+  }): Promise<{
+    success: boolean;
+    record: TelegramPublicationRecord;
+    permissionCheck?: ChannelPermissionCheckResult;
+    error?: string;
+  }> {
     const channel = this.repo.getChannel(params.channelId);
     if (!channel || !channel.isActive) {
       const failed = await this.repo.recordPublication({
@@ -49,6 +175,37 @@ export class TelegramPublishingService {
         createdBy: params.createdBy,
       });
       return { success: false, record: failed, error: failed.errorMessage };
+    }
+
+    let permissionCheck: ChannelPermissionCheckResult | undefined;
+    if (!params.skipPermissionPrecheck) {
+      permissionCheck = await this.verifyChannelPermissions(channel.id);
+      if (!permissionCheck.ok) {
+        const failed = await this.repo.recordPublication({
+          channelId: channel.id,
+          channelUsername: channel.username,
+          category: params.category,
+          language: params.language,
+          textPreview: params.templateText.slice(0, 280),
+          status: 'failed',
+          errorMessage: permissionCheck.reason,
+          createdBy: params.createdBy,
+        });
+        await this.repo.appendAuditLog({
+          actorTelegramId: params.createdBy,
+          actorRole: 'admin',
+          action: 'publication_blocked_no_channel_rights',
+          targetType: 'publication',
+          targetId: failed.id,
+          metadata: { channelUsername: channel.username },
+        });
+        return {
+          success: false,
+          record: failed,
+          permissionCheck,
+          error: permissionCheck.reason,
+        };
+      }
     }
 
     const formatted = this.emojiRegistry.formatMessage(params.templateText);
@@ -89,7 +246,25 @@ export class TelegramPublishingService {
     return {
       success: sendRes.ok,
       record,
+      permissionCheck,
       error: record.errorMessage,
     };
+  }
+
+  async publishPrayerScheduleToChannel(params: {
+    channelId: string;
+    prayerAdapter: TelegramPrayerAdapter;
+    createdBy: string;
+  }) {
+    const channel = this.repo.getChannel(params.channelId);
+    const language: TelegramLocale = channel?.language || 'uz-Latn';
+    const templateText = params.prayerAdapter.buildPrayerScheduleTemplate(language);
+    return this.publishToChannel({
+      channelId: params.channelId,
+      category: 'prayer_times',
+      language,
+      templateText,
+      createdBy: params.createdBy,
+    });
   }
 }

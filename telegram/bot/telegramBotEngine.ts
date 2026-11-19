@@ -25,12 +25,13 @@ import { ReadOnlyPrayerScheduleProvider, TelegramPrayerAdapter } from '../prayer
 import { TelegramChannelService } from '../channels/channelService';
 import { TelegramPublishingService } from '../publishing/publishingService';
 import { TelegramAdminService } from '../admin/adminService';
-import { TelegramAiBridge } from '../ai/aiBridge';
+import { AiGenerateFn, TelegramAiBridge } from '../ai/aiBridge';
+import { TelegramIslamicContentAdapter } from '../content/islamicContentAdapter';
 import { TelegramJobScheduler, TelegramPollingStatus } from '../jobs/jobScheduler';
 import { handleBotCommand, parseBotCommand } from '../handlers/commandHandlers';
 import { handleCallbackQuery } from '../handlers/callbackHandlers';
 import { getTelegramLocaleBundle } from '../locales';
-import { buildMainMenuKeyboard } from '../keyboards/keyboards';
+import { buildAiModeKeyboard, buildMainMenuKeyboard } from '../keyboards/keyboards';
 
 export interface TelegramBotEngineOptions {
   config?: TelegramPlatformConfig;
@@ -38,13 +39,14 @@ export interface TelegramBotEngineOptions {
   storePath?: string;
   readOnlyPrayerProvider?: ReadOnlyPrayerScheduleProvider;
   fetchImpl?: FetchLike;
+  aiGenerator?: AiGenerateFn;
   silentLogger?: boolean;
 }
 
 export interface UpdateDispatchOutcome {
   ok: boolean;
   updateId: number;
-  kind: 'command' | 'callback' | 'text_fallback' | 'ignored' | 'rate_limited' | 'maintenance' | 'error';
+  kind: 'command' | 'callback' | 'ai_reply' | 'text_fallback' | 'ignored' | 'rate_limited' | 'maintenance' | 'error';
   detail?: string;
 }
 
@@ -111,6 +113,7 @@ export class TelegramBotEngine {
   public readonly rateLimiter: TelegramRateLimiter;
   public readonly userService: TelegramUserService;
   public readonly prayerAdapter: TelegramPrayerAdapter;
+  public readonly contentAdapter: TelegramIslamicContentAdapter;
   public readonly channelService: TelegramChannelService;
   public readonly publishingService: TelegramPublishingService;
   public readonly adminService: TelegramAdminService;
@@ -145,7 +148,8 @@ export class TelegramBotEngine {
     const settings = this.repository.getSettings();
     this.emojiRegistry = new CustomEmojiRegistry(
       this.repository.listCustomEmojis(),
-      Boolean(settings.premiumEmojiEnabled && settings.premiumEmojiEligibilityVerified)
+      Boolean(settings.premiumEmojiEnabled && settings.premiumEmojiEligibilityVerified),
+      Boolean(settings.premiumKeyboardIconsEnabled)
     );
 
     this.rateLimiter = new TelegramRateLimiter(
@@ -154,6 +158,7 @@ export class TelegramBotEngine {
     );
     this.userService = new TelegramUserService(this.repository);
     this.prayerAdapter = new TelegramPrayerAdapter(options.readOnlyPrayerProvider);
+    this.contentAdapter = new TelegramIslamicContentAdapter();
     this.channelService = new TelegramChannelService(this.repository);
     this.publishingService = new TelegramPublishingService(
       this.apiClient,
@@ -161,11 +166,18 @@ export class TelegramBotEngine {
       this.emojiRegistry
     );
     this.adminService = new TelegramAdminService(this.config, this.repository);
-    this.aiBridge = new TelegramAiBridge(this.repository);
+    this.aiBridge = new TelegramAiBridge(this.repository, {
+      logger: this.logger,
+      generator: options.aiGenerator,
+    });
     this.jobScheduler = new TelegramJobScheduler({
       apiClient: this.apiClient,
       onUpdate: (u) => this.processUpdate(u),
       logger: this.logger,
+      prayerAdapter: this.prayerAdapter,
+      repository: this.repository,
+      emojiRegistry: this.emojiRegistry,
+      publishingService: this.publishingService,
     });
   }
 
@@ -189,7 +201,7 @@ export class TelegramBotEngine {
     if (!this.config.isConfigured) {
       this.startupState = 'disabled';
       this.startupReason =
-        'TELEGRAM_BOT_TOKEN is not set in server environment variables. Bot is in standby mode.';
+        'TELEGRAM_BOT_TOKEN1 is not set in server environment variables. Bot is in standby mode.';
       this.logger.warn(this.startupReason);
       return this.getRuntimeState();
     }
@@ -211,7 +223,7 @@ export class TelegramBotEngine {
       this.startupState = 'error';
       this.lastError = me.description || 'Telegram getMe() failed';
       this.lastErrorAt = new Date().toISOString();
-      this.startupReason = `Telegram Bot API connection failed (code=${me.error_code ?? 'network'}): ${this.lastError}. Verify TELEGRAM_BOT_TOKEN and outbound HTTPS access to api.telegram.org.`;
+      this.startupReason = `Telegram Bot API connection failed (code=${me.error_code ?? 'network'}): ${this.lastError}. Verify TELEGRAM_BOT_TOKEN1 and outbound HTTPS access to api.telegram.org.`;
       this.logger.error(this.startupReason, {
         errorCode: me.error_code,
         mode: this.config.mode,
@@ -245,7 +257,7 @@ export class TelegramBotEngine {
       this.config.botUsername.toLowerCase() !== me.result.username.toLowerCase()
     ) {
       this.logger.warn(
-        'TELEGRAM_BOT_USERNAME does not match the bot owned by TELEGRAM_BOT_TOKEN',
+        'TELEGRAM_BOT_USERNAME does not match the bot owned by TELEGRAM_BOT_TOKEN1',
         {
           configuredUsername: `@${this.config.botUsername}`,
           actualTokenBotUsername: `@${me.result.username}`,
@@ -274,6 +286,7 @@ export class TelegramBotEngine {
       this.commandsSynced = cmdSync.ok;
 
       this.jobScheduler.startPolling();
+      this.jobScheduler.startScheduledJobs();
       this.startupState = 'running_polling';
       this.startupReason = `Bot @${this.botUsername || 'unknown'} is active in long-polling mode and listening for /start updates.`;
       this.logger.info(this.startupReason);
@@ -307,6 +320,7 @@ export class TelegramBotEngine {
 
     this.webhookRegisteredOnStartup = true;
     this.commandsSynced = true;
+    this.jobScheduler.startScheduledJobs();
     this.startupState = 'running_webhook';
     this.startupReason = `Bot @${this.botUsername || 'unknown'} is active in webhook mode (${this.config.webhookUrl}).`;
     this.logger.info(this.startupReason);
@@ -319,6 +333,7 @@ export class TelegramBotEngine {
       this.startupRetryTimer = null;
     }
     this.jobScheduler.stopPolling();
+    this.jobScheduler.stopScheduledJobs();
   }
 
   getRuntimeState(): TelegramRuntimeState {
@@ -351,7 +366,7 @@ export class TelegramBotEngine {
     const issues: string[] = [];
 
     if (!this.config.isConfigured) {
-      issues.push('TELEGRAM_BOT_TOKEN is missing from server environment variables.');
+      issues.push('TELEGRAM_BOT_TOKEN1 is missing from server environment variables.');
       return {
         checkedAt,
         tokenConfigured: false,
@@ -359,8 +374,8 @@ export class TelegramBotEngine {
         modeAutoSelected: this.config.modeAutoSelected,
         startupState: this.startupState,
         startupReason: this.startupReason,
-        telegramApi: { connected: false, error: 'TELEGRAM_BOT_TOKEN not configured' },
-        webhookInfo: { checked: false, error: 'TELEGRAM_BOT_TOKEN not configured' },
+        telegramApi: { connected: false, error: 'TELEGRAM_BOT_TOKEN1 not configured' },
+        webhookInfo: { checked: false, error: 'TELEGRAM_BOT_TOKEN1 not configured' },
         polling,
         configSummary,
         issues,
@@ -399,7 +414,7 @@ export class TelegramBotEngine {
         this.config.botUsername.toLowerCase() !== me.result!.username.toLowerCase()
       ) {
         issues.push(
-          `Bot username mismatch: TELEGRAM_BOT_USERNAME is "@${this.config.botUsername}", but TELEGRAM_BOT_TOKEN belongs to "@${me.result!.username}". Sending /start to "@${this.config.botUsername}" will not reach this token's bot.`
+          `Bot username mismatch: TELEGRAM_BOT_USERNAME is "@${this.config.botUsername}", but TELEGRAM_BOT_TOKEN1 belongs to "@${me.result!.username}". Sending /start to "@${this.config.botUsername}" will not reach this token's bot.`
         );
       }
     }
@@ -479,36 +494,29 @@ export class TelegramBotEngine {
 
   async syncBotCommandsWithTelegram(): Promise<{ ok: boolean; error?: string }> {
     if (!this.apiClient.isConfigured) {
-      return { ok: false, error: 'TELEGRAM_BOT_TOKEN not configured' };
+      return { ok: false, error: 'TELEGRAM_BOT_TOKEN1 not configured' };
     }
+    const toCommandList = (dict: ReturnType<typeof getTelegramLocaleBundle>) => [
+      { command: 'start', description: dict.commands.start },
+      { command: 'prayer', description: dict.commands.prayer },
+      { command: 'quran', description: dict.commands.quran },
+      { command: 'hadith', description: dict.commands.hadith },
+      { command: 'dhikr', description: dict.commands.dhikr },
+      { command: 'ask', description: dict.commands.ask },
+      { command: 'profile', description: dict.commands.profile },
+      { command: 'language', description: dict.commands.language },
+      { command: 'settings', description: dict.commands.settings },
+      { command: 'admin', description: dict.commands.admin },
+      { command: 'help', description: dict.commands.help },
+    ];
+
     const uzDict = getTelegramLocaleBundle('uz-Latn');
     const ruDict = getTelegramLocaleBundle('ru');
     const enDict = getTelegramLocaleBundle('en');
 
-    const defaultRes = await this.apiClient.setMyCommands([
-      { command: 'start', description: uzDict.commands.start },
-      { command: 'language', description: uzDict.commands.language },
-      { command: 'settings', description: uzDict.commands.settings },
-      { command: 'help', description: uzDict.commands.help },
-    ]);
-    await this.apiClient.setMyCommands(
-      [
-        { command: 'start', description: ruDict.commands.start },
-        { command: 'language', description: ruDict.commands.language },
-        { command: 'settings', description: ruDict.commands.settings },
-        { command: 'help', description: ruDict.commands.help },
-      ],
-      'ru'
-    );
-    await this.apiClient.setMyCommands(
-      [
-        { command: 'start', description: enDict.commands.start },
-        { command: 'language', description: enDict.commands.language },
-        { command: 'settings', description: enDict.commands.settings },
-        { command: 'help', description: enDict.commands.help },
-      ],
-      'en'
-    );
+    const defaultRes = await this.apiClient.setMyCommands(toCommandList(uzDict));
+    await this.apiClient.setMyCommands(toCommandList(ruDict), 'ru');
+    await this.apiClient.setMyCommands(toCommandList(enDict), 'en');
     return { ok: defaultRes.ok, error: defaultRes.description };
   }
 
@@ -518,7 +526,7 @@ export class TelegramBotEngine {
     error?: string;
   }> {
     if (!this.apiClient.isConfigured) {
-      return { ok: false, error: 'TELEGRAM_BOT_TOKEN is not configured.' };
+      return { ok: false, error: 'TELEGRAM_BOT_TOKEN1 is not configured.' };
     }
     if (!this.config.webhookUrl) {
       return { ok: false, error: 'TELEGRAM_WEBHOOK_URL is not configured.' };
@@ -620,6 +628,13 @@ export class TelegramBotEngine {
           emojiRegistry: this.emojiRegistry,
           userService: this.userService,
           prayerAdapter: this.prayerAdapter,
+          contentAdapter: this.contentAdapter,
+          aiBridge: this.aiBridge,
+          adminService: this.adminService,
+          channelService: this.channelService,
+          publishingService: this.publishingService,
+          repository: this.repository,
+          runDiagnostics: () => this.runLiveDiagnostics(),
         });
         return {
           ok: true,
@@ -629,7 +644,7 @@ export class TelegramBotEngine {
         };
       }
 
-      // 5. Bot Commands (/start, /help, /language, /settings)
+      // 5. Bot Commands (/start, /prayer, /quran, /hadith, /dhikr, /ask, /profile, /language, /settings, /admin, /help)
       if (update.message?.text) {
         const parsedCmd = parseBotCommand(update.message.text);
         if (parsedCmd) {
@@ -637,6 +652,11 @@ export class TelegramBotEngine {
             apiClient: this.apiClient,
             config: this.config,
             emojiRegistry: this.emojiRegistry,
+            prayerAdapter: this.prayerAdapter,
+            contentAdapter: this.contentAdapter,
+            aiBridge: this.aiBridge,
+            adminService: this.adminService,
+            repository: this.repository,
           });
           return {
             ok: true,
@@ -646,8 +666,33 @@ export class TelegramBotEngine {
           };
         }
 
-        // Plain text fallback in private chat -> return main menu politely in user's language
+        // Private chat plain text: route to AI Assistant when active, otherwise return main menu
         if (update.message.chat.type === 'private') {
+          if (this.aiBridge.isUserInAiMode(actorId)) {
+            await this.apiClient.sendChatAction(chatId, 'typing');
+            const aiRes = await this.aiBridge.handleQuestion(
+              actorId,
+              user.language,
+              update.message.text
+            );
+            const formatted = this.emojiRegistry.formatMessage(
+              `${dict.aiTitle}\n\n${aiRes.answerText || dict.aiErrorNotice}`
+            );
+            await this.apiClient.sendMessage({
+              chat_id: chatId,
+              text: formatted.text,
+              ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+              reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
+              disable_web_page_preview: true,
+            });
+            return {
+              ok: true,
+              updateId,
+              kind: 'ai_reply',
+              detail: aiRes.ok ? 'answered' : aiRes.errorCode,
+            };
+          }
+
           const formatted = this.emojiRegistry.formatMessage(
             `${dict.mainMenuTitle}\n\n${dict.mainMenuPrompt}`
           );
@@ -655,7 +700,10 @@ export class TelegramBotEngine {
             chat_id: chatId,
             text: formatted.text,
             ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
-            reply_markup: buildMainMenuKeyboard(user.language, this.emojiRegistry, this.config),
+            reply_markup: buildMainMenuKeyboard(user.language, this.emojiRegistry, this.config, {
+              isAdmin: Boolean(role),
+              miniAppEnabled: Boolean(settings.miniAppEnabled),
+            }),
           });
           return { ok: true, updateId, kind: 'text_fallback' };
         }
@@ -676,7 +724,7 @@ export class TelegramBotEngine {
     return {
       ok: true,
       module: 'asaka-ziyo-telegram-platform',
-      phase: 1,
+      phase: 2,
       config: getSafeTelegramConfigSummary(this.config),
       pollingActive: this.jobScheduler.isPolling(),
       runtime,

@@ -88,7 +88,8 @@ export interface TelegramInlineKeyboardButton {
   url?: string;
   web_app?: { url: string };
   /**
-   * Optional Bot API icon_custom_emoji_id (only attached when verified & bot-eligible).
+   * Optional Bot API icon_custom_emoji_id (attached ONLY when verified & explicitly enabled
+   * after live Telegram Bot API eligibility check).
    */
   icon_custom_emoji_id?: string;
 }
@@ -117,6 +118,23 @@ export interface TelegramStickerInfo {
   emoji?: string;
   is_animated?: boolean;
   is_video?: boolean;
+  set_name?: string;
+}
+
+export interface TelegramStickerSet {
+  name: string;
+  title: string;
+  sticker_type: 'regular' | 'mask' | 'custom_emoji';
+  stickers: TelegramStickerInfo[];
+}
+
+export interface TelegramChatMemberInfo {
+  status: 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked';
+  user: TelegramApiUser;
+  can_post_messages?: boolean;
+  can_edit_messages?: boolean;
+  can_delete_messages?: boolean;
+  can_manage_chat?: boolean;
 }
 
 export interface TelegramApiResponse<T = unknown> {
@@ -154,6 +172,7 @@ export interface TelegramBotSettingsRecord {
   defaultLanguage: TelegramLocale;
   maintenanceMode: boolean;
   premiumEmojiEnabled: boolean;
+  premiumKeyboardIconsEnabled?: boolean;
   premiumEmojiEligibilityVerified: boolean;
   premiumEmojiEligibilityCheckedAt?: string;
   premiumEmojiEligibilityReason?: string;
@@ -207,7 +226,16 @@ export interface TelegramAuditLogRecord {
   actorTelegramId: string;
   actorRole: 'user' | TelegramAdminRole | 'system';
   action: string;
-  targetType: 'user' | 'settings' | 'channel' | 'admin' | 'publication' | 'emoji' | 'webhook' | 'system';
+  targetType:
+    | 'user'
+    | 'settings'
+    | 'channel'
+    | 'admin'
+    | 'publication'
+    | 'emoji'
+    | 'webhook'
+    | 'ai'
+    | 'system';
   targetId?: string;
   metadata?: Record<string, string | number | boolean>;
   createdAt: string;
@@ -217,6 +245,10 @@ export type CustomEmojiCategory =
   | 'brand'
   | 'navigation'
   | 'prayer'
+  | 'content'
+  | 'ai'
+  | 'profile'
+  | 'admin'
   | 'language'
   | 'settings'
   | 'status'
@@ -228,7 +260,7 @@ export interface CustomEmojiEntry {
   category: CustomEmojiCategory;
   unicodeFallback: string;
   /**
-   * Verified Telegram custom_emoji_id (numeric string from Bot API getCustomEmojiStickers).
+   * Verified Telegram custom_emoji_id (numeric string from Bot API getCustomEmojiStickers / getStickerSet).
    * MUST NEVER be invented. Remains null until registered & verified against Telegram Bot API.
    */
   customEmojiId: string | null;

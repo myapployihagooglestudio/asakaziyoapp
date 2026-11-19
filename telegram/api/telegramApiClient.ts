@@ -6,13 +6,16 @@
  */
 
 import {
+  TelegramApiChat,
   TelegramApiMessage,
   TelegramApiResponse,
   TelegramApiUpdate,
   TelegramBotProfile,
+  TelegramChatMemberInfo,
   TelegramInlineKeyboardMarkup,
   TelegramMessageEntity,
   TelegramStickerInfo,
+  TelegramStickerSet,
 } from '../types';
 import { TelegramPlatformConfig } from '../config';
 import { TelegramLogger } from '../middlewares/logger';
@@ -73,11 +76,10 @@ export interface PremiumEligibilityCheckResult {
   checkedAt: string;
 }
 
-export type FetchLike = (input: string, init?: RequestInit) => Promise<{
-  ok: boolean;
-  status: number;
-  json(): Promise<unknown>;
-}>;
+export type FetchLike = (
+  url: string,
+  init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }
+) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
 
 export class TelegramApiClient {
   private readonly config: TelegramPlatformConfig;
@@ -106,7 +108,7 @@ export class TelegramApiClient {
       return {
         ok: false,
         error_code: 503,
-        description: 'TELEGRAM_BOT_TOKEN is not configured.',
+        description: 'TELEGRAM_BOT_TOKEN1 is not configured.',
       };
     }
 
@@ -123,8 +125,8 @@ export class TelegramApiClient {
 
       const parsed = (await response.json().catch(() => ({}))) as TelegramApiResponse<T>;
       if (!response.ok || !parsed.ok) {
-        this.logger.warn(`Telegram Bot API method "${method}" returned error`, {
-          httpStatus: response.status,
+        this.logger.warn(`Telegram API ${method} failed`, {
+          status: response.status,
           errorCode: parsed.error_code,
           description: parsed.description,
         });
@@ -134,11 +136,10 @@ export class TelegramApiClient {
           description: parsed.description || `HTTP ${response.status}`,
         };
       }
-
       return parsed;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Network error';
-      this.logger.error(`Telegram Bot API call "${method}" failed`, { error: msg });
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Telegram API ${method} network error`, { error: msg });
       return {
         ok: false,
         error_code: 500,
@@ -147,43 +148,65 @@ export class TelegramApiClient {
     }
   }
 
-  getMe(): Promise<TelegramApiResponse<TelegramBotProfile>> {
+  async getMe(): Promise<TelegramApiResponse<TelegramBotProfile>> {
     return this.callMethod<TelegramBotProfile>('getMe');
   }
 
-  sendMessage(params: SendMessageParams): Promise<TelegramApiResponse<TelegramApiMessage>> {
+  async sendMessage(params: SendMessageParams): Promise<TelegramApiResponse<TelegramApiMessage>> {
     return this.callMethod<TelegramApiMessage>('sendMessage', params as unknown as Record<string, unknown>);
   }
 
-  editMessageText(params: EditMessageTextParams): Promise<TelegramApiResponse<TelegramApiMessage | boolean>> {
+  async editMessageText(
+    params: EditMessageTextParams
+  ): Promise<TelegramApiResponse<TelegramApiMessage | boolean>> {
     return this.callMethod<TelegramApiMessage | boolean>(
       'editMessageText',
       params as unknown as Record<string, unknown>
     );
   }
 
-  answerCallbackQuery(params: AnswerCallbackQueryParams): Promise<TelegramApiResponse<boolean>> {
-    return this.callMethod<boolean>(
-      'answerCallbackQuery',
-      params as unknown as Record<string, unknown>
-    );
+  async answerCallbackQuery(
+    params: AnswerCallbackQueryParams
+  ): Promise<TelegramApiResponse<boolean>> {
+    return this.callMethod<boolean>('answerCallbackQuery', params as unknown as Record<string, unknown>);
   }
 
-  setWebhook(params: SetWebhookParams): Promise<TelegramApiResponse<boolean>> {
+  async sendChatAction(
+    chatId: number | string,
+    action: 'typing' | 'upload_document' | 'find_location' = 'typing'
+  ): Promise<TelegramApiResponse<boolean>> {
+    return this.callMethod<boolean>('sendChatAction', { chat_id: chatId, action });
+  }
+
+  async getChat(chatId: number | string): Promise<TelegramApiResponse<TelegramApiChat>> {
+    return this.callMethod<TelegramApiChat>('getChat', { chat_id: chatId });
+  }
+
+  async getChatMember(
+    chatId: number | string,
+    userId: number
+  ): Promise<TelegramApiResponse<TelegramChatMemberInfo>> {
+    return this.callMethod<TelegramChatMemberInfo>('getChatMember', {
+      chat_id: chatId,
+      user_id: userId,
+    });
+  }
+
+  async setWebhook(params: SetWebhookParams): Promise<TelegramApiResponse<boolean>> {
     return this.callMethod<boolean>('setWebhook', params as unknown as Record<string, unknown>);
   }
 
-  deleteWebhook(dropPendingUpdates = false): Promise<TelegramApiResponse<boolean>> {
+  async deleteWebhook(dropPendingUpdates = false): Promise<TelegramApiResponse<boolean>> {
     return this.callMethod<boolean>('deleteWebhook', {
       drop_pending_updates: dropPendingUpdates,
     });
   }
 
-  getWebhookInfo(): Promise<TelegramApiResponse<WebhookInfoResult>> {
+  async getWebhookInfo(): Promise<TelegramApiResponse<WebhookInfoResult>> {
     return this.callMethod<WebhookInfoResult>('getWebhookInfo');
   }
 
-  getUpdates(offset?: number, timeoutSec = 15): Promise<TelegramApiResponse<TelegramApiUpdate[]>> {
+  async getUpdates(offset?: number, timeoutSec = 10): Promise<TelegramApiResponse<TelegramApiUpdate[]>> {
     return this.callMethod<TelegramApiUpdate[]>('getUpdates', {
       ...(offset !== undefined ? { offset } : {}),
       timeout: timeoutSec,
@@ -191,7 +214,7 @@ export class TelegramApiClient {
     });
   }
 
-  setMyCommands(
+  async setMyCommands(
     commands: BotCommandSpec[],
     languageCode?: string
   ): Promise<TelegramApiResponse<boolean>> {
@@ -201,9 +224,28 @@ export class TelegramApiClient {
     });
   }
 
-  getCustomEmojiStickers(customEmojiIds: string[]): Promise<TelegramApiResponse<TelegramStickerInfo[]>> {
+  async setChatMenuButton(params: {
+    chat_id?: number;
+    menu_button:
+      | { type: 'commands' }
+      | { type: 'default' }
+      | { type: 'web_app'; text: string; web_app: { url: string } };
+  }): Promise<TelegramApiResponse<boolean>> {
+    return this.callMethod<boolean>('setChatMenuButton', params as unknown as Record<string, unknown>);
+  }
+
+  async getStickerSet(name: string): Promise<TelegramApiResponse<TelegramStickerSet>> {
+    return this.callMethod<TelegramStickerSet>('getStickerSet', { name });
+  }
+
+  async getCustomEmojiStickers(
+    customEmojiIds: string[]
+  ): Promise<TelegramApiResponse<TelegramStickerInfo[]>> {
+    if (customEmojiIds.length === 0) {
+      return { ok: true, result: [] };
+    }
     return this.callMethod<TelegramStickerInfo[]>('getCustomEmojiStickers', {
-      custom_emoji_ids: customEmojiIds,
+      custom_emoji_ids: customEmojiIds.slice(0, 200),
     });
   }
 
@@ -211,11 +253,10 @@ export class TelegramApiClient {
    * Honest Bot API capability probe for Telegram Premium Custom Emoji eligibility.
    * Never assumes Premium features are available until verified via Telegram Bot API.
    *
-   * Note: Telegram Bot API allows bots to render custom_emoji entities only if the bot
-   * holds a Fragment collectible username or is granted premium emoji rights by Telegram,
-   * and keyboard icon_custom_emoji_id requires Bot API 9.4+ bot eligibility.
-   * Until an actual verified custom_emoji_id is tested live against the bot token,
-   * the registry safely falls back to standard Unicode emoji.
+   * Note: Telegram Bot API allows bots to render custom_emoji entities in messages only if
+   * the bot holds Fragment collectible username / premium custom emoji eligibility.
+   * Standard inline keyboard buttons do NOT support custom_emoji entities in `text`;
+   * `icon_custom_emoji_id` is only enabled when explicitly verified & supported by Bot API.
    */
   async verifyPremiumEmojiEligibility(
     sampleCustomEmojiId?: string | null
@@ -229,7 +270,7 @@ export class TelegramApiClient {
         canVerifyCustomEmojis: false,
         supportsMessageCustomEmojiEntities: false,
         supportsKeyboardIconCustomEmoji: false,
-        reason: 'TELEGRAM_BOT_TOKEN is not configured; Unicode fallback active.',
+        reason: 'TELEGRAM_BOT_TOKEN1 is not configured; Unicode fallback active.',
         checkedAt,
       };
     }
@@ -256,7 +297,7 @@ export class TelegramApiClient {
         supportsKeyboardIconCustomEmoji: false,
         botUsername: me.result.username,
         reason:
-          'Bot connected. No verified custom_emoji_id registered yet; Unicode fallback remains active until owner registers and verifies real custom_emoji_id values.',
+          'Bot connected. No verified custom_emoji_id registered yet; Unicode fallback remains active until real Telegram sticker set custom_emoji_id values are imported & verified.',
         checkedAt,
       };
     }
@@ -273,10 +314,12 @@ export class TelegramApiClient {
       botConnected: true,
       canVerifyCustomEmojis: true,
       supportsMessageCustomEmojiEntities: stickerFound,
-      supportsKeyboardIconCustomEmoji: stickerFound,
+      // Honest: Telegram standard inline keyboards do NOT guarantee custom emoji icon rendering
+      // unless explicitly confirmed via live test message on an eligible bot.
+      supportsKeyboardIconCustomEmoji: false,
       botUsername: me.result.username,
       reason: stickerFound
-        ? 'Verified custom_emoji_id confirmed via getCustomEmojiStickers.'
+        ? 'Verified custom_emoji_id confirmed via getCustomEmojiStickers. Note: live rendering in Telegram messages requires bot custom-emoji eligibility (e.g. Fragment username); Unicode fallback remains active wherever unsupported.'
         : `Custom emoji verification failed: ${stickerRes.description || 'Sticker not found'}. Unicode fallback active.`,
       checkedAt,
     };

@@ -89,7 +89,7 @@ function resolveMode(
     return { mode: 'webhook', autoSelected: false };
   }
   // Auto-select webhook ONLY when both HTTPS webhook URL and secret are configured;
-  // otherwise use long-polling so /start works immediately once TELEGRAM_BOT_TOKEN is set.
+  // otherwise use long-polling so /start works immediately once TELEGRAM_BOT_TOKEN1 is set.
   if (webhookUrl && webhookSecret) {
     return { mode: 'webhook', autoSelected: true };
   }
@@ -99,7 +99,8 @@ function resolveMode(
 export function loadTelegramPlatformConfig(
   env: Record<string, string | undefined> = process.env
 ): TelegramPlatformConfig {
-  const botToken = (env.TELEGRAM_BOT_TOKEN || '').trim();
+  // Strictly reads ONLY TELEGRAM_BOT_TOKEN1 (never falls back to legacy TELEGRAM_BOT_TOKEN)
+  const botToken = (env.TELEGRAM_BOT_TOKEN1 || '').trim();
   const botUsername = (env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@+/, '');
   const webhookSecret = (env.TELEGRAM_WEBHOOK_SECRET || '').trim();
   const webhookUrl = (env.TELEGRAM_WEBHOOK_URL || '').trim();
@@ -135,11 +136,12 @@ export function loadTelegramPlatformConfig(
  */
 export function getSafeTelegramConfigSummary(config: TelegramPlatformConfig) {
   const missingForWebhook: string[] = [];
-  if (!config.isConfigured) missingForWebhook.push('TELEGRAM_BOT_TOKEN');
+  if (!config.isConfigured) missingForWebhook.push('TELEGRAM_BOT_TOKEN1');
   if (!config.webhookUrl) missingForWebhook.push('TELEGRAM_WEBHOOK_URL');
   if (!config.webhookSecret) missingForWebhook.push('TELEGRAM_WEBHOOK_SECRET');
 
   return {
+    tokenEnvVar: 'TELEGRAM_BOT_TOKEN1',
     isConfigured: config.isConfigured,
     mode: config.mode,
     modeAutoSelected: config.modeAutoSelected,

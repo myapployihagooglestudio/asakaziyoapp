@@ -52,13 +52,13 @@ Isolated Telegram Bot Platform running inside the unified **ASAKA ZIYO** reposit
 
 Set these in your server environment (never commit to Git, never prefix with `VITE_`):
 
-- `TELEGRAM_BOT_TOKEN` — Bot token from `@BotFather`
+- `TELEGRAM_BOT_TOKEN1` — Dedicated bot token from `@BotFather` for the ASAKA ZIYO Telegram Platform (isolated from legacy `TELEGRAM_BOT_TOKEN`)
 - `TELEGRAM_BOT_USERNAME` — Bot username (without `@`)
 - `TELEGRAM_WEBHOOK_SECRET` — Random high-entropy secret token (32+ chars) passed to `setWebhook`
 - `TELEGRAM_WEBHOOK_URL` — Public HTTPS URL ending in `/api/telegram/platform/webhook`
 - `TELEGRAM_OWNER_ID` — Numeric Telegram user ID of the platform owner
 - `TELEGRAM_ADMIN_IDS` — Comma-separated numeric Telegram admin IDs
-- `TELEGRAM_MODE` — Optional: `webhook` (default when deployed), `polling` (local dev), or `disabled`
+- `TELEGRAM_MODE` — Optional: `webhook`, `polling`, or `disabled` (auto-selects `webhook` when URL+secret are set, otherwise `polling`)
 
 ## Premium Custom Emoji Setup
 

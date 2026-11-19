@@ -16,6 +16,7 @@ import { normalizeTelegramLocale } from '../locales';
 import { ScopedFirestoreBridge, createScopedTelegramFirestoreBridge } from '../database/telegramRepository';
 import { ReadOnlyPrayerScheduleProvider } from '../prayer/prayerAdapter';
 import { TelegramPlatformConfig } from '../config';
+import { verifyTelegramMiniAppInitData } from '../miniapp/miniAppConfig';
 
 export interface TelegramPlatformRouterDeps {
   requireAdminAuth: (req: Request, res: Response, next: NextFunction) => void;
@@ -234,7 +235,79 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     }
   );
 
-  // 6. Admin-Protected Isolated Channels, Publications & Audit Logs
+  router.post(
+    '/emojis/import-set',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const stickerSetName = String(req.body?.stickerSetName || '').trim();
+      const explicitMapping =
+        req.body?.mapping && typeof req.body.mapping === 'object'
+          ? (req.body.mapping as Record<string, string>)
+          : undefined;
+
+      if (!stickerSetName) {
+        return res.status(400).json({ success: false, error: 'stickerSetName is required.' });
+      }
+
+      const result = await engine.emojiRegistry.importFromTelegramStickerSet(
+        engine.apiClient,
+        stickerSetName,
+        explicitMapping
+      );
+
+      if (result.ok) {
+        for (const item of result.matchedKeys) {
+          const entry = engine.emojiRegistry.getEntry(item.key);
+          if (entry) {
+            await engine.repository.saveCustomEmoji(entry);
+          }
+        }
+        await engine.repository.appendAuditLog({
+          actorTelegramId: 'web_admin',
+          actorRole: 'admin',
+          action: 'custom_emoji_set_imported',
+          targetType: 'emoji',
+          targetId: stickerSetName,
+          metadata: {
+            matchedCount: result.matchedKeys.length,
+            verifiedCount: result.matchedKeys.filter((m) => m.verified).length,
+          },
+        });
+      }
+
+      return res.status(result.ok ? 200 : 400).json({
+        success: result.ok,
+        result,
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  router.post(
+    '/emojis/test-send',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const chatId = String(req.body?.chatId || engine.config.ownerId || '').trim();
+      if (!chatId) {
+        return res.status(400).json({
+          success: false,
+          error: 'chatId is required (or configure TELEGRAM_OWNER_ID).',
+        });
+      }
+      const testResult = await engine.emojiRegistry.sendLiveEmojiTestMessage(
+        engine.apiClient,
+        chatId
+      );
+      return res.status(testResult.ok ? 200 : 400).json({
+        success: testResult.ok,
+        ...testResult,
+      });
+    }
+  );
+
+  // 6. Admin-Protected Isolated Channels, Permissions, Publications & Audit Logs
   router.get('/channels', deps.requireAdminAuth, (_req: Request, res: Response) => {
     return res.json({ success: true, channels: engine.channelService.listChannels() });
   });
@@ -267,6 +340,33 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     }
   );
 
+  router.post(
+    '/channels/:id/check-permissions',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const permissions = await engine.publishingService.verifyChannelPermissions(req.params.id);
+      return res.json({
+        success: permissions.canPostMessages,
+        permissions,
+      });
+    }
+  );
+
+  router.post(
+    '/channels/:id/publish-prayer',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const result = await engine.publishingService.publishPrayerScheduleToChannel({
+        channelId: req.params.id,
+        prayerAdapter: engine.prayerAdapter,
+        createdBy: 'web_admin',
+      });
+      return res.status(result.success ? 200 : 400).json(result);
+    }
+  );
+
   router.get('/publications', deps.requireAdminAuth, (_req: Request, res: Response) => {
     return res.json({
       success: true,
@@ -279,6 +379,25 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       success: true,
       auditLogs: engine.adminService.listAuditLogs(100),
     });
+  });
+
+  // 7. Telegram Mini App initData Server-Side HMAC-SHA256 Verification
+  router.post('/miniapp/verify', limitMiddleware, (req: Request, res: Response) => {
+    if (!engine.config.isConfigured) {
+      return res.status(503).json({
+        valid: false,
+        reason: 'TELEGRAM_BOT_TOKEN1_NOT_CONFIGURED',
+      });
+    }
+    const initData = typeof req.body?.initData === 'string' ? req.body.initData : '';
+    if (!initData.trim()) {
+      return res.status(400).json({
+        valid: false,
+        reason: 'MISSING_INIT_DATA',
+      });
+    }
+    const verified = verifyTelegramMiniAppInitData(initData, engine.config.botToken);
+    return res.status(verified.valid ? 200 : 401).json(verified);
   });
 
   return { router, engine };
