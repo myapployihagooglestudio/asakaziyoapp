@@ -18,6 +18,7 @@ import {
   computeSmartDisplayTimeline,
   getTashkentClockParts,
   isMonitorOnline,
+  normalizeDisplayTemplate,
   resolveVersionedConflict,
   validateDisplaySchedule,
 } from './smartMosqueDisplayEngine';
@@ -220,6 +221,27 @@ assert(
     adaptDisplayTextForLocale(arabicSample, 'uz-Cyrl') === arabicSample &&
     adaptDisplayTextForLocale(arabicSample, 'ru') === arabicSample,
   'Arabic religious scripts remain 100% untouched across all 5 display languages'
+);
+
+// 10. Four Canonical Design Profiles & Legacy Alias Normalization
+assert(
+  normalizeDisplayTemplate('royal_ivory') === 'royal_ivory' &&
+    normalizeDisplayTemplate('classic_mosque') === 'royal_ivory' &&
+    normalizeDisplayTemplate('emerald_royal') === 'emerald_royal' &&
+    normalizeDisplayTemplate('premium_emerald') === 'emerald_royal' &&
+    normalizeDisplayTemplate('modern_minimal') === 'modern_minimal' &&
+    normalizeDisplayTemplate('minimal_modern') === 'modern_minimal' &&
+    normalizeDisplayTemplate('madina_portrait') === 'madina_portrait' &&
+    normalizeDisplayTemplate('unknown_value') === 'royal_ivory',
+  'All 4 canonical design profiles (royal_ivory, emerald_royal, modern_minimal, madina_portrait) and legacy aliases normalize deterministically'
+);
+
+assert(
+  locales.every((loc) => {
+    const tpls = getDisplayLocaleBundle(loc).templates;
+    return Boolean(tpls.royal_ivory && tpls.emerald_royal && tpls.modern_minimal && tpls.madina_portrait);
+  }),
+  'All 5 display languages provide localized labels for all 4 Smart Mosque Display profiles'
 );
 
 console.log('\n================================================================');

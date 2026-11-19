@@ -443,7 +443,7 @@ export async function createAdminDisplayMonitor(payload: {
   locationLabel: string;
   scheduleId: string;
   language: SupportedLocale;
-  template: 'classic_mosque' | 'premium_emerald' | 'minimal_modern';
+  template: SmartDisplayMonitor['template'];
   settings?: Partial<typeof DEFAULT_SMART_DISPLAY_SETTINGS>;
 }): Promise<{ success: boolean; monitor?: SmartDisplayMonitor; error?: string }> {
   try {

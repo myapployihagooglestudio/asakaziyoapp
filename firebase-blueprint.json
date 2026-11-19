@@ -378,7 +378,7 @@
         "pairingCode": { "type": "string", "maxLength": 12 },
         "status": { "type": "string", "enum": ["active", "disabled", "blocked"] },
         "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
-        "template": { "type": "string", "enum": ["classic_mosque", "premium_emerald", "minimal_modern"] },
+        "template": { "type": "string", "enum": ["royal_ivory", "emerald_royal", "modern_minimal", "madina_portrait", "classic_mosque", "premium_emerald", "minimal_modern"] },
         "settings": { "type": "object" },
         "tokenHash": { "type": "string", "maxLength": 128 },
         "lastHeartbeatAt": { "type": "string", "maxLength": 64 },

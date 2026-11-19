@@ -70,6 +70,10 @@ export interface SmartDisplayLocaleBundle {
   weekdays: string[]; // 0 = Sunday .. 6 = Saturday
   months: string[]; // 0 = January .. 11 = December
   templates: {
+    royal_ivory: string;
+    emerald_royal: string;
+    modern_minimal: string;
+    madina_portrait: string;
     classic_mosque: string;
     premium_emerald: string;
     minimal_modern: string;
@@ -168,9 +172,13 @@ const UZ_LATN_BUNDLE: SmartDisplayLocaleBundle = {
     'Dekabr',
   ],
   templates: {
-    classic_mosque: 'Classic Mosque',
-    premium_emerald: 'Premium Emerald',
-    minimal_modern: 'Minimal Modern',
+    royal_ivory: 'Royal Ivory',
+    emerald_royal: 'Emerald Royal',
+    modern_minimal: 'Modern Minimal',
+    madina_portrait: 'Madina Portrait',
+    classic_mosque: 'Royal Ivory',
+    premium_emerald: 'Emerald Royal',
+    minimal_modern: 'Modern Minimal',
   },
 };
 
@@ -266,9 +274,13 @@ const UZ_CYRL_BUNDLE: SmartDisplayLocaleBundle = {
     'Декабрь',
   ],
   templates: {
-    classic_mosque: 'Классик Масжид',
-    premium_emerald: 'Премиум Зумрад',
-    minimal_modern: 'Замонавий Минимал',
+    royal_ivory: 'Royal Ivory (Оқ)',
+    emerald_royal: 'Emerald Royal (Зумрад)',
+    modern_minimal: 'Modern Minimal',
+    madina_portrait: 'Madina Portrait (Вертикал)',
+    classic_mosque: 'Royal Ivory (Оқ)',
+    premium_emerald: 'Emerald Royal (Зумрад)',
+    minimal_modern: 'Modern Minimal',
   },
 };
 
@@ -364,9 +376,13 @@ const RU_BUNDLE: SmartDisplayLocaleBundle = {
     'Декабря',
   ],
   templates: {
-    classic_mosque: 'Классическая мечеть',
-    premium_emerald: 'Премиум Изумруд',
-    minimal_modern: 'Современный минимал',
+    royal_ivory: 'Royal Ivory (Светлый)',
+    emerald_royal: 'Emerald Royal (Изумруд)',
+    modern_minimal: 'Modern Minimal',
+    madina_portrait: 'Madina Portrait (Вертикальный)',
+    classic_mosque: 'Royal Ivory (Светлый)',
+    premium_emerald: 'Emerald Royal (Изумруд)',
+    minimal_modern: 'Modern Minimal',
   },
 };
 
@@ -462,9 +478,13 @@ const EN_BUNDLE: SmartDisplayLocaleBundle = {
     'December',
   ],
   templates: {
-    classic_mosque: 'Classic Mosque',
-    premium_emerald: 'Premium Emerald',
-    minimal_modern: 'Minimal Modern',
+    royal_ivory: 'Royal Ivory',
+    emerald_royal: 'Emerald Royal',
+    modern_minimal: 'Modern Minimal',
+    madina_portrait: 'Madina Portrait',
+    classic_mosque: 'Royal Ivory',
+    premium_emerald: 'Emerald Royal',
+    minimal_modern: 'Modern Minimal',
   },
 };
 

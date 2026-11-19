@@ -11,7 +11,36 @@
 
 import { PrayerKey, PrayerSchedule, PrayerTimeEntry, SupportedLocale } from '../types';
 
-export type DisplayTemplateId = 'classic_mosque' | 'premium_emerald' | 'minimal_modern';
+export type CanonicalDisplayProfileId =
+  | 'royal_ivory'
+  | 'emerald_royal'
+  | 'modern_minimal'
+  | 'madina_portrait';
+
+export type DisplayTemplateId =
+  | CanonicalDisplayProfileId
+  | 'classic_mosque'
+  | 'premium_emerald'
+  | 'minimal_modern';
+
+export function normalizeDisplayTemplate(template?: string | null): CanonicalDisplayProfileId {
+  switch (template) {
+    case 'royal_ivory':
+    case 'classic_mosque':
+      return 'royal_ivory';
+    case 'emerald_royal':
+    case 'premium_emerald':
+      return 'emerald_royal';
+    case 'modern_minimal':
+    case 'minimal_modern':
+      return 'modern_minimal';
+    case 'madina_portrait':
+      return 'madina_portrait';
+    default:
+      return 'royal_ivory';
+  }
+}
+
 export type DisplayMonitorStatus = 'active' | 'disabled' | 'blocked';
 
 export interface SmartDisplaySettings {

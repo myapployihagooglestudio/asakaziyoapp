@@ -40,6 +40,7 @@ import {
   SmartMosqueScheduleProfile,
   buildDisplayScheduleFromMainSchedule,
   isMonitorOnline,
+  normalizeDisplayTemplate,
   validateDisplaySchedule,
 } from '../../../utils/smartMosqueDisplayEngine';
 import {
@@ -67,19 +68,24 @@ type DisplayAdminSubTab = 'monitors' | 'schedules' | 'announcements' | 'connecti
 
 const TEMPLATE_OPTIONS: { id: DisplayTemplateId; label: string; desc: string }[] = [
   {
-    id: 'classic_mosque',
-    label: 'Madina Haramayn (Ivory)',
-    desc: 'Masjidi Nabaviy uslubi — marvarid oq fon, oltin medalyon va qirollik yashil tasma',
+    id: 'royal_ivory',
+    label: 'Royal Ivory (16:9)',
+    desc: 'Yorugʻ va nafis ivory fon, oltin chiziq va qirollik yashil hisoblagich tasmasi',
   },
   {
-    id: 'premium_emerald',
-    label: 'Haramayn Night (Emerald)',
-    desc: 'Tungi va qorongʻi zallar uchun chuqur zumrad va 24K oltin kalligrafiya',
+    id: 'emerald_royal',
+    label: 'Emerald Royal (16:9)',
+    desc: 'Toʻq zumrad premium 2 ustunli kompozitsiya — yirik soat va yuqori kontrast',
   },
   {
-    id: 'minimal_modern',
-    label: 'Alabaster Minimal',
-    desc: 'Kunduzgi yorugʻ zallar uchun ultra-toza oq marmar va yuqori kontrast',
+    id: 'modern_minimal',
+    label: 'Modern Minimal (16:9)',
+    desc: 'Ortiqcha bezaksiz, 5 ustunli zamonaviy arxitekturaviy namoz jadvali',
+  },
+  {
+    id: 'madina_portrait',
+    label: 'Madina Portrait (9:16)',
+    desc: 'Vertikal 1080×1920 monitorlar uchun Masjidi Nabaviy uslubidagi maxsus kompozitsiya',
   },
 ];
 
@@ -122,7 +128,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
   const [newMonLocation, setNewMonLocation] = useState('Asosiy namozxona · Asaka');
   const [newMonScheduleId, setNewMonScheduleId] = useState('asaka-main');
   const [newMonLanguage, setNewMonLanguage] = useState<SupportedLocale>('uz-Latn');
-  const [newMonTemplate, setNewMonTemplate] = useState<DisplayTemplateId>('classic_mosque');
+  const [newMonTemplate, setNewMonTemplate] = useState<DisplayTemplateId>('royal_ivory');
 
   // QR Pairing Modal state
   const [qrMonitor, setQrMonitor] = useState<SmartDisplayMonitor | null>(null);
@@ -543,7 +549,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               </div>
               <p className="text-xs text-[#DFBD69]/85 mt-1 max-w-2xl">
                 Masjid va madrasalardagi barcha televizor monitorlarini QR/6-xonali kod bilan ulang,
-                administrator tasdiqlagan aniq namoz jadvallari, 5 til, 3 dizayn shabloni va eʼlonlarni markazlashgan holda boshqaring.
+                administrator tasdiqlagan aniq namoz jadvallari, 5 til, 4 dizayn profili va eʼlonlarni markazlashgan holda boshqaring.
               </p>
             </div>
           </div>
@@ -773,7 +779,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Dizayn Shabloni (3 ta)
+                    Dizayn Profili (4 ta)
                   </label>
                   <select
                     value={newMonTemplate}
@@ -897,7 +903,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                         <span className="text-muted block">Til & Shablon</span>
                         <span className="font-bold text-primary truncate block">
                           {DISPLAY_LANGUAGE_LABELS[mon.language] || mon.language} ·{' '}
-                          {TEMPLATE_OPTIONS.find((t) => t.id === mon.template)?.label || mon.template}
+                          {TEMPLATE_OPTIONS.find((t) => t.id === normalizeDisplayTemplate(mon.template))?.label || mon.template}
                         </span>
                       </div>
                       <div className="p-2 rounded-lg bg-canvas/70 border border-divider/60 col-span-2 sm:col-span-1">
@@ -934,7 +940,13 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setEditingMonitor({ ...mon, settings: { ...DEFAULT_SMART_DISPLAY_SETTINGS, ...mon.settings } })}
+                          onClick={() =>
+                            setEditingMonitor({
+                              ...mon,
+                              template: normalizeDisplayTemplate(mon.template),
+                              settings: { ...DEFAULT_SMART_DISPLAY_SETTINGS, ...mon.settings },
+                            })
+                          }
                           className="px-2.5 py-1.5 rounded-lg bg-canvas hover:bg-canvas/90 border border-divider text-[11px] font-bold text-primary flex items-center gap-1 cursor-pointer"
                         >
                           <Sliders className="w-3.5 h-3.5 text-[#DFBD69]" />

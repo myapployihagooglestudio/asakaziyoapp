@@ -31,7 +31,15 @@ export interface SmartDisplayRouterDeps {
 }
 
 const VALID_LANGUAGES = new Set(['uz-Latn', 'uz-Cyrl', 'uz-Latn-new', 'ru', 'en']);
-const VALID_TEMPLATES = new Set(['classic_mosque', 'premium_emerald', 'minimal_modern']);
+const VALID_TEMPLATES = new Set([
+  'royal_ivory',
+  'emerald_royal',
+  'modern_minimal',
+  'madina_portrait',
+  'classic_mosque',
+  'premium_emerald',
+  'minimal_modern',
+]);
 const VALID_STATUSES = new Set(['active', 'disabled', 'blocked']);
 const VALID_PRIORITIES = new Set(['normal', 'important', 'urgent']);
 

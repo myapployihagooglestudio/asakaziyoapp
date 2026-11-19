@@ -160,6 +160,11 @@
   line-height: 2.35;
 }
 
+.font-arabic-signage {
+  font-family: 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
+  line-height: 1.18;
+}
+
 .font-display {
   font-family: 'Cinzel', serif;
 }

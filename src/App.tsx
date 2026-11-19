@@ -312,7 +312,11 @@ export default function App() {
     try {
       if (typeof window !== 'undefined' && window.history?.pushState) {
         if (tab === 'display') {
-          window.history.pushState({ tab }, '', '/display');
+          const nextPath =
+            window.location.pathname === '/display' && window.location.search
+              ? `/display${window.location.search}`
+              : '/display';
+          window.history.pushState({ tab }, '', nextPath);
         } else if (window.location.pathname.startsWith('/display')) {
           window.history.pushState({ tab }, '', `/#${tab}`);
         } else {
@@ -814,8 +818,14 @@ export default function App() {
         schedule={prayerSchedule}
         dailyAyah={DAILY_FEATURED_AYAH}
         dailyHadith={FEATURED_DAILY_HADITH}
-        onOpenSmartDisplay={() => {
+        onOpenSmartDisplay={(profile) => {
           setIsTvModalOpen(false);
+          try {
+            const targetUrl = profile ? `/display?template=${encodeURIComponent(profile)}` : '/display';
+            window.history.pushState({}, '', targetUrl);
+          } catch {
+            // ignore history error
+          }
           handleNavigate('display');
         }}
       />
