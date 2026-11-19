@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="asaka_emerald_deep">#031814</color>
+    <color name="asaka_emerald_surface">#071614</color>
+    <color name="asaka_emerald_primary">#074E37</color>
+    <color name="asaka_gold_accent">#C6A45C</color>
+    <color name="asaka_ivory_bg">#F8F5EC</color>
+    <color name="asaka_white">#FFFFFF</color>
+</resources>

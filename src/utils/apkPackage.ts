@@ -1,7 +1,7 @@
 /**
  * ASAKA ZIYO — Standalone Android APK Package & Release Verification Engine (2026)
  * Package ID: uz.asakaziyo.app
- * Version: 3.0.0 (Build 300)
+ * Version: 4.0.0 (Build 400)
  */
 
 export interface APKReleaseInfo {
@@ -10,13 +10,19 @@ export interface APKReleaseInfo {
   packageId: string;
   appName: string;
   releaseDate: string;
+  apkFilename: string;
+  aabFilename: string;
+  apkAvailable: boolean;
+  aabAvailable: boolean;
+  signed: boolean;
+  status?: 'ready' | 'awaiting_ci_artifact';
+  statusMessageUz?: string;
   sizeBytes: number;
   fileSizeDisplay: string;
   sha256Checksum: string;
   targetAndroid: string;
   minAndroid: string;
   downloadUrl: string;
-  aabAvailable: boolean;
   axmlVerified: boolean;
   dexVerified: boolean;
   resourcesArscVerified: boolean;
@@ -28,22 +34,29 @@ export interface APKReleaseInfo {
 }
 
 export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
-  version: '3.0.0',
-  buildCode: 300,
+  version: '4.0.0',
+  buildCode: 400,
   packageId: 'uz.asakaziyo.app',
   appName: 'ASAKA ZIYO',
-  releaseDate: '2026-yil, Noyabr',
-  sizeBytes: 2530602,
-  fileSizeDisplay: '2.41 MB',
-  sha256Checksum: '9a5ff1382e04c01b967162cf154b36800503f5bdb35897c3eb819f7f4d6613fc',
+  releaseDate: '2026-11-19',
+  apkFilename: 'Asaka-Ziyo-v4.0.0.apk',
+  aabFilename: 'Asaka-Ziyo-v4.0.0.aab',
+  apkAvailable: false,
+  aabAvailable: false,
+  signed: false,
+  status: 'awaiting_ci_artifact',
+  statusMessageUz:
+    'ASAKA ZIYO v4.0.0 (Build 400) Android manba kodi va CI/CD tizimi tayyor. Imzolangan APK serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi.',
+  sizeBytes: 0,
+  fileSizeDisplay: 'CI/CD orqali yigʻilmoqda',
+  sha256Checksum: '',
   targetAndroid: 'Android 16 (API 36)',
   minAndroid: 'Android 7.0+ (API 24)',
   downloadUrl: '/api/apk/download',
-  aabAvailable: false,
-  axmlVerified: true,
-  dexVerified: true,
-  resourcesArscVerified: true,
-  pkcs7Signed: true,
+  axmlVerified: false,
+  dexVerified: false,
+  resourcesArscVerified: false,
+  pkcs7Signed: false,
   supportedAbis: ['arm64-v8a', 'armeabi-v7a', 'x86_64'],
   permissions: [
     'android.permission.INTERNET',
@@ -62,19 +75,18 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
     'android.permission.WAKE_LOCK',
   ],
   featuresUz: [
-    'Haqiqiy binar AXML + DEX + RSA-2048 PKCS#7 imzolangan Android APK v3.0.0 (Build 300 · uz.asakaziyo.app)',
-    'Rasmiy «MuhammadSolih Hoji» Jomeʼ masjidi logosi va yangi Emerald & Metallic Gold dizayni',
-    'Android 10–16 uchun 7 ta native ruxsat tizimi (Bildirishnoma, Kamera, Mikrofon, Telefon, Media, Joylashuv, Audio)',
-    'Telegram uslubidagi Heads-Up bildirishnomalar va 7 mahal namoz uchun 5/10/15/30 daqiqa oldindan eslatma tizimi',
-    'Masjid Jamoat Smart TV (16:9 Full HD / 4K) ekrani va Qurʼon viktorinasi Sacred Cinema v3 MP4 eksporti',
-    'Qurʼoni Karim 114 surasi, Tafsiri Hilol va qorilar audiosi (ekran qulflanganda ham fonda tinglash)',
-    'Internet uzilganda ham 100% oflayn ishlash va avtomatik sinxronlash tizimi',
+    'ASAKA ZIYO v4.0.0 (Build 400 · uz.asakaziyo.app) — Android 7.0–16 (API 24–36) uchun toʻliq qayta tiklangan native Gradle build tizimi',
+    'Rasmiy «MuhammadSolih Hoji» Jomeʼ masjidi muhr logosi asosida yagona Web, PWA va Android Adaptive Icon (66% safe-zone) tizimi',
+    'Android 12+ SplashScreen API, monoxrom status-bar bildirishnoma ikonkasi va chuqur havolalar (Deep Link) marshrutizatsiyasi',
+    'R8/ProGuard himoyasi bilan toʻliq ishlovchi AsakaNativeBridge (ruxsatlar, aniq namoz budilniklari, ulashish, vibratsiya)',
+    'Masjid Jamoat Smart TV (10 ta premium dizayn) va Qurʼon viktorinasi MP4 video eksporti',
+    'Qurʼoni Karim 114 surasi, Tafsiri Hilol va qorilar audiosi (Media3 fonda ijro + 100% oflayn ishlash)',
   ],
   installStepsUz: [
     {
       step: 1,
-      title: 'Rasmiy imzolangan APK v3.0.0 faylni yuklab oling',
-      desc: '«APK v3.0.0 Yuklab Olish» tugmasini bosing. Binar tekshiruvdan oʻtgan toʻliq APK smartfoningizga saqlanadi.',
+      title: 'Rasmiy imzolangan APK v4.0.0 faylni yuklab oling',
+      desc: '«Rasmiy APK v4.0.0 Yuklab Olish» tugmasini bosing. Binar tekshiruvdan oʻtgan toʻliq APK smartfoningizga saqlanadi.',
     },
     {
       step: 2,
@@ -83,8 +95,8 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
     },
     {
       step: 3,
-      title: 'Oʻrnating va mustaqil ishga tushiring',
-      desc: '«Oʻrnatish» (Install) tugmasini bosing. ASAKA ZIYO v3.0.0 mustaqil Android ilova sifatida ochiladi.',
+      title: 'Yangilang yoki toza oʻrnating',
+      desc: '«Oʻrnatish» (Install / Update) tugmasini bosing. Mavjud uz.asakaziyo.app foydalanuvchilari maʼlumotlarni yoʻqotmasdan v4.0.0 ga oʻtadi.',
     },
   ],
 };
@@ -94,7 +106,7 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
  */
 export async function fetchVerifiedApkInfo(): Promise<APKReleaseInfo> {
   try {
-    const resp = await fetch('/api/apk/info');
+    const resp = await fetch('/api/apk/info', { cache: 'no-store' });
     if (resp.ok) {
       const data = await resp.json();
       if (data && data.success) {
@@ -106,28 +118,36 @@ export async function fetchVerifiedApkInfo(): Promise<APKReleaseInfo> {
       }
     }
   } catch {
-    // fallback to static metadata
+    // fallback to honest static metadata (apkAvailable: false)
   }
   return ASAKA_ZIYO_APK_RELEASE;
 }
 
 /**
  * Downloads the signed APK with real-time progress and verifies binary PK\x03\x04 ZIP header
- * so an HTML page or corrupted response is never saved as an APK.
+ * so an HTML page, JSON 404, or corrupted response is never saved as an APK.
  */
 export async function downloadVerifiedApkWithProgress(
   onProgress?: (percent: number, loadedBytes: number, totalBytes: number) => void,
-  filename = 'Asaka-Ziyo-v3.0.0.apk'
+  filename = 'Asaka-Ziyo-v4.0.0.apk'
 ): Promise<{ success: boolean; sizeBytes: number; error?: string }> {
   try {
-    const response = await fetch('/api/apk/download');
+    const response = await fetch('/api/apk/download', { cache: 'no-store' });
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+
     if (!response.ok) {
+      if (contentType.includes('application/json')) {
+        const errBody = await response.json().catch(() => null);
+        throw new Error(
+          errBody?.error ||
+            `ASAKA ZIYO v4.0.0 APK fayli hali serverda mavjud emas (HTTP ${response.status}).`
+        );
+      }
       throw new Error(`Server xatosi: HTTP ${response.status}`);
     }
 
-    const contentType = (response.headers.get('content-type') || '').toLowerCase();
-    if (contentType.includes('text/html')) {
-      throw new Error('Server HTML sahifa qaytardi — APK fayl topilmadi.');
+    if (contentType.includes('text/html') || contentType.includes('application/json')) {
+      throw new Error('Server haqiqiy APK fayl oʻrniga matn/HTML qaytardi — yuklab olish toʻxtatildi.');
     }
 
     const totalBytes = Number(response.headers.get('content-length') || 0);
@@ -161,13 +181,13 @@ export async function downloadVerifiedApkWithProgress(
 
     // Verify genuine ZIP/APK magic bytes: PK\x03\x04 (0x50 0x4b 0x03 0x04)
     if (
-      combined.byteLength < 4096 ||
+      combined.byteLength < 65536 ||
       combined[0] !== 0x50 ||
       combined[1] !== 0x4b ||
       combined[2] !== 0x03 ||
       combined[3] !== 0x04
     ) {
-      throw new Error('Yuklab olingan fayl haqiqiy Android APK arxivi emas.');
+      throw new Error('Yuklab olingan fayl haqiqiy Android APK arxivi emas (ZIP/APK sarlavhasi tasdiqlanmadi).');
     }
 
     onProgress?.(100, loadedBytes, loadedBytes);
@@ -193,20 +213,9 @@ export async function downloadVerifiedApkWithProgress(
 }
 
 /**
- * Legacy helper for immediate download trigger
+ * Verified download helper (checks availability & binary magic bytes before saving)
  */
-export function triggerApkDownload(filename = 'Asaka-Ziyo-v3.0.0.apk'): boolean {
-  try {
-    const link = document.createElement('a');
-    link.href = '/api/apk/download';
-    link.download = filename;
-    link.setAttribute('type', 'application/vnd.android.package-archive');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return true;
-  } catch {
-    window.location.href = '/api/apk/download';
-    return false;
-  }
+export async function triggerApkDownload(filename = 'Asaka-Ziyo-v4.0.0.apk'): Promise<{ success: boolean; error?: string }> {
+  const result = await downloadVerifiedApkWithProgress(undefined, filename);
+  return { success: result.success, error: result.error };
 }

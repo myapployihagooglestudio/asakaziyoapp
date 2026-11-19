@@ -2,11 +2,14 @@
  * ASAKA ZIYO — Telegram Platform Independent Configuration
  *
  * Strictly reads ONLY from process.env (never hardcoded secrets, never exposed to frontend).
- * Safe to load even when Telegram credentials are not yet configured — the bot stays
- * cleanly in standby mode without affecting the existing Web App or Mobile App.
+ * Preserves exclusive TELEGRAM_BOT_TOKEN1 binding (never falls back to legacy TELEGRAM_BOT_TOKEN).
+ * Mini App URL defaults safely to https://asakaziyo.ai.studio while honoring valid HTTPS overrides.
  */
 
 export type TelegramRuntimeMode = 'webhook' | 'polling' | 'disabled';
+
+export const DEFAULT_TELEGRAM_MINIAPP_URL = 'https://asakaziyo.ai.studio';
+export const DEFAULT_TELEGRAM_AI_MODEL = 'gemini-3.5-flash-lite';
 
 export interface TelegramPlatformConfig {
   botToken: string;
@@ -19,7 +22,9 @@ export interface TelegramPlatformConfig {
   modeAutoSelected: boolean;
   apiBaseUrl: string;
   webAppUrl: string;
+  miniAppUrl: string;
   defaultChannelUsername: string;
+  defaultAiModel: string;
   rateLimitMaxRequests: number;
   rateLimitWindowMs: number;
   isConfigured: boolean;
@@ -44,11 +49,11 @@ function normalizeOwnerId(raw: string | undefined): string | null {
 }
 
 /**
- * Telegram InlineKeyboardButton.url rejects non-HTTPS or localhost/loopback URLs
- * with `400 Bad Request: BUTTON_URL_INVALID`. Sanitize webAppUrl to guarantee valid HTTPS.
+ * Telegram InlineKeyboardButton.url & web_app.url reject non-HTTPS or localhost/loopback URLs
+ * with `400 Bad Request: BUTTON_URL_INVALID`. Sanitize base URL to guarantee valid HTTPS.
  */
 export function sanitizeTelegramButtonBaseUrl(rawUrl: string | undefined): string {
-  const fallback = 'https://asakaziyo.uz';
+  const fallback = DEFAULT_TELEGRAM_MINIAPP_URL;
   const trimmed = (rawUrl || '').trim().replace(/\/+$/, '');
   if (!trimmed) return fallback;
   try {
@@ -88,8 +93,6 @@ function resolveMode(
   if (normalized === 'webhook') {
     return { mode: 'webhook', autoSelected: false };
   }
-  // Auto-select webhook ONLY when both HTTPS webhook URL and secret are configured;
-  // otherwise use long-polling so /start works immediately once TELEGRAM_BOT_TOKEN1 is set.
   if (webhookUrl && webhookSecret) {
     return { mode: 'webhook', autoSelected: true };
   }
@@ -110,7 +113,10 @@ export function loadTelegramPlatformConfig(
     adminIds.unshift(ownerId);
   }
 
-  const webAppUrl = sanitizeTelegramButtonBaseUrl(env.APP_URL);
+  const miniAppUrl = sanitizeTelegramButtonBaseUrl(
+    env.TELEGRAM_MINIAPP_URL || DEFAULT_TELEGRAM_MINIAPP_URL
+  );
+  const webAppUrl = miniAppUrl;
   const { mode, autoSelected } = resolveMode(env.TELEGRAM_MODE, botToken, webhookUrl, webhookSecret);
 
   return {
@@ -124,8 +130,10 @@ export function loadTelegramPlatformConfig(
     modeAutoSelected: autoSelected,
     apiBaseUrl: 'https://api.telegram.org',
     webAppUrl,
+    miniAppUrl,
     defaultChannelUsername: (env.TELEGRAM_CHANNEL_ID || '@Asaka_Ziyo').trim() || '@Asaka_Ziyo',
-    rateLimitMaxRequests: Math.max(5, Number(env.TELEGRAM_RATE_LIMIT_MAX || 25) || 25),
+    defaultAiModel: (env.TELEGRAM_AI_MODEL || DEFAULT_TELEGRAM_AI_MODEL).trim() || DEFAULT_TELEGRAM_AI_MODEL,
+    rateLimitMaxRequests: Math.max(5, Number(env.TELEGRAM_RATE_LIMIT_MAX || 30) || 30),
     rateLimitWindowMs: Math.max(5_000, Number(env.TELEGRAM_RATE_LIMIT_WINDOW_MS || 60_000) || 60_000),
     isConfigured: Boolean(botToken),
   };
@@ -152,6 +160,8 @@ export function getSafeTelegramConfigSummary(config: TelegramPlatformConfig) {
     ownerConfigured: Boolean(config.ownerId),
     adminCount: config.adminIds.length,
     defaultChannelUsername: config.defaultChannelUsername,
+    miniAppUrl: config.miniAppUrl,
+    defaultAiModel: config.defaultAiModel,
     rateLimitMaxRequests: config.rateLimitMaxRequests,
     rateLimitWindowMs: config.rateLimitWindowMs,
   };

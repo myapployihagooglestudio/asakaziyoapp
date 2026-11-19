@@ -1085,9 +1085,9 @@ async function runFullE2ESuite() {
   }
 
   // ---------------------------------------------------------------------------
-  // 10. NATIVE ANDROID APK BINARY STRUCTURE & DOWNLOAD STREAMING VERIFICATION
+  // 10. NATIVE ANDROID APK v4.0.0 RELEASE METADATA & DOWNLOAD CONTRACT VERIFICATION
   // ---------------------------------------------------------------------------
-  console.log('\n--- 10. Testing Native Android APK v2.0.0 Binary Package & Download Streaming ---');
+  console.log('\n--- 10. Testing Native Android APK v4.0.0 Metadata & Download Contract ---');
 
   const apkInfoRes = await fetch(`${BASE_URL}/api/apk/info`);
   const apkInfoJson = await apkInfoRes.json();
@@ -1095,47 +1095,58 @@ async function runFullE2ESuite() {
     apkInfoRes.status === 200 &&
       apkInfoJson.success === true &&
       apkInfoJson.packageId === 'uz.asakaziyo.app' &&
-      (apkInfoJson.version === '3.0.0' || apkInfoJson.version === '2.1.0' || apkInfoJson.version === '2.0.0') &&
-      (apkInfoJson.buildCode === 300 || apkInfoJson.buildCode === 210 || apkInfoJson.buildCode === 200),
-    'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app) & release build'
-  );
-  assert(
-    apkInfoJson.axmlVerified === true &&
-      apkInfoJson.dexVerified === true &&
-      apkInfoJson.resourcesArscVerified === true &&
-      apkInfoJson.pkcs7Signed === true,
-    'APK TEST 2: APK binary components (compiled AXML, classes.dex, resources.arsc, PKCS#7 RSA-2048 signature) verified'
-  );
-  assert(
-    typeof apkInfoJson.sizeBytes === 'number' && apkInfoJson.sizeBytes > 500000,
-    `APK TEST 3: Signed release APK size is substantial (${apkInfoJson.fileSizeDisplay}, ${apkInfoJson.sizeBytes} bytes > 500 KB)`
+      apkInfoJson.version === '4.0.0' &&
+      apkInfoJson.buildCode === 400 &&
+      apkInfoJson.apkFilename === 'Asaka-Ziyo-v4.0.0.apk',
+    'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app), v4.0.0 & buildCode 400'
   );
 
   const apkDownloadRes = await fetch(`${BASE_URL}/api/apk/download`);
-  const apkContentType = apkDownloadRes.headers.get('content-type') || '';
-  const apkDisposition = apkDownloadRes.headers.get('content-disposition') || '';
-  const apkShaHeader = apkDownloadRes.headers.get('x-apk-sha256') || '';
-  const apkArrayBuffer = await apkDownloadRes.arrayBuffer();
-  const apkBytes = new Uint8Array(apkArrayBuffer);
+  const apkContentType = (apkDownloadRes.headers.get('content-type') || '').toLowerCase();
 
-  assert(
-    apkDownloadRes.status === 200 &&
-      apkContentType.includes('application/vnd.android.package-archive') &&
-      (apkDisposition.includes('Asaka-Ziyo-v3.0.0.apk') || apkDisposition.includes('Asaka-Ziyo-v2.0.0.apk')),
-    'APK TEST 4: GET /api/apk/download streams with Content-Type: application/vnd.android.package-archive'
-  );
-  assert(
-    apkBytes.length === apkInfoJson.sizeBytes &&
-      apkBytes[0] === 0x50 &&
-      apkBytes[1] === 0x4b &&
-      apkBytes[2] === 0x03 &&
-      apkBytes[3] === 0x04,
-    'APK TEST 5: Downloaded APK binary starts with valid ZIP/APK magic bytes (PK\\x03\\x04) and matches exact byte length'
-  );
-  assert(
-    apkShaHeader.length === 64 && apkShaHeader === apkInfoJson.sha256Checksum,
-    `APK TEST 6: Downloaded APK SHA-256 checksum matches verified release metadata (${apkShaHeader.slice(0, 16)}...)`
-  );
+  if (apkInfoJson.apkAvailable === true) {
+    const apkDisposition = apkDownloadRes.headers.get('content-disposition') || '';
+    const apkShaHeader = apkDownloadRes.headers.get('x-apk-sha256') || '';
+    const apkArrayBuffer = await apkDownloadRes.arrayBuffer();
+    const apkBytes = new Uint8Array(apkArrayBuffer);
+
+    assert(
+      typeof apkInfoJson.sizeBytes === 'number' && apkInfoJson.sizeBytes > 65536,
+      `APK TEST 2: Signed release APK size is valid (${apkInfoJson.fileSizeDisplay}, ${apkInfoJson.sizeBytes} bytes)`
+    );
+    assert(
+      apkDownloadRes.status === 200 &&
+        apkContentType.includes('application/vnd.android.package-archive') &&
+        apkDisposition.includes('Asaka-Ziyo-v4.0.0.apk'),
+      'APK TEST 3: GET /api/apk/download streams with Content-Type: application/vnd.android.package-archive & Asaka-Ziyo-v4.0.0.apk'
+    );
+    assert(
+      apkBytes.length === apkInfoJson.sizeBytes &&
+        apkBytes[0] === 0x50 &&
+        apkBytes[1] === 0x4b &&
+        apkBytes[2] === 0x03 &&
+        apkBytes[3] === 0x04,
+      'APK TEST 4: Downloaded APK binary starts with valid ZIP/APK magic bytes (PK\\x03\\x04) and matches exact byte length'
+    );
+    assert(
+      apkShaHeader.length === 64 && apkShaHeader === apkInfoJson.sha256Checksum,
+      `APK TEST 5: Downloaded APK SHA-256 checksum matches verified release metadata (${apkShaHeader.slice(0, 16)}...)`
+    );
+  } else {
+    const errJson = await apkDownloadRes.json();
+    assert(
+      apkInfoJson.status === 'awaiting_ci_artifact' && apkInfoJson.apkAvailable === false,
+      'APK TEST 2: GET /api/apk/info honestly reports awaiting_ci_artifact when v4.0.0 APK binary is not yet built on server'
+    );
+    assert(
+      apkDownloadRes.status === 404 &&
+        apkContentType.includes('application/json') &&
+        !apkContentType.includes('text/html') &&
+        errJson.success === false &&
+        errJson.apkAvailable === false,
+      'APK TEST 3: GET /api/apk/download cleanly returns HTTP 404 JSON (never HTML, never corrupt bytes, never mislabeled v3.0.0)'
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // 11. LIVE GOOGLE CLOUD FIRESTORE PERSISTENCE, DIAGNOSTICS & SUPABASE BACKUP

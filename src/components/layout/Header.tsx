@@ -249,11 +249,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={onOpenInstallModal}
                 className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-extrabold rounded-xl az-gold-foil-bg text-[#010906] hover:brightness-105 transition-all shadow-[0_4px_14px_rgba(212,175,55,0.35)] cursor-pointer whitespace-nowrap border border-[#FFF6C8]/60"
-                title="ASAKA ZIYO Android APK v3.0.0 va Oflayn Markaz"
+                title="ASAKA ZIYO Android APK v4.0.0 va Oflayn Markaz"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden xs:inline">APK</span>
-                <span className="hidden sm:inline">v3.0.0</span>
+                <span className="hidden sm:inline">v4.0.0</span>
               </button>
             )}
 
@@ -437,7 +437,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Download className="w-4 h-4" />
-                <span>Android APK v3.0.0</span>
+                <span>Android APK v4.0.0</span>
               </button>
             )}
           </div>

@@ -9,6 +9,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -17,7 +18,6 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
 import android.util.Log
-import android.view.Window
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -35,20 +35,25 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowInsetsControllerCompat
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 /**
- * ASAKA ZIYO — Main Native Android Activity (v3.0.0 · Build 300 · Target API 36)
+ * ASAKA ZIYO — Main Native Android Activity (v4.0.0 · Build 400 · Target API 36)
  * Hosts the bundled offline-capable application via a virtual HTTPS origin
- * (https://appassets.androidplatform.net/index.html) with hardened WebView security,
- * Android 10–16 runtime permissions bridge, Android Photo Picker support,
- * real AlarmManager prayer notifications, and system bar styling.
+ * (https://appassets.androidplatform.net/index.html) with Android 12+ SplashScreen API,
+ * hardened WebView security, deep link & notification targetView routing,
+ * Android 10–16 runtime permissions bridge, Photo Picker support,
+ * real AlarmManager prayer notifications, and dynamic system bar styling.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private var triedFileFallback = false
+    private var pageFinished = false
+    private var triedReloadFallback = false
+    private var pendingTargetView: String? = null
     private var pendingPermissionGroupKey: String? = null
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
 
@@ -77,14 +82,13 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
-        supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
+        // Android 12+ SplashScreen API (must be called before super.onCreate)
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
 
-        // Deep Emerald status and navigation bars (#031814)
-        window.statusBarColor = Color.parseColor("#031814")
-        window.navigationBarColor = Color.parseColor("#031814")
+        // Deep Emerald status and navigation bars (#031814) with light icons
+        applySystemBarsTheme(isDark = true)
 
         ensureHighImportanceNotificationChannels()
 
@@ -108,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         settings.javaScriptCanOpenWindowsAutomatically = false
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        settings.textZoom = 100
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -129,20 +134,46 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val url = request?.url?.toString() ?: return false
+                val uri = request?.url ?: return false
+                val url = uri.toString()
+                val host = (uri.host ?: "").lowercase()
+
+                // Keep virtual bundled app origin & Firebase auth flows inside WebView
+                if (
+                    host == "appassets.androidplatform.net" ||
+                    host == "asakaziyo.uz" ||
+                    host.endsWith(".asakaziyo.uz") ||
+                    host == "asakaziyo.ai.studio" ||
+                    host.endsWith(".firebaseapp.com") ||
+                    host == "accounts.google.com"
+                ) {
+                    return false
+                }
+
+                // Route phone, mail, Telegram, and external web links to the appropriate Android app
                 if (
                     url.startsWith("tel:") ||
                     url.startsWith("mailto:") ||
-                    url.startsWith("https://t.me/") ||
-                    url.startsWith("https://islom.uz")
+                    url.startsWith("tg:") ||
+                    url.startsWith("https://") ||
+                    url.startsWith("http://")
                 ) {
                     try {
                         val action = if (url.startsWith("tel:")) Intent.ACTION_DIAL else Intent.ACTION_VIEW
-                        startActivity(Intent(action, Uri.parse(url)))
+                        startActivity(Intent(action, uri))
                         return true
                     } catch (_: Exception) {}
                 }
                 return false
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                pageFinished = true
+                pendingTargetView?.let { target ->
+                    pendingTargetView = null
+                    dispatchNavigationToWebView(target)
+                }
             }
 
             override fun onReceivedError(
@@ -151,9 +182,19 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame == true && !triedFileFallback) {
-                    triedFileFallback = true
-                    view?.loadUrl("https://appassets.androidplatform.net/index.html")
+                if (request?.isForMainFrame == true) {
+                    if (!triedReloadFallback) {
+                        triedReloadFallback = true
+                        view?.loadUrl("https://appassets.androidplatform.net/index.html")
+                    } else {
+                        view?.loadDataWithBaseURL(
+                            "https://appassets.androidplatform.net/",
+                            buildOfflineFallbackHtml(),
+                            "text/html",
+                            "UTF-8",
+                            null
+                        )
+                    }
                 }
             }
         }
@@ -219,8 +260,12 @@ class MainActivity : AppCompatActivity() {
 
         webView.addJavascriptInterface(AsakaNativeBridge(), "AsakaAndroidBridge")
 
+        // Capture any notification targetView or deep link passed on initial launch
+        extractTargetViewFromIntent(intent)?.let { pendingTargetView = it }
+
         // Load bundled production application over virtual HTTPS origin
-        webView.loadUrl("https://appassets.androidplatform.net/index.html")
+        val initialHash = pendingTargetView?.let { "#$it" } ?: ""
+        webView.loadUrl("https://appassets.androidplatform.net/index.html$initialHash")
 
         // Handle Android Hardware Back Navigation cleanly
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -233,6 +278,86 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val target = extractTargetViewFromIntent(intent) ?: return
+        if (pageFinished) {
+            dispatchNavigationToWebView(target)
+        } else {
+            pendingTargetView = target
+        }
+    }
+
+    private fun extractTargetViewFromIntent(intent: Intent?): String? {
+        if (intent == null) return null
+        val extraView = intent.getStringExtra("targetView")?.trim()
+        if (!extraView.isNullOrEmpty()) {
+            return sanitizeRouteSlug(extraView)
+        }
+        val data: Uri = intent.data ?: return null
+        val fragment = data.fragment?.trim()
+        if (!fragment.isNullOrEmpty()) {
+            return sanitizeRouteSlug(fragment)
+        }
+        val firstSegment = data.pathSegments?.firstOrNull()?.trim()
+        if (!firstSegment.isNullOrEmpty()) {
+            return sanitizeRouteSlug(firstSegment)
+        }
+        return null
+    }
+
+    private fun sanitizeRouteSlug(raw: String): String {
+        return raw.replace(Regex("[^a-zA-Z0-9_-]"), "").take(48)
+    }
+
+    private fun dispatchNavigationToWebView(targetView: String) {
+        val safe = sanitizeRouteSlug(targetView)
+        if (safe.isEmpty()) return
+        webView.post {
+            webView.evaluateJavascript(
+                "try{window.location.hash='#$safe';window.dispatchEvent(new CustomEvent('asaka-native-navigate',{detail:{targetView:'$safe'}}));}catch(e){}",
+                null
+            )
+        }
+    }
+
+    private fun applySystemBarsTheme(isDark: Boolean) {
+        val barColor = if (isDark) Color.parseColor("#031814") else Color.parseColor("#F8F5EC")
+        window.statusBarColor = barColor
+        window.navigationBarColor = barColor
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        insetsController.isAppearanceLightStatusBars = !isDark
+        insetsController.isAppearanceLightNavigationBars = !isDark
+    }
+
+    private fun buildOfflineFallbackHtml(): String {
+        return """
+            <!doctype html>
+            <html lang="uz">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width,initial-scale=1" />
+              <title>ASAKA ZIYO</title>
+              <style>
+                body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#031814;color:#f8f5ec;font-family:sans-serif;text-align:center;padding:24px;}
+                .card{max-width:340px;padding:28px 22px;border-radius:18px;background:#071614;border:1px solid rgba(198,164,92,.45);}
+                h1{margin:0 0 8px;color:#c6a45c;font-size:22px;letter-spacing:.08em;}
+                p{margin:0 0 18px;font-size:14px;line-height:1.5;color:#d6d3d1;}
+                button{background:#c6a45c;color:#031814;border:none;border-radius:12px;padding:12px 20px;font-weight:700;font-size:14px;}
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <h1>ASAKA ZIYO</h1>
+                <p>Ilova resurslarini qayta yuklash talab qilinadi. Iltimos, quyidagi tugmani bosing.</p>
+                <button onclick="location.href='https://appassets.androidplatform.net/index.html'">Qayta yuklash</button>
+              </div>
+            </body>
+            </html>
+        """.trimIndent()
     }
 
     override fun onRequestPermissionsResult(
@@ -262,7 +387,7 @@ class MainActivity : AppCompatActivity() {
             val channels = listOf(
                 NotificationChannel(
                     "asaka_ziyo_prayer_pre_reminder",
-                    "Namoz Oldidan Eslatmalar (5–30 daqiqa)",
+                    getString(R.string.channel_prayer_pre_reminder),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Namoz vaqti kirishidan oldin eslatma"
@@ -270,7 +395,7 @@ class MainActivity : AppCompatActivity() {
                 },
                 NotificationChannel(
                     "asaka_ziyo_prayer_adhan",
-                    "Namoz Vaqti va Azon Eslatmalari",
+                    getString(R.string.channel_prayer_adhan),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Namoz vaqti kirganda Azon va bildirishnoma"
@@ -278,7 +403,7 @@ class MainActivity : AppCompatActivity() {
                 },
                 NotificationChannel(
                     "asaka_ziyo_announcements",
-                    "Masjid va Admin Muhim Eʼlonlari",
+                    getString(R.string.channel_announcements),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Asaka Jomeʼ masjidi muhim eʼlonlari"
@@ -286,7 +411,7 @@ class MainActivity : AppCompatActivity() {
                 },
                 NotificationChannel(
                     "asaka_ziyo_news_articles",
-                    "Yangiliklar va Ilmiy Maqolalar",
+                    getString(R.string.channel_news_articles),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Yangi maqola, yangilik va maʼrifiy postlar"
@@ -294,7 +419,7 @@ class MainActivity : AppCompatActivity() {
                 },
                 NotificationChannel(
                     "asaka_ziyo_chat_messages",
-                    "Suhbat va Imom Savol-Javob Xabarlari",
+                    getString(R.string.channel_chat_messages),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Jamoat suhbat xonasi va Imom javoblari"
@@ -326,6 +451,11 @@ class MainActivity : AppCompatActivity() {
             assetRelPath = "index.html"
         }
 
+        // Prevent path traversal outside assets/public/
+        if (assetRelPath.contains("..")) {
+            return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+        }
+
         // Never fake API success responses for /api/* routes — let network/fetch layer handle API calls
         if (assetRelPath.startsWith("api/")) {
             return null
@@ -350,7 +480,8 @@ class MainActivity : AppCompatActivity() {
                 200,
                 "OK",
                 mapOf(
-                    "Cache-Control" to "no-cache"
+                    "Cache-Control" to "no-cache",
+                    "Access-Control-Allow-Origin" to "https://appassets.androidplatform.net"
                 ),
                 stream
             )
@@ -496,18 +627,21 @@ class MainActivity : AppCompatActivity() {
         fun showHeadsUpNotification(title: String, body: String, channelId: String, targetView: String) {
             try {
                 val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                     putExtra("targetView", targetView)
                 }
                 val pendingIntent = PendingIntent.getActivity(
                     this@MainActivity,
-                    0,
+                    (System.currentTimeMillis() % 10000).toInt(),
                     intent,
-                    PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 val resolvedChannel = if (channelId.isNotBlank()) channelId else "asaka_ziyo_prayer_adhan"
+                val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
                 val builder = NotificationCompat.Builder(this@MainActivity, resolvedChannel)
-                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setSmallIcon(R.drawable.ic_stat_asaka_ziyo)
+                    .setLargeIcon(largeIcon)
+                    .setColor(ContextCompat.getColor(this@MainActivity, R.color.asaka_emerald_primary))
                     .setContentTitle(title)
                     .setContentText(body)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -550,7 +684,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun setSystemBarsTheme(isDark: Boolean) {
+            runOnUiThread {
+                applySystemBarsTheme(isDark)
+            }
+        }
+
+        @JavascriptInterface
         fun getAppVersion(): String = BuildConfig.VERSION_NAME
+
+        @JavascriptInterface
+        fun getVersionCode(): Int = BuildConfig.VERSION_CODE
 
         @JavascriptInterface
         fun isNativeApp(): Boolean = true

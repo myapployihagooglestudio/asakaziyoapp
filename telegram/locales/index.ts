@@ -1,5 +1,5 @@
 /**
- * ASAKA ZIYO — Telegram Platform Complete 5-Language Localization Engine
+ * ASAKA ZIYO — Telegram Super Platform Complete 5-Language Localization Engine
  *
  * Strictly supports ALL 5 official ASAKA ZIYO languages:
  * 1. uz-Latn     (O‘zbek lotin)
@@ -24,6 +24,7 @@ export interface TelegramLocaleDictionary {
   languageName: string;
   welcomeTitle: string;
   welcomeBody: string;
+  onboardingPrompt: string;
   mainMenuTitle: string;
   mainMenuPrompt: string;
   helpTitle: string;
@@ -41,6 +42,7 @@ export interface TelegramLocaleDictionary {
   statusEnabled: string;
   statusDisabled: string;
   settingUpdatedToast: string;
+  stopOptOutMessage: string;
   prayerTitle: string;
   prayerLocationLine: string;
   prayerDateLine: string;
@@ -48,6 +50,13 @@ export interface TelegramLocaleDictionary {
   prayerNextLabel: string;
   prayerFooterNote: string;
   prayerUnavailable: string;
+  iqamahLabel: string;
+  jumaSpecialNotice: string;
+  ramadanTitle: string;
+  saharlikLabel: string;
+  iftorlikLabel: string;
+  ramadanVerifiedNote: string;
+  calendarTitle: string;
   azanReminderPrefix: string;
   quranTitle: string;
   quranSurahHeader: string;
@@ -56,12 +65,48 @@ export interface TelegramLocaleDictionary {
   quranRevelationLabel: string;
   quranPageLabel: string;
   quranFooterNote: string;
+  tafsirTitle: string;
+  khatmTitle: string;
+  khatmNoPlanBody: string;
+  khatmGoalDaysLabel: string;
+  khatmDailyPagesLabel: string;
+  khatmCompletedJuzLabel: string;
+  khatmSetDaysPrompt: string;
   hadithTitle: string;
   hadithNarratorLabel: string;
   hadithSourceLabel: string;
   dhikrTitle: string;
   dhikrTasbehCounterLabel: string;
+  tasbehTodayLabel: string;
   dhikrVirtueLabel: string;
+  tasbehSetGoalPrompt: string;
+  duaLibraryTitle: string;
+  glossaryTitle: string;
+  mediaLibraryTitle: string;
+  mediaArticlesLabel: string;
+  mediaNewsLabel: string;
+  mediaAnnouncementsLabel: string;
+  mediaAdhanLabel: string;
+  mosqueInfoTitle: string;
+  mosqueInfoBody: string;
+  academyTitle: string;
+  quizTitle: string;
+  quizEmpty: string;
+  quizFinishedTitle: string;
+  leaderboardTitle: string;
+  searchTitle: string;
+  searchPrompt: string;
+  searchNoResults: string;
+  bookmarksTitle: string;
+  bookmarksEmpty: string;
+  bookmarkSavedToast: string;
+  bookmarkRemovedToast: string;
+  supportTitle: string;
+  supportPrompt: string;
+  supportWritePrompt: string;
+  supportCreatedNotice: string;
+  supportEmptyTickets: string;
+  supportReplyHeader: string;
   profileTitle: string;
   profileUserLabel: string;
   profileIdLabel: string;
@@ -73,8 +118,12 @@ export interface TelegramLocaleDictionary {
   aiPromptReady: string;
   aiDisabledNotice: string;
   aiMissingKeyNotice: string;
+  aiBudgetExceededNotice: string;
+  aiUserCapNotice: string;
   aiThinkingToast: string;
   aiExitedToast: string;
+  aiClearHistoryToast: string;
+  aiVoiceNotice: string;
   aiErrorNotice: string;
   adminTitle: string;
   adminAccessDenied: string;
@@ -92,16 +141,56 @@ export interface TelegramLocaleDictionary {
   maintenanceNotice: string;
   unknownCommand: string;
   genericError: string;
+  replyButtons: {
+    prayerTimes: string;
+    quranCenter: string;
+    aiAssistant: string;
+    academyQuiz: string;
+    support: string;
+    menuMiniApp: string;
+  };
   buttons: {
     prayerTimes: string;
+    ramadanMode: string;
+    religiousCalendar: string;
+    mosqueInfo: string;
     quran: string;
+    tafsirHilol: string;
+    khatmPlanner: string;
+    khatmStartPlan: string;
+    khatmLogJuz: string;
+    bookmarkToggle: string;
+    myBookmarks: string;
+    quranSearch: string;
+    allSurahs: string;
     hadith: string;
+    hadithAll: string;
+    hadithBukhari: string;
+    hadithMuslim: string;
+    hadithNawawi: string;
+    hadithSearch: string;
     dhikr: string;
+    situationalDuas: string;
+    glossary: string;
+    tasbehSetGoal: string;
+    academyLessons: string;
+    academyMarkDone: string;
+    dailyQuiz: string;
+    leaderboard: string;
+    mediaLibrary: string;
+    globalSearch: string;
+    supportCenter: string;
+    supportImam: string;
+    supportService: string;
+    supportTech: string;
+    supportMyTickets: string;
     aiAssistant: string;
+    aiClearHistory: string;
     profile: string;
     adminPanel: string;
     language: string;
     settings: string;
+    stopNotifications: string;
     channels: string;
     webApp: string;
     miniApp: string;
@@ -132,6 +221,17 @@ export interface TelegramLocaleDictionary {
     adminCheckChannelPerms: string;
     adminPublishPrayerNow: string;
     adminToggleAutoPublish: string;
+    adminBroadcasts: string;
+    adminBroadcastNew: string;
+    adminSupport: string;
+    adminUsers: string;
+    adminContent: string;
+    adminAiControl: string;
+    adminAiProbe: string;
+    adminAiSwitchPrimary: string;
+    adminAiToggleFallback: string;
+    adminAiToggleVoice: string;
+    adminAnalytics: string;
   };
   prayerNames: {
     tahajjud: string;
@@ -146,14 +246,30 @@ export interface TelegramLocaleDictionary {
   };
   commands: {
     start: string;
+    menu: string;
     prayer: string;
+    ramadan: string;
+    calendar: string;
     quran: string;
+    tafsir: string;
+    khatm: string;
     hadith: string;
     dhikr: string;
+    dua: string;
+    glossary: string;
+    academy: string;
+    quiz: string;
+    leaderboard: string;
+    library: string;
+    mosque: string;
     ask: string;
+    support: string;
+    search: string;
+    bookmarks: string;
     profile: string;
     language: string;
     settings: string;
+    stop: string;
     admin: string;
     help: string;
   };
@@ -161,30 +277,31 @@ export interface TelegramLocaleDictionary {
 
 const UZ_LATN_DICT: TelegramLocaleDictionary = {
   languageName: TELEGRAM_LANGUAGE_NATIVE_NAMES['uz-Latn'],
-  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Rasmiy Telegram Platformasi',
+  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Rasmiy Telegram Super Platformasi',
   welcomeBody:
     'Assalomu alaykum! Andijon viloyati, Asaka tumani «MuhammadSolih Hoji» jomeʼ masjidi rasmiy ASAKA ZIYO platformasiga xush kelibsiz.\n\n' +
-    '{{emoji:brand.star}} Bu yerda siz:\n' +
-    '• Rasmiy Asaka namoz vaqtlari va azon eslatmalarini olasiz\n' +
-    '• Qurʼoni Karim oyatlari, Sahih hadislar va Zikr-duolarni oʻqiysiz\n' +
-    '• AI Islomiy Yordamchiga savol berasiz\n' +
-    '• 5 ta tilda shaxsiy profil va bildirishnomalarni boshqarasiz',
-  mainMenuTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Asosiy Menyu',
-  mainMenuPrompt: 'Kerakli boʻlimni tanlang:',
-  helpTitle: '{{emoji:nav.help}} Yordam va Komandalar',
+    '{{emoji:brand.star}} Asosiy imkoniyatlar:\n' +
+    '• Rasmiy Asaka namoz vaqtlari, Iqomat, Juma va Ramazon taqvimi\n' +
+    '• 114 sura, Tafsiri Hilol, Xatm rejalovchi va Sahih hadislar\n' +
+    '• Zikr, Duolar, Tasbeh maqsadi, Akademiya va Islomiy Viktorina\n' +
+    '• Ovozli va matnli AI Islomiy Yordamchi (Gemini) va Imomga murojaat',
+  onboardingPrompt:
+    '{{emoji:brand.mosque}} Xush kelibsiz! Qulay muloqot uchun rasmiy tillingizni tanlang (5 tildan biri):',
+  mainMenuTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Asosiy Boshqaruv Menyusi',
+  mainMenuPrompt: 'Kerakli boʻlimni tanlang yoki pastdagi tezkor tugmalardan foydalaning:',
+  helpTitle: '{{emoji:nav.help}} Yordam va Barcha Komandalar',
   helpBody:
     'Asosiy komandalar:\n' +
-    '• /start — Asosiy menyu\n' +
-    '• /prayer — Bugungi namoz vaqtlari\n' +
-    '• /quran — Qurʼoni Karim va kunlik oyat\n' +
-    '• /hadith — Sahih hadislar\n' +
-    '• /dhikr — Zikr, duo va tasbeh\n' +
-    '• /ask <savol> — AI Islomiy Yordamchi\n' +
-    '• /profile — Shaxsiy profil\n' +
-    '• /language — 5 ta tildan birini tanlash\n' +
-    '• /settings — Bildirishnomalar va sozlamalar\n' +
-    '• /admin — Administrator paneli (faqat adminlar)\n' +
-    '• /help — Yordam\n\n' +
+    '• /start, /menu — Asosiy menyu va Mini App\n' +
+    '• /prayer, /ramadan, /calendar — Namoz vaqtlari, Ramazon va Diniy taqvim\n' +
+    '• /quran, /tafsir, /khatm — Qurʼon (114 sura), Tafsiri Hilol va Xatm\n' +
+    '• /hadith, /dhikr, /dua, /glossary — Hadislar, Zikr-Tasbeh, Duolar, Lugʻat\n' +
+    '• /academy, /quiz, /leaderboard — Akademiya, Viktorina va Reyting\n' +
+    '• /library, /mosque, /search, /bookmarks — Kutubxona, Masjid, Qidiruv, Xatchoʻplar\n' +
+    '• /ask <savol> — AI Yordamchi (matn, ovoz, rasm)\n' +
+    '• /support — Imomga savol va Murojaat markazi\n' +
+    '• /profile, /language, /settings, /stop — Profil, 5 til, Sozlamalar, Eslatmani toʻxtatish\n' +
+    '• /admin — Super Admin Boshqaruv Markazi\n\n' +
     'Rasmiy kanallar: @Asaka_Ziyo va @muhiddinsahhofuz',
   languageTitle: '{{emoji:language.globe}} Tilni tanlang',
   languagePrompt: 'Platforma 5 ta rasmiy tilni qoʻllab-quvvatlaydi. Tanlovingiz avtomatik saqlanadi:',
@@ -199,6 +316,8 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   statusEnabled: 'Yoqilgan',
   statusDisabled: 'Oʻchirilgan',
   settingUpdatedToast: 'Sozlama yangilandi',
+  stopOptOutMessage:
+    '{{emoji:status.ok}} Barcha ommaviy xabarlar va avtomatik bildirishnomalar toʻxtatildi. Istagan vaqtda /settings orqali qayta yoqishingiz mumkin.',
   prayerTitle: '{{emoji:nav.prayer}} Asaka tumani — Rasmiy Namoz Vaqtlari',
   prayerLocationLine: 'Hudud',
   prayerDateLine: 'Sana',
@@ -206,6 +325,13 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   prayerNextLabel: 'Keyingi namoz',
   prayerFooterNote: 'Manba: ASAKA ZIYO rasmiy masjid jadvali (Oʻzbekiston Musulmonlari Idorasi).',
   prayerUnavailable: 'Namoz jadvali hozircha mavjud emas. Birozdan soʻng qayta urinib koʻring.',
+  iqamahLabel: 'Iqomat',
+  jumaSpecialNotice: 'Bugun muborak Juma kuni! Juma namozi va Kahf surasini unutmang.',
+  ramadanTitle: '{{emoji:brand.crescent}} Ramazon Taqvim — Saharlik va Iftorlik (Asaka)',
+  saharlikLabel: 'Saharlik (Ogʻiz yopish)',
+  iftorlikLabel: 'Iftorlik (Ogʻiz ochish)',
+  ramadanVerifiedNote: 'Eslatma: Vaqtlar faqat Asaka rasmiy masjid jadvalidan olinadi.',
+  calendarTitle: '{{emoji:calendar.date}} Hijriy va Diniy Muhim Kunlar Taqvimi',
   azanReminderPrefix: '{{emoji:brand.mosque}} Namoz vaqti kirdi',
   quranTitle: '{{emoji:nav.quran}} Qurʼoni Karim — Kunlik Oyat',
   quranSurahHeader: '{{emoji:brand.book}} Sura maʼlumoti',
@@ -214,12 +340,49 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   quranRevelationLabel: 'Nozil boʻlgan joyi',
   quranPageLabel: 'Mushaf sahifasi',
   quranFooterNote: 'Toʻliq qiroat va tafsir uchun ASAKA ZIYO Mini App / Web Appni oching.',
+  tafsirTitle: '{{emoji:brand.book}} Tafsiri Hilol — Qisqa Sharh',
+  khatmTitle: '{{emoji:brand.book}} Shaxsiy Xatmi Qurʼon Rejalovchisi',
+  khatmNoPlanBody: 'Sizda hali Xatm rejasi yoʻq. Kunlik sahifa maqsadini belgilash uchun boshlang:',
+  khatmGoalDaysLabel: 'Reja muddati (kun)',
+  khatmDailyPagesLabel: 'Kunlik oʻqish maqsadi',
+  khatmCompletedJuzLabel: 'Yakunlangan juzlar',
+  khatmSetDaysPrompt: 'Xatmni necha kunda tugatmoqchisiz? (7 dan 365 gacha raqam yuboring, masalan: 30)',
   hadithTitle: '{{emoji:nav.hadith}} Sahih Hadislar',
   hadithNarratorLabel: 'Roviy',
   hadithSourceLabel: 'Manba',
   dhikrTitle: '{{emoji:nav.dhikr}} Zikrlar, Duolar va Tasbeh',
   dhikrTasbehCounterLabel: 'Tasbeh hisoblagichi',
+  tasbehTodayLabel: 'Bugungi jami zikr',
   dhikrVirtueLabel: 'Fazilati',
+  tasbehSetGoalPrompt: 'Yangi kunlik tasbeh maqsadini yuboring (masalan: 33, 99, 100 yoki 1000):',
+  duaLibraryTitle: '{{emoji:content.dua}} Kundalik Vaziyat Duolari',
+  glossaryTitle: '{{emoji:brand.book}} Qisqacha Islomiy Atamalar Lugʻati',
+  mediaLibraryTitle: '{{emoji:brand.book}} ASAKA ZIYO Maʼrifiy Kutubxonasi',
+  mediaArticlesLabel: 'Maqolalar',
+  mediaNewsLabel: 'Masjid yangiliklari',
+  mediaAnnouncementsLabel: 'Eʼlonlar',
+  mediaAdhanLabel: 'Azon audio qiroatlari',
+  mosqueInfoTitle: '{{emoji:brand.mosque}} «MuhammadSolih Hoji» Jomeʼ Masjidi Haqida',
+  mosqueInfoBody:
+    'Besh vaqt jamoat namozlari, Juma maʼruzalari va maʼrifiy suhbatlar manzili.\nSavol va murojaatlar uchun: /support',
+  academyTitle: '{{emoji:brand.book}} ASAKA ZIYO Islomiy Akademiya',
+  quizTitle: '{{emoji:brand.star}} Kunlik Islomiy Viktorina',
+  quizEmpty: 'Hozircha tasdiqlangan viktorina savollari topilmadi.',
+  quizFinishedTitle: '{{emoji:status.ok}} Viktorina Yakunlandi!',
+  leaderboardTitle: '{{emoji:brand.star}} ASAKA ZIYO Bilimdonlar Reytingi (Top 10)',
+  searchTitle: '{{emoji:brand.book}} Global Qidiruv',
+  searchPrompt: 'Qurʼon surasi, hadis, zikr, maqola yoki atama nomini yozib yuboring:',
+  searchNoResults: 'Soʻrovingiz boʻyicha natija topilmadi. Boshqa kalit soʻz bilan urinib koʻring.',
+  bookmarksTitle: '{{emoji:brand.star}} Saqlangan Xatchoʻplarim',
+  bookmarksEmpty: 'Sizda hali saqlangan xatchoʻplar yoʻq. Oyat yoki hadis tagidagi «Saqlash» tugmasini bosing.',
+  bookmarkSavedToast: 'Xatchoʻpga saqlandi',
+  bookmarkRemovedToast: 'Xatchoʻpdan olib tashlandi',
+  supportTitle: '{{emoji:admin.shield}} Murojaat va Imomga Savol Markazi',
+  supportPrompt: 'Murojaat turini tanlang. Javoblar toʻgʻridan-toʻgʻri Telegram orqali yuboriladi:',
+  supportWritePrompt: 'Savol yoki murojaatingizni batafsil yozib yuboring (rasm/hujjat/ovoz ham ilova qilishingiz mumkin):',
+  supportCreatedNotice: '{{emoji:status.ok}} Murojaatingiz qabul qilindi! Masʼul xodim tez orada javob beradi.',
+  supportEmptyTickets: 'Sizda hozircha yuborilgan murojaatlar mavjud emas.',
+  supportReplyHeader: '{{emoji:admin.shield}} ASAKA ZIYO — Murojaatga Rasmiy Javob',
   profileTitle: '{{emoji:profile.user}} Shaxsiy Profil',
   profileUserLabel: 'Foydalanuvchi',
   profileIdLabel: 'Telegram ID',
@@ -229,15 +392,21 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   profileRoleLabel: 'Huquq darajasi',
   aiTitle: '{{emoji:nav.ai}} ASAKA ZIYO — AI Islomiy Yordamchi',
   aiPromptReady:
-    '{{emoji:ai.spark}} AI suhbat rejimi faol!\n\nSavolingizni oddiy xabar sifatida yozib yuboring (yoki /ask <savol> yozing). Namoz, roʻza, odob-axloq va maʼrifiy mavzularda javob berishga tayyorman.\n\nChiqish uchun pastdagi tugmani bosing.',
+    '{{emoji:ai.spark}} AI suhbat rejimi faol!\n\nSavolingizni matn, ovozli xabar yoki rasm koʻrinishida yuboring (yoki /ask <savol>).\nChiqish uchun pastdagi tugmani bosing.',
   aiDisabledNotice:
     '{{emoji:status.warn}} AI Yordamchi hozircha administrator tomonidan oʻchirib qoʻyilgan. Admin paneldan yoqilgach ishlaydi.',
   aiMissingKeyNotice:
     '{{emoji:status.warn}} Serverda GEMINI_API_KEY sozlanmagan. AI javob berishi uchun server muhitida API kalit boʻlishi zarur.',
+  aiBudgetExceededNotice:
+    '{{emoji:status.warn}} Bugungi umumiy AI token limiti tugadi. Ertaga qayta urinib koʻring.',
+  aiUserCapNotice:
+    '{{emoji:status.warn}} Sizning bugungi AI soʻrovlar cheklovingiz tugadi. Ertaga davom etishingiz mumkin.',
   aiThinkingToast: 'Javob tayyorlanmoqda...',
   aiExitedToast: 'AI rejimidan chiqildi',
-  aiErrorNotice: '{{emoji:status.warn}} AI javob olishda vaqtinchalik xatolik yuz berdi. Birozdan soʻng qayta urinib koʻring.',
-  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Telegram Admin Paneli',
+  aiClearHistoryToast: 'AI suhbat tarixi tozalandi',
+  aiVoiceNotice: '🎙 Ovozli xabar qabul qilindi, tahlil qilinmoqda...',
+  aiErrorNotice: '{{emoji:status.warn}} AI javob olishda xatolik yuz berdi.',
+  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Super Admin Boshqaruv Markazi',
   adminAccessDenied: 'Ruxsat yoʻq: bu boʻlim faqat Telegram administratorlari uchun.',
   adminStatsUsers: 'Foydalanuvchilar',
   adminStatsChannels: 'Kanallar',
@@ -256,16 +425,56 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Texnik yangilanish ishlari olib borilmoqda. Tez orada qaytamiz.',
   unknownCommand: '{{emoji:status.warn}} Nomaʼlum buyruq. Quyidagi menyudan foydalaning:',
   genericError: '{{emoji:status.warn}} Kutilmagan xatolik yuz berdi. Qayta urinib koʻring.',
+  replyButtons: {
+    prayerTimes: '🕰️ Namoz vaqtlari',
+    quranCenter: '📗 Qurʼon & Hadis',
+    aiAssistant: '💠 AI Yordamchi',
+    academyQuiz: '🎓 Akademiya & Test',
+    support: '🎫 Murojaat / Imom',
+    menuMiniApp: '🏛️ Menyu & Sozlama',
+  },
   buttons: {
     prayerTimes: 'Namoz vaqtlari',
+    ramadanMode: 'Ramazon Taqvim',
+    religiousCalendar: 'Diniy Taqvim',
+    mosqueInfo: 'Masjid & Qibla',
     quran: 'Qurʼon',
+    tafsirHilol: 'Tafsiri Hilol',
+    khatmPlanner: 'Xatm Rejam',
+    khatmStartPlan: 'Reja tuzish',
+    khatmLogJuz: '+1 Juz oʻqidim',
+    bookmarkToggle: 'Saqlash / Olib tashlash',
+    myBookmarks: 'Xatchoʻplarim',
+    quranSearch: 'Sura qidirish',
+    allSurahs: '114 Sura roʻyxati',
     hadith: 'Hadislar',
+    hadithAll: 'Barchasi',
+    hadithBukhari: 'Buxoriy',
+    hadithMuslim: 'Muslim',
+    hadithNawawi: 'Navaviy',
+    hadithSearch: 'Hadis qidirish',
     dhikr: 'Zikr va Duo',
+    situationalDuas: 'Vaziyat Duolari',
+    glossary: 'Atamalar lugʻati',
+    tasbehSetGoal: 'Maqsadni sozlash',
+    academyLessons: 'Islomiy Akademiya',
+    academyMarkDone: 'Tugatildi / Bekor qilish',
+    dailyQuiz: 'Viktorina',
+    leaderboard: 'Reyting (Top 10)',
+    mediaLibrary: 'Kutubxona & Azon',
+    globalSearch: 'Global Qidiruv',
+    supportCenter: 'Imom / Murojaat',
+    supportImam: 'Imomga savol',
+    supportService: 'Masjid xizmatlari',
+    supportTech: 'Texnik yordam',
+    supportMyTickets: 'Mening murojaatlarim',
     aiAssistant: 'AI Yordamchi',
+    aiClearHistory: 'Tarixni tozalash',
     profile: 'Profil',
     adminPanel: 'Admin Panel',
     language: 'Til (5 til)',
     settings: 'Sozlamalar',
+    stopNotifications: 'Barcha xabarlarni toʻxtatish',
     channels: 'Kanallar',
     webApp: 'ASAKA ZIYO Ilovasi',
     miniApp: 'Mini App ochish',
@@ -275,7 +484,7 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     refreshPrayer: 'Yangilash',
     nextItem: 'Keyingi',
     prevItem: 'Oldingi',
-    surahList: 'Mashhur suralar',
+    surahList: '114 Sura',
     tasbehPlus: 'Tasbeh +1',
     tasbehReset: 'Nollash',
     exitAiMode: 'AI rejimidan chiqish',
@@ -288,7 +497,7 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     openWebApp: 'Ilovada ochish',
     adminChannels: 'Kanallar & Nashr',
     adminEmojis: 'Premium Emoji',
-    adminDiagnostics: 'Jonli Diagnostika',
+    adminDiagnostics: 'Diagnostika',
     adminToggleAi: 'AI Yordamchi',
     adminToggleMaintenance: 'Texnik rejim',
     adminVerifyEmojis: 'IDlarni API orqali tekshirish',
@@ -296,6 +505,17 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     adminCheckChannelPerms: 'Bot huquqini tekshirish',
     adminPublishPrayerNow: 'Namoz jadvalini yuborish',
     adminToggleAutoPublish: 'Avto-nashr',
+    adminBroadcasts: 'Broadcast',
+    adminBroadcastNew: 'Yangi Broadcast',
+    adminSupport: 'Murojaatlar',
+    adminUsers: 'Foydalanuvchilar',
+    adminContent: 'Content Studio',
+    adminAiControl: 'AI Nazorati',
+    adminAiProbe: 'Modelni jonli tekshirish',
+    adminAiSwitchPrimary: 'Primary Modelni almashtirish',
+    adminAiToggleFallback: 'Auto-Fallback',
+    adminAiToggleVoice: 'Ovozli javob (TTS)',
+    adminAnalytics: 'Analitika',
   },
   prayerNames: {
     tahajjud: 'Tahajjud',
@@ -310,45 +530,62 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   },
   commands: {
     start: 'Asosiy menyuni ochish',
+    menu: 'Asosiy boshqaruv menyusi',
     prayer: 'Asaka namoz vaqtlari',
-    quran: 'Qurʼoni Karim va kunlik oyat',
+    ramadan: 'Ramazon saharlik va iftorlik',
+    calendar: 'Hijriy va diniy taqvim',
+    quran: 'Qurʼoni Karim (114 sura)',
+    tafsir: 'Tafsiri Hilol sharhlari',
+    khatm: 'Shaxsiy Xatm rejalovchi',
     hadith: 'Sahih hadislar',
-    dhikr: 'Zikr, duo va tasbeh',
-    ask: 'AI Islomiy Yordamchiga savol berish',
+    dhikr: 'Zikr va interaktiv tasbeh',
+    dua: 'Kundalik vaziyat duolari',
+    glossary: 'Islomiy atamalar lugʻati',
+    academy: 'Islomiy Akademiya darslari',
+    quiz: 'Kunlik viktorina',
+    leaderboard: 'Bilimdonlar reytingi',
+    library: 'Maqolalar, yangilik va azonlar',
+    mosque: 'Masjid maʼlumoti va Qibla',
+    ask: 'AI Islomiy Yordamchiga savol',
+    support: 'Imomga savol va murojaat',
+    search: 'Global qidiruv',
+    bookmarks: 'Saqlangan xatchoʻplar',
     profile: 'Shaxsiy profil',
     language: 'Tilni tanlash (5 til)',
     settings: 'Bildirishnomalar va sozlamalar',
-    admin: 'Admin boshqaruv paneli',
+    stop: 'Barcha xabarlarni toʻxtatish',
+    admin: 'Super Admin boshqaruv markazi',
     help: 'Yordam va komandalar',
   },
 };
 
 const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   languageName: TELEGRAM_LANGUAGE_NATIVE_NAMES['uz-Cyrl'],
-  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Расмий Telegram Платформаси',
+  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Расмий Telegram Супер Платформаси',
   welcomeBody:
     'Ассалому алайкум! Андижон вилояти, Асака тумани «МуҳаммадСолиҳ Ҳожи» жомеъ масжиди расмий ASAKA ZIYO платформасига хуш келибсиз.\n\n' +
-    '{{emoji:brand.star}} Бу ерда сиз:\n' +
-    '• Расмий Асака намоз вақтлари ва азон эслатмаларини оласиз\n' +
-    '• Қуръони Карим оятлари, Саҳиҳ ҳадислар ва Зикр-дуоларни ўқийсиз\n' +
-    '• AI Исломий Ёрдамчига савол берасиз\n' +
-    '• 5 та тилда шахсий профил ва билдиришномаларни бошқарасиз',
+    '{{emoji:brand.star}} Асосий имкониятлар:\n' +
+    '• Расмий Асака намоз вақтлари, Иқомат, Жума ва Рамазон тақвими\n' +
+    '• 114 сура, Тафсири Ҳилол, Хатм режаловчи ва Саҳиҳ ҳадислар\n' +
+    '• Зикр, Дуолар, Тасбеҳ мақсади, Академия ва Исломий Викторина\n' +
+    '• Овозли ва матнли AI Исломий Ёрдамчи (Gemini) ва Имомга мурожаат',
+  onboardingPrompt:
+    '{{emoji:brand.mosque}} Хуш келибсиз! Қулай мулоқот учун расмий тилингизни танланг (5 тилдан бири):',
   mainMenuTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Асосий Меню',
-  mainMenuPrompt: 'Керакли бўлимни танланг:',
-  helpTitle: '{{emoji:nav.help}} Ёрдам ва Командалар',
+  mainMenuPrompt: 'Керакли бўлимни танланг ёки пастдаги тезкор тугмалардан фойдаланинг:',
+  helpTitle: '{{emoji:nav.help}} Ёрдам ва Барча Командалар',
   helpBody:
     'Асосий командалар:\n' +
-    '• /start — Асосий меню\n' +
-    '• /prayer — Бугунги намоз вақтлари\n' +
-    '• /quran — Қуръони Карим ва кунлик оят\n' +
-    '• /hadith — Саҳиҳ ҳадислар\n' +
-    '• /dhikr — Зикр, дуо ва тасбеҳ\n' +
-    '• /ask <савол> — AI Исломий Ёрдамчи\n' +
-    '• /profile — Шахсий профил\n' +
-    '• /language — 5 та тилдан бирини танлаш\n' +
-    '• /settings — Билдиришномалар ва созламалар\n' +
-    '• /admin — Администратор панели\n' +
-    '• /help — Ёрдам\n\n' +
+    '• /start, /menu — Асосий меню ва Mini App\n' +
+    '• /prayer, /ramadan, /calendar — Намоз вақтлари, Рамазон ва Диний тақвим\n' +
+    '• /quran, /tafsir, /khatm — Қуръон (114 сура), Тафсири Ҳилол ва Хатм\n' +
+    '• /hadith, /dhikr, /dua, /glossary — Ҳадислар, Зикр-Тасбеҳ, Дуолар, Луғат\n' +
+    '• /academy, /quiz, /leaderboard — Академия, Викторина ва Рейтинг\n' +
+    '• /library, /mosque, /search, /bookmarks — Кутубхона, Масжид, Қидирув, Хатчўплар\n' +
+    '• /ask <савол> — AI Ёрдамчи (матн, овоз, расм)\n' +
+    '• /support — Имомга савол ва Мурожаат маркази\n' +
+    '• /profile, /language, /settings, /stop — Профил, 5 тил, Созламалар\n' +
+    '• /admin — Супер Админ Бошқарув Маркази\n\n' +
     'Расмий каналлар: @Asaka_Ziyo ва @muhiddinsahhofuz',
   languageTitle: '{{emoji:language.globe}} Тилни танланг',
   languagePrompt: 'Платформа 5 та расмий тилни қўллаб-қувватлайди. Танловингиз автоматик сақланади:',
@@ -363,6 +600,8 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   statusEnabled: 'Ёқилган',
   statusDisabled: 'Ўчирилган',
   settingUpdatedToast: 'Созлама янгиланди',
+  stopOptOutMessage:
+    '{{emoji:status.ok}} Барча оммавий хабарлар ва автоматик билдиришномалар тўхтатилди. Истаган вақтда /settings орқали қайта ёқишингиз мумкин.',
   prayerTitle: '{{emoji:nav.prayer}} Асака тумани — Расмий Намоз Вақтлари',
   prayerLocationLine: 'Ҳудуд',
   prayerDateLine: 'Сана',
@@ -370,6 +609,13 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   prayerNextLabel: 'Кейинги намоз',
   prayerFooterNote: 'Манба: ASAKA ZIYO расмий масжид жадвали (Ўзбекистон Мусулмонлари Идораси).',
   prayerUnavailable: 'Намоз жадвали ҳозирча мавжуд эмас. Бироздан сўнг қайта уриниб кўринг.',
+  iqamahLabel: 'Иқомат',
+  jumaSpecialNotice: 'Бугун муборак Жума куни! Жума намози ва Каҳф сурасини унутманг.',
+  ramadanTitle: '{{emoji:brand.crescent}} Рамазон Тақвими — Саҳарлик ва Ифторлик (Асака)',
+  saharlikLabel: 'Саҳарлик (Оғиз ёпиш)',
+  iftorlikLabel: 'Ифторлик (Оғиз очиш)',
+  ramadanVerifiedNote: 'Эслатма: Вақтлар фақат Асака расмий масжид жадвалидан олинади.',
+  calendarTitle: '{{emoji:calendar.date}} Ҳижрий ва Диний Муҳим Кунлар Тақвими',
   azanReminderPrefix: '{{emoji:brand.mosque}} Намоз вақти кирди',
   quranTitle: '{{emoji:nav.quran}} Қуръони Карим — Кунлик Оят',
   quranSurahHeader: '{{emoji:brand.book}} Сура маълумоти',
@@ -378,12 +624,49 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   quranRevelationLabel: 'Нозил бўлган жойи',
   quranPageLabel: 'Мусҳаф саҳифаси',
   quranFooterNote: 'Тўлиқ қироат ва тафсир учун ASAKA ZIYO Mini App / Web Appни очинг.',
+  tafsirTitle: '{{emoji:brand.book}} Тафсири Ҳилол — Қисқа Шарҳ',
+  khatmTitle: '{{emoji:brand.book}} Шахсий Хатми Қуръон Режаловчиси',
+  khatmNoPlanBody: 'Сизда ҳали Хатм режаси йўқ. Кунлик саҳифа мақсадини белгилаш учун бошланг:',
+  khatmGoalDaysLabel: 'Режа муддати (кун)',
+  khatmDailyPagesLabel: 'Кунлик ўқиш мақсади',
+  khatmCompletedJuzLabel: 'Якунланган жузлар',
+  khatmSetDaysPrompt: 'Хатмни неча кунда тугатмоқчисиз? (7 дан 365 гача рақам юборинг, масалан: 30)',
   hadithTitle: '{{emoji:nav.hadith}} Саҳиҳ Ҳадислар',
   hadithNarratorLabel: 'Ровий',
   hadithSourceLabel: 'Манба',
   dhikrTitle: '{{emoji:nav.dhikr}} Зикрлар, Дуолар ва Тасбеҳ',
   dhikrTasbehCounterLabel: 'Тасбеҳ ҳисоблагичи',
+  tasbehTodayLabel: 'Бугунги жами зикр',
   dhikrVirtueLabel: 'Фазилати',
+  tasbehSetGoalPrompt: 'Янги кунлик тасбеҳ мақсадини юборинг (масалан: 33, 99, 100 ёки 1000):',
+  duaLibraryTitle: '{{emoji:content.dua}} Кундалик Вазият Дуолари',
+  glossaryTitle: '{{emoji:brand.book}} Қисқача Исломий Атамалар Луғати',
+  mediaLibraryTitle: '{{emoji:brand.book}} ASAKA ZIYO Маърифий Кутубхонаси',
+  mediaArticlesLabel: 'Мақолалар',
+  mediaNewsLabel: 'Масжид янгиликлари',
+  mediaAnnouncementsLabel: 'Эълонлар',
+  mediaAdhanLabel: 'Азон аудио қироатлари',
+  mosqueInfoTitle: '{{emoji:brand.mosque}} «МуҳаммадСолиҳ Ҳожи» Жомеъ Масжиди Ҳақида',
+  mosqueInfoBody:
+    'Беш вақт жамоат намозлари, Жума маърузалари ва маърифий суҳбатлар манзили.\nСавол ва мурожаатлар учун: /support',
+  academyTitle: '{{emoji:brand.book}} ASAKA ZIYO Исломий Академия',
+  quizTitle: '{{emoji:brand.star}} Кунлик Исломий Викторина',
+  quizEmpty: 'Ҳозирча тасдиқланган викторина саволлари топилмади.',
+  quizFinishedTitle: '{{emoji:status.ok}} Викторина Якунланди!',
+  leaderboardTitle: '{{emoji:brand.star}} ASAKA ZIYO Билимдонлар Рейтинги (Топ 10)',
+  searchTitle: '{{emoji:brand.book}} Глобал Қидирув',
+  searchPrompt: 'Қуръон сураси, ҳадис, зикр, мақола ёки атама номини ёзиб юборинг:',
+  searchNoResults: 'Сўровингиз бўйича натижа топилмади. Бошқа калит сўз билан уриниб кўринг.',
+  bookmarksTitle: '{{emoji:brand.star}} Сақланган Хатчўпларим',
+  bookmarksEmpty: 'Сизда ҳали сақланган хатчўплар йўқ. Оят ёки ҳадис тагидаги «Сақлаш» тугмасини босинг.',
+  bookmarkSavedToast: 'Хатчўпга сақланди',
+  bookmarkRemovedToast: 'Хатчўпдан олиб ташланди',
+  supportTitle: '{{emoji:admin.shield}} Мурожаат ва Имомга Савол Маркази',
+  supportPrompt: 'Мурожаат турини танланг. Жавоблар тўғридан-тўғри Telegram орқали юборилади:',
+  supportWritePrompt: 'Савол ёки мурожаатингизни батафсил ёзиб юборинг (расм/ҳужжат/овоз ҳам илова қилишингиз мумкин):',
+  supportCreatedNotice: '{{emoji:status.ok}} Мурожаатингиз қабул қилинди! Масъул ходим тез орада жавоб беради.',
+  supportEmptyTickets: 'Сизда ҳозирча юборилган мурожаатлар мавжуд эмас.',
+  supportReplyHeader: '{{emoji:admin.shield}} ASAKA ZIYO — Мурожаатга Расмий Жавоб',
   profileTitle: '{{emoji:profile.user}} Шахсий Профил',
   profileUserLabel: 'Фойдаланувчи',
   profileIdLabel: 'Telegram ID',
@@ -393,15 +676,21 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   profileRoleLabel: 'Ҳуқуқ даражаси',
   aiTitle: '{{emoji:nav.ai}} ASAKA ZIYO — AI Исломий Ёрдамчи',
   aiPromptReady:
-    '{{emoji:ai.spark}} AI суҳбат режими фаол!\n\nСаволингизни оддий хабар сифатида ёзиб юборинг (ёки /ask <савол> ёзинг). Чиқиш учун пастдаги тугмани босинг.',
+    '{{emoji:ai.spark}} AI суҳбат режими фаол!\n\nСаволингизни матн, овозли хабар ёки расм кўринишида юборинг (ёки /ask <савол>). Чиқиш учун пастдаги тугмани босинг.',
   aiDisabledNotice:
     '{{emoji:status.warn}} AI Ёрдамчи ҳозирча администратор томонидан ўчириб қўйилган.',
   aiMissingKeyNotice:
     '{{emoji:status.warn}} Серверда GEMINI_API_KEY созланмаган. AI ишлаши учун сервер муҳитида API калит зарур.',
+  aiBudgetExceededNotice:
+    '{{emoji:status.warn}} Бугунги умумий AI токен лимити тугади. Эртага қайта уриниб кўринг.',
+  aiUserCapNotice:
+    '{{emoji:status.warn}} Сизнинг бугунги AI сўровлар чекловингиз тугади. Эртага давом этишингиз мумкин.',
   aiThinkingToast: 'Жавоб тайёрланмоқда...',
   aiExitedToast: 'AI режимидан чиқилди',
-  aiErrorNotice: '{{emoji:status.warn}} AI жавоб олишда вақтинчалик хатолик юз берди.',
-  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Telegram Админ Панели',
+  aiClearHistoryToast: 'AI суҳбат тарихи тозаланди',
+  aiVoiceNotice: '🎙 Овозли хабар қабул қилинди, таҳлил қилинмоқда...',
+  aiErrorNotice: '{{emoji:status.warn}} AI жавоб олишда хатолик юз берди.',
+  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Супер Админ Бошқарув Маркази',
   adminAccessDenied: 'Рухсат йўқ: бу бўлим фақат Telegram администраторлари учун.',
   adminStatsUsers: 'Фойдаланувчилар',
   adminStatsChannels: 'Каналлар',
@@ -420,16 +709,56 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Техник янгиланиш ишлари олиб борилмоқда.',
   unknownCommand: '{{emoji:status.warn}} Номаълум буйруқ. Қуйидаги менюдан фойдаланинг:',
   genericError: '{{emoji:status.warn}} Кутилмаган хатолик юз берди. Қайта уриниб кўринг.',
+  replyButtons: {
+    prayerTimes: '🕰️ Намоз вақтлари',
+    quranCenter: '📗 Қуръон & Ҳадис',
+    aiAssistant: '💠 AI Ёрдамчи',
+    academyQuiz: '🎓 Академия & Тест',
+    support: '🎫 Мурожаат / Имом',
+    menuMiniApp: '🏛️ Меню & Созлама',
+  },
   buttons: {
     prayerTimes: 'Намоз вақтлари',
+    ramadanMode: 'Рамазон Тақвим',
+    religiousCalendar: 'Диний Тақвим',
+    mosqueInfo: 'Масжид & Қибла',
     quran: 'Қуръон',
+    tafsirHilol: 'Тафсири Ҳилол',
+    khatmPlanner: 'Хатм Режам',
+    khatmStartPlan: 'Режа тузиш',
+    khatmLogJuz: '+1 Жуз ўқидим',
+    bookmarkToggle: 'Сақлаш / Олиб ташлаш',
+    myBookmarks: 'Хатчўпларим',
+    quranSearch: 'Сура қидириш',
+    allSurahs: '114 Сура рўйхати',
     hadith: 'Ҳадислар',
+    hadithAll: 'Барчаси',
+    hadithBukhari: 'Бухорий',
+    hadithMuslim: 'Муслим',
+    hadithNawawi: 'Нававий',
+    hadithSearch: 'Ҳадис қидириш',
     dhikr: 'Зикр ва Дуо',
+    situationalDuas: 'Вазият Дуолари',
+    glossary: 'Атамалар луғати',
+    tasbehSetGoal: 'Мақсадни созлаш',
+    academyLessons: 'Исломий Академия',
+    academyMarkDone: 'Тугатилди / Бекор қилиш',
+    dailyQuiz: 'Викторина',
+    leaderboard: 'Рейтинг (Топ 10)',
+    mediaLibrary: 'Кутубхона & Азон',
+    globalSearch: 'Глобал Қидирув',
+    supportCenter: 'Имом / Мурожаат',
+    supportImam: 'Имомга савол',
+    supportService: 'Масжид хизматлари',
+    supportTech: 'Техник ёрдам',
+    supportMyTickets: 'Менинг мурожаатларим',
     aiAssistant: 'AI Ёрдамчи',
+    aiClearHistory: 'Тарихни тозалаш',
     profile: 'Профил',
     adminPanel: 'Админ Панел',
     language: 'Тил (5 тил)',
     settings: 'Созламалар',
+    stopNotifications: 'Барча хабарларни тўхтатиш',
     channels: 'Каналлар',
     webApp: 'ASAKA ZIYO Иловаси',
     miniApp: 'Mini App очиш',
@@ -439,7 +768,7 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     refreshPrayer: 'Янгилаш',
     nextItem: 'Кейинги',
     prevItem: 'Олдинги',
-    surahList: 'Машҳур суралар',
+    surahList: '114 Сура',
     tasbehPlus: 'Тасбеҳ +1',
     tasbehReset: 'Ноллаш',
     exitAiMode: 'AI режимидан чиқиш',
@@ -452,7 +781,7 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     openWebApp: 'Иловада очиш',
     adminChannels: 'Каналлар & Нашр',
     adminEmojis: 'Premium Emoji',
-    adminDiagnostics: 'Жонли Диагностика',
+    adminDiagnostics: 'Диагностика',
     adminToggleAi: 'AI Ёрдамчи',
     adminToggleMaintenance: 'Техник режим',
     adminVerifyEmojis: 'IDларни API орқали текшириш',
@@ -460,6 +789,17 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     adminCheckChannelPerms: 'Бот ҳуқуқини текшириш',
     adminPublishPrayerNow: 'Намоз жадвалини юбориш',
     adminToggleAutoPublish: 'Авто-нашр',
+    adminBroadcasts: 'Broadcast',
+    adminBroadcastNew: 'Янги Broadcast',
+    adminSupport: 'Мурожаатлар',
+    adminUsers: 'Фойдаланувчилар',
+    adminContent: 'Content Studio',
+    adminAiControl: 'AI Назорати',
+    adminAiProbe: 'Моделни жонли текшириш',
+    adminAiSwitchPrimary: 'Primary Моделни алмаштириш',
+    adminAiToggleFallback: 'Auto-Fallback',
+    adminAiToggleVoice: 'Овозли жавоб (TTS)',
+    adminAnalytics: 'Аналитика',
   },
   prayerNames: {
     tahajjud: 'Таҳажжуд',
@@ -474,45 +814,62 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   },
   commands: {
     start: 'Асосий менюни очиш',
+    menu: 'Асосий бошқарув менюси',
     prayer: 'Асака намоз вақтлари',
-    quran: 'Қуръони Карим ва кунлик оят',
+    ramadan: 'Рамазон саҳарлик ва ифторлик',
+    calendar: 'Ҳижрий ва диний тақвим',
+    quran: 'Қуръони Карим (114 сура)',
+    tafsir: 'Тафсири Ҳилол шарҳлари',
+    khatm: 'Шахсий Хатм режаловчи',
     hadith: 'Саҳиҳ ҳадислар',
-    dhikr: 'Зикр, дуо ва тасбеҳ',
-    ask: 'AI Исломий Ёрдамчига савол бериш',
+    dhikr: 'Зикр ва интерактив тасбеҳ',
+    dua: 'Кундалик вазият дуолари',
+    glossary: 'Исломий атамалар луғати',
+    academy: 'Исломий Академия дарслари',
+    quiz: 'Кунлик викторина',
+    leaderboard: 'Билимдонлар рейтинги',
+    library: 'Мақолалар, янгилик ва азонлар',
+    mosque: 'Масжид маълумоти ва Қибла',
+    ask: 'AI Исломий Ёрдамчига савол',
+    support: 'Имомга савол ва мурожаат',
+    search: 'Глобал қидирув',
+    bookmarks: 'Сақланган хатчўплар',
     profile: 'Шахсий профил',
     language: 'Тилни танлаш (5 тил)',
     settings: 'Билдиришномалар ва созламалар',
-    admin: 'Админ бошқарув панели',
+    stop: 'Барча хабарларни тўхтатиш',
+    admin: 'Супер Админ бошқарув маркази',
     help: 'Ёрдам ва командалар',
   },
 };
 
 const RU_DICT: TelegramLocaleDictionary = {
   languageName: TELEGRAM_LANGUAGE_NATIVE_NAMES.ru,
-  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Официальная Telegram Платформа',
+  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Официальная Telegram Супер-Платформа',
   welcomeBody:
     'Ассаляму алейкум! Добро пожаловать на официальную платформу соборной мечети «МухаммадСолих Хожи» (Асака, Андижанская область).\n\n' +
-    '{{emoji:brand.star}} Здесь доступны:\n' +
-    '• Официальное расписание намазов Асаки и напоминания об азане\n' +
-    '• Аяты Священного Корана, достоверные хадисы и зикры с тасбихом\n' +
-    '• Исламский AI-помощник\n' +
-    '• Профиль и уведомления на 5 языках',
+    '{{emoji:brand.star}} Ключевые возможности:\n' +
+    '• Официальное расписание намазов Асаки, Икамат, Джума и календарь Рамадана\n' +
+    '• Все 114 сур Корана, Тафсир Хилал, планировщик Хатма и достоверные хадисы\n' +
+    '• Зикры, дуа, тасбих с целями, Академия и Исламская викторина\n' +
+    '• Голосовой и текстовый AI-помощник (Gemini) и обращения к имаму',
+  onboardingPrompt:
+    '{{emoji:brand.mosque}} Добро пожаловать! Выберите ваш язык общения (один из 5 официальных):',
   mainMenuTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Главное меню',
-  mainMenuPrompt: 'Выберите нужный раздел:',
-  helpTitle: '{{emoji:nav.help}} Помощь и команды',
+  mainMenuPrompt: 'Выберите раздел ниже или воспользуйтесь панелью быстрого доступа:',
+  helpTitle: '{{emoji:nav.help}} Помощь и все команды',
   helpBody:
     'Основные команды:\n' +
-    '• /start — Главное меню\n' +
-    '• /prayer — Время намаза сегодня\n' +
-    '• /quran — Коран и аят дня\n' +
-    '• /hadith — Достоверные хадисы\n' +
-    '• /dhikr — Зикры, дуа и тасбих\n' +
-    '• /ask <вопрос> — AI-помощник\n' +
-    '• /profile — Личный профиль\n' +
-    '• /language — Выбор языка (5 языков)\n' +
-    '• /settings — Уведомления и настройки\n' +
-    '• /admin — Панель администратора\n' +
-    '• /help — Помощь\n\n' +
+    '• /start, /menu — Главное меню и Mini App\n' +
+    '• /prayer, /ramadan, /calendar — Намаз, Рамадан и календарь\n' +
+    '• /quran, /tafsir, /khatm — Коран (114 сур), Тафсир и Хатм\n' +
+    '• /hadith, /dhikr, /dua, /glossary — Хадисы, Зикр, Дуа, Словарь\n' +
+    '• /academy, /quiz, /leaderboard — Академия, Викторина и Рейтинг\n' +
+    '• /library, /mosque, /search, /bookmarks — Библиотека, Мечеть, Поиск, Закладки\n' +
+    '• /ask <вопрос> — AI-помощник (текст, голос, фото)\n' +
+    '• /support — Вопрос имаму и поддержка\n' +
+    '• /profile, /language, /settings, /stop — Профиль, Язык, Настройки\n' +
+    '• /admin — Панель Супер-Администратора\n\n' +
     'Официальные каналы: @Asaka_Ziyo и @muhiddinsahhofuz',
   languageTitle: '{{emoji:language.globe}} Выбор языка',
   languagePrompt: 'Платформа поддерживает 5 официальных языков. Выбор сохраняется автоматически:',
@@ -527,6 +884,8 @@ const RU_DICT: TelegramLocaleDictionary = {
   statusEnabled: 'Включено',
   statusDisabled: 'Выключено',
   settingUpdatedToast: 'Настройка обновлена',
+  stopOptOutMessage:
+    '{{emoji:status.ok}} Все массовые рассылки и автоматические уведомления отключены. Вы можете включить их снова через /settings.',
   prayerTitle: '{{emoji:nav.prayer}} Асака — Официальное время намаза',
   prayerLocationLine: 'Регион',
   prayerDateLine: 'Дата',
@@ -534,6 +893,13 @@ const RU_DICT: TelegramLocaleDictionary = {
   prayerNextLabel: 'Следующий намаз',
   prayerFooterNote: 'Источник: официальное расписание мечети ASAKA ZIYO (УМУ).',
   prayerUnavailable: 'Расписание намаза временно недоступно. Попробуйте позже.',
+  iqamahLabel: 'Икамат',
+  jumaSpecialNotice: 'Сегодня благословенная пятница (Джума)! Не забудьте чтение суры Аль-Кахф и Джума-намаз.',
+  ramadanTitle: '{{emoji:brand.crescent}} Календарь Рамадана — Сухур и Ифтар (Асака)',
+  saharlikLabel: 'Сухур (Закрытие поста)',
+  iftorlikLabel: 'Ифтар (Разговение)',
+  ramadanVerifiedNote: 'Примечание: время берётся исключительно из официального расписания мечети Асаки.',
+  calendarTitle: '{{emoji:calendar.date}} Исламский календарь и памятные даты',
   azanReminderPrefix: '{{emoji:brand.mosque}} Наступило время намаза',
   quranTitle: '{{emoji:nav.quran}} Священный Коран — Аят дня',
   quranSurahHeader: '{{emoji:brand.book}} Информация о суре',
@@ -542,12 +908,49 @@ const RU_DICT: TelegramLocaleDictionary = {
   quranRevelationLabel: 'Место ниспослания',
   quranPageLabel: 'Страница мусхафа',
   quranFooterNote: 'Откройте ASAKA ZIYO Mini App / Web App для полного чтения и тафсира.',
+  tafsirTitle: '{{emoji:brand.book}} Тафсир Хилал — Краткое толкование',
+  khatmTitle: '{{emoji:brand.book}} Персональный трекер Хатма Корана',
+  khatmNoPlanBody: 'У вас пока нет плана Хатма. Создайте план для ежедневного чтения:',
+  khatmGoalDaysLabel: 'Срок плана (дней)',
+  khatmDailyPagesLabel: 'Цель на день (стр.)',
+  khatmCompletedJuzLabel: 'Завершённые джузы',
+  khatmSetDaysPrompt: 'За сколько дней хотите завершить Хатм? (введите число от 7 до 365, например: 30)',
   hadithTitle: '{{emoji:nav.hadith}} Достоверные хадисы',
   hadithNarratorLabel: 'Передатчик',
   hadithSourceLabel: 'Источник',
   dhikrTitle: '{{emoji:nav.dhikr}} Зикры, Дуа и Тасбих',
   dhikrTasbehCounterLabel: 'Счётчик тасбиха',
+  tasbehTodayLabel: 'Всего сегодня',
   dhikrVirtueLabel: 'Достоинство',
+  tasbehSetGoalPrompt: 'Отправьте новую дневную цель тасбиха (например: 33, 99, 100 или 1000):',
+  duaLibraryTitle: '{{emoji:content.dua}} Дуа для жизненных ситуаций',
+  glossaryTitle: '{{emoji:brand.book}} Краткий словарь исламских терминов',
+  mediaLibraryTitle: '{{emoji:brand.book}} Библиотека и медиатека ASAKA ZIYO',
+  mediaArticlesLabel: 'Статьи',
+  mediaNewsLabel: 'Новости мечети',
+  mediaAnnouncementsLabel: 'Объявления',
+  mediaAdhanLabel: 'Аудиозаписи азана',
+  mosqueInfoTitle: '{{emoji:brand.mosque}} О соборной мечети «МухаммадСолих Хожи»',
+  mosqueInfoBody:
+    'Пятикратные коллективные намазы, пятничные проповеди и просветительские встречи.\nДля вопросов имаму: /support',
+  academyTitle: '{{emoji:brand.book}} Исламская Академия ASAKA ZIYO',
+  quizTitle: '{{emoji:brand.star}} Ежедневная исламская викторина',
+  quizEmpty: 'Подтверждённые вопросы викторины пока отсутствуют.',
+  quizFinishedTitle: '{{emoji:status.ok}} Викторина завершена!',
+  leaderboardTitle: '{{emoji:brand.star}} Рейтинг знатоков ASAKA ZIYO (Топ-10)',
+  searchTitle: '{{emoji:brand.book}} Глобальный поиск',
+  searchPrompt: 'Введите название суры, хадиса, зикра, статьи или термина:',
+  searchNoResults: 'По вашему запросу ничего не найдено. Попробуйте другой запрос.',
+  bookmarksTitle: '{{emoji:brand.star}} Мои закладки',
+  bookmarksEmpty: 'У вас пока нет сохранённых закладок. Нажмите «Сохранить» под аятом или хадисом.',
+  bookmarkSavedToast: 'Добавлено в закладки',
+  bookmarkRemovedToast: 'Удалено из закладок',
+  supportTitle: '{{emoji:admin.shield}} Центр обращений и вопросов имаму',
+  supportPrompt: 'Выберите категорию обращения. Ответ придёт прямо сюда в Telegram:',
+  supportWritePrompt: 'Подробно напишите ваш вопрос или обращение (можно прикрепить фото/документ/голос):',
+  supportCreatedNotice: '{{emoji:status.ok}} Обращение принято! Ответственный сотрудник скоро ответит вам.',
+  supportEmptyTickets: 'У вас пока нет отправленных обращений.',
+  supportReplyHeader: '{{emoji:admin.shield}} ASAKA ZIYO — Официальный ответ на обращение',
   profileTitle: '{{emoji:profile.user}} Личный профиль',
   profileUserLabel: 'Пользователь',
   profileIdLabel: 'Telegram ID',
@@ -557,13 +960,17 @@ const RU_DICT: TelegramLocaleDictionary = {
   profileRoleLabel: 'Роль',
   aiTitle: '{{emoji:nav.ai}} ASAKA ZIYO — AI-помощник',
   aiPromptReady:
-    '{{emoji:ai.spark}} Режим общения с AI активен!\n\nНапишите ваш вопрос обычным сообщением (или через /ask <вопрос>). Для выхода нажмите кнопку ниже.',
+    '{{emoji:ai.spark}} Режим общения с AI активен!\n\nОтправьте ваш вопрос текстом, голосовым сообщением или изображением (или через /ask <вопрос>). Для выхода нажмите кнопку ниже.',
   aiDisabledNotice: '{{emoji:status.warn}} AI-помощник временно отключён администратором.',
   aiMissingKeyNotice: '{{emoji:status.warn}} На сервере не настроен GEMINI_API_KEY для работы AI.',
+  aiBudgetExceededNotice: '{{emoji:status.warn}} Дневной общий лимит токенов AI исчерпан.',
+  aiUserCapNotice: '{{emoji:status.warn}} Ваш дневной лимит обращений к AI исчерпан.',
   aiThinkingToast: 'Подготавливаю ответ...',
   aiExitedToast: 'Выход из режима AI',
-  aiErrorNotice: '{{emoji:status.warn}} Временная ошибка при обращении к AI. Попробуйте позже.',
-  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Админ-панель Telegram',
+  aiClearHistoryToast: 'История диалога с AI очищена',
+  aiVoiceNotice: '🎙 Голосовое сообщение получено, обрабатываю...',
+  aiErrorNotice: '{{emoji:status.warn}} Ошибка при обращении к AI.',
+  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Супер-Админ панель',
   adminAccessDenied: 'Доступ запрещён: раздел только для администраторов Telegram.',
   adminStatsUsers: 'Пользователи',
   adminStatsChannels: 'Каналы',
@@ -582,16 +989,56 @@ const RU_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Ведутся технические работы. Скоро вернёмся.',
   unknownCommand: '{{emoji:status.warn}} Неизвестная команда. Воспользуйтесь меню ниже:',
   genericError: '{{emoji:status.warn}} Произошла ошибка. Попробуйте снова.',
+  replyButtons: {
+    prayerTimes: '🕰️ Время намаза',
+    quranCenter: '📗 Коран и Хадис',
+    aiAssistant: '💠 AI-помощник',
+    academyQuiz: '🎓 Академия и Тест',
+    support: '🎫 Вопрос имаму',
+    menuMiniApp: '🏛️ Меню и Настройки',
+  },
   buttons: {
     prayerTimes: 'Время намаза',
+    ramadanMode: 'Рамадан',
+    religiousCalendar: 'Календарь',
+    mosqueInfo: 'Мечеть и Кибла',
     quran: 'Коран',
+    tafsirHilol: 'Тафсир Хилал',
+    khatmPlanner: 'План Хатма',
+    khatmStartPlan: 'Задать план',
+    khatmLogJuz: '+1 Джуз',
+    bookmarkToggle: 'Сохранить / Убрать',
+    myBookmarks: 'Закладки',
+    quranSearch: 'Поиск суры',
+    allSurahs: 'Все 114 сур',
     hadith: 'Хадисы',
+    hadithAll: 'Все',
+    hadithBukhari: 'Бухари',
+    hadithMuslim: 'Муслим',
+    hadithNawawi: 'Навави',
+    hadithSearch: 'Поиск хадиса',
     dhikr: 'Зикр и Дуа',
+    situationalDuas: 'Дуа на случаи',
+    glossary: 'Словарь терминов',
+    tasbehSetGoal: 'Задать цель',
+    academyLessons: 'Академия',
+    academyMarkDone: 'Завершено / Снять',
+    dailyQuiz: 'Викторина',
+    leaderboard: 'Рейтинг (Топ-10)',
+    mediaLibrary: 'Библиотека и Азан',
+    globalSearch: 'Глобальный поиск',
+    supportCenter: 'Имам / Поддержка',
+    supportImam: 'Вопрос имаму',
+    supportService: 'Услуги мечети',
+    supportTech: 'Техподдержка',
+    supportMyTickets: 'Мои обращения',
     aiAssistant: 'AI-помощник',
+    aiClearHistory: 'Очистить память',
     profile: 'Профиль',
     adminPanel: 'Админ-панель',
     language: 'Язык (5)',
     settings: 'Настройки',
+    stopNotifications: 'Отключить рассылки',
     channels: 'Каналы',
     webApp: 'Приложение ASAKA ZIYO',
     miniApp: 'Открыть Mini App',
@@ -601,7 +1048,7 @@ const RU_DICT: TelegramLocaleDictionary = {
     refreshPrayer: 'Обновить',
     nextItem: 'Далее',
     prevItem: 'Назад',
-    surahList: 'Избранные суры',
+    surahList: '114 сур',
     tasbehPlus: 'Тасбих +1',
     tasbehReset: 'Сброс',
     exitAiMode: 'Выйти из режима AI',
@@ -622,6 +1069,17 @@ const RU_DICT: TelegramLocaleDictionary = {
     adminCheckChannelPerms: 'Проверить права бота',
     adminPublishPrayerNow: 'Опубликовать расписание',
     adminToggleAutoPublish: 'Автопубликация',
+    adminBroadcasts: 'Рассылки',
+    adminBroadcastNew: 'Новая рассылка',
+    adminSupport: 'Обращения',
+    adminUsers: 'Пользователи',
+    adminContent: 'Content Studio',
+    adminAiControl: 'Контроль AI',
+    adminAiProbe: 'Проверить модель',
+    adminAiSwitchPrimary: 'Сменить модель',
+    adminAiToggleFallback: 'Auto-Fallback',
+    adminAiToggleVoice: 'Голос (TTS)',
+    adminAnalytics: 'Аналитика',
   },
   prayerNames: {
     tahajjud: 'Тахаджуд',
@@ -636,14 +1094,30 @@ const RU_DICT: TelegramLocaleDictionary = {
   },
   commands: {
     start: 'Открыть главное меню',
+    menu: 'Главное меню',
     prayer: 'Время намаза в Асаке',
-    quran: 'Коран и аят дня',
+    ramadan: 'Сухур и Ифтар (Рамадан)',
+    calendar: 'Исламский календарь',
+    quran: 'Коран (114 сур)',
+    tafsir: 'Тафсир Хилал',
+    khatm: 'Персональный план Хатма',
     hadith: 'Достоверные хадисы',
-    dhikr: 'Зикры, дуа и тасбих',
+    dhikr: 'Зикры и тасбих',
+    dua: 'Дуа на все случаи',
+    glossary: 'Исламский словарь',
+    academy: 'Уроки Исламской Академии',
+    quiz: 'Исламская викторина',
+    leaderboard: 'Рейтинг знатоков',
+    library: 'Статьи, новости и азан',
+    mosque: 'Мечеть и Кибла',
     ask: 'Задать вопрос AI-помощнику',
+    support: 'Обратиться к имаму',
+    search: 'Глобальный поиск',
+    bookmarks: 'Мои закладки',
     profile: 'Личный профиль',
     language: 'Выбрать язык (5 языков)',
     settings: 'Уведомления и настройки',
+    stop: 'Отключить все рассылки',
     admin: 'Панель администратора',
     help: 'Помощь и команды',
   },
@@ -651,30 +1125,31 @@ const RU_DICT: TelegramLocaleDictionary = {
 
 const EN_DICT: TelegramLocaleDictionary = {
   languageName: TELEGRAM_LANGUAGE_NATIVE_NAMES.en,
-  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Official Telegram Platform',
+  welcomeTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Official Telegram Super Platform',
   welcomeBody:
     'Assalamu Alaikum! Welcome to the official ASAKA ZIYO platform of MuhammadSolih Hoji Mosque (Asaka, Andijan).\n\n' +
-    '{{emoji:brand.star}} Here you can:\n' +
-    '• Check official Asaka prayer times & receive Azan reminders\n' +
-    '• Read Daily Quran Ayahs, Authentic Hadiths, and Dhikr with interactive Tasbeh\n' +
-    '• Ask the Islamic AI Assistant\n' +
-    '• Manage your profile and alerts in 5 official languages',
-  mainMenuTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Main Menu',
-  mainMenuPrompt: 'Select a section below:',
-  helpTitle: '{{emoji:nav.help}} Help & Commands',
+    '{{emoji:brand.star}} Core Capabilities:\n' +
+    '• Official Asaka prayer times, Iqamah, Juma & Ramadan Suhoor/Iftar schedule\n' +
+    '• All 114 Quran Surahs, Tafsiri Hilol, Khatm planner & Authentic Hadiths\n' +
+    '• Dhikr, Situational Duas, Tasbeh goals, Academy lessons & Islamic Quiz\n' +
+    '• Text & Voice Islamic AI Assistant (Gemini) + 2-Way Imam Support Desk',
+  onboardingPrompt:
+    '{{emoji:brand.mosque}} Welcome! Please select your preferred language (5 official languages supported):',
+  mainMenuTitle: '{{emoji:brand.mosque}} ASAKA ZIYO — Main Command Center',
+  mainMenuPrompt: 'Choose a section below or use the quick-access keyboard:',
+  helpTitle: '{{emoji:nav.help}} Help & All Commands',
   helpBody:
     'Available commands:\n' +
-    '• /start — Main menu\n' +
-    '• /prayer — Today’s official prayer times\n' +
-    '• /quran — Quran & Daily Ayah\n' +
-    '• /hadith — Authentic Hadiths\n' +
-    '• /dhikr — Dhikr, Dua & Tasbeh\n' +
-    '• /ask <question> — Islamic AI Assistant\n' +
-    '• /profile — User profile\n' +
-    '• /language — Choose language (5 languages)\n' +
-    '• /settings — Notifications & preferences\n' +
-    '• /admin — Admin control panel\n' +
-    '• /help — Help\n\n' +
+    '• /start, /menu — Main menu & Mini App\n' +
+    '• /prayer, /ramadan, /calendar — Prayer times, Ramadan & Religious Calendar\n' +
+    '• /quran, /tafsir, /khatm — Quran (114 Surahs), Tafsiri Hilol & Khatm\n' +
+    '• /hadith, /dhikr, /dua, /glossary — Hadiths, Dhikr-Tasbeh, Duas, Glossary\n' +
+    '• /academy, /quiz, /leaderboard — Academy, Quiz & Leaderboard\n' +
+    '• /library, /mosque, /search, /bookmarks — Library, Mosque, Search, Bookmarks\n' +
+    '• /ask <question> — AI Assistant (text, voice, image)\n' +
+    '• /support — Imam Inquiry & Support Desk\n' +
+    '• /profile, /language, /settings, /stop — Profile, 5 Languages, Settings, Opt-out\n' +
+    '• /admin — Super Admin Control Center\n\n' +
     'Official channels: @Asaka_Ziyo & @muhiddinsahhofuz',
   languageTitle: '{{emoji:language.globe}} Choose Language',
   languagePrompt: 'The platform supports 5 official languages. Your preference is saved automatically:',
@@ -689,6 +1164,8 @@ const EN_DICT: TelegramLocaleDictionary = {
   statusEnabled: 'Enabled',
   statusDisabled: 'Disabled',
   settingUpdatedToast: 'Preference updated',
+  stopOptOutMessage:
+    '{{emoji:status.ok}} All broadcasts and automated notifications have been turned off. You can re-enable them anytime in /settings.',
   prayerTitle: '{{emoji:nav.prayer}} Asaka — Official Prayer Times',
   prayerLocationLine: 'Location',
   prayerDateLine: 'Date',
@@ -696,6 +1173,13 @@ const EN_DICT: TelegramLocaleDictionary = {
   prayerNextLabel: 'Next prayer',
   prayerFooterNote: 'Source: ASAKA ZIYO official mosque schedule (Muslim Board of Uzbekistan).',
   prayerUnavailable: 'Prayer schedule is temporarily unavailable. Please try again shortly.',
+  iqamahLabel: 'Iqamah',
+  jumaSpecialNotice: 'Blessed Friday (Jumuah)! Remember Surah Al-Kahf and Jumuah congregation.',
+  ramadanTitle: '{{emoji:brand.crescent}} Ramadan Schedule — Suhoor & Iftar (Asaka)',
+  saharlikLabel: 'Suhoor (Saharlik)',
+  iftorlikLabel: 'Iftar (Iftorlik)',
+  ramadanVerifiedNote: 'Note: Times come strictly from the verified Asaka mosque schedule.',
+  calendarTitle: '{{emoji:calendar.date}} Hijri & Religious Calendar Milestones',
   azanReminderPrefix: '{{emoji:brand.mosque}} Prayer time has entered',
   quranTitle: '{{emoji:nav.quran}} Holy Quran — Daily Ayah',
   quranSurahHeader: '{{emoji:brand.book}} Surah Overview',
@@ -704,12 +1188,49 @@ const EN_DICT: TelegramLocaleDictionary = {
   quranRevelationLabel: 'Revelation',
   quranPageLabel: 'Mushaf Page',
   quranFooterNote: 'Open ASAKA ZIYO Mini App / Web App for full audio recitation and Tafsir.',
+  tafsirTitle: '{{emoji:brand.book}} Tafsiri Hilol — Commentary',
+  khatmTitle: '{{emoji:brand.book}} Personal Quran Khatm Planner',
+  khatmNoPlanBody: 'You have not started a Khatm plan yet. Set your daily target below:',
+  khatmGoalDaysLabel: 'Target Days',
+  khatmDailyPagesLabel: 'Daily Pages Goal',
+  khatmCompletedJuzLabel: 'Completed Juz',
+  khatmSetDaysPrompt: 'In how many days would you like to complete Khatm? (Send a number 7–365, e.g. 30)',
   hadithTitle: '{{emoji:nav.hadith}} Authentic Hadiths',
   hadithNarratorLabel: 'Narrator',
   hadithSourceLabel: 'Source',
   dhikrTitle: '{{emoji:nav.dhikr}} Dhikr, Dua & Tasbeh',
   dhikrTasbehCounterLabel: 'Tasbeh counter',
+  tasbehTodayLabel: 'Total today',
   dhikrVirtueLabel: 'Virtue',
+  tasbehSetGoalPrompt: 'Send your new daily Tasbeh target number (e.g. 33, 99, 100 or 1000):',
+  duaLibraryTitle: '{{emoji:content.dua}} Situational Duas',
+  glossaryTitle: '{{emoji:brand.book}} Islamic Terms Glossary',
+  mediaLibraryTitle: '{{emoji:brand.book}} ASAKA ZIYO Media Library',
+  mediaArticlesLabel: 'Articles',
+  mediaNewsLabel: 'Mosque News',
+  mediaAnnouncementsLabel: 'Announcements',
+  mediaAdhanLabel: 'Adhan Audio Tracks',
+  mosqueInfoTitle: '{{emoji:brand.mosque}} MuhammadSolih Hoji Jome Mosque',
+  mosqueInfoBody:
+    'Five daily congregational prayers, Jumuah sermons, and educational circles.\nQuestions or inquiries: /support',
+  academyTitle: '{{emoji:brand.book}} ASAKA ZIYO Islamic Academy',
+  quizTitle: '{{emoji:brand.star}} Daily Islamic Quiz',
+  quizEmpty: 'No approved quiz questions are available right now.',
+  quizFinishedTitle: '{{emoji:status.ok}} Quiz Completed!',
+  leaderboardTitle: '{{emoji:brand.star}} ASAKA ZIYO Leaderboard (Top 10)',
+  searchTitle: '{{emoji:brand.book}} Global Search',
+  searchPrompt: 'Send a Surah name/number, Hadith keyword, Dhikr, Article, or Glossary term:',
+  searchNoResults: 'No matching results found. Please try a different keyword.',
+  bookmarksTitle: '{{emoji:brand.star}} My Saved Bookmarks',
+  bookmarksEmpty: 'You have no saved bookmarks yet. Tap Save on any Ayah or Hadith.',
+  bookmarkSavedToast: 'Saved to bookmarks',
+  bookmarkRemovedToast: 'Removed from bookmarks',
+  supportTitle: '{{emoji:admin.shield}} Imam Inquiry & Support Desk',
+  supportPrompt: 'Choose a category below. Official replies are sent directly to your Telegram chat:',
+  supportWritePrompt: 'Write your question or inquiry in detail (you can also attach a photo, document, or voice):',
+  supportCreatedNotice: '{{emoji:status.ok}} Your ticket has been submitted! Our team will reply shortly.',
+  supportEmptyTickets: 'You have not submitted any support tickets yet.',
+  supportReplyHeader: '{{emoji:admin.shield}} ASAKA ZIYO — Official Support Reply',
   profileTitle: '{{emoji:profile.user}} User Profile',
   profileUserLabel: 'User',
   profileIdLabel: 'Telegram ID',
@@ -719,13 +1240,17 @@ const EN_DICT: TelegramLocaleDictionary = {
   profileRoleLabel: 'Access Role',
   aiTitle: '{{emoji:nav.ai}} ASAKA ZIYO — Islamic AI Assistant',
   aiPromptReady:
-    '{{emoji:ai.spark}} AI conversation mode is active!\n\nType your question as a normal message (or use /ask <question>). Tap the button below to exit.',
+    '{{emoji:ai.spark}} AI conversation mode is active!\n\nSend your question as text, voice message, or image (or use /ask <question>). Tap the button below to exit.',
   aiDisabledNotice: '{{emoji:status.warn}} AI Assistant is currently disabled by the administrator.',
   aiMissingKeyNotice: '{{emoji:status.warn}} GEMINI_API_KEY is not configured on the server.',
+  aiBudgetExceededNotice: '{{emoji:status.warn}} Daily global AI token budget has been reached.',
+  aiUserCapNotice: '{{emoji:status.warn}} Your daily AI request limit has been reached.',
   aiThinkingToast: 'Preparing answer...',
   aiExitedToast: 'Exited AI mode',
-  aiErrorNotice: '{{emoji:status.warn}} Temporary error querying AI. Please try again later.',
-  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Telegram Admin Panel',
+  aiClearHistoryToast: 'AI conversation memory cleared',
+  aiVoiceNotice: '🎙 Voice message received, processing...',
+  aiErrorNotice: '{{emoji:status.warn}} Error querying AI service.',
+  adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Super Admin Control Center',
   adminAccessDenied: 'Access denied: restricted to authorized Telegram administrators.',
   adminStatsUsers: 'Users',
   adminStatsChannels: 'Channels',
@@ -744,16 +1269,56 @@ const EN_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Scheduled maintenance in progress. We will be right back.',
   unknownCommand: '{{emoji:status.warn}} Unknown command. Please use the menu below:',
   genericError: '{{emoji:status.warn}} An unexpected error occurred. Please try again.',
+  replyButtons: {
+    prayerTimes: '🕰️ Prayer Times',
+    quranCenter: '📗 Quran & Hadith',
+    aiAssistant: '💠 AI Assistant',
+    academyQuiz: '🎓 Academy & Quiz',
+    support: '🎫 Imam / Support',
+    menuMiniApp: '🏛️ Menu & Settings',
+  },
   buttons: {
     prayerTimes: 'Prayer Times',
+    ramadanMode: 'Ramadan Times',
+    religiousCalendar: 'Calendar',
+    mosqueInfo: 'Mosque & Qibla',
     quran: 'Quran',
+    tafsirHilol: 'Tafsiri Hilol',
+    khatmPlanner: 'Khatm Plan',
+    khatmStartPlan: 'Set Plan',
+    khatmLogJuz: '+1 Juz Done',
+    bookmarkToggle: 'Save / Remove',
+    myBookmarks: 'Bookmarks',
+    quranSearch: 'Search Surah',
+    allSurahs: 'All 114 Surahs',
     hadith: 'Hadiths',
+    hadithAll: 'All',
+    hadithBukhari: 'Bukhari',
+    hadithMuslim: 'Muslim',
+    hadithNawawi: 'Nawawi',
+    hadithSearch: 'Search Hadith',
     dhikr: 'Dhikr & Dua',
+    situationalDuas: 'Situational Duas',
+    glossary: 'Glossary',
+    tasbehSetGoal: 'Set Goal',
+    academyLessons: 'Islamic Academy',
+    academyMarkDone: 'Toggle Completed',
+    dailyQuiz: 'Daily Quiz',
+    leaderboard: 'Leaderboard (Top 10)',
+    mediaLibrary: 'Library & Adhan',
+    globalSearch: 'Global Search',
+    supportCenter: 'Imam / Support',
+    supportImam: 'Ask an Imam',
+    supportService: 'Mosque Services',
+    supportTech: 'Technical Support',
+    supportMyTickets: 'My Tickets',
     aiAssistant: 'AI Assistant',
+    aiClearHistory: 'Clear Memory',
     profile: 'Profile',
     adminPanel: 'Admin Panel',
     language: 'Language (5)',
     settings: 'Settings',
+    stopNotifications: 'Stop All Alerts',
     channels: 'Channels',
     webApp: 'ASAKA ZIYO App',
     miniApp: 'Open Mini App',
@@ -763,7 +1328,7 @@ const EN_DICT: TelegramLocaleDictionary = {
     refreshPrayer: 'Refresh',
     nextItem: 'Next',
     prevItem: 'Previous',
-    surahList: 'Featured Surahs',
+    surahList: '114 Surahs',
     tasbehPlus: 'Tasbeh +1',
     tasbehReset: 'Reset',
     exitAiMode: 'Exit AI Mode',
@@ -784,6 +1349,17 @@ const EN_DICT: TelegramLocaleDictionary = {
     adminCheckChannelPerms: 'Check Bot Rights',
     adminPublishPrayerNow: 'Publish Prayer Now',
     adminToggleAutoPublish: 'Auto-Publish',
+    adminBroadcasts: 'Broadcasts',
+    adminBroadcastNew: 'New Broadcast',
+    adminSupport: 'Support Inbox',
+    adminUsers: 'Users',
+    adminContent: 'Content Studio',
+    adminAiControl: 'AI Control',
+    adminAiProbe: 'Probe Model Live',
+    adminAiSwitchPrimary: 'Switch Primary Model',
+    adminAiToggleFallback: 'Auto-Fallback',
+    adminAiToggleVoice: 'Voice Reply (TTS)',
+    adminAnalytics: 'Analytics',
   },
   prayerNames: {
     tahajjud: 'Tahajjud',
@@ -798,15 +1374,31 @@ const EN_DICT: TelegramLocaleDictionary = {
   },
   commands: {
     start: 'Open main menu',
+    menu: 'Main control center',
     prayer: 'Official Asaka prayer times',
-    quran: 'Holy Quran & Daily Ayah',
+    ramadan: 'Ramadan Suhoor & Iftar',
+    calendar: 'Hijri & religious calendar',
+    quran: 'Holy Quran (114 Surahs)',
+    tafsir: 'Tafsiri Hilol commentary',
+    khatm: 'Personal Khatm planner',
     hadith: 'Authentic Hadiths',
-    dhikr: 'Dhikr, Dua & Tasbeh',
+    dhikr: 'Dhikr & interactive Tasbeh',
+    dua: 'Situational Duas',
+    glossary: 'Islamic Terms Glossary',
+    academy: 'Islamic Academy lessons',
+    quiz: 'Daily Islamic Quiz',
+    leaderboard: 'Top-10 Leaderboard',
+    library: 'Articles, news & Adhan audio',
+    mosque: 'Mosque info & Qibla',
     ask: 'Ask Islamic AI Assistant',
+    support: 'Imam inquiry & support',
+    search: 'Global search',
+    bookmarks: 'My bookmarks',
     profile: 'User profile',
     language: 'Choose language (5 languages)',
     settings: 'Notifications & settings',
-    admin: 'Admin control panel',
+    stop: 'Stop all notifications',
+    admin: 'Super Admin control center',
     help: 'Help & commands',
   },
 };

@@ -1,9 +1,12 @@
 /**
- * ASAKA ZIYO — Strictly Read-Only Prayer Schedule Adapter for Telegram Platform
+ * ASAKA ZIYO — Strictly Read-Only Smart Prayer Intelligence Adapter
  *
- * Reads the official Asaka prayer schedule without ANY write access to existing
- * Web App or Mobile App prayer schedule collections.
- * Computes Asia/Tashkent (UTC+5) next-prayer countdown and Azan reminder templates.
+ * Rules:
+ * - Reads ONLY administrator-verified / canonical ASAKA ZIYO prayer schedule.
+ * - NEVER overrides prayer times with external unverified calculations.
+ * - Provides Asia/Tashkent (UTC+5) next prayer countdown, Juma card,
+ *   Ramadan Saharlik/Iftorlik card (using verified Subh/Shom schedule fields),
+ *   Asaka Qibla bearing (241° WSW), and religious holidays calendar.
  */
 
 import { INITIAL_ASAKA_PRAYER_SCHEDULE } from '../../src/data/prayerTimesData';
@@ -16,14 +19,84 @@ export type ReadOnlyPrayerScheduleProvider = () => PrayerSchedule | null;
 
 const CORE_PRAYER_KEYS = ['bomdod', 'quyosh', 'peshin', 'asr', 'shom', 'xufton'] as const;
 
+export interface ReligiousCalendarEvent {
+  id: string;
+  dateLabel: string;
+  hijriLabel: string;
+  titles: Record<TelegramLocale, string>;
+}
+
+export const RELIGIOUS_CALENDAR_MILESTONES: ReligiousCalendarEvent[] = [
+  {
+    id: 'juma-weekly',
+    dateLabel: 'Har Juma',
+    hijriLabel: 'Sayyidul Ayyom',
+    titles: {
+      'uz-Latn': 'Juma kuni — Kahf surasi, koʻp salavot va Juma namozi (Masjidda)',
+      'uz-Cyrl': 'Жума куни — Каҳф сураси, кўп салавот ва Жума намози (Масжидда)',
+      'uz-Latn-new': 'Juma kuni — Kahf surasi, köp salavot va Juma namozi (Masjidda)',
+      ru: 'Пятница — сура Аль-Кахф, благословения Пророку ﷺ и Джума-намаз',
+      en: 'Friday (Jumuah) — Surah Al-Kahf, abundant Salawat, and Jumuah congregation',
+    },
+  },
+  {
+    id: 'ramazon-start',
+    dateLabel: 'Hijriy 1-Ramazon',
+    hijriLabel: '1 Ramazon',
+    titles: {
+      'uz-Latn': 'Muborak Ramazon oyi boshlanishi (OʻMI rasmiy oy koʻrish qarori bilan)',
+      'uz-Cyrl': 'Муборак Рамазон ойи бошланиши (ЎМИ расмий ой кўриш қарори билан)',
+      'uz-Latn-new': 'Muborak Ramazon oyi boşlanişi (ÖMI rasmiy oy köriş qarori bilan)',
+      ru: 'Начало благословенного месяца Рамадан (по официальному объявлению ДУМУ)',
+      en: 'Start of Blessed Ramadan (confirmed by Muslim Board of Uzbekistan crescent sighting)',
+    },
+  },
+  {
+    id: 'laylatul-qadr',
+    dateLabel: '27-Ramazon kechasi',
+    hijriLabel: '27 Ramazon',
+    titles: {
+      'uz-Latn': 'Qadr kechasi (oxirgi oʻn kunlik toq kechalarida izlanadi)',
+      'uz-Cyrl': 'Қадр кечаси (охирги ўн кунлик тоқ кечаларида изланади)',
+      'uz-Latn-new': 'Qadr keçasі (oxirgi ön kunlik toq keçalarida izlanadi)',
+      ru: 'Ночь Предопределения (Ляйлятуль-Кадр — нечетные ночи последних 10 дней)',
+      en: 'Laylat al-Qadr (sought in odd nights of the last ten days of Ramadan)',
+    },
+  },
+  {
+    id: 'ramazon-hayit',
+    dateLabel: '1-Shavvol',
+    hijriLabel: '1 Shavvol',
+    titles: {
+      'uz-Latn': 'Iydul Fitr — Ramazon hayiti bayrami',
+      'uz-Cyrl': 'Ийдул Фитр — Рамазон ҳайити байрами',
+      'uz-Latn-new': 'Iydul Fitr — Ramazon hayiti bayrami',
+      ru: 'Ид аль-Фитр — Праздник разговения (Рамазан хайит)',
+      en: 'Eid al-Fitr — Festival of Breaking the Fast',
+    },
+  },
+  {
+    id: 'qurbon-hayit',
+    dateLabel: '10-Zulhijja',
+    hijriLabel: '10 Zulhijja',
+    titles: {
+      'uz-Latn': 'Iydul Adho — Qurbon hayiti (9-Zulhijja — Arafa roʻzasi)',
+      'uz-Cyrl': 'Ийдул Адҳо — Қурбон ҳайити (9-Зулҳижжа — Арафа рўзаси)',
+      'uz-Latn-new': 'Iydul Adho — Qurbon hayiti (9-Zulhijja — Arafa rözasi)',
+      ru: 'Ид аль-Адха — Курбан хайит (9 Зуль-хиджа — День Арафа)',
+      en: 'Eid al-Adha — Festival of Sacrifice (9 Dhul-Hijjah — Day of Arafah)',
+    },
+  },
+];
+
 export function getTashkentNowParts(now: Date = new Date()): {
   dateKey: string;
   hour: number;
   minute: number;
+  dayOfWeek: number;
   hhmm: string;
   totalMinutes: number;
 } {
-  // Asia/Tashkent is fixed UTC+5 (no DST)
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
   const tashkent = new Date(utcMs + 5 * 3600_000);
   const yyyy = tashkent.getFullYear();
@@ -36,6 +109,7 @@ export function getTashkentNowParts(now: Date = new Date()): {
     dateKey: `${yyyy}-${mm}-${dd}`,
     hour,
     minute,
+    dayOfWeek: tashkent.getDay(),
     hhmm,
     totalMinutes: hour * 60 + minute,
   };
@@ -50,10 +124,26 @@ function parseMinutes(timeStr: string | undefined): number | null {
 
 export class TelegramPrayerAdapter {
   private readonly getScheduleReadOnly: ReadOnlyPrayerScheduleProvider;
+  private lastKnownScheduleSignature = '';
 
   constructor(getScheduleReadOnly?: ReadOnlyPrayerScheduleProvider) {
     this.getScheduleReadOnly =
       getScheduleReadOnly || (() => INITIAL_ASAKA_PRAYER_SCHEDULE);
+    this.lastKnownScheduleSignature = this.computeScheduleSignature(this.getCurrentSchedule());
+  }
+
+  private computeScheduleSignature(schedule: PrayerSchedule): string {
+    const core = schedule.times.map((t) => `${t.key}:${t.time}:${t.iqamahTime || ''}`).join('|');
+    return `${schedule.date}::${core}`;
+  }
+
+  hasScheduleChangedSinceLastCheck(): boolean {
+    const nextSig = this.computeScheduleSignature(this.getCurrentSchedule());
+    if (nextSig !== this.lastKnownScheduleSignature) {
+      this.lastKnownScheduleSignature = nextSig;
+      return true;
+    }
+    return false;
   }
 
   getCurrentSchedule(): PrayerSchedule {
@@ -111,10 +201,11 @@ export class TelegramPrayerAdapter {
     };
   }
 
-  /**
-   * Returns a prayer key if the current Tashkent HH:MM matches one of the 5 fard prayers.
-   */
-  getDueAzanPrayerAt(now: Date = new Date()): { key: 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton'; time: string; dateKey: string } | null {
+  getDueAzanPrayerAt(now: Date = new Date()): {
+    key: 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton';
+    time: string;
+    dateKey: string;
+  } | null {
     const schedule = this.getCurrentSchedule();
     const parts = getTashkentNowParts(now);
     const fardKeys: Array<'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton'> = [
@@ -152,10 +243,15 @@ export class TelegramPrayerAdapter {
   buildPrayerScheduleTemplate(locale: TelegramLocale, now: Date = new Date()): string {
     const dict = getTelegramLocaleBundle(locale);
     const schedule = this.getCurrentSchedule();
+    const tashkentNow = getTashkentNowParts(now);
 
-    const findTime = (key: string): string => {
-      const item = schedule.times.find((t) => t.key === key);
-      return item?.time || '--:--';
+    const findEntry = (key: string) =>
+      schedule.times.find((t) => t.key === key);
+
+    const fmtTime = (key: string): string => {
+      const e = findEntry(key);
+      if (!e?.time) return '--:--';
+      return e.iqamahTime ? `${e.time} (${dict.iqamahLabel}: ${e.iqamahTime})` : e.time;
     };
 
     const next = this.getNextPrayerInfo(locale, now);
@@ -168,21 +264,22 @@ export class TelegramPrayerAdapter {
       '',
       `{{emoji:calendar.date}} ${dict.prayerDateLine}: ${schedule.formattedDateUz || schedule.date}`,
       `{{emoji:brand.crescent}} ${dict.prayerHijriLine}: ${schedule.hijriDate || '—'}`,
-      `{{emoji:brand.mosque}} ${dict.prayerLocationLine}: ${schedule.location || 'Asaka, Andijon'}`,
+      `{{emoji:brand.mosque}} ${dict.prayerLocationLine}: ${schedule.location || 'Asaka, Andijon'} (Qibla: ${schedule.qiblaAngleDeg || 241}°)`,
       '',
-      `{{emoji:prayer.fajr}} ${dict.prayerNames.bomdod}: ${findTime('bomdod')}`,
-      `{{emoji:prayer.sunrise}} ${dict.prayerNames.quyosh}: ${findTime('quyosh')}`,
-      `{{emoji:prayer.dhuhr}} ${dict.prayerNames.peshin}: ${findTime('peshin')}`,
-      `{{emoji:prayer.asr}} ${dict.prayerNames.asr}: ${findTime('asr')}`,
-      `{{emoji:prayer.maghrib}} ${dict.prayerNames.shom}: ${findTime('shom')}`,
-      `{{emoji:prayer.isha}} ${dict.prayerNames.xufton}: ${findTime('xufton')}`,
+      `{{emoji:prayer.fajr}} ${dict.prayerNames.bomdod}: ${fmtTime('bomdod')}`,
+      `{{emoji:prayer.sunrise}} ${dict.prayerNames.quyosh}: ${fmtTime('quyosh')}`,
+      `{{emoji:prayer.dhuhr}} ${dict.prayerNames.peshin}: ${fmtTime('peshin')}`,
+      `{{emoji:prayer.asr}} ${dict.prayerNames.asr}: ${fmtTime('asr')}`,
+      `{{emoji:prayer.maghrib}} ${dict.prayerNames.shom}: ${fmtTime('shom')}`,
+      `{{emoji:prayer.isha}} ${dict.prayerNames.xufton}: ${fmtTime('xufton')}`,
     ];
 
-    const jumaTime = (schedule.times as Array<{ key: string; time: string }>).find(
-      (t) => t.key === 'juma'
-    )?.time;
+    const jumaTime = findEntry('juma')?.time;
     if (jumaTime) {
       lines.push(`{{emoji:prayer.juma}} ${dict.prayerNames.juma}: ${jumaTime}`);
+    }
+    if (tashkentNow.dayOfWeek === 5) {
+      lines.push(`{{emoji:brand.star}} ${dict.jumaSpecialNotice}`);
     }
     if (nextLine) {
       lines.push('', nextLine);
@@ -198,5 +295,49 @@ export class TelegramPrayerAdapter {
     now: Date = new Date()
   ): FormattedEmojiMessage {
     return emojiRegistry.formatMessage(this.buildPrayerScheduleTemplate(locale, now));
+  }
+
+  formatRamadanModeMessage(
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): FormattedEmojiMessage {
+    const dict = getTelegramLocaleBundle(locale);
+    const schedule = this.getCurrentSchedule();
+    const subh = schedule.times.find((t) => t.key === 'subh')?.time || '--:--';
+    const shom = schedule.times.find((t) => t.key === 'shom')?.time || '--:--';
+
+    const lines = [
+      dict.ramadanTitle,
+      '',
+      `{{emoji:brand.crescent}} ${dict.prayerLocationLine}: ${schedule.location || 'Asaka, Andijon'}`,
+      `{{emoji:calendar.date}} ${schedule.hijriDate || schedule.date}`,
+      '',
+      `• ${dict.saharlikLabel} (${dict.prayerNames.subh}): ${subh}`,
+      `• ${dict.iftorlikLabel} (${dict.prayerNames.shom}): ${shom}`,
+      '',
+      dict.ramadanVerifiedNote,
+      '',
+      dict.prayerFooterNote,
+    ];
+    return emojiRegistry.formatMessage(lines.join('\n'));
+  }
+
+  formatReligiousCalendarMessage(
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): FormattedEmojiMessage {
+    const dict = getTelegramLocaleBundle(locale);
+    const schedule = this.getCurrentSchedule();
+    const lines = [
+      dict.calendarTitle,
+      `{{emoji:brand.crescent}} ${dict.prayerHijriLine}: ${schedule.hijriDate || '—'}`,
+      '',
+      ...RELIGIOUS_CALENDAR_MILESTONES.map(
+        (ev, idx) => `${idx + 1}. [${ev.dateLabel}] ${ev.titles[locale] || ev.titles['uz-Latn']}`
+      ),
+      '',
+      dict.prayerFooterNote,
+    ];
+    return emojiRegistry.formatMessage(lines.join('\n'));
   }
 }

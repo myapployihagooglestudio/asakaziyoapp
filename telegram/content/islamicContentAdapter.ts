@@ -1,21 +1,237 @@
 /**
- * ASAKA ZIYO — Read-Only Islamic Content Adapter for Telegram Platform
+ * ASAKA ZIYO — Smart Islamic Center & Knowledge Library Service (Read-Only Core + User Engagement)
  *
- * Reads authentic Quran surahs/daily ayahs, Sahih Hadiths, and Dhikrs/Duas
- * strictly READ-ONLY from existing ASAKA ZIYO datasets (`src/data/*`).
- * Never modifies existing Web/Mobile datasets or collections.
+ * Covers:
+ * - Quran: All 114 surahs paginated search/browser, Ayah reader across 5 locales,
+ *   Tafsiri Hilol commentary, Audio recitation URLs, Bookmarks, Resume Reading, Personal Khatm Plan
+ * - Hadith: Authentic Bukhari/Muslim/Nawawi browser, collection filter, search, bookmarks
+ * - Dhikr & Dua Center: Categories, situational Duas, Tasbeh counter with custom goals, daily/all-time logs
+ * - Islamic Terms Glossary (5 locales)
+ * - Media Library: Verified Articles, News, Juma Announcements, Adhan Tracks, Mosque Guide
+ * - Global Search across all ASAKA ZIYO datasets
  */
 
 import { SURAHS_LIST } from '../../src/data/quranData';
 import { AUTHENTIC_DAILY_BUNDLES } from '../../src/data/dailyContentData';
 import { AUTHENTIC_HADITHS } from '../../src/data/hadithData';
 import { AUTHENTIC_DHIKRS } from '../../src/data/dhikrData';
+import { TAFSIRI_HILOL_ENTRIES } from '../../src/data/tafsirHilolData';
+import { EDITORIAL_ARTICLES } from '../../src/data/articlesData';
+import { COMMUNITY_ANNOUNCEMENTS, COMMUNITY_NEWS } from '../../src/data/newsAndAnnouncementsData';
+import { ADHAN_TRACKS } from '../../src/data/adhanTracksData';
 import { toNewUzbekAlphabet } from '../../src/utils/newUzbekAlphabet';
-import { TelegramLocale } from '../types';
+import {
+  TelegramLocale,
+  TelegramUserBookmark,
+} from '../types';
 import { CustomEmojiRegistry, FormattedEmojiMessage } from '../emoji/customEmojiRegistry';
+import { TelegramRepository } from '../database/telegramRepository';
 import { getTelegramLocaleBundle } from '../locales';
 
 const FEATURED_SURAH_NUMBERS = [1, 2, 18, 36, 55, 56, 67, 112, 113, 114];
+
+export interface IslamicGlossaryEntry {
+  key: string;
+  term: Record<TelegramLocale, string>;
+  definition: Record<TelegramLocale, string>;
+}
+
+export const ISLAMIC_GLOSSARY: IslamicGlossaryEntry[] = [
+  {
+    key: 'tavhid',
+    term: {
+      'uz-Latn': 'Tavhid',
+      'uz-Cyrl': 'Тавҳид',
+      'uz-Latn-new': 'Tavhid',
+      ru: 'Таухид',
+      en: 'Tawhid',
+    },
+    definition: {
+      'uz-Latn': 'Alloh taoloning yakkayu yagonaligiga, sherigi yoʻqligiga qatʼiy iymon keltirish — Islom aqidasining asosi.',
+      'uz-Cyrl': 'Аллоҳ таолонинг яккаю ягоналигига, шериги йўқлигига қатъий иймон келтириш — Ислом ақидасининг асоси.',
+      'uz-Latn-new': 'Alloh taoloning yakkayu yagonaligiga, şerigi yöqligiga qatʼiy iymon keltiriş — Islom aqidasining asosi.',
+      ru: 'Единобожие — твёрдая вера в Единственность Всевышнего Аллаха, основа исламского вероучения.',
+      en: 'Islamic monotheism — affirming the absolute Oneness and uniqueness of Allah, the foundation of Islam.',
+    },
+  },
+  {
+    key: 'ihson',
+    term: {
+      'uz-Latn': 'Ihson',
+      'uz-Cyrl': 'Иҳсон',
+      'uz-Latn-new': 'Ihson',
+      ru: 'Ихсан',
+      en: 'Ihsan',
+    },
+    definition: {
+      'uz-Latn': 'Allohni koʻrib turgandek ibodat qilish; agar sen Uni koʻrmasang ham, U seni koʻrib turganini his etish.',
+      'uz-Cyrl': 'Аллоҳни кўриб тургандек ибодат қилиш; агар сен Уни кўрмасанг ҳам, У сени кўриб турганини ҳис этиш.',
+      'uz-Latn-new': 'Allohni körib turgandek ibodat qiliş; agar sen Uni körmasang ham, U seni körib turganini his etiş.',
+      ru: 'Искреннее совершенство в поклонении Аллаху, будто ты видишь Его, зная, что Он видит тебя.',
+      en: 'Spiritual excellence: worshipping Allah as though you see Him, knowing that He always sees you.',
+    },
+  },
+  {
+    key: 'taqvo',
+    term: {
+      'uz-Latn': 'Taqvo',
+      'uz-Cyrl': 'Тақво',
+      'uz-Latn-new': 'Taqvo',
+      ru: 'Таква (Богобоязненность)',
+      en: 'Taqwa',
+    },
+    definition: {
+      'uz-Latn': 'Allohning buyruqlarini bajarish va qaytargan narsalaridan saqlanish orqali qalbni gunohdan himoya qilish.',
+      'uz-Cyrl': 'Аллоҳнинг буйруқларини бажариш ва қайтарган нарсаларидан сақланиш орқали қалбни гуноҳдан ҳимоя қилиш.',
+      'uz-Latn-new': 'Allohning buyruqlarini bajariş va qaytargan narsalaridan saqlaniş orqali qalbni gunohdan himoya qiliş.',
+      ru: 'Богобоязненность — оберегание души от грехов через соблюдение велений Аллаха.',
+      en: 'God-consciousness and piety: protecting oneself from displeasure of Allah through obedience.',
+    },
+  },
+  {
+    key: 'iqomat',
+    term: {
+      'uz-Latn': 'Iqomat',
+      'uz-Cyrl': 'Иқомат',
+      'uz-Latn-new': 'Iqomat',
+      ru: 'Икамат',
+      en: 'Iqamah',
+    },
+    definition: {
+      'uz-Latn': 'Jamoat namozi bevosita boshlanishi oldidan aytiladigan takbir va chaqiriq.',
+      'uz-Cyrl': 'Жамоат намози бевосита бошланиши олдидан айтиладиган такбир ва чақириқ.',
+      'uz-Latn-new': 'Jamoat namozi bevosita boşlanişi oldidan aytiladigan takbir va çaqiriq.',
+      ru: 'Второй призыв непосредственно перед началом коллективной молитвы.',
+      en: 'The second call to prayer announcing the immediate start of the congregational prayer.',
+    },
+  },
+  {
+    key: 'xatm',
+    term: {
+      'uz-Latn': 'Xatmi Qurʼon',
+      'uz-Cyrl': 'Хатми Қуръон',
+      'uz-Latn-new': 'Xatmi Qurʼon',
+      ru: 'Хатм Корана',
+      en: 'Khatm al-Quran',
+    },
+    definition: {
+      'uz-Latn': 'Qurʼoni Karimning barcha 114 surasi va 30 juzini boshidan oxirigacha toʻliq oʻqib tugatish.',
+      'uz-Cyrl': 'Қуръони Каримнинг барча 114 сураси ва 30 жузини бошидан охиригача тўлиқ ўқиб тугатиш.',
+      'uz-Latn-new': 'Qurʼoni Karimning barça 114 surasi va 30 juzini boşidan oxirigacha töliq öqib tugatiş.',
+      ru: 'Полное прочтение всего Священного Корана (всех 30 джузов и 114 сур).',
+      en: 'Complete recitation of the entire Holy Quran from Surah Al-Fatihah to An-Nas.',
+    },
+  },
+  {
+    key: 'sunnat',
+    term: {
+      'uz-Latn': 'Sunnat',
+      'uz-Cyrl': 'Суннат',
+      'uz-Latn-new': 'Sunnat',
+      ru: 'Сунна',
+      en: 'Sunnah',
+    },
+    definition: {
+      'uz-Latn': 'Paygʻambarimiz Muhammad sollallohu alayhi vasallamning soʻzlari, amallari va tasdiqlagan yoʻllari.',
+      'uz-Cyrl': 'Пайғамбаримиз Муҳаммад соллаллоҳу алайҳи васалламнинг сўзлари, амаллари ва тасдиқлаган йўллари.',
+      'uz-Latn-new': 'Payğambarimiz Muhammad sollallohu alayhi vasallamning sözlari, amallari va tasdiqlagan yöllari.',
+      ru: 'Высказывания, дела и одобренный жизненный путь Пророка Мухаммада ﷺ.',
+      en: 'The prophetic tradition, sayings, actions, and tacit approvals of Prophet Muhammad (PBUH).',
+    },
+  },
+];
+
+export interface SituationDuaEntry {
+  id: string;
+  situation: Record<TelegramLocale, string>;
+  textAr: string;
+  translit: string;
+  translation: Record<TelegramLocale, string>;
+  source: string;
+}
+
+export const SITUATIONAL_DUAS: SituationDuaEntry[] = [
+  {
+    id: 'dua-ilm',
+    situation: {
+      'uz-Latn': 'Ilm va hikmat soʻrash duosi',
+      'uz-Cyrl': 'Илм ва ҳикмат сўраш дуоси',
+      'uz-Latn-new': 'Ilm va hikmat sörash duosi',
+      ru: 'Дуа о даровании полезного знания',
+      en: 'Dua for Beneficial Knowledge',
+    },
+    textAr: 'رَبِّ زِدْنِي عِلْمًا',
+    translit: 'Robbi zidniy ʻilman',
+    translation: {
+      'uz-Latn': '«Robbim, ilmimni ziyoda qilgin!»',
+      'uz-Cyrl': '«Роббим, илмимни зиёда қилгин!»',
+      'uz-Latn-new': '«Robbim, ilmimni ziyoda qilgin!»',
+      ru: '«Господи, приумножь мои знания!»',
+      en: '“My Lord, increase me in knowledge!”',
+    },
+    source: 'Toha surasi, 114-oyat',
+  },
+  {
+    id: 'dua-parents',
+    situation: {
+      'uz-Latn': 'Ota-ona haqiga duo',
+      'uz-Cyrl': 'Ота-она ҳақига дуо',
+      'uz-Latn-new': 'Ota-ona haqiga duo',
+      ru: 'Дуа за родителей',
+      en: 'Dua for Parents',
+    },
+    textAr: 'رَبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا',
+    translit: 'Robbirhamhuma kama robbayaniy sogʻiyro',
+    translation: {
+      'uz-Latn': '«Robbim, ular meni goʻdakligimda tarbiya qilganlaridek, Ularga rahm qilgin!»',
+      'uz-Cyrl': '«Роббим, улар мени гўдаклигимда тарбия қилганларидек, Уларга раҳм қилгин!»',
+      'uz-Latn-new': '«Robbim, ular meni gödakligimda tarbiya qilganlaridek, Ularga rahm qilgin!»',
+      ru: '«Господи! Помилуй их, ведь они растили меня ребенком!»',
+      en: '“My Lord, have mercy upon them as they brought me up when I was small!”',
+    },
+    source: 'Isro surasi, 24-oyat',
+  },
+  {
+    id: 'dua-travel',
+    situation: {
+      'uz-Latn': 'Safarga chiqish va omonlik duosi',
+      'uz-Cyrl': 'Сафарга чиқиш ва омонлик дуоси',
+      'uz-Latn-new': 'Safarga çiqiş va omonlik duosi',
+      ru: 'Дуа перед выходом в путь',
+      en: 'Dua When Beginning Travel',
+    },
+    textAr: 'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ',
+    translit: 'Subhanallaziy saxxoro lana haza va ma kunna lahu muqriniyn',
+    translation: {
+      'uz-Latn': '«Bizga bu ulovni boʻysundirib qoʻygan Zot pokdir, biz oʻzimiz bunga qodir emas edik».',
+      'uz-Cyrl': '«Бизга бу уловни бўйсундириб қўйган Зот покдир, биз ўзимиз бунга қодир эмас эдик».',
+      'uz-Latn-new': '«Bizga bu ulovni böysundirib qöygan Zot pokdir, biz özimiz bunga qodir emas edik».',
+      ru: '«Пречист Тот, Кто подчинил нам это, ведь сами мы не смогли бы сделать этого».',
+      en: '“Glory to Him who has subjected this to us, and we could never have had it by our efforts.”',
+    },
+    source: 'Zuxruf surasi, 13-oyat; Sahih Muslim',
+  },
+  {
+    id: 'dua-anxiety',
+    situation: {
+      'uz-Latn': 'Gʻam-tashvish va qiyinchilikda oʻqiladigan duo',
+      'uz-Cyrl': 'Ғам-ташвиш ва қийинчиликда ўқиладиган дуо',
+      'uz-Latn-new': 'Ğam-taşviş va qiyinçilikda öqiladigan duo',
+      ru: 'Дуа при тревоге и трудностях',
+      en: 'Dua for Relief from Anxiety',
+    },
+    textAr: 'حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ',
+    translit: 'Hasbunallohu va niʼmal vakiyl',
+    translation: {
+      'uz-Latn': '«Bizga Allohning Oʻzi kifoya va U naqadar goʻzal Vakildir!»',
+      'uz-Cyrl': '«Бизга Аллоҳнинг Ўзи кифоя ва У нақадар гўзал Вакилдир!»',
+      'uz-Latn-new': '«Bizga Allohning Özi kifoya va U naqadar gözal Vakildir!»',
+      ru: '«Достаточно нам Аллаха, и какой же Он прекрасный Попечитель и Хранитель!»',
+      en: '“Sufficient for us is Allah, and He is the best Disposer of affairs!”',
+    },
+    source: 'Oli Imron surasi, 173-oyat; Sahih al-Buxoriy',
+  },
+];
 
 function localizeUzbekString(text: string, locale: TelegramLocale): string {
   if (locale === 'uz-Latn-new') {
@@ -37,17 +253,63 @@ export class TelegramIslamicContentAdapter {
     return AUTHENTIC_DHIKRS.length;
   }
 
+  getTotalSurahs(): number {
+    return SURAHS_LIST.length;
+  }
+
   getFeaturedSurahs() {
     return FEATURED_SURAH_NUMBERS.map((num) => SURAHS_LIST.find((s) => s.number === num)).filter(
       (s): s is NonNullable<typeof s> => Boolean(s)
     );
   }
 
+  getSurahPage(page = 0, pageSize = 10) {
+    const totalPages = Math.max(1, Math.ceil(SURAHS_LIST.length / pageSize));
+    const safePage = ((page % totalPages) + totalPages) % totalPages;
+    const items = SURAHS_LIST.slice(safePage * pageSize, (safePage + 1) * pageSize);
+    return { items, page: safePage, totalPages, total: SURAHS_LIST.length };
+  }
+
+  searchSurahs(query: string) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const numMatch = Number(q);
+    return SURAHS_LIST.filter(
+      (s) =>
+        (!Number.isNaN(numMatch) && s.number === numMatch) ||
+        s.nameUz.toLowerCase().includes(q) ||
+        s.meaningUz.toLowerCase().includes(q)
+    ).slice(0, 12);
+  }
+
+  searchHadiths(query: string) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return AUTHENTIC_HADITHS.filter((h) =>
+      `${h.collectionNameUz} ${h.chapterUz} ${h.translationUz} ${h.narratorUz} ${h.keywords.join(' ')}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }
+
+  getHadithsByCollection(collection: 'all' | 'bukhari' | 'muslim' | 'nawawi') {
+    if (collection === 'all') return AUTHENTIC_HADITHS;
+    return AUTHENTIC_HADITHS.filter((h) => h.collection === collection);
+  }
+
   formatQuranDailyAyah(
     index: number,
     locale: TelegramLocale,
     emojiRegistry: CustomEmojiRegistry
-  ): { formatted: FormattedEmojiMessage; index: number; total: number; surahNumber: number } {
+  ): {
+    formatted: FormattedEmojiMessage;
+    index: number;
+    total: number;
+    surahNumber: number;
+    ayahId: string;
+    audioUrl?: string;
+    title: string;
+  } {
     const total = AUTHENTIC_DAILY_BUNDLES.length;
     const safeIdx = ((index % total) + total) % total;
     const bundle = AUTHENTIC_DAILY_BUNDLES[safeIdx];
@@ -63,9 +325,11 @@ export class TelegramIslamicContentAdapter {
       (ayah.tafsirSummaryUz ? localizeUzbekString(ayah.tafsirSummaryUz, locale) : '');
 
     const surahName = localizeUzbekString(ayah.surahNameUz || '', locale);
+    const title = `${surahName} (${ayah.surahNumber}:${ayah.numberInSurah})`;
+
     const lines: string[] = [
       dict.quranTitle,
-      `{{emoji:brand.book}} ${surahName} (${ayah.surahNumber}:${ayah.numberInSurah}) — ${safeIdx + 1}/${total}`,
+      `{{emoji:brand.book}} ${title} — ${safeIdx + 1}/${total}`,
       '',
       ayah.textAr,
       '',
@@ -75,6 +339,9 @@ export class TelegramIslamicContentAdapter {
     if (localizedTafsir) {
       lines.push('', `{{emoji:brand.star}} ${localizedTafsir}`);
     }
+    if (ayah.audioUrl) {
+      lines.push(`🎧 Audio (Al-Afasy): ${ayah.audioUrl}`);
+    }
 
     lines.push('', dict.quranFooterNote);
 
@@ -83,6 +350,9 @@ export class TelegramIslamicContentAdapter {
       index: safeIdx,
       total,
       surahNumber: ayah.surahNumber,
+      ayahId: `${ayah.surahNumber}:${ayah.numberInSurah}`,
+      audioUrl: ayah.audioUrl,
+      title,
     };
   }
 
@@ -95,6 +365,9 @@ export class TelegramIslamicContentAdapter {
     const dict = getTelegramLocaleBundle(locale);
     const name = localizeUzbekString(surah.nameUz, locale);
     const meaning = localizeUzbekString(surah.meaningUz, locale);
+    const tafsir = TAFSIRI_HILOL_ENTRIES.find((t) => t.surahNumber === surah.number);
+    const padded = String(surah.number).padStart(3, '0');
+    const audioSampleUrl = `https://everyayah.com/data/Alafasy_128kbps/${padded}001.mp3`;
 
     const lines = [
       `${dict.quranSurahHeader}: ${surah.number}. ${name} (${surah.nameAr})`,
@@ -103,18 +376,67 @@ export class TelegramIslamicContentAdapter {
       `• ${dict.quranAyahCountLabel}: ${surah.numberOfAyahs}`,
       `• ${dict.quranRevelationLabel}: ${surah.revelationType}`,
       `• ${dict.quranPageLabel}: ${surah.pageNumber}`,
-      '',
-      dict.quranFooterNote,
+      `🎧 1-oyat qiroati (Al-Afasy): ${audioSampleUrl}`,
     ];
 
+    if (tafsir) {
+      lines.push(
+        '',
+        `📖 Tafsiri Hilol: ${localizeUzbekString(tafsir.tafsirOverview, locale).slice(0, 420)}`
+      );
+      if (tafsir.audioLessonUrl) {
+        lines.push(`🎙 Audio Tafsir (${tafsir.audioDuration || ''}): ${tafsir.audioLessonUrl}`);
+      }
+    }
+
+    lines.push('', dict.quranFooterNote);
     return emojiRegistry.formatMessage(lines.join('\n'));
+  }
+
+  formatTafsirCard(
+    index: number,
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): { formatted: FormattedEmojiMessage; index: number; total: number; surahNumber: number } {
+    const total = TAFSIRI_HILOL_ENTRIES.length;
+    const safeIdx = ((index % total) + total) % total;
+    const entry = TAFSIRI_HILOL_ENTRIES[safeIdx];
+    const dict = getTelegramLocaleBundle(locale);
+    const sample = entry.sampleAyahTafsir[0];
+
+    const lines = [
+      `${dict.tafsirTitle} (${safeIdx + 1}/${total})`,
+      `{{emoji:brand.book}} ${entry.surahNumber}. ${localizeUzbekString(entry.surahNameUz, locale)} (${entry.nameAr})`,
+      '',
+      localizeUzbekString(entry.tafsirOverview, locale),
+      '',
+      `• Fazilat: ${localizeUzbekString(entry.virtuesUz, locale)}`,
+    ];
+
+    if (sample) {
+      lines.push(
+        '',
+        `[${entry.surahNumber}:${sample.ayahNumber}] ${sample.textAr}`,
+        localizeUzbekString(sample.translationUz, locale),
+        localizeUzbekString(sample.tafsirHilolBody[0] || '', locale).slice(0, 350)
+      );
+    }
+
+    lines.push('', `📚 ${localizeUzbekString(entry.sourceNote, locale)}`);
+
+    return {
+      formatted: emojiRegistry.formatMessage(lines.join('\n')),
+      index: safeIdx,
+      total,
+      surahNumber: entry.surahNumber,
+    };
   }
 
   formatHadithCard(
     index: number,
     locale: TelegramLocale,
     emojiRegistry: CustomEmojiRegistry
-  ): { formatted: FormattedEmojiMessage; index: number; total: number } {
+  ): { formatted: FormattedEmojiMessage; index: number; total: number; hadithId: string; title: string } {
     const total = AUTHENTIC_HADITHS.length;
     const safeIdx = ((index % total) + total) % total;
     const hadith = AUTHENTIC_HADITHS[safeIdx];
@@ -142,6 +464,8 @@ export class TelegramIslamicContentAdapter {
       formatted: emojiRegistry.formatMessage(lines.join('\n')),
       index: safeIdx,
       total,
+      hadithId: hadith.id,
+      title: `${collection} #${hadith.number}`,
     };
   }
 
@@ -149,8 +473,16 @@ export class TelegramIslamicContentAdapter {
     index: number,
     tasbehCount: number,
     locale: TelegramLocale,
-    emojiRegistry: CustomEmojiRegistry
-  ): { formatted: FormattedEmojiMessage; index: number; total: number; targetCount: number } {
+    emojiRegistry: CustomEmojiRegistry,
+    personalGoal?: number,
+    todayTotal?: number
+  ): {
+    formatted: FormattedEmojiMessage;
+    index: number;
+    total: number;
+    targetCount: number;
+    dhikrId: string;
+  } {
     const total = AUTHENTIC_DHIKRS.length;
     const safeIdx = ((index % total) + total) % total;
     const dhikr = AUTHENTIC_DHIKRS[safeIdx];
@@ -163,9 +495,10 @@ export class TelegramIslamicContentAdapter {
     const virtue = localizeUzbekString(dhikr.virtueUz, locale);
     const source = localizeUzbekString(dhikr.source, locale);
 
-    const safeCount = Math.max(0, Math.min(9999, tasbehCount));
+    const goal = personalGoal || dhikr.targetCount;
+    const safeCount = Math.max(0, Math.min(99999, tasbehCount));
     const progressMark =
-      safeCount >= dhikr.targetCount ? '{{emoji:status.ok}}' : '{{emoji:content.tasbeh}}';
+      safeCount >= goal ? '{{emoji:status.ok}}' : '{{emoji:content.tasbeh}}';
 
     const lines = [
       `${dict.dhikrTitle} (${safeIdx + 1}/${total})`,
@@ -177,7 +510,8 @@ export class TelegramIslamicContentAdapter {
       '',
       translation,
       '',
-      `${progressMark} ${dict.dhikrTasbehCounterLabel}: ${safeCount} / ${dhikr.targetCount}`,
+      `${progressMark} ${dict.dhikrTasbehCounterLabel}: ${safeCount} / ${goal}`,
+      ...(todayTotal !== undefined ? [`• ${dict.tasbehTodayLabel}: ${todayTotal}`] : []),
       `• ${dict.dhikrVirtueLabel}: ${virtue}`,
       `• ${dict.hadithSourceLabel}: ${source}`,
     ];
@@ -186,7 +520,325 @@ export class TelegramIslamicContentAdapter {
       formatted: emojiRegistry.formatMessage(lines.join('\n')),
       index: safeIdx,
       total,
-      targetCount: dhikr.targetCount,
+      targetCount: goal,
+      dhikrId: dhikr.id,
     };
+  }
+
+  formatSituationalDuaCard(
+    index: number,
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): { formatted: FormattedEmojiMessage; index: number; total: number } {
+    const total = SITUATIONAL_DUAS.length;
+    const safeIdx = ((index % total) + total) % total;
+    const d = SITUATIONAL_DUAS[safeIdx];
+    const dict = getTelegramLocaleBundle(locale);
+
+    const lines = [
+      `${dict.duaLibraryTitle} (${safeIdx + 1}/${total})`,
+      `{{emoji:content.dua}} ${d.situation[locale] || d.situation['uz-Latn']}`,
+      '',
+      d.textAr,
+      '',
+      localizeUzbekString(d.translit, locale),
+      '',
+      d.translation[locale] || d.translation['uz-Latn'],
+      '',
+      `• ${dict.hadithSourceLabel}: ${localizeUzbekString(d.source, locale)}`,
+    ];
+
+    return {
+      formatted: emojiRegistry.formatMessage(lines.join('\n')),
+      index: safeIdx,
+      total,
+    };
+  }
+
+  formatGlossaryPage(
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): FormattedEmojiMessage {
+    const dict = getTelegramLocaleBundle(locale);
+    const lines = [
+      dict.glossaryTitle,
+      '',
+      ...ISLAMIC_GLOSSARY.map(
+        (g, idx) =>
+          `${idx + 1}. ${g.term[locale] || g.term['uz-Latn']} — ${g.definition[locale] || g.definition['uz-Latn']}`
+      ),
+    ];
+    return emojiRegistry.formatMessage(lines.join('\n'));
+  }
+
+  formatMediaLibraryItem(
+    kind: 'articles' | 'news' | 'announcements' | 'adhan',
+    index: number,
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): { formatted: FormattedEmojiMessage; index: number; total: number; audioUrl?: string } {
+    const dict = getTelegramLocaleBundle(locale);
+
+    if (kind === 'articles') {
+      const total = EDITORIAL_ARTICLES.length;
+      const safeIdx = ((index % total) + total) % total;
+      const a = EDITORIAL_ARTICLES[safeIdx];
+      const tr = (a.translations as any)?.[locale];
+      const title = tr?.title || localizeUzbekString(a.title, locale);
+      const excerpt = tr?.excerpt || localizeUzbekString(a.excerpt, locale);
+      const body = tr?.bodyParagraphs?.[0] || localizeUzbekString(a.bodyParagraphs[0] || '', locale);
+      const lines = [
+        `${dict.mediaLibraryTitle} — ${dict.mediaArticlesLabel} (${safeIdx + 1}/${total})`,
+        `{{emoji:brand.book}} ${title}`,
+        `✍️ ${localizeUzbekString(a.author, locale)} | ${localizeUzbekString(a.publishedDate, locale)}`,
+        '',
+        excerpt,
+        '',
+        body,
+      ];
+      return { formatted: emojiRegistry.formatMessage(lines.join('\n')), index: safeIdx, total };
+    }
+
+    if (kind === 'news') {
+      const total = COMMUNITY_NEWS.length;
+      const safeIdx = ((index % total) + total) % total;
+      const n = COMMUNITY_NEWS[safeIdx];
+      const tr = (n.translations as any)?.[locale];
+      const title = tr?.title || localizeUzbekString(n.title, locale);
+      const summary = tr?.summary || localizeUzbekString(n.summary, locale);
+      const content = tr?.content || localizeUzbekString(n.content, locale);
+      const lines = [
+        `${dict.mediaLibraryTitle} — ${dict.mediaNewsLabel} (${safeIdx + 1}/${total})`,
+        `{{emoji:channel.broadcast}} ${title}`,
+        `📅 ${localizeUzbekString(n.publishedDate, locale)}`,
+        '',
+        summary,
+        '',
+        content,
+      ];
+      return { formatted: emojiRegistry.formatMessage(lines.join('\n')), index: safeIdx, total };
+    }
+
+    if (kind === 'announcements') {
+      const total = COMMUNITY_ANNOUNCEMENTS.length;
+      const safeIdx = ((index % total) + total) % total;
+      const ann = COMMUNITY_ANNOUNCEMENTS[safeIdx];
+      const tr = (ann.translations as any)?.[locale];
+      const title = tr?.title || localizeUzbekString(ann.title, locale);
+      const desc = tr?.description || localizeUzbekString(ann.description, locale);
+      const lines = [
+        `${dict.mediaLibraryTitle} — ${dict.mediaAnnouncementsLabel} (${safeIdx + 1}/${total})`,
+        `📢 ${title}`,
+        `📅 ${localizeUzbekString(ann.date, locale)} • ⏰ ${ann.time}`,
+        `📍 ${localizeUzbekString(ann.location, locale)}`,
+        '',
+        desc,
+      ];
+      return { formatted: emojiRegistry.formatMessage(lines.join('\n')), index: safeIdx, total };
+    }
+
+    const total = ADHAN_TRACKS.length;
+    const safeIdx = ((index % total) + total) % total;
+    const track = ADHAN_TRACKS[safeIdx];
+    const lines = [
+      `${dict.mediaLibraryTitle} — ${dict.mediaAdhanLabel} (${safeIdx + 1}/${total})`,
+      `🎙 ${localizeUzbekString(track.titleUz, locale)}`,
+      `👤 ${localizeUzbekString(track.muezzinUz, locale)}`,
+      `⏱ ${track.durationLabel} | ${localizeUzbekString(track.styleUz, locale)}`,
+      '',
+      localizeUzbekString(track.descriptionUz, locale),
+      `🎧 MP3: ${track.audioUrl}`,
+    ];
+    return {
+      formatted: emojiRegistry.formatMessage(lines.join('\n')),
+      index: safeIdx,
+      total,
+      audioUrl: track.audioUrl,
+    };
+  }
+
+  formatMosqueInfoCard(
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): FormattedEmojiMessage {
+    const dict = getTelegramLocaleBundle(locale);
+    const lines = [
+      dict.mosqueInfoTitle,
+      '',
+      `{{emoji:brand.mosque}} MuhammadSolih Hoji Jome Masjidi`,
+      `📍 Asaka shahri, Andijon viloyati, Oʻzbekiston`,
+      `🧭 Qibla yoʻnalishi (Asaka): 241° (Janubi-Gʻarb)`,
+      `📡 Rasmiy kanal: @Asaka_Ziyo`,
+      `📚 Ilmiy kanal: @muhiddinsahhofuz`,
+      '',
+      dict.mosqueInfoBody,
+    ];
+    return emojiRegistry.formatMessage(lines.join('\n'));
+  }
+
+  // ---- Personal Engagement (Bookmarks, Khatm Plan, Tasbeh Goals) ----
+
+  async toggleBookmark(
+    repo: TelegramRepository,
+    telegramId: string,
+    bookmark: Omit<TelegramUserBookmark, 'createdAt'>
+  ): Promise<{ saved: boolean; total: number }> {
+    const eng = repo.getUserEngagement(telegramId);
+    const idx = eng.bookmarks.findIndex((b) => b.id === bookmark.id);
+    let saved = false;
+    if (idx >= 0) {
+      eng.bookmarks.splice(idx, 1);
+      saved = false;
+    } else {
+      eng.bookmarks.unshift({ ...bookmark, createdAt: new Date().toISOString() });
+      if (eng.bookmarks.length > 100) eng.bookmarks = eng.bookmarks.slice(0, 100);
+      saved = true;
+    }
+    await repo.saveUserEngagement(eng);
+    return { saved, total: eng.bookmarks.length };
+  }
+
+  async startOrUpdateKhatmPlan(
+    repo: TelegramRepository,
+    telegramId: string,
+    targetDays: number
+  ) {
+    const safeDays = Math.max(7, Math.min(365, Math.round(targetDays) || 30));
+    const eng = repo.getUserEngagement(telegramId);
+    const nowIso = new Date().toISOString();
+    eng.khatmPlan = {
+      targetDays: safeDays,
+      completedJuz: eng.khatmPlan?.completedJuz || [],
+      completedSurahs: eng.khatmPlan?.completedSurahs || [],
+      dailyPagesGoal: Math.max(1, Math.ceil(604 / safeDays)),
+      pagesReadTotal: eng.khatmPlan?.pagesReadTotal || 0,
+      startedAt: eng.khatmPlan?.startedAt || nowIso,
+      updatedAt: nowIso,
+    };
+    await repo.saveUserEngagement(eng);
+    return eng.khatmPlan;
+  }
+
+  async logKhatmJuzCompleted(repo: TelegramRepository, telegramId: string, juzNumber?: number) {
+    const eng = repo.getUserEngagement(telegramId);
+    if (!eng.khatmPlan) {
+      await this.startOrUpdateKhatmPlan(repo, telegramId, 30);
+    }
+    const plan = eng.khatmPlan!;
+    const nextJuz =
+      juzNumber ||
+      Array.from({ length: 30 }, (_, i) => i + 1).find((j) => !plan.completedJuz.includes(j));
+    if (nextJuz && nextJuz >= 1 && nextJuz <= 30 && !plan.completedJuz.includes(nextJuz)) {
+      plan.completedJuz.push(nextJuz);
+      plan.pagesReadTotal = Math.min(604, plan.completedJuz.length * 20);
+      plan.updatedAt = new Date().toISOString();
+      await repo.saveUserEngagement(eng);
+    }
+    return plan;
+  }
+
+  formatKhatmCard(
+    repo: TelegramRepository,
+    telegramId: string,
+    locale: TelegramLocale,
+    emojiRegistry: CustomEmojiRegistry
+  ): FormattedEmojiMessage {
+    const dict = getTelegramLocaleBundle(locale);
+    const eng = repo.getUserEngagement(telegramId);
+    const plan = eng.khatmPlan;
+
+    if (!plan) {
+      return emojiRegistry.formatMessage(
+        `${dict.khatmTitle}\n\n${dict.khatmNoPlanBody}`
+      );
+    }
+
+    const pct = Math.min(100, Math.round((plan.completedJuz.length / 30) * 100));
+    const lines = [
+      dict.khatmTitle,
+      '',
+      `• ${dict.khatmGoalDaysLabel}: ${plan.targetDays}`,
+      `• ${dict.khatmDailyPagesLabel}: ~${plan.dailyPagesGoal}`,
+      `• ${dict.khatmCompletedJuzLabel}: ${plan.completedJuz.length} / 30 (${pct}%)`,
+      `• Jami sahifalar: ${plan.pagesReadTotal} / 604`,
+    ];
+    return emojiRegistry.formatMessage(lines.join('\n'));
+  }
+
+  async incrementTasbeh(
+    repo: TelegramRepository,
+    telegramId: string,
+    dhikrId: string,
+    newCount: number
+  ) {
+    const eng = repo.getUserEngagement(telegramId);
+    const prev = eng.dhikr.countsByDhikrId[dhikrId] || 0;
+    const delta = newCount > prev ? newCount - prev : 0;
+    eng.dhikr.countsByDhikrId[dhikrId] = newCount;
+    eng.dhikr.todayCount += delta;
+    eng.dhikr.totalAllTimeCount += delta;
+    await repo.saveUserEngagement(eng);
+    return eng.dhikr;
+  }
+
+  async setDhikrCustomGoal(
+    repo: TelegramRepository,
+    telegramId: string,
+    dhikrId: string,
+    goal: number
+  ) {
+    const safeGoal = Math.max(1, Math.min(100_000, Math.round(goal) || 33));
+    const eng = repo.getUserEngagement(telegramId);
+    eng.dhikr.dailyGoals[dhikrId] = safeGoal;
+    await repo.saveUserEngagement(eng);
+    return safeGoal;
+  }
+
+  performGlobalSearch(query: string, locale: TelegramLocale): string {
+    const surahs = this.searchSurahs(query);
+    const hadiths = this.searchHadiths(query);
+    const q = query.trim().toLowerCase();
+    const dhikrs = AUTHENTIC_DHIKRS.filter((d) =>
+      `${d.titleUz} ${d.translationUz}`.toLowerCase().includes(q)
+    );
+    const articles = EDITORIAL_ARTICLES.filter((a) =>
+      `${a.title} ${a.excerpt}`.toLowerCase().includes(q)
+    );
+    const glossary = ISLAMIC_GLOSSARY.filter((g) =>
+      `${g.term[locale]} ${g.definition[locale]}`.toLowerCase().includes(q)
+    );
+
+    const lines: string[] = [];
+    if (surahs.length > 0) {
+      lines.push('📖 Qurʼon suralari:');
+      surahs.slice(0, 4).forEach((s) =>
+        lines.push(`• /quran — ${s.number}. ${localizeUzbekString(s.nameUz, locale)} (${s.numberOfAyahs} oyat)`)
+      );
+    }
+    if (hadiths.length > 0) {
+      lines.push('', '📜 Hadislar:');
+      hadiths.slice(0, 3).forEach((h) =>
+        lines.push(`• ${localizeUzbekString(h.reference, locale)}: ${localizeUzbekString(h.translationUz, locale).slice(0, 120)}...`)
+      );
+    }
+    if (dhikrs.length > 0) {
+      lines.push('', '📿 Zikrlar:');
+      dhikrs.slice(0, 3).forEach((d) =>
+        lines.push(`• ${localizeUzbekString(d.titleUz, locale)}`)
+      );
+    }
+    if (articles.length > 0) {
+      lines.push('', '📚 Maqolalar:');
+      articles.slice(0, 2).forEach((a) =>
+        lines.push(`• ${localizeUzbekString(a.title, locale)}`)
+      );
+    }
+    if (glossary.length > 0) {
+      lines.push('', '📘 Lugʻat:');
+      glossary.slice(0, 2).forEach((g) =>
+        lines.push(`• ${g.term[locale]}: ${g.definition[locale]}`)
+      );
+    }
+    return lines.join('\n').trim();
   }
 }

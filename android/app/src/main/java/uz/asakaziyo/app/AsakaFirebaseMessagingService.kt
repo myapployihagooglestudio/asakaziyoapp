@@ -5,13 +5,15 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
 /**
- * ASAKA ZIYO — Firebase Cloud Messaging Service (v3.0.0)
+ * ASAKA ZIYO — Firebase Cloud Messaging Service (v4.0.0)
  * Handles real Android push notifications with Telegram-style High-Importance Heads-Up banners
  * for Prayer Pre-Reminders (5/10/15/30 min), Exact Adhan Alerts, Mosque Announcements,
  * News/Articles, and Community Chat Messages.
@@ -34,16 +36,19 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun showNotification(title: String, messageBody: String, channelId: String, targetView: String) {
         val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("targetView", targetView)
         }
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            this, (System.currentTimeMillis() % 10000).toInt(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setSmallIcon(R.drawable.ic_stat_asaka_ziyo)
+            .setLargeIcon(largeIcon)
+            .setColor(ContextCompat.getColor(this, R.color.asaka_emerald_primary))
             .setContentTitle(title)
             .setContentText(messageBody)
             .setStyle(NotificationCompat.BigTextStyle().bigText(messageBody))

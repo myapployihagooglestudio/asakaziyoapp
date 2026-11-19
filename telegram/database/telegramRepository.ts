@@ -1,19 +1,15 @@
 /**
- * ASAKA ZIYO — Isolated Least-Privilege Telegram Database Repository
+ * ASAKA ZIYO — Isolated Least-Privilege Telegram Super Platform Repository
  *
  * SECURITY ISOLATION GUARANTEES:
- * 1. Maintains an explicit runtime allowlist of ONLY the 7 dedicated Telegram collections:
- *    - telegramUsers
- *    - telegramSettings
- *    - telegramChannels
- *    - telegramAdmins
- *    - telegramPublications
- *    - telegramAuditLogs
- *    - telegramCustomEmojis
- * 2. Refuses at runtime (throws SecurityError) to write or delete ANY existing
- *    Web App / Mobile App Firestore collection (`users`, `admins`, `schedules`, `articles`, etc.).
- * 3. Persists local state to its OWN isolated file (`/data/telegram_platform_store.json`),
- *    never touching `/data/asaka_ziyo_db.json`.
+ * 1. Explicit runtime allowlist of ONLY the 13 isolated `telegram*` Firestore collections:
+ *    telegramUsers, telegramSettings, telegramChannels, telegramAdmins, telegramPublications,
+ *    telegramAuditLogs, telegramCustomEmojis, telegramBroadcasts, telegramSupportTickets,
+ *    telegramContentDrafts, telegramUserEngagement, telegramAiLogs, telegramQuizAttempts
+ * 2. Refuses at runtime (throws SecurityError) to touch ANY Web App / Mobile App collection.
+ * 3. Tracks Firestore sync failures honestly (never masks Firestore errors as success) and
+ *    supports startup hydration (`hydrateFromFirestore`) from Firebase Firestore.
+ * 4. Persists local cache exclusively in `/data/telegram_platform_store.json`.
  */
 
 import fs from 'fs';
@@ -22,12 +18,19 @@ import crypto from 'crypto';
 import {
   CustomEmojiEntry,
   TelegramAdminRecord,
+  TelegramAiLogRecord,
   TelegramAuditLogRecord,
   TelegramBotSettingsRecord,
+  TelegramBroadcastRecord,
   TelegramChannelRecord,
+  TelegramContentDraftRecord,
   TelegramPublicationRecord,
+  TelegramQuizAttemptRecord,
+  TelegramSupportTicketRecord,
+  TelegramUserEngagementRecord,
   TelegramUserRecord,
 } from '../types';
+import { DEFAULT_TELEGRAM_AI_MODEL, DEFAULT_TELEGRAM_MINIAPP_URL } from '../config';
 import { TelegramLogger } from '../middlewares/logger';
 
 export const ALLOWED_TELEGRAM_COLLECTIONS = [
@@ -38,6 +41,12 @@ export const ALLOWED_TELEGRAM_COLLECTIONS = [
   'telegramPublications',
   'telegramAuditLogs',
   'telegramCustomEmojis',
+  'telegramBroadcasts',
+  'telegramSupportTickets',
+  'telegramContentDrafts',
+  'telegramUserEngagement',
+  'telegramAiLogs',
+  'telegramQuizAttempts',
 ] as const;
 
 export type AllowedTelegramCollection = (typeof ALLOWED_TELEGRAM_COLLECTIONS)[number];
@@ -59,10 +68,6 @@ export interface ScopedFirestoreBridge {
   ): Promise<Record<string, unknown>[]>;
 }
 
-/**
- * Wraps the server's generic Firestore helpers into a strictly least-privilege bridge
- * that blocks any non-telegram* collection at runtime.
- */
 export function createScopedTelegramFirestoreBridge(deps: {
   serverWriteFirestoreDoc?: (
     collectionName: string,
@@ -88,14 +93,14 @@ export function createScopedTelegramFirestoreBridge(deps: {
     async writeTelegramDoc(collectionName, docId, data) {
       const safeCol = assertAllowed(collectionName);
       if (!deps.serverWriteFirestoreDoc) {
-        return { success: false, error: 'Firestore bridge inactive (local store only)' };
+        return { success: false, error: 'Firestore bridge inactive (local cache only)' };
       }
       return deps.serverWriteFirestoreDoc(safeCol, docId, data);
     },
     async deleteTelegramDoc(collectionName, docId) {
       const safeCol = assertAllowed(collectionName);
       if (!deps.serverDeleteFirestoreDoc) {
-        return { success: false, error: 'Firestore bridge inactive (local store only)' };
+        return { success: false, error: 'Firestore bridge inactive (local cache only)' };
       }
       return deps.serverDeleteFirestoreDoc(safeCol, docId);
     },
@@ -115,6 +120,21 @@ interface TelegramLocalStoreShape {
   publications: TelegramPublicationRecord[];
   auditLogs: TelegramAuditLogRecord[];
   customEmojis: Record<string, CustomEmojiEntry>;
+  broadcasts: Record<string, TelegramBroadcastRecord>;
+  supportTickets: Record<string, TelegramSupportTicketRecord>;
+  contentDrafts: Record<string, TelegramContentDraftRecord>;
+  userEngagement: Record<string, TelegramUserEngagementRecord>;
+  aiLogs: TelegramAiLogRecord[];
+  quizAttempts: TelegramQuizAttemptRecord[];
+}
+
+function getTashkentDateKey(): string {
+  const utc = Date.now() + new Date().getTimezoneOffset() * 60_000;
+  const d = new Date(utc + 5 * 3600_000);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function createDefaultStore(): TelegramLocalStoreShape {
@@ -127,8 +147,15 @@ function createDefaultStore(): TelegramLocalStoreShape {
       maintenanceMode: false,
       premiumEmojiEnabled: false,
       premiumEmojiEligibilityVerified: false,
-      miniAppEnabled: false,
-      aiAssistantEnabled: false,
+      miniAppEnabled: true,
+      aiAssistantEnabled: true,
+      aiPrimaryModel: DEFAULT_TELEGRAM_AI_MODEL,
+      aiFallbackModel: null,
+      aiAutoFallbackEnabled: false,
+      aiVoiceReplyEnabled: true,
+      aiDailyBudgetTokens: 500_000,
+      aiMaxRequestsPerUserPerDay: 40,
+      miniAppUrl: DEFAULT_TELEGRAM_MINIAPP_URL,
       updatedAt: nowIso,
       updatedBy: 'system',
     },
@@ -141,11 +168,12 @@ function createDefaultStore(): TelegramLocalStoreShape {
         isActive: true,
         autoPublishPrayerTimes: false,
         autoPublishAnnouncements: false,
+        autoPublishWisdom: false,
         language: 'uz-Latn',
         createdAt: nowIso,
         updatedAt: nowIso,
       },
-      'muhiddinsahhofuz': {
+      muhiddinsahhofuz: {
         id: 'muhiddinsahhofuz',
         username: '@muhiddinsahhofuz',
         title: 'Muhiddin Sahhof — Ilmiy-Maʼrifiy Kanal',
@@ -153,6 +181,7 @@ function createDefaultStore(): TelegramLocalStoreShape {
         isActive: true,
         autoPublishPrayerTimes: false,
         autoPublishAnnouncements: false,
+        autoPublishWisdom: false,
         language: 'uz-Latn',
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -162,7 +191,24 @@ function createDefaultStore(): TelegramLocalStoreShape {
     publications: [],
     auditLogs: [],
     customEmojis: {},
+    broadcasts: {},
+    supportTickets: {},
+    contentDrafts: {},
+    userEngagement: {},
+    aiLogs: [],
+    quizAttempts: [],
   };
+}
+
+export interface FirestoreSyncTelemetry {
+  bridgeActive: boolean;
+  hydratedFromFirestore: boolean;
+  lastHydratedAt: string | null;
+  totalWritesAttempted: number;
+  totalWritesSucceeded: number;
+  totalWritesFailed: number;
+  lastSyncAt: string | null;
+  lastSyncError: string | null;
 }
 
 export class TelegramRepository {
@@ -170,6 +216,14 @@ export class TelegramRepository {
   private readonly firestore?: ScopedFirestoreBridge;
   private readonly logger: TelegramLogger;
   private state: TelegramLocalStoreShape;
+
+  private hydratedFromFirestore = false;
+  private lastHydratedAt: string | null = null;
+  private totalWritesAttempted = 0;
+  private totalWritesSucceeded = 0;
+  private totalWritesFailed = 0;
+  private lastSyncAt: string | null = null;
+  private lastSyncError: string | null = null;
 
   constructor(options: {
     storePath?: string;
@@ -200,6 +254,12 @@ export class TelegramRepository {
           publications: Array.isArray(parsed.publications) ? parsed.publications : [],
           auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
           customEmojis: parsed.customEmojis || {},
+          broadcasts: parsed.broadcasts || {},
+          supportTickets: parsed.supportTickets || {},
+          contentDrafts: parsed.contentDrafts || {},
+          userEngagement: parsed.userEngagement || {},
+          aiLogs: Array.isArray(parsed.aiLogs) ? parsed.aiLogs : [],
+          quizAttempts: Array.isArray(parsed.quizAttempts) ? parsed.quizAttempts : [],
         };
       }
     } catch (err) {
@@ -230,20 +290,200 @@ export class TelegramRepository {
     collectionName: AllowedTelegramCollection,
     docId: string,
     payload: Record<string, unknown>
-  ): Promise<void> {
-    if (!this.firestore) return;
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (!this.firestore) {
+      return { ok: false, error: 'Firestore bridge not configured' };
+    }
+    this.totalWritesAttempted++;
     try {
       const res = await this.firestore.writeTelegramDoc(collectionName, docId, payload);
-      if (!res.success && res.error && !res.error.includes('local store only')) {
-        this.logger.warn(`Firestore sync skipped for ${collectionName}/${docId}`, {
-          error: res.error,
-        });
+      if (res.success) {
+        this.totalWritesSucceeded++;
+        this.lastSyncAt = new Date().toISOString();
+        return { ok: true };
       }
+      const errMsg = res.error || 'Unknown Firestore write failure';
+      if (!errMsg.includes('local cache only')) {
+        this.totalWritesFailed++;
+        this.lastSyncError = `${collectionName}/${docId}: ${errMsg}`;
+        this.logger.warn(`Firestore sync failed for ${collectionName}/${docId}`, { error: errMsg });
+      }
+      return { ok: false, error: errMsg };
     } catch (err) {
-      this.logger.warn(`Firestore sync exception for ${collectionName}/${docId}`, {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.totalWritesFailed++;
+      this.lastSyncError = `${collectionName}/${docId}: ${errMsg}`;
+      this.logger.warn(`Firestore sync exception for ${collectionName}/${docId}`, { error: errMsg });
+      return { ok: false, error: errMsg };
     }
+  }
+
+  private async deleteDocFromFirestore(
+    collectionName: AllowedTelegramCollection,
+    docId: string
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (!this.firestore) return { ok: false, error: 'Firestore bridge not configured' };
+    try {
+      const res = await this.firestore.deleteTelegramDoc(collectionName, docId);
+      if (!res.success && res.error && !res.error.includes('local cache only')) {
+        this.lastSyncError = `DELETE ${collectionName}/${docId}: ${res.error}`;
+      }
+      return { ok: res.success, error: res.error };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.lastSyncError = `DELETE ${collectionName}/${docId}: ${msg}`;
+      return { ok: false, error: msg };
+    }
+  }
+
+  /**
+   * Hydrates repository state from Firestore on server boot so restarts recover persisted cloud records.
+   */
+  async hydrateFromFirestore(): Promise<{ ok: boolean; collectionsLoaded: number; error?: string }> {
+    if (!this.firestore?.readTelegramCollection) {
+      return { ok: false, collectionsLoaded: 0, error: 'readTelegramCollection unavailable' };
+    }
+    let collectionsLoaded = 0;
+    try {
+      const [
+        users,
+        settingsDocs,
+        channels,
+        admins,
+        publications,
+        customEmojis,
+        broadcasts,
+        tickets,
+        drafts,
+        engagements,
+        aiLogs,
+        quizAttempts,
+      ] = await Promise.all([
+        this.firestore.readTelegramCollection('telegramUsers'),
+        this.firestore.readTelegramCollection('telegramSettings'),
+        this.firestore.readTelegramCollection('telegramChannels'),
+        this.firestore.readTelegramCollection('telegramAdmins'),
+        this.firestore.readTelegramCollection('telegramPublications'),
+        this.firestore.readTelegramCollection('telegramCustomEmojis'),
+        this.firestore.readTelegramCollection('telegramBroadcasts'),
+        this.firestore.readTelegramCollection('telegramSupportTickets'),
+        this.firestore.readTelegramCollection('telegramContentDrafts'),
+        this.firestore.readTelegramCollection('telegramUserEngagement'),
+        this.firestore.readTelegramCollection('telegramAiLogs'),
+        this.firestore.readTelegramCollection('telegramQuizAttempts'),
+      ]);
+
+      if (Array.isArray(users) && users.length > 0) {
+        collectionsLoaded++;
+        for (const u of users as unknown as TelegramUserRecord[]) {
+          if (u?.telegramId) this.state.users[u.telegramId] = u;
+        }
+      }
+      if (Array.isArray(settingsDocs)) {
+        const def = (settingsDocs as unknown as TelegramBotSettingsRecord[]).find(
+          (s) => s.id === 'default'
+        );
+        if (def) {
+          collectionsLoaded++;
+          this.state.settings = { ...this.state.settings, ...def };
+        }
+      }
+      if (Array.isArray(channels) && channels.length > 0) {
+        collectionsLoaded++;
+        for (const c of channels as unknown as TelegramChannelRecord[]) {
+          if (c?.id) this.state.channels[c.id] = c;
+        }
+      }
+      if (Array.isArray(admins) && admins.length > 0) {
+        collectionsLoaded++;
+        for (const a of admins as unknown as TelegramAdminRecord[]) {
+          if (a?.telegramId) this.state.admins[a.telegramId] = a;
+        }
+      }
+      if (Array.isArray(publications) && publications.length > 0) {
+        collectionsLoaded++;
+        const byId = new Map<string, TelegramPublicationRecord>();
+        for (const p of [...(publications as unknown as TelegramPublicationRecord[]), ...this.state.publications]) {
+          if (p?.id) byId.set(p.id, p);
+        }
+        this.state.publications = Array.from(byId.values())
+          .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+          .slice(0, 500);
+      }
+      if (Array.isArray(customEmojis) && customEmojis.length > 0) {
+        collectionsLoaded++;
+        for (const e of customEmojis as unknown as CustomEmojiEntry[]) {
+          if (e?.key) this.state.customEmojis[e.key] = e;
+        }
+      }
+      if (Array.isArray(broadcasts) && broadcasts.length > 0) {
+        collectionsLoaded++;
+        for (const b of broadcasts as unknown as TelegramBroadcastRecord[]) {
+          if (b?.id) this.state.broadcasts[b.id] = b;
+        }
+      }
+      if (Array.isArray(tickets) && tickets.length > 0) {
+        collectionsLoaded++;
+        for (const t of tickets as unknown as TelegramSupportTicketRecord[]) {
+          if (t?.id) this.state.supportTickets[t.id] = t;
+        }
+      }
+      if (Array.isArray(drafts) && drafts.length > 0) {
+        collectionsLoaded++;
+        for (const d of drafts as unknown as TelegramContentDraftRecord[]) {
+          if (d?.id) this.state.contentDrafts[d.id] = d;
+        }
+      }
+      if (Array.isArray(engagements) && engagements.length > 0) {
+        collectionsLoaded++;
+        for (const g of engagements as unknown as TelegramUserEngagementRecord[]) {
+          if (g?.telegramId) this.state.userEngagement[g.telegramId] = g;
+        }
+      }
+      if (Array.isArray(aiLogs) && aiLogs.length > 0) {
+        collectionsLoaded++;
+        const byId = new Map<string, TelegramAiLogRecord>();
+        for (const l of [...(aiLogs as unknown as TelegramAiLogRecord[]), ...this.state.aiLogs]) {
+          if (l?.id) byId.set(l.id, l);
+        }
+        this.state.aiLogs = Array.from(byId.values())
+          .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+          .slice(0, 1000);
+      }
+      if (Array.isArray(quizAttempts) && quizAttempts.length > 0) {
+        collectionsLoaded++;
+        const byId = new Map<string, TelegramQuizAttemptRecord>();
+        for (const q of [...(quizAttempts as unknown as TelegramQuizAttemptRecord[]), ...this.state.quizAttempts]) {
+          if (q?.id) byId.set(q.id, q);
+        }
+        this.state.quizAttempts = Array.from(byId.values())
+          .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+          .slice(0, 2000);
+      }
+
+      this.hydratedFromFirestore = true;
+      this.lastHydratedAt = new Date().toISOString();
+      this.persistToDisk();
+      return { ok: true, collectionsLoaded };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.lastSyncError = `Hydrate failed: ${msg}`;
+      this.logger.warn('TelegramRepository Firestore hydration warning', { error: msg });
+      return { ok: false, collectionsLoaded, error: msg };
+    }
+  }
+
+  getFirestoreSyncStatus(): FirestoreSyncTelemetry {
+    return {
+      bridgeActive: Boolean(this.firestore),
+      hydratedFromFirestore: this.hydratedFromFirestore,
+      lastHydratedAt: this.lastHydratedAt,
+      totalWritesAttempted: this.totalWritesAttempted,
+      totalWritesSucceeded: this.totalWritesSucceeded,
+      totalWritesFailed: this.totalWritesFailed,
+      lastSyncAt: this.lastSyncAt,
+      lastSyncError: this.lastSyncError,
+    };
   }
 
   // ---- Users (telegramUsers) ----
@@ -265,6 +505,17 @@ export class TelegramRepository {
       user as unknown as Record<string, unknown>
     );
     return user;
+  }
+
+  async deleteUser(telegramId: string): Promise<{ ok: boolean }> {
+    delete this.state.users[telegramId];
+    delete this.state.userEngagement[telegramId];
+    this.persistToDisk();
+    await Promise.all([
+      this.deleteDocFromFirestore('telegramUsers', `tg_${telegramId}`),
+      this.deleteDocFromFirestore('telegramUserEngagement', `tg_eng_${telegramId}`),
+    ]);
+    return { ok: true };
   }
 
   // ---- Settings (telegramSettings) ----
@@ -315,6 +566,14 @@ export class TelegramRepository {
     return channel;
   }
 
+  async deleteChannel(id: string): Promise<boolean> {
+    if (!this.state.channels[id]) return false;
+    delete this.state.channels[id];
+    this.persistToDisk();
+    await this.deleteDocFromFirestore('telegramChannels', id);
+    return true;
+  }
+
   // ---- Admins (telegramAdmins) ----
 
   listAdmins(): TelegramAdminRecord[] {
@@ -340,6 +599,10 @@ export class TelegramRepository {
 
   listPublications(limit = 50): TelegramPublicationRecord[] {
     return this.state.publications.slice(0, Math.max(1, limit));
+  }
+
+  hasPublicationWithIdempotencyKey(key: string): boolean {
+    return this.state.publications.some((p) => p.idempotencyKey === key && p.status === 'sent');
   }
 
   async recordPublication(
@@ -408,14 +671,218 @@ export class TelegramRepository {
     return entry;
   }
 
+  // ---- Broadcast Campaigns (telegramBroadcasts) ----
+
+  listBroadcasts(): TelegramBroadcastRecord[] {
+    return Object.values(this.state.broadcasts).sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
+  }
+
+  getBroadcast(id: string): TelegramBroadcastRecord | null {
+    return this.state.broadcasts[id] || null;
+  }
+
+  async saveBroadcast(record: TelegramBroadcastRecord): Promise<TelegramBroadcastRecord> {
+    this.state.broadcasts[record.id] = record;
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramBroadcasts',
+      record.id,
+      record as unknown as Record<string, unknown>
+    );
+    return record;
+  }
+
+  // ---- Support Tickets (telegramSupportTickets) ----
+
+  listSupportTickets(): TelegramSupportTicketRecord[] {
+    return Object.values(this.state.supportTickets).sort((a, b) =>
+      (b.updatedAt || '').localeCompare(a.updatedAt || '')
+    );
+  }
+
+  getSupportTicket(id: string): TelegramSupportTicketRecord | null {
+    return this.state.supportTickets[id] || null;
+  }
+
+  async saveSupportTicket(ticket: TelegramSupportTicketRecord): Promise<TelegramSupportTicketRecord> {
+    this.state.supportTickets[ticket.id] = ticket;
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramSupportTickets',
+      ticket.id,
+      ticket as unknown as Record<string, unknown>
+    );
+    return ticket;
+  }
+
+  // ---- Content Studio Drafts (telegramContentDrafts) ----
+
+  listContentDrafts(): TelegramContentDraftRecord[] {
+    return Object.values(this.state.contentDrafts).sort((a, b) =>
+      (b.updatedAt || '').localeCompare(a.updatedAt || '')
+    );
+  }
+
+  getContentDraft(id: string): TelegramContentDraftRecord | null {
+    return this.state.contentDrafts[id] || null;
+  }
+
+  async saveContentDraft(draft: TelegramContentDraftRecord): Promise<TelegramContentDraftRecord> {
+    this.state.contentDrafts[draft.id] = draft;
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramContentDrafts',
+      draft.id,
+      draft as unknown as Record<string, unknown>
+    );
+    return draft;
+  }
+
+  // ---- User Engagement: Bookmarks, Khatm, Tasbeh Goals, Academy, AI History ----
+
+  getUserEngagement(telegramId: string): TelegramUserEngagementRecord {
+    const todayKey = getTashkentDateKey();
+    const existing = this.state.userEngagement[telegramId];
+    if (existing) {
+      if (existing.dhikr.todayDateKey !== todayKey) {
+        existing.dhikr.todayDateKey = todayKey;
+        existing.dhikr.todayCount = 0;
+      }
+      return existing;
+    }
+    return {
+      telegramId,
+      bookmarks: [],
+      dhikr: {
+        countsByDhikrId: {},
+        dailyGoals: {},
+        todayDateKey: todayKey,
+        todayCount: 0,
+        totalAllTimeCount: 0,
+        reminderEnabled: false,
+      },
+      completedLessonIds: [],
+      quizTotalAttempts: 0,
+      quizBestScore: 0,
+      quizTotalPoints: 0,
+      quizStreak: 0,
+      aiHistory: [],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  listAllEngagement(): TelegramUserEngagementRecord[] {
+    return Object.values(this.state.userEngagement);
+  }
+
+  async saveUserEngagement(
+    record: TelegramUserEngagementRecord
+  ): Promise<TelegramUserEngagementRecord> {
+    const next: TelegramUserEngagementRecord = {
+      ...record,
+      updatedAt: new Date().toISOString(),
+    };
+    this.state.userEngagement[record.telegramId] = next;
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramUserEngagement',
+      `tg_eng_${record.telegramId}`,
+      next as unknown as Record<string, unknown>
+    );
+    return next;
+  }
+
+  // ---- AI Telemetry Logs (telegramAiLogs) ----
+
+  listAiLogs(limit = 100): TelegramAiLogRecord[] {
+    return this.state.aiLogs.slice(0, Math.max(1, limit));
+  }
+
+  async appendAiLog(
+    entry: Omit<TelegramAiLogRecord, 'id' | 'createdAt'>
+  ): Promise<TelegramAiLogRecord> {
+    const full: TelegramAiLogRecord = {
+      ...entry,
+      id: `tg_ai_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`,
+      createdAt: new Date().toISOString(),
+    };
+    this.state.aiLogs.unshift(full);
+    if (this.state.aiLogs.length > 1000) {
+      this.state.aiLogs = this.state.aiLogs.slice(0, 1000);
+    }
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramAiLogs',
+      full.id,
+      full as unknown as Record<string, unknown>
+    );
+    return full;
+  }
+
+  async flagAiLog(
+    logId: string,
+    flaggedByAdmin: boolean,
+    adminNote?: string
+  ): Promise<TelegramAiLogRecord | null> {
+    const found = this.state.aiLogs.find((l) => l.id === logId);
+    if (!found) return null;
+    found.flaggedByAdmin = flaggedByAdmin;
+    if (adminNote !== undefined) found.adminNote = adminNote;
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramAiLogs',
+      found.id,
+      found as unknown as Record<string, unknown>
+    );
+    return found;
+  }
+
+  // ---- Quiz Attempts & Leaderboard (telegramQuizAttempts) ----
+
+  listQuizAttempts(limit = 200): TelegramQuizAttemptRecord[] {
+    return this.state.quizAttempts.slice(0, Math.max(1, limit));
+  }
+
+  async recordQuizAttempt(
+    attempt: Omit<TelegramQuizAttemptRecord, 'id' | 'createdAt'>
+  ): Promise<TelegramQuizAttemptRecord> {
+    const full: TelegramQuizAttemptRecord = {
+      ...attempt,
+      id: `tg_quiz_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`,
+      createdAt: new Date().toISOString(),
+    };
+    this.state.quizAttempts.unshift(full);
+    if (this.state.quizAttempts.length > 2000) {
+      this.state.quizAttempts = this.state.quizAttempts.slice(0, 2000);
+    }
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramQuizAttempts',
+      full.id,
+      full as unknown as Record<string, unknown>
+    );
+    return full;
+  }
+
   getStats() {
+    const tickets = Object.values(this.state.supportTickets);
+    const broadcasts = Object.values(this.state.broadcasts);
     return {
       usersCount: Object.keys(this.state.users).length,
+      activeUsersCount: Object.values(this.state.users).filter((u) => !u.isBlocked && !u.stoppedByUser).length,
       channelsCount: Object.keys(this.state.channels).length,
       adminsCount: Object.keys(this.state.admins).length,
       publicationsCount: this.state.publications.length,
       auditLogsCount: this.state.auditLogs.length,
       customEmojisStoredCount: Object.keys(this.state.customEmojis).length,
+      broadcastsCount: broadcasts.length,
+      openTicketsCount: tickets.filter((t) => t.status === 'new' || t.status === 'in_progress').length,
+      totalTicketsCount: tickets.length,
+      contentDraftsCount: Object.keys(this.state.contentDrafts).length,
+      aiLogsCount: this.state.aiLogs.length,
+      quizAttemptsCount: this.state.quizAttempts.length,
     };
   }
 }

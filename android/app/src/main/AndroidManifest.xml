@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="uz.asakaziyo.app">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- 1. Essential Network & Offline Sync -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -40,9 +39,10 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/AppTheme">
 
-        <!-- Main Native Hybrid Activity (Adaptive orientation for API 36 Large Screens & TV) -->
+        <!-- Main Native Hybrid Activity (Android 12+ SplashScreen + Adaptive API 36 Large Screens & TV) -->
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.AsakaZiyo.Splash"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:exported="true"
             android:launchMode="singleTask"
@@ -58,6 +58,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="asakaziyo.uz" />
+                <data android:scheme="https" android:host="asakaziyo.ai.studio" />
                 <data android:scheme="asakaziyo" android:host="open" />
             </intent-filter>
         </activity>

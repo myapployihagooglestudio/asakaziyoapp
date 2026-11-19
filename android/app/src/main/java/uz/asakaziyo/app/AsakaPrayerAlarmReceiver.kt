@@ -7,12 +7,14 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 
 /**
- * ASAKA ZIYO — Exact Prayer & Adhan Notification Alarm Receiver
+ * ASAKA ZIYO — Exact Prayer & Adhan Notification Alarm Receiver (v4.0.0)
  */
 class AsakaPrayerAlarmReceiver : BroadcastReceiver() {
 
@@ -25,7 +27,7 @@ class AsakaPrayerAlarmReceiver : BroadcastReceiver() {
         try {
             ensureChannels(context)
             val openIntent = Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("targetView", "prayer")
             }
             val contentPendingIntent = PendingIntent.getActivity(
@@ -35,8 +37,11 @@ class AsakaPrayerAlarmReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            val largeIcon = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
             val notification = NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_stat_asaka_ziyo)
+                .setLargeIcon(largeIcon)
+                .setColor(ContextCompat.getColor(context, R.color.asaka_emerald_primary))
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(body))

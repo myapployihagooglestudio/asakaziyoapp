@@ -1453,7 +1453,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   ASAKA ZIYO Mobil Ilovasi
                 </span>
                 <span className="text-[10px] font-mono-numbers bg-[#C6A45C] text-[#042B25] px-2 py-0.5 rounded font-bold">
-                  APK v3.0.0 / PWA
+                  APK v4.0.0 / PWA
                 </span>
               </div>
               <p className="text-xs text-[#F1EBDD]/85 leading-relaxed max-w-md">
@@ -1853,7 +1853,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   ASAKA ZIYO Rasmiy Brendi
                 </h3>
                 <p className="text-xs text-[#FFF8E8]/80 leading-relaxed">
-                  Ilmiy-maʼrifiy raqamli platforma, Android mobil ilovasi (v3.0.0) va @Asaka_Ziyo Telegram kanali.
+                  Ilmiy-maʼrifiy raqamli platforma, Android mobil ilovasi (v4.0.0) va @Asaka_Ziyo Telegram kanali.
                 </p>
               </div>
             </Card>

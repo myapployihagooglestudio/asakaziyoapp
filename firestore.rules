@@ -650,10 +650,9 @@ service cloud.firestore {
 
     function isValidTelegramUser(data) {
       return data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
-        data.chatId is string && data.chatId.size() >= 1 && data.chatId.size() <= 64 &&
         isValidTelegramLocale(data.language) &&
         data.prayerNotificationsEnabled is bool &&
-        data.dailyContentNotificationsEnabled is bool &&
+        data.dailyWisdomEnabled is bool &&
         data.isBlocked is bool;
     }
 
@@ -674,32 +673,66 @@ service cloud.firestore {
 
     function isValidTelegramAdmin(data) {
       return data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
-        data.role in ['owner', 'admin', 'editor', 'moderator'] &&
+        data.role in ['owner', 'admin', 'editor', 'moderator', 'content_manager', 'support_manager', 'analyst'] &&
         data.isActive is bool;
     }
 
     function isValidTelegramPublication(data) {
       return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
         data.channelId is string && data.channelId.size() >= 1 && data.channelId.size() <= 128 &&
-        data.kind in ['prayer_times', 'announcement', 'article', 'manual'] &&
+        data.category in ['prayer_times', 'announcement', 'wisdom', 'news', 'hadith', 'ayah', 'media', 'manual'] &&
         isValidTelegramLocale(data.language) &&
-        data.status in ['draft', 'scheduled', 'sent', 'failed'];
+        data.status in ['queued', 'scheduled', 'sent', 'failed'];
     }
 
     function isValidTelegramAuditLog(data) {
       return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
         data.actorTelegramId is string && data.actorTelegramId.size() >= 1 && data.actorTelegramId.size() <= 64 &&
-        data.actorRole in ['owner', 'admin', 'editor', 'moderator', 'user', 'system'] &&
+        data.actorRole in ['owner', 'admin', 'editor', 'moderator', 'content_manager', 'support_manager', 'analyst', 'user', 'system'] &&
         data.action is string && data.action.size() >= 1 && data.action.size() <= 160 &&
         data.targetType is string && data.targetType.size() >= 1 && data.targetType.size() <= 64;
     }
 
     function isValidTelegramCustomEmoji(data) {
       return data.key is string && data.key.size() >= 1 && data.key.size() <= 128 &&
-        data.category in ['brand', 'navigation', 'prayer', 'language', 'settings', 'status', 'channel', 'calendar'] &&
+        data.category in ['brand', 'navigation', 'prayer', 'content', 'ai', 'profile', 'admin', 'language', 'settings', 'status', 'channel', 'calendar'] &&
         data.unicodeFallback is string && data.unicodeFallback.size() >= 1 && data.unicodeFallback.size() <= 16 &&
         data.verified is bool &&
         data.supportsKeyboardIcon is bool;
+    }
+
+    function isValidTelegramBroadcast(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 240 &&
+        data.status in ['draft', 'scheduled', 'running', 'paused', 'completed', 'cancelled', 'failed'];
+    }
+
+    function isValidTelegramSupportTicket(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 64 &&
+        data.status in ['new', 'in_progress', 'answered', 'closed'];
+    }
+
+    function isValidTelegramContentDraft(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+        data.status in ['draft', 'review', 'approved', 'scheduled', 'published', 'archived'];
+    }
+
+    function isValidTelegramUserEngagement(data) {
+      return data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64;
+    }
+
+    function isValidTelegramAiLog(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
+        data.ok is bool;
+    }
+
+    function isValidTelegramQuizAttempt(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
+        data.score is number && data.total is number;
     }
 
     // 38A. Telegram Bot Users (Zero public client access — admin/server-only)
@@ -775,6 +808,72 @@ service cloud.firestore {
         (isContentAdmin() || isSuperAdmin() || isVerifiedServerWrite('telegramCustomEmojis', emojiId));
       allow delete: if isValidId(emojiId) &&
         (isSuperAdmin() || isVerifiedServerWrite('telegramCustomEmojis', emojiId));
+    }
+
+    // 38H. Telegram Broadcast Campaigns (Admin/server-only)
+    match /telegramBroadcasts/{broadcastId} {
+      allow get: if isValidId(broadcastId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(broadcastId) &&
+        isValidTelegramBroadcast(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramBroadcasts', broadcastId));
+      allow delete: if isValidId(broadcastId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramBroadcasts', broadcastId));
+    }
+
+    // 38I. Telegram Support Tickets (Admin/server-only)
+    match /telegramSupportTickets/{ticketId} {
+      allow get: if isValidId(ticketId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(ticketId) &&
+        isValidTelegramSupportTicket(incoming()) &&
+        (isAnyAdmin() || isVerifiedServerWrite('telegramSupportTickets', ticketId));
+      allow delete: if isValidId(ticketId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramSupportTickets', ticketId));
+    }
+
+    // 38J. Telegram Content Studio Drafts (Admin/server-only)
+    match /telegramContentDrafts/{draftId} {
+      allow get: if isValidId(draftId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(draftId) &&
+        isValidTelegramContentDraft(incoming()) &&
+        (isContentAdmin() || isSuperAdmin() || isVerifiedServerWrite('telegramContentDrafts', draftId));
+      allow delete: if isValidId(draftId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramContentDrafts', draftId));
+    }
+
+    // 38K. Telegram User Engagement (Bookmarks, Khatm, Tasbeh, Academy, AI Memory — Server/Admin-only)
+    match /telegramUserEngagement/{userId} {
+      allow get: if isValidId(userId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(userId) &&
+        isValidTelegramUserEngagement(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramUserEngagement', userId));
+      allow delete: if isValidId(userId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramUserEngagement', userId));
+    }
+
+    // 38L. Telegram AI Request Telemetry & Error Logs (Admin/server-only)
+    match /telegramAiLogs/{logId} {
+      allow get: if isValidId(logId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(logId) &&
+        isValidTelegramAiLog(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramAiLogs', logId));
+      allow delete: if isValidId(logId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramAiLogs', logId));
+    }
+
+    // 38M. Telegram Islamic Quiz Attempts & Leaderboard (Admin/server-only)
+    match /telegramQuizAttempts/{attemptId} {
+      allow get: if isValidId(attemptId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(attemptId) &&
+        isValidTelegramQuizAttempt(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramQuizAttempts', attemptId));
+      allow delete: if isValidId(attemptId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramQuizAttempts', attemptId));
     }
   }
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ASAKA ZIYO</string>
+    <string name="channel_prayer_pre_reminder">Namoz Oldidan Eslatmalar (5–30 daqiqa)</string>
+    <string name="channel_prayer_adhan">Namoz Vaqti va Azon Eslatmalari</string>
+    <string name="channel_announcements">Masjid va Admin Muhim Eʼlonlari</string>
+    <string name="channel_news_articles">Yangiliklar va Ilmiy Maqolalar</string>
+    <string name="channel_chat_messages">Suhbat va Imom Savol-Javob Xabarlari</string>
+    <string name="channel_daily_wisdom">Kunlik Oyat, Hadis va Zikrlar</string>
+</resources>

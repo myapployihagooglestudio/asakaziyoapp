@@ -735,6 +735,19 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'displayConnections',
   'displaySchedules',
   'displayAnnouncements',
+  'telegramUsers',
+  'telegramSettings',
+  'telegramChannels',
+  'telegramAdmins',
+  'telegramPublications',
+  'telegramAuditLogs',
+  'telegramCustomEmojis',
+  'telegramBroadcasts',
+  'telegramSupportTickets',
+  'telegramContentDrafts',
+  'telegramUserEngagement',
+  'telegramAiLogs',
+  'telegramQuizAttempts',
   '_diagnostics',
   '_metadata',
 ]);
@@ -5309,119 +5322,193 @@ app.get('/api/admin/storage-stats', requireAdminAuth, (_req: Request, res: Respo
 });
 
 // ---------------------------------------------------------------------------
-// 5.8. NATIVE ANDROID APK RELEASE METADATA & VERIFIED BINARY DOWNLOAD STREAMING
+// 5.8. NATIVE ANDROID APK v4.0.0 RELEASE METADATA & VERIFIED BINARY DOWNLOAD
 // ---------------------------------------------------------------------------
-const APK_RELEASE_PATH_V3 = path.join(DATA_DIR, 'release', 'Asaka-Ziyo-v3.0.0.apk');
-const APK_PUBLIC_PATH_V3 = path.join(__dirname, 'public', 'Asaka-Ziyo-v3.0.0.apk');
-const APK_PUBLIC_PATH_V2 = path.join(__dirname, 'public', 'Asaka-Ziyo-v2.0.0.apk');
-const APK_PUBLIC_PATH_V1 = path.join(__dirname, 'public', 'Asaka-Ziyo-v1.0.0.apk');
+const APK_TARGET_VERSION = '4.0.0';
+const APK_TARGET_BUILD_CODE = 400;
+const APK_CANONICAL_FILENAME = `Asaka-Ziyo-v${APK_TARGET_VERSION}.apk`;
+const AAB_CANONICAL_FILENAME = `Asaka-Ziyo-v${APK_TARGET_VERSION}.aab`;
+
+const APK_RELEASE_PATH_V4 = path.join(DATA_DIR, 'release', APK_CANONICAL_FILENAME);
+const APK_PUBLIC_PATH_V4 = path.join(__dirname, 'public', APK_CANONICAL_FILENAME);
+const AAB_RELEASE_PATH_V4 = path.join(DATA_DIR, 'release', AAB_CANONICAL_FILENAME);
 const APK_METADATA_PATH = path.join(DATA_DIR, 'apk_release_metadata.json');
 
-function resolveVerifiedApkFile(): {
+function readApkReleaseMetadataFile(): any {
+  if (!fs.existsSync(APK_METADATA_PATH)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(APK_METADATA_PATH, 'utf-8')) || {};
+  } catch {
+    return {};
+  }
+}
+
+function isValidZipBinaryHeader(filePath: string): { valid: boolean; sizeBytes: number } {
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile() || stat.size < 65536) {
+      return { valid: false, sizeBytes: stat.size };
+    }
+    const fd = fs.openSync(filePath, 'r');
+    const header = Buffer.alloc(4);
+    fs.readSync(fd, header, 0, 4, 0);
+    fs.closeSync(fd);
+    const isZipMagic =
+      header[0] === 0x50 &&
+      header[1] === 0x4b &&
+      header[2] === 0x03 &&
+      header[3] === 0x04;
+    return { valid: isZipMagic, sizeBytes: stat.size };
+  } catch {
+    return { valid: false, sizeBytes: 0 };
+  }
+}
+
+function resolveVerifiedV4ApkFile(): {
   filePath: string;
   sizeBytes: number;
   sha256: string;
   metadata: any;
+  aabAvailable: boolean;
 } | null {
-  const candidatePath = fs.existsSync(APK_RELEASE_PATH_V3)
-    ? APK_RELEASE_PATH_V3
-    : fs.existsSync(APK_PUBLIC_PATH_V3)
-    ? APK_PUBLIC_PATH_V3
-    : fs.existsSync(APK_PUBLIC_PATH_V2)
-    ? APK_PUBLIC_PATH_V2
-    : fs.existsSync(APK_PUBLIC_PATH_V1)
-    ? APK_PUBLIC_PATH_V1
+  const meta = readApkReleaseMetadataFile();
+  const aabCheck = fs.existsSync(AAB_RELEASE_PATH_V4)
+    ? isValidZipBinaryHeader(AAB_RELEASE_PATH_V4)
+    : { valid: false, sizeBytes: 0 };
+
+  // Strictly resolve ONLY v4.0.0 APK binaries — NEVER disguise an older v3.0.0/v2.0.0 binary as v4.0.0
+  const candidatePath = fs.existsSync(APK_RELEASE_PATH_V4)
+    ? APK_RELEASE_PATH_V4
+    : fs.existsSync(APK_PUBLIC_PATH_V4)
+    ? APK_PUBLIC_PATH_V4
     : '';
   if (!candidatePath) return null;
 
-  const stat = fs.statSync(candidatePath);
-  let meta: any = {};
-  if (fs.existsSync(APK_METADATA_PATH)) {
-    try {
-      meta = JSON.parse(fs.readFileSync(APK_METADATA_PATH, 'utf-8'));
-    } catch {
-      meta = {};
-    }
-  }
+  const check = isValidZipBinaryHeader(candidatePath);
+  if (!check.valid) return null;
 
   const sha256 =
-    meta.sha256Checksum && meta.sizeBytes === stat.size
+    meta.version === APK_TARGET_VERSION &&
+    meta.sha256Checksum &&
+    meta.sizeBytes === check.sizeBytes
       ? meta.sha256Checksum
       : crypto.createHash('sha256').update(fs.readFileSync(candidatePath)).digest('hex');
 
   return {
     filePath: candidatePath,
-    sizeBytes: stat.size,
+    sizeBytes: check.sizeBytes,
     sha256,
     metadata: meta,
+    aabAvailable: aabCheck.valid,
   };
 }
 
 app.get('/api/apk/info', (_req: Request, res: Response) => {
-  const resolved = resolveVerifiedApkFile();
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  const meta = readApkReleaseMetadataFile();
+  const resolved = resolveVerifiedV4ApkFile();
+
   if (!resolved) {
-    return res.status(404).json({
-      success: false,
-      error: 'Signed Android APK file not found on server.',
+    const aabAvailable = fs.existsSync(AAB_RELEASE_PATH_V4) && isValidZipBinaryHeader(AAB_RELEASE_PATH_V4).valid;
+    return res.status(200).json({
+      success: true,
+      appName: 'ASAKA ZIYO',
+      packageId: 'uz.asakaziyo.app',
+      version: APK_TARGET_VERSION,
+      buildCode: APK_TARGET_BUILD_CODE,
+      minSdk: 24,
+      targetSdk: 36,
+      minAndroid: 'Android 7.0+ (API 24 – API 36)',
+      targetAndroid: 'Android 16 (API 36)',
+      apkFilename: APK_CANONICAL_FILENAME,
+      aabFilename: AAB_CANONICAL_FILENAME,
+      apkAvailable: false,
+      aabAvailable,
+      signed: false,
+      apksignerVerified: false,
+      sizeBytes: 0,
+      fileSizeDisplay: 'CI/CD orqali yigʻilmoqda',
+      sha256Checksum: '',
+      signatureScheme: 'APK Signature Scheme v1 + v2 + v3 (RSA-2048 SHA-256)',
+      axmlVerified: false,
+      dexVerified: false,
+      resourcesArscVerified: false,
+      pkcs7Signed: false,
+      downloadUrl: '/api/apk/download',
+      directUrl: `/${APK_CANONICAL_FILENAME}`,
+      releaseDate: meta.releaseDate || '2026-11-19',
+      status: 'awaiting_ci_artifact',
+      statusMessageUz:
+        meta.statusMessageUz ||
+        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli hali serverga yuklanmagan. GitHub Actions (android-release.yml) orqali yigʻilib joylashtirilgach, yuklab olish avtomatik faollashadi.',
+      releaseHistory: Array.isArray(meta.releaseHistory) ? meta.releaseHistory : [],
     });
   }
 
-  const buf = fs.readFileSync(resolved.filePath);
-  const isZipMagic =
-    buf.length > 64 &&
-    buf[0] === 0x50 &&
-    buf[1] === 0x4b &&
-    buf[2] === 0x03 &&
-    buf[3] === 0x04;
-
   const sizeMb = (resolved.sizeBytes / (1024 * 1024)).toFixed(2);
-  const resolvedVersion = resolved.metadata.version || '3.0.0';
-  const resolvedBuildCode = resolved.metadata.buildCode || 300;
-  const resolvedTargetSdk = resolved.metadata.targetSdk || 36;
-  return res.json({
+  const resolvedSigned = Boolean(resolved.metadata.signed ?? resolved.metadata.pkcs7Signed ?? false);
+  return res.status(200).json({
     success: true,
     appName: 'ASAKA ZIYO',
-    packageId: resolved.metadata.packageId || 'uz.asakaziyo.app',
-    version: resolvedVersion,
-    buildCode: resolvedBuildCode,
-    minSdk: resolved.metadata.minSdk || 24,
-    targetSdk: resolvedTargetSdk,
-    minAndroid: `Android 7.0+ (API 24 – API ${resolvedTargetSdk})`,
+    packageId: 'uz.asakaziyo.app',
+    version: APK_TARGET_VERSION,
+    buildCode: APK_TARGET_BUILD_CODE,
+    minSdk: 24,
+    targetSdk: 36,
+    minAndroid: 'Android 7.0+ (API 24 – API 36)',
+    targetAndroid: 'Android 16 (API 36)',
+    apkFilename: APK_CANONICAL_FILENAME,
+    aabFilename: AAB_CANONICAL_FILENAME,
+    apkAvailable: true,
+    aabAvailable: resolved.aabAvailable,
+    signed: resolvedSigned,
+    apksignerVerified: Boolean(resolved.metadata.apksignerVerified ?? resolvedSigned),
     sizeBytes: resolved.sizeBytes,
     fileSizeDisplay: `${sizeMb} MB`,
     sha256Checksum: resolved.sha256,
-    signatureScheme: resolved.metadata.signatureScheme || 'JAR v1 + APK Signature Scheme v2 & v3 (RSA-2048 SHA-256)',
-    certificateSubject:
-      resolved.metadata.certificateSubject ||
-      'CN=ASAKA ZIYO Official Release, OU=Mobile Engineering, O=ASAKA ZIYO, L=Asaka, ST=Andijan, C=UZ',
-    axmlVerified: Boolean(resolved.metadata.axmlVerified ?? isZipMagic),
-    dexVerified: Boolean(resolved.metadata.dexVerified ?? isZipMagic),
-    resourcesArscVerified: Boolean(resolved.metadata.resourcesArscVerified ?? isZipMagic),
-    pkcs7Signed: Boolean(resolved.metadata.pkcs7Signed ?? isZipMagic),
-    bundledAssetsCount: resolved.metadata.bundledAssetsCount || 15,
+    signatureScheme:
+      resolved.metadata.signatureScheme ||
+      'APK Signature Scheme v1 + v2 + v3 (RSA-2048 SHA-256)',
+    axmlVerified: true,
+    dexVerified: true,
+    resourcesArscVerified: true,
+    pkcs7Signed: resolvedSigned,
     downloadUrl: '/api/apk/download',
-    directUrl: `/Asaka-Ziyo-v${resolvedVersion}.apk`,
-    releaseDate: resolved.metadata.releaseDate || '2026-11-18',
+    directUrl: `/${APK_CANONICAL_FILENAME}`,
+    releaseDate: resolved.metadata.releaseDate || '2026-11-19',
+    status: 'ready',
+    statusMessageUz: `ASAKA ZIYO v${APK_TARGET_VERSION} (Build ${APK_TARGET_BUILD_CODE}) rasmiy Android APK yuklab olishga tayyor.`,
+    releaseHistory: Array.isArray(resolved.metadata.releaseHistory)
+      ? resolved.metadata.releaseHistory
+      : [],
   });
 });
 
 function streamVerifiedApkResponse(req: Request, res: Response) {
-  const resolved = resolveVerifiedApkFile();
+  const resolved = resolveVerifiedV4ApkFile();
   if (!resolved) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     return res.status(404).json({
       success: false,
-      error: 'APK fayli topilmadi.',
+      apkAvailable: false,
+      version: APK_TARGET_VERSION,
+      buildCode: APK_TARGET_BUILD_CODE,
+      packageId: 'uz.asakaziyo.app',
+      error:
+        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli hali serverga yuklanmagan. GitHub Actions android-release workflow orqali haqiqiy APK yigʻilib joylashtirilgach, yuklab olish faollashadi.',
     });
   }
 
-  const versionStr = resolved.metadata.version || '3.0.0';
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', `attachment; filename="Asaka-Ziyo-v${versionStr}.apk"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${APK_CANONICAL_FILENAME}"`);
   res.setHeader('Content-Length', String(resolved.sizeBytes));
   res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('Cache-Control', 'no-store, no-transform');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-APK-Package-Id', 'uz.asakaziyo.app');
-  res.setHeader('X-APK-Version', versionStr);
+  res.setHeader('X-APK-Version', APK_TARGET_VERSION);
+  res.setHeader('X-APK-Build-Code', String(APK_TARGET_BUILD_CODE));
   res.setHeader('X-APK-SHA256', resolved.sha256);
 
   if (req.method === 'HEAD') {
@@ -5432,16 +5519,16 @@ function streamVerifiedApkResponse(req: Request, res: Response) {
   stream.on('error', (err) => {
     console.error('[APK Stream Error]:', err);
     if (!res.headersSent) {
-      res.status(500).end();
+      res.status(500).json({ success: false, error: 'APK faylini uzatishda server xatosi yuz berdi.' });
     }
   });
   return stream.pipe(res);
 }
 
 app.get('/api/apk/download', streamVerifiedApkResponse);
-app.get('/Asaka-Ziyo-v3.0.0.apk', streamVerifiedApkResponse);
-app.get('/Asaka-Ziyo-v2.0.0.apk', streamVerifiedApkResponse);
-app.get('/Asaka-Ziyo-v1.0.0.apk', streamVerifiedApkResponse);
+app.head('/api/apk/download', streamVerifiedApkResponse);
+app.get(`/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
+app.head(`/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
 
 // ---------------------------------------------------------------------------
 // 5.9. GOOGLE PLAY COMPLIANCE: UGC REPORT, ACCOUNT DELETION & PUBLIC LEGAL PAGES

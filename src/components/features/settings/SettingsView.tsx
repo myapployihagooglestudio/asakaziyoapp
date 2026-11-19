@@ -827,15 +827,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    {getLocalizedText('Mobil Ilova va Rasmiy Android APK v3.0.0')}
+                    {getLocalizedText('Mobil Ilova va Rasmiy Android APK v4.0.0')}
                   </h3>
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#c5a869] text-[#071614]">
-                    v3.0.0 (Build 300)
+                    v4.0.0 (Build 400)
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 dark:text-stone-400">
                   {getLocalizedText(
-                    'Yangi brend logosi, 7 ta ruxsat tizimi, Smart TV va Qurʼon viktorinasi bilan toʻliq sinxronlangan APK'
+                    'Toʻliq taʼmirlangan Android 7.0–16 (API 24–36) native ilovasi, yagona masjid logosi va oflayn tizim'
                   )}
                 </p>
               </div>
@@ -855,9 +855,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="p-3.5 rounded-xl bg-stone-100/70 dark:bg-black/20 border border-stone-200 dark:border-white/5 text-xs space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-stone-500">{getLocalizedText('Fayl nomi va hajmi:')}</span>
+              <span className="text-stone-500">{getLocalizedText('Fayl nomi va holati:')}</span>
               <span className="font-mono text-stone-800 dark:text-stone-200">
-                Asaka-Ziyo-v3.0.0.apk ({ASAKA_ZIYO_APK_RELEASE.fileSizeDisplay})
+                {ASAKA_ZIYO_APK_RELEASE.apkFilename} ({ASAKA_ZIYO_APK_RELEASE.fileSizeDisplay})
               </span>
             </div>
             <div className="flex justify-between">
@@ -876,11 +876,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
-              onClick={() => triggerApkDownload('Asaka-Ziyo-v3.0.0.apk')}
+              onClick={() => {
+                if (onOpenInstallModal) {
+                  onOpenInstallModal();
+                } else {
+                  void triggerApkDownload('Asaka-Ziyo-v4.0.0.apk');
+                }
+              }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#c5a869] text-[#071614] text-xs font-bold hover:bg-[#d8bd7e] transition-all shadow-sm cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>{getLocalizedText('APK v3.0.0 Yuklab Olish')}</span>
+              <span>{getLocalizedText('APK v4.0.0 Yuklab Olish Markazi')}</span>
             </button>
 
             {onOpenInstallModal && (
@@ -917,7 +923,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div>
               <span className="text-stone-400 block">{t('settings:platformVersion')}:</span>
-              <span className="font-semibold">ASAKA ZIYO v3.0.0 · Build 300</span>
+              <span className="font-semibold">ASAKA ZIYO v4.0.0 · Build 400</span>
             </div>
           </div>
 

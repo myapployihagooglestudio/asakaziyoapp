@@ -8,8 +8,11 @@ coverage/
 .env*
 !.env.example
 keystore.properties
+android/keystore.properties
 *.jks
 *.keystore
+data/.android_signing_key.pem
+data/*.pem
 android/app/google-services.json
 android/app/build/
 android/.gradle/
@@ -17,3 +20,5 @@ android/app/src/main/assets/public/
 data/release/*.apk
 data/release/*.aab
 public/*.apk
+public/*.aab
+release-output/

@@ -1,7 +1,11 @@
 /**
- * ASAKA ZIYO — Capacitor 6 Native Android & iOS Configuration
+ * ASAKA ZIYO — Mobile Configuration Metadata
  * Package Identifier: uz.asakaziyo.app
- * Version: 3.0.0 (Build 300)
+ * Version: 4.0.0 (Build 400)
+ *
+ * NOTE: The canonical production Android build uses the native Kotlin + AndroidX WebView +
+ * Media3 + AlarmManager + FCM project in /android (not @capacitor/* runtime packages).
+ * This file is kept strictly synchronized for metadata parity and security settings.
  */
 
 export interface CapacitorConfig {
@@ -29,13 +33,13 @@ const config: CapacitorConfig = {
   bundledWebRuntime: false,
   server: {
     androidScheme: 'https',
-    cleartext: true,
+    cleartext: false,
   },
   android: {
-    allowMixedContent: true,
+    allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: false,
-    backgroundColor: '#04120e',
+    backgroundColor: '#031814',
   },
   plugins: {
     SplashScreen: {

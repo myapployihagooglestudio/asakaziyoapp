@@ -64,7 +64,7 @@ export const AppInstallBanner: React.FC<AppInstallBannerProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#04120e]/95 text-white border border-[#c9a84c]/45 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
           <img
-            src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+            src="/images/asaka-ziyo-logo-seal.jpg"
             alt="ASAKA ZIYO Official Logo"
             className="w-10 h-10 rounded-full object-cover bg-white border-2 border-[#c9a84c]/70 shrink-0"
           />
@@ -78,11 +78,11 @@ export const AppInstallBanner: React.FC<AppInstallBannerProps> = ({
                 PWA
               </span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#c9a84c] text-[#04120e]">
-                APK v3.0.0
+                APK v4.0.0
               </span>
             </div>
             <p className="text-[11px] text-stone-300 truncate mt-0.5">
-              {getLocalized("Bosh ekranga oʻrnatish (PWA) yoki rasmiy Android APK v3.0.0 yuklash")}
+              {getLocalized("Bosh ekranga oʻrnatish (PWA) yoki rasmiy Android APK v4.0.0 yuklash")}
             </p>
           </div>
         </div>

@@ -1,8 +1,8 @@
 /**
- * ASAKA ZIYO — Telegram Mini App (WebApp) Foundation & initData HMAC Verifier
+ * ASAKA ZIYO — Telegram Mini App (WebApp) Bridge & initData HMAC Verifier
  *
- * Implements the official Telegram WebApp `initData` HMAC-SHA256 verification algorithm
- * so future Mini App views can authenticate Telegram users securely without touching Web Auth.
+ * Points directly to the live ASAKA ZIYO app (`https://asakaziyo.ai.studio/` or configured APP_URL)
+ * and verifies official Telegram WebApp `initData` via HMAC-SHA256 on the server side.
  */
 
 import crypto from 'crypto';
@@ -13,6 +13,8 @@ export interface VerifiedMiniAppInitData {
   valid: boolean;
   authDate?: number;
   userId?: string;
+  firstName?: string;
+  username?: string;
   reason?: string;
 }
 
@@ -21,19 +23,14 @@ export function buildMiniAppEntryUrl(
   locale: TelegramLocale,
   section: 'home' | 'prayer' | 'quran' | 'masjid-tv' = 'home'
 ): string {
-  const base = config.webAppUrl.replace(/\/+$/, '');
+  const base = (config.miniAppUrl || config.webAppUrl).replace(/\/+$/, '');
   if (section === 'masjid-tv') {
-    return `${base}/masjid-tv`;
+    return `${base}/masjid-tv?lang=${encodeURIComponent(locale)}&source=telegram_miniapp`;
   }
   const hash = section === 'home' ? '' : `#${section}`;
   return `${base}/?lang=${encodeURIComponent(locale)}&source=telegram_miniapp${hash}`;
 }
 
-/**
- * Verifies Telegram Mini App `initData` per Telegram Bot API documentation:
- * secret_key = HMAC-SHA256("WebAppData", bot_token)
- * expected_hash = HMAC-SHA256(secret_key, data_check_string)
- */
 export function verifyTelegramMiniAppInitData(
   initDataRaw: string,
   botToken: string,
@@ -76,15 +73,23 @@ export function verifyTelegramMiniAppInitData(
   }
 
   let userId: string | undefined;
+  let firstName: string | undefined;
+  let username: string | undefined;
   const userJson = params.get('user');
   if (userJson) {
     try {
-      const parsed = JSON.parse(userJson) as { id?: number | string };
+      const parsed = JSON.parse(userJson) as {
+        id?: number | string;
+        first_name?: string;
+        username?: string;
+      };
       if (parsed.id !== undefined) userId = String(parsed.id);
+      if (parsed.first_name) firstName = parsed.first_name;
+      if (parsed.username) username = parsed.username;
     } catch {
       // ignore malformed user JSON
     }
   }
 
-  return { valid: true, authDate, userId };
+  return { valid: true, authDate, userId, firstName, username };
 }

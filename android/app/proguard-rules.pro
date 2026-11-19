@@ -1,19 +1,22 @@
-# ASAKA ZIYO — R8 / ProGuard Release Rules
+# ASAKA ZIYO v4.0.0 — R8 / ProGuard Release Rules
 -keepattributes *Annotation*
 -keepattributes Signature,InnerClasses,EnclosingMethod
 
-# Keep Android WebView JavaScript Bridge methods intact
--keepclassmembers class uz.asakaziyo.app.MainActivity$AsakaAndroidBridge {
+# Keep ALL Android WebView @JavascriptInterface methods intact (fixes R8 stripping of AsakaNativeBridge)
+-keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
+-keep class uz.asakaziyo.app.MainActivity$AsakaNativeBridge { *; }
+-keep class uz.asakaziyo.app.MainActivity$AsakaAndroidBridge { *; }
 -keep class uz.asakaziyo.app.MainActivity { *; }
 -keep class uz.asakaziyo.app.AsakaMediaPlaybackService { *; }
 -keep class uz.asakaziyo.app.AsakaFirebaseMessagingService { *; }
 -keep class uz.asakaziyo.app.AsakaPrayerAlarmReceiver { *; }
 -keep class uz.asakaziyo.app.AsakaBootReceiver { *; }
 
-# AndroidX WebKit & Media3
+# AndroidX WebKit, SplashScreen & Media3
 -keep class androidx.webkit.** { *; }
+-keep class androidx.core.splashscreen.** { *; }
 -keep class androidx.media3.** { *; }
 
 # Firebase & Play Services

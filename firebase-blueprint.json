@@ -449,32 +449,43 @@
       "type": "object",
       "properties": {
         "telegramId": { "type": "string", "maxLength": 64 },
-        "chatId": { "type": "string", "maxLength": 64 },
         "username": { "type": "string", "maxLength": 128 },
         "firstName": { "type": "string", "maxLength": 128 },
         "lastName": { "type": "string", "maxLength": 128 },
         "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
+        "languageSelectedManually": { "type": "boolean" },
         "prayerNotificationsEnabled": { "type": "boolean" },
-        "dailyContentNotificationsEnabled": { "type": "boolean" },
+        "dailyWisdomEnabled": { "type": "boolean" },
+        "announcementsEnabled": { "type": "boolean" },
         "isBlocked": { "type": "boolean" },
+        "onboardingCompleted": { "type": "boolean" },
+        "stoppedByUser": { "type": "boolean" },
         "createdAt": { "type": "string", "maxLength": 64 },
         "updatedAt": { "type": "string", "maxLength": 64 },
-        "lastSeenAt": { "type": "string", "maxLength": 64 }
+        "lastActiveAt": { "type": "string", "maxLength": 64 },
+        "interactionCount": { "type": "number" }
       },
-      "required": ["telegramId", "chatId", "language", "prayerNotificationsEnabled", "dailyContentNotificationsEnabled", "isBlocked", "createdAt", "updatedAt"]
+      "required": ["telegramId", "language", "prayerNotificationsEnabled", "dailyWisdomEnabled", "isBlocked", "createdAt", "updatedAt"]
     },
     "TelegramBotSettings": {
       "title": "TelegramBotSettings",
-      "description": "Isolated global runtime settings for the ASAKA ZIYO Telegram Platform",
+      "description": "Isolated global runtime settings and AI configuration for ASAKA ZIYO Telegram Super Platform",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 64 },
         "defaultLanguage": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
         "maintenanceMode": { "type": "boolean" },
         "premiumEmojiEnabled": { "type": "boolean" },
+        "premiumKeyboardIconsEnabled": { "type": "boolean" },
         "premiumEmojiEligibilityVerified": { "type": "boolean" },
         "miniAppEnabled": { "type": "boolean" },
         "aiAssistantEnabled": { "type": "boolean" },
+        "aiPrimaryModel": { "type": "string", "maxLength": 128 },
+        "aiFallbackModel": { "type": "string", "maxLength": 128 },
+        "aiAutoFallbackEnabled": { "type": "boolean" },
+        "aiVoiceReplyEnabled": { "type": "boolean" },
+        "aiDailyBudgetTokens": { "type": "number" },
+        "aiMaxRequestsPerUserPerDay": { "type": "number" },
         "updatedAt": { "type": "string", "maxLength": 64 },
         "updatedBy": { "type": "string", "maxLength": 128 }
       },
@@ -501,14 +512,14 @@
     },
     "TelegramAdmin": {
       "title": "TelegramAdmin",
-      "description": "Telegram-scoped operator role record (owner, admin, editor, moderator)",
+      "description": "Telegram-scoped operator RBAC record",
       "type": "object",
       "properties": {
         "telegramId": { "type": "string", "maxLength": 64 },
-        "username": { "type": "string", "maxLength": 128 },
         "displayName": { "type": "string", "maxLength": 160 },
-        "role": { "type": "string", "enum": ["owner", "admin", "editor", "moderator"] },
+        "role": { "type": "string", "enum": ["owner", "admin", "editor", "moderator", "content_manager", "support_manager", "analyst"] },
         "isActive": { "type": "boolean" },
+        "permissions": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "maxLength": 64 },
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
@@ -522,17 +533,18 @@
         "id": { "type": "string", "maxLength": 128 },
         "channelId": { "type": "string", "maxLength": 128 },
         "channelUsername": { "type": "string", "maxLength": 128 },
-        "kind": { "type": "string", "enum": ["prayer_times", "announcement", "article", "manual"] },
+        "category": { "type": "string", "enum": ["prayer_times", "announcement", "wisdom", "news", "hadith", "ayah", "media", "manual"] },
         "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
-        "textPreview": { "type": "string", "maxLength": 500 },
-        "status": { "type": "string", "enum": ["draft", "scheduled", "sent", "failed"] },
+        "textPreview": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["queued", "scheduled", "sent", "failed"] },
         "telegramMessageId": { "type": "number" },
+        "idempotencyKey": { "type": "string", "maxLength": 160 },
         "createdBy": { "type": "string", "maxLength": 128 },
         "createdAt": { "type": "string", "maxLength": 64 },
         "sentAt": { "type": "string", "maxLength": 64 },
-        "error": { "type": "string", "maxLength": 500 }
+        "errorMessage": { "type": "string", "maxLength": 500 }
       },
-      "required": ["id", "channelId", "kind", "language", "status", "createdAt"]
+      "required": ["id", "channelId", "category", "language", "status", "createdAt"]
     },
     "TelegramAuditLog": {
       "title": "TelegramAuditLog",
@@ -541,7 +553,7 @@
       "properties": {
         "id": { "type": "string", "maxLength": 128 },
         "actorTelegramId": { "type": "string", "maxLength": 64 },
-        "actorRole": { "type": "string", "enum": ["owner", "admin", "editor", "moderator", "user", "system"] },
+        "actorRole": { "type": "string", "enum": ["owner", "admin", "editor", "moderator", "content_manager", "support_manager", "analyst", "user", "system"] },
         "action": { "type": "string", "maxLength": 160 },
         "targetType": { "type": "string", "maxLength": 64 },
         "targetId": { "type": "string", "maxLength": 128 },
@@ -556,7 +568,7 @@
       "type": "object",
       "properties": {
         "key": { "type": "string", "maxLength": 128 },
-        "category": { "type": "string", "enum": ["brand", "navigation", "prayer", "language", "settings", "status", "channel", "calendar"] },
+        "category": { "type": "string", "enum": ["brand", "navigation", "prayer", "content", "ai", "profile", "admin", "language", "settings", "status", "channel", "calendar"] },
         "unicodeFallback": { "type": "string", "maxLength": 16 },
         "customEmojiId": { "type": "string", "maxLength": 32 },
         "verified": { "type": "boolean" },
@@ -567,6 +579,88 @@
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["key", "category", "unicodeFallback", "verified", "supportsKeyboardIcon", "updatedAt"]
+    },
+    "TelegramBroadcast": {
+      "title": "TelegramBroadcast",
+      "description": "Isolated broadcast campaign with segmentation, pause/resume queue state, and per-language metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "mediaType": { "type": "string", "enum": ["text", "html", "photo", "video", "audio", "voice", "document", "animation", "sequence"] },
+        "segment": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["draft", "scheduled", "running", "paused", "completed", "cancelled", "failed"] },
+        "createdBy": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "title", "mediaType", "segment", "status", "createdAt", "updatedAt"]
+    },
+    "TelegramSupportTicket": {
+      "title": "TelegramSupportTicket",
+      "description": "Two-way confidential user support ticket and Imam inquiry relay",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 64 },
+        "category": { "type": "string", "enum": ["imam_question", "mosque_service", "technical", "suggestion", "prayer_issue", "other"] },
+        "priority": { "type": "string", "enum": ["normal", "high", "urgent"] },
+        "status": { "type": "string", "enum": ["new", "in_progress", "answered", "closed"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "category", "priority", "status", "createdAt", "updatedAt"]
+    },
+    "TelegramContentDraft": {
+      "title": "TelegramContentDraft",
+      "description": "Content Studio drafts and scheduled channel/bot publications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["article", "news", "hadith", "ayah", "dhikr", "dua", "announcement", "media", "event"] },
+        "status": { "type": "string", "enum": ["draft", "review", "approved", "scheduled", "published", "archived"] },
+        "title": { "type": "string", "maxLength": 300 },
+        "createdBy": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "type", "status", "title", "createdAt", "updatedAt"]
+    },
+    "TelegramUserEngagement": {
+      "title": "TelegramUserEngagement",
+      "description": "Per-user isolated bookmarks, Khatm plan, Tasbeh goals, Academy lessons, and AI memory",
+      "type": "object",
+      "properties": {
+        "telegramId": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["telegramId", "updatedAt"]
+    },
+    "TelegramAiLog": {
+      "title": "TelegramAiLog",
+      "description": "AI request telemetry, model probe tracking, latency, token estimation, and error auditing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "telegramId": { "type": "string", "maxLength": 64 },
+        "modelRequested": { "type": "string", "maxLength": 128 },
+        "ok": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "telegramId", "modelRequested", "ok", "createdAt"]
+    },
+    "TelegramQuizAttempt": {
+      "title": "TelegramQuizAttempt",
+      "description": "Telegram Islamic quiz attempts and leaderboard scores",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "telegramId": { "type": "string", "maxLength": 64 },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "telegramId", "score", "total", "createdAt"]
     }
   },
   "firestore": {
@@ -713,6 +807,30 @@
     "/telegramCustomEmojis/{emojiId}": {
       "schema": "TelegramCustomEmoji",
       "description": "Centralized Telegram Premium Custom Emoji Registry (verified IDs + Unicode fallbacks)"
+    },
+    "/telegramBroadcasts/{broadcastId}": {
+      "schema": "TelegramBroadcast",
+      "description": "Isolated Telegram broadcast campaigns with queue progress and per-language metrics"
+    },
+    "/telegramSupportTickets/{ticketId}": {
+      "schema": "TelegramSupportTicket",
+      "description": "Isolated two-way Telegram Support & Imam ticket threads"
+    },
+    "/telegramContentDrafts/{draftId}": {
+      "schema": "TelegramContentDraft",
+      "description": "Isolated Telegram Content Studio drafts and scheduled posts"
+    },
+    "/telegramUserEngagement/{userId}": {
+      "schema": "TelegramUserEngagement",
+      "description": "Isolated per-user Telegram Quran bookmarks, Khatm plan, Tasbeh goals, and AI memory"
+    },
+    "/telegramAiLogs/{logId}": {
+      "schema": "TelegramAiLog",
+      "description": "Isolated Telegram AI request telemetry and error tracking logs"
+    },
+    "/telegramQuizAttempts/{attemptId}": {
+      "schema": "TelegramQuizAttempt",
+      "description": "Isolated Telegram Islamic quiz attempt records and leaderboard stats"
     }
   }
 }

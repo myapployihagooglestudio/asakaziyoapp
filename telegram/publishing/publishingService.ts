@@ -1,9 +1,9 @@
 /**
- * ASAKA ZIYO — Telegram Channel Publishing, Permission Verification & History Service
+ * ASAKA ZIYO — Telegram Channel Publishing, Idempotency & Permission Service
  *
  * Verifies bot administrator + `can_post_messages` rights via Telegram Bot API
  * (`getMe` + `getChat` + `getChatMember`) BEFORE dispatching posts to any channel,
- * formats messages via CustomEmojiRegistry, and logs full history in `telegramPublications`.
+ * prevents duplicate dispatches via idempotencyKey, and records full history.
  */
 
 import { TelegramLocale, TelegramPublicationRecord } from '../types';
@@ -42,10 +42,6 @@ export class TelegramPublishingService {
     return this.repo.listPublications(limit);
   }
 
-  /**
-   * Verifies live via Telegram Bot API whether this bot is an administrator in the
-   * target channel with `can_post_messages === true`.
-   */
   async verifyChannelPermissions(channelId: string): Promise<ChannelPermissionCheckResult> {
     const channel = this.repo.getChannel(channelId);
     if (!channel) {
@@ -156,12 +152,30 @@ export class TelegramPublishingService {
     templateText: string;
     createdBy: string;
     skipPermissionPrecheck?: boolean;
+    idempotencyKey?: string;
   }): Promise<{
     success: boolean;
+    duplicateSkipped?: boolean;
     record: TelegramPublicationRecord;
     permissionCheck?: ChannelPermissionCheckResult;
     error?: string;
   }> {
+    if (
+      params.idempotencyKey &&
+      this.repo.hasPublicationWithIdempotencyKey(params.idempotencyKey)
+    ) {
+      const existing = this.repo
+        .listPublications(100)
+        .find((p) => p.idempotencyKey === params.idempotencyKey && p.status === 'sent');
+      if (existing) {
+        return {
+          success: true,
+          duplicateSkipped: true,
+          record: existing,
+        };
+      }
+    }
+
     const channel = this.repo.getChannel(params.channelId);
     if (!channel || !channel.isActive) {
       const failed = await this.repo.recordPublication({
@@ -170,6 +184,7 @@ export class TelegramPublishingService {
         category: params.category,
         language: params.language,
         textPreview: params.templateText.slice(0, 280),
+        idempotencyKey: params.idempotencyKey,
         status: 'failed',
         errorMessage: 'Target channel is not registered or inactive.',
         createdBy: params.createdBy,
@@ -187,6 +202,7 @@ export class TelegramPublishingService {
           category: params.category,
           language: params.language,
           textPreview: params.templateText.slice(0, 280),
+          idempotencyKey: params.idempotencyKey,
           status: 'failed',
           errorMessage: permissionCheck.reason,
           createdBy: params.createdBy,
@@ -208,14 +224,30 @@ export class TelegramPublishingService {
       }
     }
 
-    const formatted = this.emojiRegistry.formatMessage(params.templateText);
+    const finalTemplate = [channel.templateHeader, params.templateText, channel.templateFooter]
+      .filter(Boolean)
+      .join('\n\n');
+    const formatted = this.emojiRegistry.formatMessage(finalTemplate);
     const targetChat = channel.chatId || channel.username;
-    const sendRes = await this.apiClient.sendMessage({
+    let sendRes = await this.apiClient.sendMessage({
       chat_id: targetChat,
       text: formatted.text,
       ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
       disable_web_page_preview: true,
     });
+
+    // Safe single retry on transient 429 flood error
+    let retryCount = 0;
+    if (!sendRes.ok && sendRes.error_code === 429 && sendRes.parameters?.retry_after) {
+      retryCount = 1;
+      await new Promise((r) => setTimeout(r, Math.min(5000, sendRes.parameters!.retry_after! * 1000)));
+      sendRes = await this.apiClient.sendMessage({
+        chat_id: targetChat,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        disable_web_page_preview: true,
+      });
+    }
 
     const record = await this.repo.recordPublication({
       channelId: channel.id,
@@ -224,6 +256,8 @@ export class TelegramPublishingService {
       language: params.language,
       textPreview: formatted.text.slice(0, 280),
       telegramMessageId: sendRes.result?.message_id,
+      idempotencyKey: params.idempotencyKey,
+      retryCount,
       status: sendRes.ok ? 'sent' : 'failed',
       errorMessage: sendRes.ok ? undefined : sendRes.description || 'Send failed',
       createdBy: params.createdBy,
@@ -255,6 +289,7 @@ export class TelegramPublishingService {
     channelId: string;
     prayerAdapter: TelegramPrayerAdapter;
     createdBy: string;
+    idempotencyKey?: string;
   }) {
     const channel = this.repo.getChannel(params.channelId);
     const language: TelegramLocale = channel?.language || 'uz-Latn';
@@ -265,6 +300,7 @@ export class TelegramPublishingService {
       language,
       templateText,
       createdBy: params.createdBy,
+      idempotencyKey: params.idempotencyKey,
     });
   }
 }

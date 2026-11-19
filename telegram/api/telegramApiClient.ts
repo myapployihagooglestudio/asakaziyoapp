@@ -2,18 +2,21 @@
  * ASAKA ZIYO — Typed Telegram Bot API Client
  *
  * Uses Node.js built-in fetch (zero external bot framework dependency bloat).
- * Supports injectable fetch implementation for deterministic unit & integration testing.
+ * Supports text, HTML, Reply & Inline keyboards, file downloads (voice/photo/doc),
+ * multimedia dispatch (photo/video/audio/voice/document/animation/mediaGroup),
+ * Flood-wait (`retry_after`) reporting, and injectable fetch for deterministic tests.
  */
 
 import {
   TelegramApiChat,
+  TelegramApiFile,
   TelegramApiMessage,
   TelegramApiResponse,
   TelegramApiUpdate,
   TelegramBotProfile,
   TelegramChatMemberInfo,
-  TelegramInlineKeyboardMarkup,
   TelegramMessageEntity,
+  TelegramReplyMarkup,
   TelegramStickerInfo,
   TelegramStickerSet,
 } from '../types';
@@ -25,7 +28,7 @@ export interface SendMessageParams {
   text: string;
   parse_mode?: 'HTML' | 'MarkdownV2';
   entities?: TelegramMessageEntity[];
-  reply_markup?: TelegramInlineKeyboardMarkup;
+  reply_markup?: TelegramReplyMarkup;
   disable_web_page_preview?: boolean;
 }
 
@@ -35,8 +38,15 @@ export interface EditMessageTextParams {
   text: string;
   parse_mode?: 'HTML' | 'MarkdownV2';
   entities?: TelegramMessageEntity[];
-  reply_markup?: TelegramInlineKeyboardMarkup;
+  reply_markup?: TelegramReplyMarkup;
   disable_web_page_preview?: boolean;
+}
+
+export interface SendMediaParams {
+  chat_id: number | string;
+  caption?: string;
+  parse_mode?: 'HTML' | 'MarkdownV2';
+  reply_markup?: TelegramReplyMarkup;
 }
 
 export interface AnswerCallbackQueryParams {
@@ -78,8 +88,18 @@ export interface PremiumEligibilityCheckResult {
 
 export type FetchLike = (
   url: string,
-  init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }
-) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
+  init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: any;
+    signal?: AbortSignal;
+  }
+) => Promise<{
+  ok: boolean;
+  status: number;
+  json(): Promise<any>;
+  arrayBuffer?: () => Promise<ArrayBuffer>;
+}>;
 
 export class TelegramApiClient {
   private readonly config: TelegramPlatformConfig;
@@ -129,11 +149,13 @@ export class TelegramApiClient {
           status: response.status,
           errorCode: parsed.error_code,
           description: parsed.description,
+          retryAfter: parsed.parameters?.retry_after,
         });
         return {
           ok: false,
           error_code: parsed.error_code || response.status,
           description: parsed.description || `HTTP ${response.status}`,
+          ...(parsed.parameters ? { parameters: parsed.parameters } : {}),
         };
       }
       return parsed;
@@ -148,12 +170,49 @@ export class TelegramApiClient {
     }
   }
 
+  private async callMultipartMethod<T>(
+    method: string,
+    form: FormData
+  ): Promise<TelegramApiResponse<T>> {
+    if (!this.config.botToken) {
+      return {
+        ok: false,
+        error_code: 503,
+        description: 'TELEGRAM_BOT_TOKEN1 is not configured.',
+      };
+    }
+
+    const url = `${this.config.apiBaseUrl}/bot${this.config.botToken}/${method}`;
+    try {
+      const response = await this.fetchImpl(url, {
+        method: 'POST',
+        body: form,
+      });
+      const parsed = (await response.json().catch(() => ({}))) as TelegramApiResponse<T>;
+      if (!response.ok || !parsed.ok) {
+        return {
+          ok: false,
+          error_code: parsed.error_code || response.status,
+          description: parsed.description || `HTTP ${response.status}`,
+          ...(parsed.parameters ? { parameters: parsed.parameters } : {}),
+        };
+      }
+      return parsed;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, error_code: 500, description: msg };
+    }
+  }
+
   async getMe(): Promise<TelegramApiResponse<TelegramBotProfile>> {
     return this.callMethod<TelegramBotProfile>('getMe');
   }
 
   async sendMessage(params: SendMessageParams): Promise<TelegramApiResponse<TelegramApiMessage>> {
-    return this.callMethod<TelegramApiMessage>('sendMessage', params as unknown as Record<string, unknown>);
+    return this.callMethod<TelegramApiMessage>(
+      'sendMessage',
+      params as unknown as Record<string, unknown>
+    );
   }
 
   async editMessageText(
@@ -165,15 +224,130 @@ export class TelegramApiClient {
     );
   }
 
+  async sendPhoto(
+    params: SendMediaParams & { photo: string }
+  ): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    return this.callMethod<TelegramApiMessage>(
+      'sendPhoto',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async sendVideo(
+    params: SendMediaParams & { video: string }
+  ): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    return this.callMethod<TelegramApiMessage>(
+      'sendVideo',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async sendAudio(
+    params: SendMediaParams & { audio: string; title?: string; performer?: string }
+  ): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    return this.callMethod<TelegramApiMessage>(
+      'sendAudio',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async sendVoice(
+    params: SendMediaParams & { voice: string }
+  ): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    return this.callMethod<TelegramApiMessage>(
+      'sendVoice',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async sendAudioBuffer(params: {
+    chat_id: number | string;
+    audioBuffer: Buffer;
+    filename: string;
+    mimeType?: string;
+    caption?: string;
+    title?: string;
+    performer?: string;
+    asVoice?: boolean;
+  }): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    const form = new FormData();
+    form.append('chat_id', String(params.chat_id));
+    if (params.caption) form.append('caption', params.caption.slice(0, 1020));
+    if (params.title) form.append('title', params.title);
+    if (params.performer) form.append('performer', params.performer);
+    const blob = new Blob([new Uint8Array(params.audioBuffer)], {
+      type: params.mimeType || 'audio/wav',
+    });
+    const fieldName = params.asVoice ? 'voice' : 'audio';
+    const method = params.asVoice ? 'sendVoice' : 'sendAudio';
+    form.append(fieldName, blob, params.filename);
+    return this.callMultipartMethod<TelegramApiMessage>(method, form);
+  }
+
+  async sendDocument(
+    params: SendMediaParams & { document: string }
+  ): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    return this.callMethod<TelegramApiMessage>(
+      'sendDocument',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async sendAnimation(
+    params: SendMediaParams & { animation: string }
+  ): Promise<TelegramApiResponse<TelegramApiMessage>> {
+    return this.callMethod<TelegramApiMessage>(
+      'sendAnimation',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async sendMediaGroup(params: {
+    chat_id: number | string;
+    media: Array<{ type: 'photo' | 'video' | 'audio' | 'document'; media: string; caption?: string }>;
+  }): Promise<TelegramApiResponse<TelegramApiMessage[]>> {
+    return this.callMethod<TelegramApiMessage[]>(
+      'sendMediaGroup',
+      params as unknown as Record<string, unknown>
+    );
+  }
+
+  async getFile(fileId: string): Promise<TelegramApiResponse<TelegramApiFile>> {
+    return this.callMethod<TelegramApiFile>('getFile', { file_id: fileId });
+  }
+
+  async downloadFileBuffer(
+    filePath: string
+  ): Promise<{ ok: boolean; buffer?: Buffer; error?: string }> {
+    if (!this.config.botToken) {
+      return { ok: false, error: 'TELEGRAM_BOT_TOKEN1 is not configured.' };
+    }
+    const cleanPath = filePath.replace(/^\/+/, '');
+    const url = `${this.config.apiBaseUrl}/file/bot${this.config.botToken}/${cleanPath}`;
+    try {
+      const response = await this.fetchImpl(url, { method: 'GET' });
+      if (!response.ok || !response.arrayBuffer) {
+        return { ok: false, error: `File download HTTP ${response.status}` };
+      }
+      const ab = await response.arrayBuffer();
+      return { ok: true, buffer: Buffer.from(ab) };
+    } catch (err: unknown) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   async answerCallbackQuery(
     params: AnswerCallbackQueryParams
   ): Promise<TelegramApiResponse<boolean>> {
-    return this.callMethod<boolean>('answerCallbackQuery', params as unknown as Record<string, unknown>);
+    return this.callMethod<boolean>(
+      'answerCallbackQuery',
+      params as unknown as Record<string, unknown>
+    );
   }
 
   async sendChatAction(
     chatId: number | string,
-    action: 'typing' | 'upload_document' | 'find_location' = 'typing'
+    action: 'typing' | 'upload_document' | 'record_voice' | 'upload_voice' | 'find_location' = 'typing'
   ): Promise<TelegramApiResponse<boolean>> {
     return this.callMethod<boolean>('sendChatAction', { chat_id: chatId, action });
   }
@@ -192,6 +366,10 @@ export class TelegramApiClient {
     });
   }
 
+  async getChatMemberCount(chatId: number | string): Promise<TelegramApiResponse<number>> {
+    return this.callMethod<number>('getChatMemberCount', { chat_id: chatId });
+  }
+
   async setWebhook(params: SetWebhookParams): Promise<TelegramApiResponse<boolean>> {
     return this.callMethod<boolean>('setWebhook', params as unknown as Record<string, unknown>);
   }
@@ -206,7 +384,10 @@ export class TelegramApiClient {
     return this.callMethod<WebhookInfoResult>('getWebhookInfo');
   }
 
-  async getUpdates(offset?: number, timeoutSec = 10): Promise<TelegramApiResponse<TelegramApiUpdate[]>> {
+  async getUpdates(
+    offset?: number,
+    timeoutSec = 10
+  ): Promise<TelegramApiResponse<TelegramApiUpdate[]>> {
     return this.callMethod<TelegramApiUpdate[]>('getUpdates', {
       ...(offset !== undefined ? { offset } : {}),
       timeout: timeoutSec,
@@ -231,7 +412,10 @@ export class TelegramApiClient {
       | { type: 'default' }
       | { type: 'web_app'; text: string; web_app: { url: string } };
   }): Promise<TelegramApiResponse<boolean>> {
-    return this.callMethod<boolean>('setChatMenuButton', params as unknown as Record<string, unknown>);
+    return this.callMethod<boolean>(
+      'setChatMenuButton',
+      params as unknown as Record<string, unknown>
+    );
   }
 
   async getStickerSet(name: string): Promise<TelegramApiResponse<TelegramStickerSet>> {
@@ -249,15 +433,6 @@ export class TelegramApiClient {
     });
   }
 
-  /**
-   * Honest Bot API capability probe for Telegram Premium Custom Emoji eligibility.
-   * Never assumes Premium features are available until verified via Telegram Bot API.
-   *
-   * Note: Telegram Bot API allows bots to render custom_emoji entities in messages only if
-   * the bot holds Fragment collectible username / premium custom emoji eligibility.
-   * Standard inline keyboard buttons do NOT support custom_emoji entities in `text`;
-   * `icon_custom_emoji_id` is only enabled when explicitly verified & supported by Bot API.
-   */
   async verifyPremiumEmojiEligibility(
     sampleCustomEmojiId?: string | null
   ): Promise<PremiumEligibilityCheckResult> {
@@ -314,12 +489,10 @@ export class TelegramApiClient {
       botConnected: true,
       canVerifyCustomEmojis: true,
       supportsMessageCustomEmojiEntities: stickerFound,
-      // Honest: Telegram standard inline keyboards do NOT guarantee custom emoji icon rendering
-      // unless explicitly confirmed via live test message on an eligible bot.
       supportsKeyboardIconCustomEmoji: false,
       botUsername: me.result.username,
       reason: stickerFound
-        ? 'Verified custom_emoji_id confirmed via getCustomEmojiStickers. Note: live rendering in Telegram messages requires bot custom-emoji eligibility (e.g. Fragment username); Unicode fallback remains active wherever unsupported.'
+        ? 'Verified custom_emoji_id confirmed via getCustomEmojiStickers. Note: live rendering in Telegram messages requires bot custom-emoji eligibility; Unicode fallback remains active wherever unsupported.'
         : `Custom emoji verification failed: ${stickerRes.description || 'Sticker not found'}. Unicode fallback active.`,
       checkedAt,
     };

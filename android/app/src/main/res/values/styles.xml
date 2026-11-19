@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ SplashScreen Theme (transitions cleanly to AppTheme) -->
+    <style name="Theme.AsakaZiyo.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/asaka_emerald_deep</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/asaka_white</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
+
+    <!-- Main Application Theme (NoActionBar, Deep Emerald system bars) -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/asaka_emerald_primary</item>
+        <item name="colorPrimaryDark">@color/asaka_emerald_deep</item>
+        <item name="colorAccent">@color/asaka_gold_accent</item>
+        <item name="android:windowBackground">@color/asaka_emerald_deep</item>
+        <item name="android:statusBarColor">@color/asaka_emerald_deep</item>
+        <item name="android:navigationBarColor">@color/asaka_emerald_deep</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

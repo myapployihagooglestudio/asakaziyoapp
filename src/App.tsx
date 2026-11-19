@@ -736,10 +736,10 @@ export default function App() {
             >
               <div className="flex items-center gap-2">
                 <span className="p-1 rounded bg-[#010906]/10">📥</span>
-                <span>APK v3.0.0 Yuklab Olish</span>
+                <span>APK v4.0.0 Yuklab Olish</span>
               </div>
               <span className="text-[10px] bg-[#010906] text-[#FFF6C8] px-2 py-0.5 rounded font-mono-numbers">
-                v3.0
+                v4.0
               </span>
             </button>
 

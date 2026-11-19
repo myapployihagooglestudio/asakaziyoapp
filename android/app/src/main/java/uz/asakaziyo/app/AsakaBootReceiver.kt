@@ -5,11 +5,16 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Restores scheduled prayer reminders after device reboot.
+ * Restores scheduled prayer reminders after device reboot, timezone change, or manual clock update.
  */
 class AsakaBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val validActions = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_TIME_CHANGED
+        )
+        if (intent.action !in validActions) return
 
         val prefs = context.getSharedPreferences(AsakaPrayerAlarmReceiver.PREFS_NAME, Context.MODE_PRIVATE)
         val activeIds = prefs.getStringSet("active_ids", emptySet()) ?: return

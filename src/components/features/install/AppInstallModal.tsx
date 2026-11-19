@@ -200,7 +200,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={getLocalized("ASAKA ZIYO — Mobil Ilova & Oflayn Markaz")}
-      subtitle={getLocalized("Rasmiy imzolangan Android APK v3.0.0 (Build 300) va Oflayn Yuklamalar Boshqaruvi")}
+      subtitle={getLocalized(`Rasmiy Android APK v${apkInfo.version} (Build ${apkInfo.buildCode}) va Oflayn Yuklamalar Boshqaruvi`)}
       size="lg"
     >
       <div className="space-y-5 text-stone-800 dark:text-stone-200">
@@ -208,7 +208,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-[#061e17] via-[#0a2b21] to-[#04120e] border border-[#c9a84c]/40 shadow-xl">
           <div className="flex items-center gap-3.5">
             <img
-              src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+              src="/images/asaka-ziyo-logo-seal.jpg"
               alt="ASAKA ZIYO Official Logo"
               className="w-14 h-14 rounded-full object-cover bg-white border-2 border-[#c9a84c]/75 shrink-0 shadow-lg"
             />
@@ -218,10 +218,20 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                   ASAKA ZIYO
                 </h3>
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-[#c9a84c] text-[#04120e]">
-                  v{apkInfo.version} RELEASE APK
+                  v{apkInfo.version} (Build {apkInfo.buildCode})
                 </span>
-                <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  AXML + DEX + RSA-2048 Signed
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
+                    apkInfo.apkAvailable
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-200 border-amber-500/35'
+                  }`}
+                >
+                  {apkInfo.apkAvailable
+                    ? apkInfo.signed
+                      ? 'Signed Release APK'
+                      : 'Verified Test APK'
+                    : 'CI/CD Build Tayyorlanmoqda'}
                 </span>
               </div>
               <p className="text-xs text-stone-300 mt-1">
@@ -314,11 +324,14 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                 <ShieldCheck className="w-6 h-6 text-[#c9a84c] shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <h4 className="font-bold text-white text-sm">
-                    {getLocalized(`Haqiqiy Kompilatsiya Qilingan Android APK (v${apkInfo.version} Build ${apkInfo.buildCode})`)}
+                    {getLocalized(`ASAKA ZIYO Android v${apkInfo.version} (Build ${apkInfo.buildCode} · ${apkInfo.apkFilename})`)}
                   </h4>
                   <p className="text-xs text-stone-300 leading-relaxed">
                     {getLocalized(
-                      "Ushbu APK binar AndroidManifest.xml (AXML 0x00080003), Dalvik classes.dex, resources.arsc, toʻliq oflayn ilova resurslari va RSA-2048 PKCS#7 raqamli imzosi bilan yigʻilgan. «Problem parsing the package» xatosidan 100% xoli."
+                      apkInfo.apkAvailable
+                        ? "Haqiqiy Gradle orqali kompilatsiya qilingan va binar tekshiruvdan oʻtgan Android APK (Android 7.0–16, API 24–36). Mavjud uz.asakaziyo.app foydalanuvchilari maʼlumotlarini yoʻqotmasdan yangilay oladi."
+                        : apkInfo.statusMessageUz ||
+                            "ASAKA ZIYO v4.0.0 Android loyihasi va CI/CD build tizimi tayyor. Imzolangan APK arxivi serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi. Hozircha 1-klik PWA orqali oʻrnatishingiz mumkin."
                     )}
                   </p>
                 </div>
@@ -328,35 +341,59 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Binary AXML Manifest</span>
+                  <span>Native Gradle v4.0</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Dalvik DEX (Adler32)</span>
+                  <span>API 24 – API 36</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <Lock className="w-3.5 h-3.5 shrink-0" />
-                  <span>PKCS#7 RSA-2048 Imzo</span>
+                  <span>{apkInfo.signed ? 'APK v1/v2/v3 Imzo' : 'Keystore CI Imzo'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <Cpu className="w-3.5 h-3.5 shrink-0" />
-                  <span>ARM64 / v8a Universal</span>
+                  <span>ARM64 / v7a / x86_64</span>
                 </div>
               </div>
 
-              {/* Primary Download Button */}
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleDownloadAPK}
-                disabled={isDownloadingApk}
-                className="w-full justify-center text-xs sm:text-sm font-bold tracking-wider uppercase py-4 shadow-xl cursor-pointer"
-              >
-                <Download className={`w-5 h-5 mr-2 ${isDownloadingApk ? 'animate-bounce' : ''}`} />
-                {isDownloadingApk
-                  ? `Yuklab olinmoqda... ${apkProgress}% (${formatBytes(apkLoadedBytes)})`
-                  : `Rasmiy APK v${apkInfo.version} Yuklab Olish (${apkInfo.fileSizeDisplay})`}
-              </Button>
+              {/* Primary Download Action (Honest state when CI APK is not yet uploaded) */}
+              {apkInfo.apkAvailable ? (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleDownloadAPK}
+                  disabled={isDownloadingApk}
+                  className="w-full justify-center text-xs sm:text-sm font-bold tracking-wider uppercase py-4 shadow-xl cursor-pointer"
+                >
+                  <Download className={`w-5 h-5 mr-2 ${isDownloadingApk ? 'animate-bounce' : ''}`} />
+                  {isDownloadingApk
+                    ? `Yuklab olinmoqda... ${apkProgress}% (${formatBytes(apkLoadedBytes)})`
+                    : `Rasmiy APK v${apkInfo.version} Yuklab Olish (${apkInfo.fileSizeDisplay})`}
+                </Button>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-500/40 space-y-3">
+                  <div className="flex items-start gap-2.5 text-amber-200 text-xs leading-relaxed">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                    <span>
+                      {getLocalized(
+                        "Imzolangan Asaka-Ziyo-v4.0.0.apk fayli ushbu serverda hali mavjud emas (GitHub Actions android-release.yml orqali yigʻilib joylashtirilishi kutilmoqda). Buzilgan yoki eski v3.0.0 faylni berish oʻrniga yuklab olish xavfsiz bloklangan."
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={() => setActiveTab('pwa')}
+                      className="flex-1 justify-center text-xs font-bold cursor-pointer"
+                    >
+                      <Smartphone className="w-4 h-4 mr-1.5" />
+                      <span>Tezkor PWA Ilova Sifatida Oʻrnatish</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {isDownloadingApk && (
                 <div className="w-full bg-[#04120e] h-2.5 rounded-full overflow-hidden border border-[#c9a84c]/30">
@@ -422,23 +459,31 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                   {apkInfo.minAndroid} — {apkInfo.targetAndroid}
                 </span>
               </div>
+              <div className="flex justify-between items-center text-stone-400">
+                <span>Reliz sanasi:</span>
+                <span className="font-mono text-white">{apkInfo.releaseDate}</span>
+              </div>
               <div className="flex items-center justify-between pt-1.5 border-t border-white/10 text-[11px]">
                 <span className="text-stone-400">SHA-256 Checksum:</span>
-                <div className="flex items-center gap-1.5 font-mono text-[#e5c97b]">
-                  <span>{apkInfo.sha256Checksum.slice(0, 20)}...</span>
-                  <button
-                    type="button"
-                    onClick={handleCopyHash}
-                    className="p-1 hover:text-white transition-colors cursor-pointer"
-                    title="SHA-256 nusxa olish"
-                  >
-                    {copiedHash ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
+                {apkInfo.sha256Checksum ? (
+                  <div className="flex items-center gap-1.5 font-mono text-[#e5c97b]">
+                    <span>{apkInfo.sha256Checksum.slice(0, 20)}...</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyHash}
+                      className="p-1 hover:text-white transition-colors cursor-pointer"
+                      title="SHA-256 nusxa olish"
+                    >
+                      {copiedHash ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <span className="font-mono text-amber-300">CI build tugagach hisoblanadi</span>
+                )}
               </div>
             </div>
           </div>

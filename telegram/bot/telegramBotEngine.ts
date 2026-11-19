@@ -1,20 +1,28 @@
 /**
- * ASAKA ZIYO — Telegram Bot Platform Core Engine
+ * ASAKA ZIYO — Telegram Super Platform Core Engine
  *
- * Orchestrates the entire isolated Telegram Platform:
- * - Safe startup bootstrap for both polling (auto-selected when token set without webhook)
- *   and webhook modes (auto-registers webhook when URL + secret are set)
- * - Live diagnostics (`runLiveDiagnostics`) checking token presence, Telegram API getMe,
- *   webhook info, polling telemetry, and explicit startup/error reasons
- * - Update dispatch (commands, inline callbacks, fallback guidance)
- * - Rate limiting & maintenance mode guard
- * - Automatic user registration & 5-language persistence
- * - Centralized Premium Custom Emoji Registry & eligibility verification
- * - Read-only prayer timetable bridge, channels, publishing, admin RBAC, Mini App & AI seams
+ * Orchestrates the entire isolated Telegram Super Platform:
+ * - Firestore hydration + local cache fallback across 13 isolated `telegram*` collections
+ * - Safe startup bootstrap (polling & webhook), 20-command sync, and HTTPS Mini App menu button
+ * - Live diagnostics (`runLiveDiagnostics`) with zero secret exposure
+ * - Full update dispatcher:
+ *   - 27 Bot Commands
+ *   - Persistent ReplyKeyboardMarkup actions across all 5 languages
+ *   - 100% audited InlineKeyboardMarkup callbacks
+ *   - Stateful user & admin flows (`quran_search`, `hadith_search`, `global_search`,
+ *     `khatm_set_days`, `tasbeh_set_goal`, `support_new`, `support_reply`,
+ *     `admin_ticket_reply`, `admin_user_search`, `admin_broadcast_title`,
+ *     `admin_broadcast_body`, `admin_ai_set_model`, `admin_channel_post_draft`)
+ *   - Multimodal AI pipeline: text Q&A with memory, voice STT + optional WAV TTS,
+ *     and photo/document inlineData analysis
  */
 
-import { TelegramApiUpdate } from '../types';
-import { TelegramPlatformConfig, getSafeTelegramConfigSummary, loadTelegramPlatformConfig } from '../config';
+import { TelegramApiMessage, TelegramApiUpdate, TelegramUserRecord } from '../types';
+import {
+  TelegramPlatformConfig,
+  getSafeTelegramConfigSummary,
+  loadTelegramPlatformConfig,
+} from '../config';
 import { FetchLike, TelegramApiClient, WebhookInfoResult } from '../api/telegramApiClient';
 import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
 import { ScopedFirestoreBridge, TelegramRepository } from '../database/telegramRepository';
@@ -25,13 +33,30 @@ import { ReadOnlyPrayerScheduleProvider, TelegramPrayerAdapter } from '../prayer
 import { TelegramChannelService } from '../channels/channelService';
 import { TelegramPublishingService } from '../publishing/publishingService';
 import { TelegramAdminService } from '../admin/adminService';
-import { AiGenerateFn, TelegramAiBridge } from '../ai/aiBridge';
+import { AiGenerateFn, AiTranscribeFn, AiTtsFn, TelegramAiBridge } from '../ai/aiBridge';
 import { TelegramIslamicContentAdapter } from '../content/islamicContentAdapter';
+import { TelegramAcademyQuizService } from '../services/academyQuizService';
+import { TelegramSupportService } from '../support/supportService';
+import { TelegramBroadcastManager } from '../broadcast/broadcastManager';
+import { TelegramContentStudio } from '../content/contentStudio';
 import { TelegramJobScheduler, TelegramPollingStatus } from '../jobs/jobScheduler';
 import { handleBotCommand, parseBotCommand } from '../handlers/commandHandlers';
 import { handleCallbackQuery } from '../handlers/callbackHandlers';
 import { getTelegramLocaleBundle } from '../locales';
-import { buildAiModeKeyboard, buildMainMenuKeyboard } from '../keyboards/keyboards';
+import {
+  ReplyKeyboardAction,
+  buildAdminAiControlKeyboard,
+  buildAdminBroadcastsKeyboard,
+  buildAdminSupportKeyboard,
+  buildAiModeKeyboard,
+  buildBackOnlyKeyboard,
+  buildDhikrKeyboard,
+  buildKhatmKeyboard,
+  buildMainMenuKeyboard,
+  buildSupportHomeKeyboard,
+  buildSurahListKeyboard,
+  matchReplyKeyboardAction,
+} from '../keyboards/keyboards';
 
 export interface TelegramBotEngineOptions {
   config?: TelegramPlatformConfig;
@@ -40,13 +65,27 @@ export interface TelegramBotEngineOptions {
   readOnlyPrayerProvider?: ReadOnlyPrayerScheduleProvider;
   fetchImpl?: FetchLike;
   aiGenerator?: AiGenerateFn;
+  aiTranscriber?: AiTranscribeFn;
+  aiTts?: AiTtsFn;
   silentLogger?: boolean;
 }
 
 export interface UpdateDispatchOutcome {
   ok: boolean;
   updateId: number;
-  kind: 'command' | 'callback' | 'ai_reply' | 'text_fallback' | 'ignored' | 'rate_limited' | 'maintenance' | 'error';
+  kind:
+    | 'command'
+    | 'callback'
+    | 'reply_keyboard'
+    | 'flow_input'
+    | 'ai_reply'
+    | 'voice_ai_reply'
+    | 'media_ai_reply'
+    | 'text_fallback'
+    | 'ignored'
+    | 'rate_limited'
+    | 'maintenance'
+    | 'error';
   detail?: string;
 }
 
@@ -68,6 +107,7 @@ export interface TelegramRuntimeState {
   botFirstName: string | null;
   webhookRegisteredOnStartup: boolean;
   commandsSynced: boolean;
+  menuButtonConfigured: boolean;
   totalUpdatesHandled: number;
   lastUpdateHandledAt: string | null;
   lastError: string | null;
@@ -104,6 +144,15 @@ export interface TelegramLiveDiagnosticsReport {
   readyToAnswerStart: boolean;
 }
 
+const REPLY_ACTION_TO_COMMAND: Record<ReplyKeyboardAction, string> = {
+  prayer: '/prayer',
+  quran_center: '/quran',
+  ai: '/ask',
+  academy_quiz: '/academy',
+  support: '/support',
+  menu: '/menu',
+};
+
 export class TelegramBotEngine {
   public readonly config: TelegramPlatformConfig;
   public readonly logger: TelegramLogger;
@@ -114,8 +163,12 @@ export class TelegramBotEngine {
   public readonly userService: TelegramUserService;
   public readonly prayerAdapter: TelegramPrayerAdapter;
   public readonly contentAdapter: TelegramIslamicContentAdapter;
+  public readonly academyQuizService: TelegramAcademyQuizService;
+  public readonly supportService: TelegramSupportService;
   public readonly channelService: TelegramChannelService;
   public readonly publishingService: TelegramPublishingService;
+  public readonly broadcastManager: TelegramBroadcastManager;
+  public readonly contentStudio: TelegramContentStudio;
   public readonly adminService: TelegramAdminService;
   public readonly aiBridge: TelegramAiBridge;
   public readonly jobScheduler: TelegramJobScheduler;
@@ -128,14 +181,17 @@ export class TelegramBotEngine {
   private botFirstName: string | null = null;
   private webhookRegisteredOnStartup = false;
   private commandsSynced = false;
+  private menuButtonConfigured = false;
   private totalUpdatesHandled = 0;
   private lastUpdateHandledAt: string | null = null;
   private lastError: string | null = null;
   private lastErrorAt: string | null = null;
   private startupRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private startupRetryCount = 0;
+  private readonly hasCustomAiGenerator: boolean;
 
   constructor(options: TelegramBotEngineOptions = {}) {
+    this.hasCustomAiGenerator = Boolean(options.aiGenerator);
     this.config = options.config || loadTelegramPlatformConfig();
     this.logger = createTelegramLogger('TelegramPlatform', Boolean(options.silentLogger));
     this.apiClient = new TelegramApiClient(this.config, this.logger, options.fetchImpl);
@@ -159,16 +215,30 @@ export class TelegramBotEngine {
     this.userService = new TelegramUserService(this.repository);
     this.prayerAdapter = new TelegramPrayerAdapter(options.readOnlyPrayerProvider);
     this.contentAdapter = new TelegramIslamicContentAdapter();
+    this.academyQuizService = new TelegramAcademyQuizService(this.repository);
+    this.supportService = new TelegramSupportService(
+      this.repository,
+      this.apiClient,
+      this.emojiRegistry
+    );
     this.channelService = new TelegramChannelService(this.repository);
     this.publishingService = new TelegramPublishingService(
       this.apiClient,
       this.repository,
       this.emojiRegistry
     );
+    this.broadcastManager = new TelegramBroadcastManager(
+      this.repository,
+      this.apiClient,
+      this.emojiRegistry
+    );
+    this.contentStudio = new TelegramContentStudio(this.repository, this.publishingService);
     this.adminService = new TelegramAdminService(this.config, this.repository);
     this.aiBridge = new TelegramAiBridge(this.repository, {
       logger: this.logger,
       generator: options.aiGenerator,
+      transcriber: options.aiTranscriber,
+      tts: options.aiTts,
     });
     this.jobScheduler = new TelegramJobScheduler({
       apiClient: this.apiClient,
@@ -178,14 +248,12 @@ export class TelegramBotEngine {
       repository: this.repository,
       emojiRegistry: this.emojiRegistry,
       publishingService: this.publishingService,
+      contentStudio: this.contentStudio,
+      broadcastManager: this.broadcastManager,
+      contentAdapter: this.contentAdapter,
     });
   }
 
-  /**
-   * Initializes and starts the Telegram bot runtime safely in the background.
-   * Logs clear diagnostic messages explaining whether the bot started in polling/webhook mode
-   * or the exact reason it could not start.
-   */
   startRuntimeIfConfigured(): void {
     this.initializeRuntime().catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
@@ -198,6 +266,15 @@ export class TelegramBotEngine {
   }
 
   async initializeRuntime(): Promise<TelegramRuntimeState> {
+    // Hydrate from Firestore (if bridge attached) safely without blocking startup
+    try {
+      await this.repository.hydrateFromFirestore();
+    } catch (err) {
+      this.logger.warn('Firestore hydration encountered an error during startup', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     if (!this.config.isConfigured) {
       this.startupState = 'disabled';
       this.startupReason =
@@ -216,7 +293,6 @@ export class TelegramBotEngine {
     this.startupState = 'starting';
     this.startupReason = `Connecting to Telegram Bot API in ${this.config.mode} mode...`;
 
-    // Step 1: Verify bot token & API reachability via getMe()
     const me = await this.apiClient.getMe();
     if (!me.ok || !me.result) {
       this.botApiConnected = false;
@@ -229,7 +305,6 @@ export class TelegramBotEngine {
         mode: this.config.mode,
       });
 
-      // Retry automatically on transient network/5xx failures (never retry on 401 invalid token)
       if (me.error_code !== 401 && !this.startupRetryTimer) {
         this.startupRetryCount++;
         const delayMs = Math.min(30_000, 4_000 * this.startupRetryCount);
@@ -271,9 +346,34 @@ export class TelegramBotEngine {
       modeAutoSelected: this.config.modeAutoSelected,
     });
 
-    // Step 2: Mode-specific startup
+    // Configure HTTPS Mini App menu button when available
+    if (this.config.miniAppUrl && this.config.miniAppUrl.startsWith('https://')) {
+      const mbRes = await this.apiClient.setChatMenuButton({
+        menu_button: {
+          type: 'web_app',
+          text: 'ASAKA ZIYO',
+          web_app: { url: this.config.miniAppUrl },
+        },
+      });
+      this.menuButtonConfigured = mbRes.ok;
+    }
+
+    // Non-blocking live verification probe for primary AI model (never runs in unit tests)
+    if (!this.hasCustomAiGenerator && this.aiBridge.getStatus().apiKeyConfigured) {
+      this.aiBridge
+        .probeModelAvailability()
+        .then((probe) => {
+          this.logger.info('Telegram AI primary model live probe completed', {
+            model: probe.model,
+            available: probe.available,
+            httpStatus: probe.httpStatus,
+            latencyMs: probe.latencyMs,
+          });
+        })
+        .catch(() => {});
+    }
+
     if (this.config.mode === 'polling') {
-      // Clear any stale webhook first so Telegram getUpdates does not return 409 Conflict
       const delWh = await this.apiClient.deleteWebhook(false);
       if (!delWh.ok) {
         this.logger.warn('Failed to clear previous webhook before starting polling', {
@@ -293,7 +393,6 @@ export class TelegramBotEngine {
       return this.getRuntimeState();
     }
 
-    // Webhook mode
     const missing: string[] = [];
     if (!this.config.webhookUrl) missing.push('TELEGRAM_WEBHOOK_URL');
     if (!this.config.webhookSecret) missing.push('TELEGRAM_WEBHOOK_SECRET');
@@ -347,6 +446,7 @@ export class TelegramBotEngine {
       botFirstName: this.botFirstName,
       webhookRegisteredOnStartup: this.webhookRegisteredOnStartup,
       commandsSynced: this.commandsSynced,
+      menuButtonConfigured: this.menuButtonConfigured,
       totalUpdatesHandled: this.totalUpdatesHandled,
       lastUpdateHandledAt: this.lastUpdateHandledAt,
       lastError: this.lastError || polling.lastError,
@@ -355,10 +455,6 @@ export class TelegramBotEngine {
     };
   }
 
-  /**
-   * Executes live end-to-end diagnostics against Telegram Bot API (getMe + getWebhookInfo)
-   * and returns actionable findings without ever exposing secret values.
-   */
   async runLiveDiagnostics(): Promise<TelegramLiveDiagnosticsReport> {
     const checkedAt = new Date().toISOString();
     const configSummary = getSafeTelegramConfigSummary(this.config);
@@ -414,7 +510,7 @@ export class TelegramBotEngine {
         this.config.botUsername.toLowerCase() !== me.result!.username.toLowerCase()
       ) {
         issues.push(
-          `Bot username mismatch: TELEGRAM_BOT_USERNAME is "@${this.config.botUsername}", but TELEGRAM_BOT_TOKEN1 belongs to "@${me.result!.username}". Sending /start to "@${this.config.botUsername}" will not reach this token's bot.`
+          `Bot username mismatch: TELEGRAM_BOT_USERNAME is "@${this.config.botUsername}", but TELEGRAM_BOT_TOKEN1 belongs to "@${me.result!.username}".`
         );
       }
     }
@@ -448,18 +544,16 @@ export class TelegramBotEngine {
         issues.push(`Polling error: ${polling.lastError}`);
       }
     } else if (this.config.mode === 'webhook') {
-      if (!this.config.webhookUrl) {
-        issues.push('TELEGRAM_WEBHOOK_URL is not set.');
-      }
+      if (!this.config.webhookUrl) issues.push('TELEGRAM_WEBHOOK_URL is not set.');
       if (!this.config.webhookSecret) {
-        issues.push(
-          'TELEGRAM_WEBHOOK_SECRET is not set (webhook endpoint rejects requests with HTTP 403 without it).'
-        );
+        issues.push('TELEGRAM_WEBHOOK_SECRET is not set.');
       }
       if (whResult && !whResult.url) {
-        issues.push('Telegram currently has NO webhook URL registered (call POST /api/telegram/platform/webhook/register).');
+        issues.push('Telegram currently has NO webhook URL registered.');
       } else if (whResult && this.config.webhookUrl && whResult.url !== this.config.webhookUrl) {
-        issues.push(`Registered Telegram webhook (${whResult.url}) does not match TELEGRAM_WEBHOOK_URL (${this.config.webhookUrl}).`);
+        issues.push(
+          `Registered Telegram webhook (${whResult.url}) does not match TELEGRAM_WEBHOOK_URL (${this.config.webhookUrl}).`
+        );
       }
       if (whResult?.last_error_message) {
         issues.push(`Telegram webhook delivery error: ${whResult.last_error_message}`);
@@ -498,15 +592,24 @@ export class TelegramBotEngine {
     }
     const toCommandList = (dict: ReturnType<typeof getTelegramLocaleBundle>) => [
       { command: 'start', description: dict.commands.start },
+      { command: 'menu', description: dict.commands.menu },
       { command: 'prayer', description: dict.commands.prayer },
+      { command: 'ramadan', description: dict.commands.ramadan },
+      { command: 'calendar', description: dict.commands.calendar },
       { command: 'quran', description: dict.commands.quran },
+      { command: 'tafsir', description: dict.commands.tafsir },
+      { command: 'khatm', description: dict.commands.khatm },
       { command: 'hadith', description: dict.commands.hadith },
       { command: 'dhikr', description: dict.commands.dhikr },
+      { command: 'dua', description: dict.commands.dua },
+      { command: 'academy', description: dict.commands.academy },
+      { command: 'quiz', description: dict.commands.quiz },
+      { command: 'library', description: dict.commands.library },
+      { command: 'mosque', description: dict.commands.mosque },
       { command: 'ask', description: dict.commands.ask },
+      { command: 'support', description: dict.commands.support },
       { command: 'profile', description: dict.commands.profile },
       { command: 'language', description: dict.commands.language },
-      { command: 'settings', description: dict.commands.settings },
-      { command: 'admin', description: dict.commands.admin },
       { command: 'help', description: dict.commands.help },
     ];
 
@@ -554,6 +657,332 @@ export class TelegramBotEngine {
       webhookUrl: this.config.webhookUrl,
       error: res.description,
     };
+  }
+
+  private async handleActiveFlowInput(
+    message: TelegramApiMessage,
+    user: TelegramUserRecord,
+    chatId: number | string
+  ): Promise<UpdateDispatchOutcome | null> {
+    const flow = user.activeFlow;
+    if (!flow || flow.type === 'idle') return null;
+
+    const locale = user.language;
+    const dict = getTelegramLocaleBundle(locale);
+    const text = (message.text || message.caption || '').trim();
+    const actorId = user.telegramId;
+    const role = this.adminService.getEffectiveRole(actorId);
+    const settings = this.repository.getSettings();
+
+    const extractMediaAttachment = (): {
+      mediaType?: 'photo' | 'video' | 'audio' | 'voice' | 'document';
+      fileId?: string;
+    } => {
+      if (message.photo && message.photo.length > 0) {
+        return { mediaType: 'photo', fileId: message.photo[message.photo.length - 1].file_id };
+      }
+      if (message.voice) return { mediaType: 'voice', fileId: message.voice.file_id };
+      if (message.audio) return { mediaType: 'audio', fileId: message.audio.file_id };
+      if (message.video) return { mediaType: 'video', fileId: message.video.file_id };
+      if (message.document) return { mediaType: 'document', fileId: message.document.file_id };
+      return {};
+    };
+
+    if (flow.type === 'quran_search') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const matches = this.contentAdapter.searchSurahs(text);
+      if (matches.length === 0) {
+        const fmt = this.emojiRegistry.formatMessage(dict.searchNoResults);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: fmt.text,
+          reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+        });
+      } else {
+        const fmt = this.emojiRegistry.formatMessage(
+          `${dict.quranTitle} — "${text}" (${matches.length})`
+        );
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: fmt.text,
+          ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+          reply_markup: buildSurahListKeyboard(locale, matches, this.emojiRegistry, 0, 1),
+        });
+      }
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'quran_search' };
+    }
+
+    if (flow.type === 'hadith_search') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const matches = this.contentAdapter.searchHadiths(text);
+      const body =
+        matches.length === 0
+          ? dict.searchNoResults
+          : matches
+              .slice(0, 4)
+              .map(
+                (m, i) =>
+                  `${i + 1}. ${m.chapterUz} — ${m.translationUz.slice(0, 180)}... (${m.collectionNameUz})`
+              )
+              .join('\n\n');
+      const fmt = this.emojiRegistry.formatMessage(`${dict.hadithTitle}\n\n${body}`);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'hadith_search' };
+    }
+
+    if (flow.type === 'global_search') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const resultText = this.contentAdapter.performGlobalSearch(text, locale);
+      const fmt = this.emojiRegistry.formatMessage(resultText);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'global_search' };
+    }
+
+    if (flow.type === 'khatm_set_days') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const days = Math.min(365, Math.max(7, Number.parseInt(text, 10) || 30));
+      await this.contentAdapter.startOrUpdateKhatmPlan(this.repository, actorId, days);
+      const khatm = this.contentAdapter.formatKhatmCard(
+        this.repository,
+        actorId,
+        locale,
+        this.emojiRegistry
+      );
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: khatm.text,
+        ...(khatm.entities.length > 0 ? { entities: khatm.entities } : {}),
+        reply_markup: buildKhatmKeyboard(locale, this.emojiRegistry),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'khatm_set_days' };
+    }
+
+    if (flow.type === 'tasbeh_set_goal') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const goal = Math.min(100000, Math.max(1, Number.parseInt(text, 10) || 33));
+      const preview = this.contentAdapter.formatDhikrCard(
+        flow.dhikrIndex,
+        0,
+        locale,
+        this.emojiRegistry
+      );
+      const savedGoal = await this.contentAdapter.setDhikrCustomGoal(
+        this.repository,
+        actorId,
+        preview.dhikrId,
+        goal
+      );
+      const eng = this.repository.getUserEngagement(actorId);
+      const currentCount = eng.dhikr.countsByDhikrId[preview.dhikrId] || 0;
+      const dhikr = this.contentAdapter.formatDhikrCard(
+        flow.dhikrIndex,
+        currentCount,
+        locale,
+        this.emojiRegistry,
+        savedGoal,
+        eng.dhikr.todayCount
+      );
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: dhikr.formatted.text,
+        ...(dhikr.formatted.entities.length > 0 ? { entities: dhikr.formatted.entities } : {}),
+        reply_markup: buildDhikrKeyboard(
+          locale,
+          dhikr.index,
+          dhikr.total,
+          currentCount,
+          this.emojiRegistry
+        ),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'tasbeh_set_goal' };
+    }
+
+    if (flow.type === 'support_new') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const media = extractMediaAttachment();
+      const bodyText = text || (media.mediaType ? `[${media.mediaType} attachment]` : 'Murojaat');
+      const ticket = await this.supportService.createTicket({
+        user,
+        category: flow.category,
+        subject: bodyText.slice(0, 90),
+        text: bodyText,
+        mediaType: media.mediaType,
+        telegramFileId: media.fileId,
+        notifyAdmins: this.config.adminIds,
+      });
+      const fmt = this.emojiRegistry.formatMessage(
+        `${dict.supportCreatedNotice}\n\n🆔 ${ticket.id}\n📂 ${ticket.category}`
+      );
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildSupportHomeKeyboard(locale, this.emojiRegistry),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: `support_new:${ticket.id}` };
+    }
+
+    if (flow.type === 'support_reply') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const media = extractMediaAttachment();
+      const bodyText = text || (media.mediaType ? `[${media.mediaType}]` : '...');
+      await this.supportService.addUserReply({
+        ticketId: flow.ticketId,
+        user,
+        text: bodyText,
+        mediaType: media.mediaType,
+        telegramFileId: media.fileId,
+      });
+      const fmt = this.emojiRegistry.formatMessage(
+        `${dict.supportCreatedNotice}\n🆔 ${flow.ticketId}`
+      );
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        reply_markup: buildSupportHomeKeyboard(locale, this.emojiRegistry),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: `support_reply:${flow.ticketId}` };
+    }
+
+    // Admin-only flows
+    if (flow.type.startsWith('admin_')) {
+      if (!role) {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const fmt = this.emojiRegistry.formatMessage(dict.adminAccessDenied);
+        await this.apiClient.sendMessage({ chat_id: chatId, text: fmt.text });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_flow_denied' };
+      }
+
+      if (flow.type === 'admin_ticket_reply') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const adminName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Admin';
+        const res = await this.supportService.replyFromAdmin({
+          ticketId: flow.ticketId,
+          adminId: actorId,
+          adminName,
+          replyText: text || 'Javob yuborildi.',
+        });
+        const tickets = this.supportService.listAllTickets();
+        const fmt = this.emojiRegistry.formatMessage(
+          res.ok
+            ? `✅ Javob yuborildi (${flow.ticketId}) | Foydalanuvchiga yetkazildi: ${res.deliveredToUser ? 'HA' : 'YOʻQ'}`
+            : `❌ Xatolik: ${res.error || 'Ticket topilmadi'}`
+        );
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: fmt.text,
+          reply_markup: buildAdminSupportKeyboard(locale, tickets, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_ticket_reply' };
+      }
+
+      if (flow.type === 'admin_user_search') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const found = this.userService.searchUsers({ query: text }).slice(0, 10);
+        const lines =
+          found.length === 0
+            ? [dict.searchNoResults]
+            : found.map(
+                (u) =>
+                  `• ${u.firstName}${u.username ? ` (@${u.username})` : ''} — ID: ${u.telegramId} | ${u.language}${u.isBlocked ? ' [BLOCKED]' : ''}`
+              );
+        const fmt = this.emojiRegistry.formatMessage(
+          `👥 Qidiruv natijasi ("${text}"):\n\n${lines.join('\n')}`
+        );
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: fmt.text,
+          reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_user_search' };
+      }
+
+      if (flow.type === 'admin_broadcast_title') {
+        const title = text.slice(0, 140) || 'ASAKA ZIYO Eʼloni';
+        await this.userService.setActiveFlow(actorId, {
+          type: 'admin_broadcast_body',
+          title,
+          segment: 'all_opt_in',
+        });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `📢 Sarlavha saqlandi: "${title}"\n\nEndi xabar matnini yuboring:`,
+          reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_broadcast_title' };
+      }
+
+      if (flow.type === 'admin_broadcast_body') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const campaign = await this.broadcastManager.createCampaign({
+          title: flow.title,
+          mediaType: 'text',
+          defaultText: text || flow.title,
+          segment: flow.segment,
+          createdBy: actorId,
+        });
+        const list = this.repository.listBroadcasts();
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `✅ Kampaniya yaratildi: ${campaign.title} (${campaign.id})\nMaqsadli auditoriya: ${campaign.totalTargets}`,
+          reply_markup: buildAdminBroadcastsKeyboard(locale, list, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_broadcast_created:${campaign.id}` };
+      }
+
+      if (flow.type === 'admin_ai_set_model') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const modelName = text.trim();
+        if (modelName) {
+          await this.repository.saveSettings(
+            flow.which === 'primary'
+              ? { aiPrimaryModel: modelName }
+              : { aiFallbackModel: modelName },
+            actorId
+          );
+        }
+        const nextSettings = this.repository.getSettings();
+        const aiStatus = this.aiBridge.getStatus();
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `🧠 Model yangilandi: Primary=${aiStatus.primaryModel} | Fallback=${aiStatus.fallbackModel || 'none'}`,
+          reply_markup: buildAdminAiControlKeyboard(locale, nextSettings, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_ai_set_model' };
+      }
+
+      if (flow.type === 'admin_channel_post_draft') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const draft = await this.contentStudio.createDraft({
+          type: 'announcement',
+          title: 'ASAKA ZIYO',
+          defaultBody: text || '...',
+          targetChannelIds: [flow.channelId],
+          createdBy: actorId,
+        });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `📝 Kanal qoralamasi saqlandi: ${draft.id}`,
+          reply_markup: buildMainMenuKeyboard(locale, this.emojiRegistry, this.config, {
+            isAdmin: true,
+            miniAppEnabled: Boolean(settings.miniAppEnabled),
+          }),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_channel_post_draft' };
+      }
+    }
+
+    return null;
   }
 
   async processUpdate(update: TelegramApiUpdate): Promise<UpdateDispatchOutcome> {
@@ -629,6 +1058,10 @@ export class TelegramBotEngine {
           userService: this.userService,
           prayerAdapter: this.prayerAdapter,
           contentAdapter: this.contentAdapter,
+          academyQuizService: this.academyQuizService,
+          supportService: this.supportService,
+          broadcastManager: this.broadcastManager,
+          contentStudio: this.contentStudio,
           aiBridge: this.aiBridge,
           adminService: this.adminService,
           channelService: this.channelService,
@@ -644,16 +1077,28 @@ export class TelegramBotEngine {
         };
       }
 
-      // 5. Bot Commands (/start, /prayer, /quran, /hadith, /dhikr, /ask, /profile, /language, /settings, /admin, /help)
-      if (update.message?.text) {
-        const parsedCmd = parseBotCommand(update.message.text);
+      const message = update.message;
+      if (!message) {
+        return { ok: true, updateId, kind: 'ignored' };
+      }
+
+      // 5. Bot Commands (all 27 commands)
+      if (message.text) {
+        const parsedCmd = parseBotCommand(message.text);
         if (parsedCmd) {
-          const cmdRes = await handleBotCommand(update.message, user, {
+          // Entering a slash command clears any pending stateful text flow
+          if (user.activeFlow && user.activeFlow.type !== 'idle') {
+            await this.userService.setActiveFlow(actorId, { type: 'idle' });
+          }
+          const cmdRes = await handleBotCommand(message, user, {
             apiClient: this.apiClient,
             config: this.config,
             emojiRegistry: this.emojiRegistry,
+            userService: this.userService,
             prayerAdapter: this.prayerAdapter,
             contentAdapter: this.contentAdapter,
+            academyQuizService: this.academyQuizService,
+            supportService: this.supportService,
             aiBridge: this.aiBridge,
             adminService: this.adminService,
             repository: this.repository,
@@ -666,47 +1111,193 @@ export class TelegramBotEngine {
           };
         }
 
-        // Private chat plain text: route to AI Assistant when active, otherwise return main menu
-        if (update.message.chat.type === 'private') {
-          if (this.aiBridge.isUserInAiMode(actorId)) {
-            await this.apiClient.sendChatAction(chatId, 'typing');
-            const aiRes = await this.aiBridge.handleQuestion(
-              actorId,
-              user.language,
-              update.message.text
-            );
+        // 6. Persistent Reply Keyboard button match across all 5 languages
+        const replyAction = matchReplyKeyboardAction(message.text);
+        if (replyAction) {
+          if (user.activeFlow && user.activeFlow.type !== 'idle') {
+            await this.userService.setActiveFlow(actorId, { type: 'idle' });
+          }
+          if (replyAction !== 'ai') {
+            this.aiBridge.exitAiMode(actorId);
+          }
+          const syntheticCmd = REPLY_ACTION_TO_COMMAND[replyAction];
+          await handleBotCommand(
+            { ...message, text: syntheticCmd },
+            user,
+            {
+              apiClient: this.apiClient,
+              config: this.config,
+              emojiRegistry: this.emojiRegistry,
+              userService: this.userService,
+              prayerAdapter: this.prayerAdapter,
+              contentAdapter: this.contentAdapter,
+              academyQuizService: this.academyQuizService,
+              supportService: this.supportService,
+              aiBridge: this.aiBridge,
+              adminService: this.adminService,
+              repository: this.repository,
+            }
+          );
+          return {
+            ok: true,
+            updateId,
+            kind: 'reply_keyboard',
+            detail: replyAction,
+          };
+        }
+      }
+
+      // 7. Stateful Active Flow input (text OR media attachment for support tickets)
+      if (message.chat.type === 'private' && user.activeFlow && user.activeFlow.type !== 'idle') {
+        const flowOutcome = await this.handleActiveFlowInput(message, user, chatId);
+        if (flowOutcome) {
+          return { ...flowOutcome, updateId };
+        }
+      }
+
+      // 8. Private chat Voice / Audio -> AI Speech-to-Text + Gemini + Optional WAV TTS
+      if (message.chat.type === 'private' && (message.voice || message.audio)) {
+        const mediaObj = message.voice || message.audio!;
+        await this.apiClient.sendChatAction(chatId, 'typing');
+        const fileRes = await this.apiClient.getFile(mediaObj.file_id);
+        if (!fileRes.ok || !fileRes.result?.file_path) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: dict.aiErrorNotice,
+            reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
+          });
+          return { ok: true, updateId, kind: 'voice_ai_reply', detail: 'file_lookup_failed' };
+        }
+        const dl = await this.apiClient.downloadFileBuffer(fileRes.result.file_path);
+        if (!dl.ok || !dl.buffer) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: dict.aiErrorNotice,
+            reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
+          });
+          return { ok: true, updateId, kind: 'voice_ai_reply', detail: 'file_download_failed' };
+        }
+
+        const voiceRes = await this.aiBridge.handleVoiceMessage({
+          telegramId: actorId,
+          locale: user.language,
+          audioBuffer: dl.buffer,
+          mimeType: mediaObj.mime_type || 'audio/ogg',
+          synthesizeReply: Boolean(settings.aiVoiceReplyEnabled),
+        });
+
+        const textBody = voiceRes.ok
+          ? `${dict.aiTitle}\n\n🎤 "${voiceRes.transcript || ''}"\n\n${voiceRes.answerText || ''}`
+          : `${dict.aiTitle}\n\n${voiceRes.reason || dict.aiErrorNotice}`;
+        const formatted = this.emojiRegistry.formatMessage(textBody);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: formatted.text,
+          ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+          reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
+        });
+
+        if (voiceRes.ok && voiceRes.ttsAudioBuffer) {
+          await this.apiClient.sendAudioBuffer({
+            chat_id: chatId,
+            audioBuffer: voiceRes.ttsAudioBuffer,
+            filename: 'asaka_ziyo_ai_reply.wav',
+            mimeType: voiceRes.ttsMimeType || 'audio/wav',
+            title: 'ASAKA ZIYO AI',
+            performer: 'ASAKA ZIYO',
+          });
+        }
+
+        return {
+          ok: true,
+          updateId,
+          kind: 'voice_ai_reply',
+          detail: voiceRes.ok ? 'answered' : voiceRes.errorCode || 'failed',
+        };
+      }
+
+      // 9. Private chat Photo / Document -> AI Vision / Document Analysis
+      if (
+        message.chat.type === 'private' &&
+        (message.photo?.length || message.document) &&
+        (this.aiBridge.isUserInAiMode(actorId) || Boolean(message.caption))
+      ) {
+        await this.apiClient.sendChatAction(chatId, 'typing');
+        const isPhoto = Boolean(message.photo && message.photo.length > 0);
+        const fileId = isPhoto
+          ? message.photo![message.photo!.length - 1].file_id
+          : message.document!.file_id;
+        const mimeType = isPhoto
+          ? 'image/jpeg'
+          : message.document!.mime_type || 'application/octet-stream';
+
+        const fileRes = await this.apiClient.getFile(fileId);
+        if (fileRes.ok && fileRes.result?.file_path) {
+          const dl = await this.apiClient.downloadFileBuffer(fileRes.result.file_path);
+          if (dl.ok && dl.buffer) {
+            const mediaRes = await this.aiBridge.handleMediaAnalysis({
+              telegramId: actorId,
+              locale: user.language,
+              buffer: dl.buffer,
+              mimeType,
+              caption: message.caption,
+              inputType: isPhoto ? 'photo' : 'document',
+            });
             const formatted = this.emojiRegistry.formatMessage(
-              `${dict.aiTitle}\n\n${aiRes.answerText || dict.aiErrorNotice}`
+              `${dict.aiTitle}\n\n${mediaRes.answerText || mediaRes.reason || dict.aiErrorNotice}`
             );
             await this.apiClient.sendMessage({
               chat_id: chatId,
               text: formatted.text,
               ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
               reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
-              disable_web_page_preview: true,
             });
             return {
               ok: true,
               updateId,
-              kind: 'ai_reply',
-              detail: aiRes.ok ? 'answered' : aiRes.errorCode,
+              kind: 'media_ai_reply',
+              detail: mediaRes.ok ? 'answered' : mediaRes.errorCode || 'failed',
             };
           }
+        }
+      }
 
+      // 10. Private chat plain text: AI Assistant when active, otherwise main menu
+      if (message.text && message.chat.type === 'private') {
+        if (this.aiBridge.isUserInAiMode(actorId)) {
+          await this.apiClient.sendChatAction(chatId, 'typing');
+          const aiRes = await this.aiBridge.handleQuestion(actorId, user.language, message.text);
           const formatted = this.emojiRegistry.formatMessage(
-            `${dict.mainMenuTitle}\n\n${dict.mainMenuPrompt}`
+            `${dict.aiTitle}\n\n${aiRes.answerText || aiRes.reason || dict.aiErrorNotice}`
           );
           await this.apiClient.sendMessage({
             chat_id: chatId,
             text: formatted.text,
             ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
-            reply_markup: buildMainMenuKeyboard(user.language, this.emojiRegistry, this.config, {
-              isAdmin: Boolean(role),
-              miniAppEnabled: Boolean(settings.miniAppEnabled),
-            }),
+            reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
+            disable_web_page_preview: true,
           });
-          return { ok: true, updateId, kind: 'text_fallback' };
+          return {
+            ok: true,
+            updateId,
+            kind: 'ai_reply',
+            detail: aiRes.ok ? 'answered' : aiRes.errorCode,
+          };
         }
+
+        const formatted = this.emojiRegistry.formatMessage(
+          `${dict.mainMenuTitle}\n\n${dict.mainMenuPrompt}`
+        );
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: formatted.text,
+          ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+          reply_markup: buildMainMenuKeyboard(user.language, this.emojiRegistry, this.config, {
+            isAdmin: Boolean(role),
+            miniAppEnabled: Boolean(settings.miniAppEnabled),
+          }),
+        });
+        return { ok: true, updateId, kind: 'text_fallback' };
       }
 
       return { ok: true, updateId, kind: 'ignored' };
@@ -724,10 +1315,12 @@ export class TelegramBotEngine {
     return {
       ok: true,
       module: 'asaka-ziyo-telegram-platform',
-      phase: 2,
+      phase: 'super_platform',
+      miniAppUrl: this.config.miniAppUrl,
       config: getSafeTelegramConfigSummary(this.config),
       pollingActive: this.jobScheduler.isPolling(),
       runtime,
+      firestoreSync: this.repository.getFirestoreSyncStatus(),
       emojiCompatibility: this.emojiRegistry.validateCompatibility(),
       aiBridge: this.aiBridge.getStatus(),
       stats: this.repository.getStats(),
