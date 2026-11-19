@@ -64,9 +64,9 @@ export const AppInstallBanner: React.FC<AppInstallBannerProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#04120e]/95 text-white border border-[#c9a84c]/45 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
           <img
-            src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+            src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
             alt="ASAKA ZIYO Official Logo"
-            className="w-10 h-10 rounded-xl object-cover border border-[#c9a84c]/50 shrink-0"
+            className="w-10 h-10 rounded-full object-cover bg-white border-2 border-[#c9a84c]/70 shrink-0"
           />
 
           <div className="min-w-0">

@@ -28,7 +28,15 @@ export default defineConfig(({ command }) => {
       VitePWA({
         injectRegister: null,
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'icon.svg'],
+        includeAssets: [
+          'favicon.ico',
+          'favicon-32x32.png',
+          'apple-touch-icon.png',
+          'pwa-192x192.png',
+          'pwa-512x512.png',
+          'pwa-maskable-512x512.png',
+          'icon.svg',
+        ],
         manifest: {
           id: '/',
           name: 'ASAKA ZIYO',

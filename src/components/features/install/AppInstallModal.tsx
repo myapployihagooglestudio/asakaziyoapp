@@ -208,9 +208,9 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-[#061e17] via-[#0a2b21] to-[#04120e] border border-[#c9a84c]/40 shadow-xl">
           <div className="flex items-center gap-3.5">
             <img
-              src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+              src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
               alt="ASAKA ZIYO Official Logo"
-              className="w-14 h-14 rounded-2xl object-cover border border-[#c9a84c]/60 shrink-0 shadow-lg"
+              className="w-14 h-14 rounded-full object-cover bg-white border-2 border-[#c9a84c]/75 shrink-0 shadow-lg"
             />
             <div>
               <div className="flex flex-wrap items-center gap-2">

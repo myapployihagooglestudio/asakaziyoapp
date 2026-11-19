@@ -642,6 +642,140 @@ service cloud.firestore {
       allow delete: if isValidId(announcementId) &&
         (isContentAdmin() || isPrayerAdmin() || isVerifiedServerWrite('displayAnnouncements', announcementId));
     }
+
+    // 38. ASAKA ZIYO Telegram Platform — Strictly Isolated Collections (Admin & Verified Server-Gate Only)
+    function isValidTelegramLocale(lang) {
+      return lang in ['uz-Latn', 'uz-Cyrl', 'uz-Latn-new', 'ru', 'en'];
+    }
+
+    function isValidTelegramUser(data) {
+      return data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
+        data.chatId is string && data.chatId.size() >= 1 && data.chatId.size() <= 64 &&
+        isValidTelegramLocale(data.language) &&
+        data.prayerNotificationsEnabled is bool &&
+        data.dailyContentNotificationsEnabled is bool &&
+        data.isBlocked is bool;
+    }
+
+    function isValidTelegramSettings(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 64 &&
+        isValidTelegramLocale(data.defaultLanguage) &&
+        data.maintenanceMode is bool &&
+        data.premiumEmojiEnabled is bool;
+    }
+
+    function isValidTelegramChannel(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.username is string && data.username.size() >= 2 && data.username.size() <= 128 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.isActive is bool &&
+        isValidTelegramLocale(data.language);
+    }
+
+    function isValidTelegramAdmin(data) {
+      return data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
+        data.role in ['owner', 'admin', 'editor', 'moderator'] &&
+        data.isActive is bool;
+    }
+
+    function isValidTelegramPublication(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.channelId is string && data.channelId.size() >= 1 && data.channelId.size() <= 128 &&
+        data.kind in ['prayer_times', 'announcement', 'article', 'manual'] &&
+        isValidTelegramLocale(data.language) &&
+        data.status in ['draft', 'scheduled', 'sent', 'failed'];
+    }
+
+    function isValidTelegramAuditLog(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.actorTelegramId is string && data.actorTelegramId.size() >= 1 && data.actorTelegramId.size() <= 64 &&
+        data.actorRole in ['owner', 'admin', 'editor', 'moderator', 'user', 'system'] &&
+        data.action is string && data.action.size() >= 1 && data.action.size() <= 160 &&
+        data.targetType is string && data.targetType.size() >= 1 && data.targetType.size() <= 64;
+    }
+
+    function isValidTelegramCustomEmoji(data) {
+      return data.key is string && data.key.size() >= 1 && data.key.size() <= 128 &&
+        data.category in ['brand', 'navigation', 'prayer', 'language', 'settings', 'status', 'channel', 'calendar'] &&
+        data.unicodeFallback is string && data.unicodeFallback.size() >= 1 && data.unicodeFallback.size() <= 16 &&
+        data.verified is bool &&
+        data.supportsKeyboardIcon is bool;
+    }
+
+    // 38A. Telegram Bot Users (Zero public client access — admin/server-only)
+    match /telegramUsers/{userId} {
+      allow get: if isValidId(userId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(userId) &&
+        isValidTelegramUser(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramUsers', userId));
+      allow delete: if isValidId(userId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramUsers', userId));
+    }
+
+    // 38B. Telegram Platform Settings (Admin/server-only)
+    match /telegramSettings/{settingId} {
+      allow get: if isValidId(settingId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(settingId) &&
+        isValidTelegramSettings(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramSettings', settingId));
+      allow delete: if false;
+    }
+
+    // 38C. Telegram Managed Channels (Admin/server-only)
+    match /telegramChannels/{channelId} {
+      allow get: if isValidId(channelId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(channelId) &&
+        isValidTelegramChannel(incoming()) &&
+        (isContentAdmin() || isSuperAdmin() || isVerifiedServerWrite('telegramChannels', channelId));
+      allow delete: if isValidId(channelId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramChannels', channelId));
+    }
+
+    // 38D. Telegram Operator RBAC Assignments (SuperAdmin/server-only)
+    match /telegramAdmins/{adminId} {
+      allow get: if isValidId(adminId) && isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create, update: if isValidId(adminId) &&
+        isValidTelegramAdmin(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramAdmins', adminId));
+      allow delete: if isValidId(adminId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramAdmins', adminId));
+    }
+
+    // 38E. Telegram Channel Publication History (Admin/server-only)
+    match /telegramPublications/{publicationId} {
+      allow get: if isValidId(publicationId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(publicationId) &&
+        isValidTelegramPublication(incoming()) &&
+        (isContentAdmin() || isSuperAdmin() || isVerifiedServerWrite('telegramPublications', publicationId));
+      allow delete: if isValidId(publicationId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramPublications', publicationId));
+    }
+
+    // 38F. Telegram Security & Operations Audit Logs (Append-only for server/admin, immutable)
+    match /telegramAuditLogs/{logId} {
+      allow get: if isValidId(logId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create: if isValidId(logId) &&
+        isValidTelegramAuditLog(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramAuditLogs', logId));
+      allow update, delete: if false;
+    }
+
+    // 38G. Telegram Premium Custom Emoji Registry (Admin/server-only)
+    match /telegramCustomEmojis/{emojiId} {
+      allow get: if isValidId(emojiId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(emojiId) &&
+        isValidTelegramCustomEmoji(incoming()) &&
+        (isContentAdmin() || isSuperAdmin() || isVerifiedServerWrite('telegramCustomEmojis', emojiId));
+      allow delete: if isValidId(emojiId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramCustomEmojis', emojiId));
+    }
   }
 }
 

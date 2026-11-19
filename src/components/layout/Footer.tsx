@@ -18,17 +18,10 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
           {/* Col 1: Brand & Regional Identity */}
           <div className="space-y-3.5">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-[#DFBD69]/75 shadow-md shrink-0 bg-[#041D13]">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#DFBD69]/85 shadow-md shrink-0 bg-white">
                 <img
                   src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
-                  alt="MuhammadSolih Hoji Jome Masjidi Rasmiy Logosi"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="w-11 h-11 rounded-xl overflow-hidden border border-[#DFBD69]/75 shadow-md shrink-0 bg-[#041D13]">
-                <img
-                  src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
-                  alt="ASAKA ZIYO Rasmiy Brend Logosi"
+                  alt="ASAKA ZIYO — MuhammadSolih Hoji Jome Masjidi Rasmiy Logosi"
                   className="w-full h-full object-cover"
                 />
               </div>

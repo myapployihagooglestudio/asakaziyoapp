@@ -114,11 +114,11 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => handleNavClick('home')}
             className="group flex items-center gap-2.5 text-left text-[#03170F] dark:text-[#FFF8E8] whitespace-nowrap shrink-0 focus-visible:outline-none cursor-pointer min-h-[42px]"
           >
-            <div className="relative w-10 h-10 rounded-full overflow-hidden bg-[radial-gradient(circle_at_30%_25%,#092E1F_0%,#041D13_60%,#010906_100%)] flex items-center justify-center border-2 border-[#DFBD69]/80 group-hover:border-[#FFF6C8] transition-all shadow-[0_4px_16px_rgba(212,175,55,0.32),inset_0_1px_0_rgba(255,246,200,0.3)]">
+            <div className="relative w-10 h-10 rounded-full overflow-hidden bg-white flex items-center justify-center border-2 border-[#DFBD69]/85 group-hover:border-[#FFF6C8] transition-all shadow-[0_4px_16px_rgba(212,175,55,0.32)]">
               <img
-                src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
-                alt="ASAKA ZIYO Official Brand Logo"
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                alt="ASAKA ZIYO Rasmiy Logosi"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             </div>
             <div className="flex flex-col">

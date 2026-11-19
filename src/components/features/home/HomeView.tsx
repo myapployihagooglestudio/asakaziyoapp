@@ -1440,10 +1440,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
         >
           <GeometricPattern opacity={0.05} />
           <div className="relative z-10 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#C6A45C]/20 border border-[#C6A45C]/65 flex items-center justify-center text-[#DCC58C] shrink-0 shadow-md">
+            <div className="w-12 h-12 rounded-full overflow-hidden bg-white border-2 border-[#C6A45C]/75 flex items-center justify-center shrink-0 shadow-md">
               <img
-                src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
-                alt="ASAKA ZIYO APK v3.0.0"
+                src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                alt="ASAKA ZIYO Mobil Ilovasi Rasmiy Logosi"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -1838,11 +1838,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
               ornamental
               className="p-5 flex flex-col items-center text-center justify-between gap-4"
             >
-              <div className="w-36 h-36 rounded-2xl overflow-hidden border-2 border-[#DFBD69] shadow-[0_12px_32px_rgba(0,0,0,0.55)] bg-[#041D13]">
+              <div className="w-36 h-36 rounded-full overflow-hidden border-2 border-[#DFBD69] shadow-[0_12px_32px_rgba(0,0,0,0.55)] bg-white p-1">
                 <img
-                  src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
+                  src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
                   alt="ASAKA ZIYO Rasmiy Brend Logotipi"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full rounded-full object-cover"
                 />
               </div>
               <div className="space-y-1">

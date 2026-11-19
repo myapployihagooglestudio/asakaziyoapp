@@ -442,6 +442,131 @@
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["id", "title", "body", "priority", "isActive", "updatedAt"]
+    },
+    "TelegramUser": {
+      "title": "TelegramUser",
+      "description": "Isolated ASAKA ZIYO Telegram Bot user registration, 5-language preference, and notification flags",
+      "type": "object",
+      "properties": {
+        "telegramId": { "type": "string", "maxLength": 64 },
+        "chatId": { "type": "string", "maxLength": 64 },
+        "username": { "type": "string", "maxLength": 128 },
+        "firstName": { "type": "string", "maxLength": 128 },
+        "lastName": { "type": "string", "maxLength": 128 },
+        "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
+        "prayerNotificationsEnabled": { "type": "boolean" },
+        "dailyContentNotificationsEnabled": { "type": "boolean" },
+        "isBlocked": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "lastSeenAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["telegramId", "chatId", "language", "prayerNotificationsEnabled", "dailyContentNotificationsEnabled", "isBlocked", "createdAt", "updatedAt"]
+    },
+    "TelegramBotSettings": {
+      "title": "TelegramBotSettings",
+      "description": "Isolated global runtime settings for the ASAKA ZIYO Telegram Platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "defaultLanguage": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
+        "maintenanceMode": { "type": "boolean" },
+        "premiumEmojiEnabled": { "type": "boolean" },
+        "premiumEmojiEligibilityVerified": { "type": "boolean" },
+        "miniAppEnabled": { "type": "boolean" },
+        "aiAssistantEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "defaultLanguage", "maintenanceMode", "premiumEmojiEnabled", "updatedAt"]
+    },
+    "TelegramChannel": {
+      "title": "TelegramChannel",
+      "description": "Registered Telegram channels managed by ASAKA ZIYO Telegram Platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 128 },
+        "chatId": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 200 },
+        "isPrimary": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "autoPublishPrayerTimes": { "type": "boolean" },
+        "autoPublishAnnouncements": { "type": "boolean" },
+        "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "username", "title", "isActive", "language", "updatedAt"]
+    },
+    "TelegramAdmin": {
+      "title": "TelegramAdmin",
+      "description": "Telegram-scoped operator role record (owner, admin, editor, moderator)",
+      "type": "object",
+      "properties": {
+        "telegramId": { "type": "string", "maxLength": 64 },
+        "username": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 160 },
+        "role": { "type": "string", "enum": ["owner", "admin", "editor", "moderator"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["telegramId", "role", "isActive", "updatedAt"]
+    },
+    "TelegramPublication": {
+      "title": "TelegramPublication",
+      "description": "Isolated publication history for Telegram channel dispatches",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "channelId": { "type": "string", "maxLength": 128 },
+        "channelUsername": { "type": "string", "maxLength": 128 },
+        "kind": { "type": "string", "enum": ["prayer_times", "announcement", "article", "manual"] },
+        "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
+        "textPreview": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["draft", "scheduled", "sent", "failed"] },
+        "telegramMessageId": { "type": "number" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "sentAt": { "type": "string", "maxLength": 64 },
+        "error": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "channelId", "kind", "language", "status", "createdAt"]
+    },
+    "TelegramAuditLog": {
+      "title": "TelegramAuditLog",
+      "description": "Security and administrative audit trail scoped exclusively to Telegram Platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "actorTelegramId": { "type": "string", "maxLength": 64 },
+        "actorRole": { "type": "string", "enum": ["owner", "admin", "editor", "moderator", "user", "system"] },
+        "action": { "type": "string", "maxLength": 160 },
+        "targetType": { "type": "string", "maxLength": 64 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "actorTelegramId", "actorRole", "action", "targetType", "createdAt"]
+    },
+    "TelegramCustomEmoji": {
+      "title": "TelegramCustomEmoji",
+      "description": "Centralized Telegram Premium Custom Emoji Registry entry with verified numeric ID and Unicode fallback",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "enum": ["brand", "navigation", "prayer", "language", "settings", "status", "channel", "calendar"] },
+        "unicodeFallback": { "type": "string", "maxLength": 16 },
+        "customEmojiId": { "type": "string", "maxLength": 32 },
+        "verified": { "type": "boolean" },
+        "verifiedAt": { "type": "string", "maxLength": 64 },
+        "stickerSetName": { "type": "string", "maxLength": 128 },
+        "supportsKeyboardIcon": { "type": "boolean" },
+        "description": { "type": "string", "maxLength": 240 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["key", "category", "unicodeFallback", "verified", "supportsKeyboardIcon", "updatedAt"]
     }
   },
   "firestore": {
@@ -560,6 +685,34 @@
     "/displayAnnouncements/{announcementId}": {
       "schema": "DisplayAnnouncement",
       "description": "Admin-managed multilingual announcements and slides for Smart Mosque Display monitors"
+    },
+    "/telegramUsers/{userId}": {
+      "schema": "TelegramUser",
+      "description": "Isolated ASAKA ZIYO Telegram Bot users (admin/server-only access)"
+    },
+    "/telegramSettings/{settingId}": {
+      "schema": "TelegramBotSettings",
+      "description": "Isolated ASAKA ZIYO Telegram Platform runtime configuration (admin/server-only access)"
+    },
+    "/telegramChannels/{channelId}": {
+      "schema": "TelegramChannel",
+      "description": "Isolated Telegram channel registry (@Asaka_Ziyo, @muhiddinsahhofuz)"
+    },
+    "/telegramAdmins/{adminId}": {
+      "schema": "TelegramAdmin",
+      "description": "Isolated Telegram Platform operator RBAC assignments (superadmin/server-only)"
+    },
+    "/telegramPublications/{publicationId}": {
+      "schema": "TelegramPublication",
+      "description": "Isolated Telegram channel publication dispatch history"
+    },
+    "/telegramAuditLogs/{logId}": {
+      "schema": "TelegramAuditLog",
+      "description": "Isolated Telegram Platform security and operational audit trail"
+    },
+    "/telegramCustomEmojis/{emojiId}": {
+      "schema": "TelegramCustomEmoji",
+      "description": "Centralized Telegram Premium Custom Emoji Registry (verified IDs + Unicode fallbacks)"
     }
   }
 }

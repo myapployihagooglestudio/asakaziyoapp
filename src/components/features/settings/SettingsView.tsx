@@ -232,13 +232,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
             <img
               src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
-              alt="MuhammadSolih Hoji Jome Masjidi Rasmiy Muhr Logosi"
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#DFBD69] shadow-xl"
-            />
-            <img
-              src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
-              alt="ASAKA ZIYO Rasmiy Brend Nishoni"
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-[#DFBD69] shadow-xl"
+              alt="ASAKA ZIYO — MuhammadSolih Hoji Jome Masjidi Rasmiy Logosi"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-white border-2 border-[#DFBD69] shadow-xl"
             />
           </div>
         </div>
@@ -825,9 +820,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <img
-                src="/assets/aistudio/file_0000000087dc8246a5c928f8312a5a0e_6755725a.png"
-                alt="ASAKA ZIYO APK Icon"
-                className="w-10 h-10 rounded-xl object-cover border border-[#DFBD69]/50"
+                src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                alt="ASAKA ZIYO Mobil Ilovasi Rasmiy Logosi"
+                className="w-11 h-11 rounded-full object-cover bg-white border-2 border-[#DFBD69]/70"
               />
               <div>
                 <div className="flex items-center gap-2">

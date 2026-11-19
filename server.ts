@@ -30,6 +30,7 @@ import {
   verifyMp4FileIntegrity,
 } from './server/quranQuizVideoRenderer';
 import { createSmartMosqueDisplayRouter } from './server/smartMosqueDisplayRouter';
+import { createTelegramPlatformRouter } from './telegram/bot/router';
 
 
 // Force IPv4 resolution first to prevent 10s IPv6 AAAA timeout delays on outbound API calls
@@ -5709,6 +5710,17 @@ app.use(
     serverReadFirestoreCollection,
   })
 );
+
+// ASAKA ZIYO Telegram Platform (Isolated Phase 1 Module — mounted strictly under /api/telegram/platform/*)
+const telegramPlatform = createTelegramPlatformRouter({
+  requireAdminAuth,
+  sensitiveActionLimiter,
+  serverWriteFirestoreDoc,
+  serverDeleteFirestoreDoc,
+  serverReadFirestoreCollection,
+  readOnlyPrayerProvider: () => readDatabase().prayerSchedule || null,
+});
+app.use('/api/telegram/platform', telegramPlatform.router);
 
 // Explicit API 404 JSON Guard — prevents any /api/* request from falling through to Vite/SPA index.html
 app.all('/api/*', (req: Request, res: Response) => {

@@ -80,7 +80,9 @@
     <meta property="og:title" content="ASAKA ZIYO — Premium Islamic Digital Ecosystem" />
     <meta property="og:description" content="Asaka shahri va mintaqa ahli uchun mo'ljallangan ilmiy-ma'rifiy islomiy raqamli platforma. Qur'oni Karim, hadislar, zikrlar, Asaka namoz vaqtlari va ma'muriyat konsoli." />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="/pwa-512x512.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/pwa-512x512.png" />
     <meta name="theme-color" content="#031814" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -90,10 +92,11 @@
 
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="alternate" type="application/manifest+json" href="./manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="icon" href="./favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa-192x192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="./pwa-512x512.png" />
-    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
 
     <!-- Google Fonts loaded non-blocking so offline mobile APK startup never hangs -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -124,8 +127,8 @@
     <div id="root">
       <!-- Pre-mount shell automatically replaced by React createRoot().render() -->
       <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#031814;color:#F8F5EC;font-family:system-ui,-apple-system,sans-serif;padding:24px;text-align:center;">
-        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#075747,#042B25);border:1px solid rgba(198,164,92,0.55);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 12px 32px rgba(0,0,0,0.35);">
-          <span style="color:#DCC58C;font-size:24px;line-height:1;">۞</span>
+        <div style="width:76px;height:76px;border-radius:9999px;overflow:hidden;background:#FFFFFF;border:2px solid rgba(223,189,105,0.85);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 14px 36px rgba(0,0,0,0.45);">
+          <img src="./pwa-192x192.png" alt="ASAKA ZIYO" style="width:100%;height:100%;object-fit:cover;display:block;" />
         </div>
         <div style="font-size:18px;font-weight:700;letter-spacing:0.14em;color:#F8F5EC;margin-bottom:6px;">ASAKA ZIYO</div>
         <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#C6A45C;">Islomiy Raqamli Ekotizim</div>
