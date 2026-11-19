@@ -208,6 +208,38 @@ async function runAudit() {
     recordTest('11.2 Server Gate Forgery Block', isPermissionDenied, `Gate protected: ${err.code}`);
   }
 
+  // 11.3 Smart Mosque Display Collections Security
+  try {
+    await getDoc(doc(db, 'displayMonitors', 'any-monitor'));
+    recordTest('11.3 DisplayMonitors Non-Admin Read Block', false, 'Vulnerability: Unauthenticated client read displayMonitors!');
+  } catch (err) {
+    const isPermissionDenied = err.code === 'permission-denied' || String(err).includes('PERMISSION_DENIED');
+    recordTest('11.3 DisplayMonitors Non-Admin Read Block', isPermissionDenied, `DisplayMonitors guarded: ${err.code}`);
+  }
+
+  try {
+    await setDoc(doc(db, 'displayMonitors', 'forged-tv'), { name: 'Hacked TV' });
+    recordTest('11.4 DisplayMonitors Non-Admin Write Block', false, 'Vulnerability: Unauthenticated client wrote displayMonitors!');
+  } catch (err) {
+    const isPermissionDenied = err.code === 'permission-denied' || String(err).includes('PERMISSION_DENIED');
+    recordTest('11.4 DisplayMonitors Non-Admin Write Block', isPermissionDenied, `DisplayMonitors write guarded: ${err.code}`);
+  }
+
+  try {
+    await getDocs(collection(db, 'displaySchedules'));
+    recordTest('11.5 DisplaySchedules Public Read', true, 'DisplaySchedules public read allowed for live TV updates.');
+  } catch (err) {
+    recordTest('11.5 DisplaySchedules Public Read', false, `DisplaySchedules read failed: ${err.message}`);
+  }
+
+  try {
+    await setDoc(doc(db, 'displaySchedules', 'forged-sched'), { mosqueName: 'Fake' });
+    recordTest('11.6 DisplaySchedules Unauth Write Block', false, 'Vulnerability: Unauthenticated client wrote displaySchedules!');
+  } catch (err) {
+    const isPermissionDenied = err.code === 'permission-denied' || String(err).includes('PERMISSION_DENIED');
+    recordTest('11.6 DisplaySchedules Unauth Write Block', isPermissionDenied, `DisplaySchedules write guarded: ${err.code}`);
+  }
+
   // 12. Authenticated Admin Server-Mediated Write, Live Firestore Read-Back, Diagnostics & Cleanup
   const BASE_URL = 'http://127.0.0.1:3000';
   try {

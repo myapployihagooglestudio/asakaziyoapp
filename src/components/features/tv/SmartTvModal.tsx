@@ -49,6 +49,7 @@ interface SmartTvModalProps {
   schedule: PrayerSchedule;
   dailyAyah: Ayah;
   dailyHadith: HadithItem;
+  onOpenSmartDisplay?: () => void;
 }
 
 type TvFocusableZone = 'prev' | 'play' | 'next' | 'mode' | 'fullscreen' | 'close';
@@ -67,6 +68,7 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
   schedule,
   dailyAyah,
   dailyHadith,
+  onOpenSmartDisplay,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('12:00:00');
@@ -417,6 +419,17 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {onOpenSmartDisplay && (
+                <button
+                  type="button"
+                  onClick={onOpenSmartDisplay}
+                  className="px-[clamp(10px,0.9vw,18px)] py-[clamp(8px,1vh,16px)] rounded-2xl bg-[#DFBD69] hover:bg-[#ebd08a] text-[#03170F] text-[clamp(10px,0.75vw,15px)] font-extrabold flex items-center gap-1.5 cursor-pointer transition-all shadow-md"
+                  title="Mustaqil 24/7 Smart Mosque Display (/display)"
+                >
+                  <Tv className="w-4 h-4" />
+                  <span className="hidden xl:inline">24/7 Display</span>
+                </button>
+              )}
               <button
                 ref={modeBtnRef}
                 type="button"

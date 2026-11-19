@@ -24,6 +24,7 @@ export type EnterpriseModuleId =
   | 'quran_reciters_audio'
   | 'adhan_library'
   | 'prayer_schedules'
+  | 'smart_mosque_display'
   | 'hadith'
   | 'dhikr_duas'
   | 'articles'
@@ -126,6 +127,15 @@ export const ENTERPRISE_ADMIN_MODULES: EnterpriseAdminModuleMeta[] = [
     group: 'quran_prayer_audio',
     groupLabelUz: 'Qurʼon, Namoz va Audio',
     firestoreCollection: 'schedules',
+  },
+  {
+    id: 'smart_mosque_display',
+    orderNumber: 22,
+    titleUz: '22. Smart Mosque Display (24/7 TV)',
+    subtitleUz: 'Masjid televizorlari, QR/6-xonali ulash, 5 til va 3 dizayn shabloni',
+    group: 'quran_prayer_audio',
+    groupLabelUz: 'Qurʼon, Namoz va Audio',
+    firestoreCollection: 'displayMonitors',
   },
   {
     id: 'hadith',
@@ -390,8 +400,8 @@ export const DEFAULT_RBAC_MATRIX: Record<string, RolePermissionMatrixEntry> = {
   PRAYER_TIMES_MANAGER: {
     role: 'PRAYER_TIMES_MANAGER',
     labelUz: 'Namoz Vaqtlari Boshqaruvchisi (Prayer Times Manager)',
-    descriptionUz: 'Kunlik va oylik namoz vaqtlari taqvimini yangilaydi, ammo foydalanuvchi va admin hisoblarini boshqara olmaydi.',
-    modules: ['dashboard', 'prayer_schedules'],
+    descriptionUz: 'Kunlik/oylik namoz vaqtlari taqvimini va Smart Mosque TV ekranlarini boshqaradi, ammo foydalanuvchi va admin hisoblarini boshqara olmaydi.',
+    modules: ['dashboard', 'prayer_schedules', 'smart_mosque_display'],
     actions: ['view', 'create', 'edit', 'publish'],
   },
   EDITOR: {
@@ -439,8 +449,8 @@ export const DEFAULT_RBAC_MATRIX: Record<string, RolePermissionMatrixEntry> = {
   PRAYER_ADMIN: {
     role: 'PRAYER_ADMIN',
     labelUz: 'Namoz Vaqtlari Masʼuli',
-    descriptionUz: 'Namoz vaqtlari jadvali boshqaruvi.',
-    modules: ['dashboard', 'prayer_schedules'],
+    descriptionUz: 'Namoz vaqtlari jadvali va Smart Mosque TV boshqaruvi.',
+    modules: ['dashboard', 'prayer_schedules', 'smart_mosque_display'],
     actions: ['view', 'create', 'edit', 'publish'],
   },
   NOTIFICATION_ADMIN: {

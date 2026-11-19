@@ -31,7 +31,8 @@ export type NavigationTab =
   | 'ask_imam'
   | 'achievements'
   | 'ai_assistant'
-  | 'search';
+  | 'search'
+  | 'display';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 

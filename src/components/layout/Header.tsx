@@ -213,6 +213,19 @@ export const Header: React.FC<HeaderProps> = ({
                         );
                       })}
                     </div>
+                    <div className="mt-3 pt-2.5 border-t border-[#063D32]/12 dark:border-[#DFBD69]/25">
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick('display')}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#063D32] hover:bg-[#084d3f] text-[#FFF8E8] border border-[#DFBD69]/55 text-xs font-extrabold flex items-center justify-between cursor-pointer transition-all"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Tv className="w-4 h-4 text-[#DFBD69]" />
+                          <span>Smart Mosque Display (24/7 TV · /display)</span>
+                        </span>
+                        <span className="text-[#DFBD69]">→</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}

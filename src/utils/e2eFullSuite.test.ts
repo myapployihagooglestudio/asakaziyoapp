@@ -522,8 +522,8 @@ async function runFullE2ESuite() {
   // ---------------------------------------------------------------------------
   console.log('\n--- 6. Testing Enterprise Admin Control Center (27 Modules + Dashboard), 8-Role RBAC & Media Library ---');
   assert(
-    ENTERPRISE_ADMIN_MODULES.length === 28,
-    'Enterprise Admin Control Center defines central dashboard + all 27 active management modules'
+    ENTERPRISE_ADMIN_MODULES.length === 29,
+    'Enterprise Admin Control Center defines central dashboard + all 28 active management modules (including Smart Mosque Display)'
   );
 
   // Test 8 Administrator Roles & Module-Specific Permissions
@@ -1291,6 +1291,146 @@ async function runFullE2ESuite() {
       finalDbCheck.data.dhikrs.length >= 2 &&
       finalDbCheck.data.prayerSchedule.times.length === 8,
     `FIRESTORE TEST 9: Production data integrity preserved (${finalDbCheck.data.articles.length} articles, ${finalDbCheck.data.hadiths.length} hadiths, ${finalDbCheck.data.dhikrs.length} dhikrs, 8 prayer times)`
+  );
+
+  // ---------------------------------------------------------------------------
+  // 12. SMART MOSQUE DISPLAY SYSTEM — E2E PAIRING, SYNC, HEARTBEAT & SECURITY
+  // ---------------------------------------------------------------------------
+  console.log('\n--- 12. Testing Smart Mosque Display System (Pairing, Live Sync, Heartbeat & Security Isolation) ---');
+
+  // 12.1 Unauthenticated access to admin display overview must be rejected (401)
+  const unauthDisplayAdminRes = await fetch(`${BASE_URL}/api/admin/display/overview`);
+  assert(
+    unauthDisplayAdminRes.status === 401,
+    'SMART DISPLAY 1: Unauthenticated access to /api/admin/display/overview is rejected (401)'
+  );
+
+  // 12.2 Admin loads overview & creates a dedicated test monitor
+  const displayOverviewRes = await fetch(`${BASE_URL}/api/admin/display/overview`, {
+    headers: { Authorization: `Bearer ${fsAdminToken}` },
+  });
+  const displayOverviewJson = await displayOverviewRes.json();
+  assert(
+    displayOverviewRes.status === 200 &&
+      displayOverviewJson.success === true &&
+      Array.isArray(displayOverviewJson.data?.schedules) &&
+      displayOverviewJson.data.schedules.some((s: any) => s.id === 'asaka-main'),
+    'SMART DISPLAY 2: Admin overview returns live schedules (including asaka-main) and fleet status'
+  );
+
+  const createMonRes = await fetch(`${BASE_URL}/api/admin/display/monitors`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fsAdminToken}`,
+    },
+    body: JSON.stringify({
+      name: 'E2E Test TV Monitor',
+      mosqueName: '«MuhammadSolih Hoji» Jomeʼ Masjidi',
+      locationLabel: 'E2E Verification Hall',
+      scheduleId: 'asaka-main',
+      language: 'uz-Latn-new',
+      template: 'premium_emerald',
+    }),
+  });
+  const createMonJson = await createMonRes.json();
+  const createdMonitorId = createMonJson.monitor?.id as string;
+  const createdPairingCode = createMonJson.monitor?.pairingCode as string;
+  assert(
+    createMonRes.status === 201 &&
+      Boolean(createdMonitorId) &&
+      /^\d{6}$/.test(createdPairingCode || ''),
+    `SMART DISPLAY 3: Admin creates TV monitor and receives 6-digit pairing code (${createdPairingCode})`
+  );
+
+  // 12.3 TV pairs with the 6-digit code and receives a scoped monitor token (asaka_disp_...)
+  const pairRes = await fetch(`${BASE_URL}/api/display/pair`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pairingCode: createdPairingCode,
+      deviceInfo: { resolution: '3840x2160', fullscreen: true, wakeLockActive: true },
+    }),
+  });
+  const pairJson = await pairRes.json();
+  const tvMonitorToken = pairJson.monitorToken as string;
+  assert(
+    pairRes.status === 200 &&
+      pairJson.success === true &&
+      typeof tvMonitorToken === 'string' &&
+      tvMonitorToken.startsWith('asaka_disp_') &&
+      !pairJson.monitor?.pairingCode &&
+      !pairJson.monitor?.tokenHash,
+    'SMART DISPLAY 4: TV pairs via 6-digit code, receives scoped asaka_disp_ token, and sensitive pairing secrets are stripped'
+  );
+
+  // 12.4 SECURITY ISOLATION: TV monitor token MUST be rejected from admin endpoints
+  const tvToAdminOverviewRes = await fetch(`${BASE_URL}/api/admin/display/overview`, {
+    headers: { Authorization: `Bearer ${tvMonitorToken}` },
+  });
+  const tvToAdminWriteRes = await fetch(`${BASE_URL}/api/admin/firestore/write`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tvMonitorToken}`,
+    },
+    body: JSON.stringify({ collectionName: 'schedules', docId: 'asaka-main', data: { hacked: true } }),
+  });
+  assert(
+    (tvToAdminOverviewRes.status === 401 || tvToAdminOverviewRes.status === 403) &&
+      (tvToAdminWriteRes.status === 401 || tvToAdminWriteRes.status === 403),
+    'SMART DISPLAY 5: Scoped TV monitor token is strictly blocked (401/403) from all admin endpoints'
+  );
+
+  // 12.5 TV sync & heartbeat update live online status
+  const hbRes = await fetch(`${BASE_URL}/api/display/heartbeat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tvMonitorToken}`,
+    },
+    body: JSON.stringify({ resolution: '3840x2160', fullscreen: true, wakeLockActive: true }),
+  });
+  const hbJson = await hbRes.json();
+  const tvSyncRes = await fetch(`${BASE_URL}/api/display/sync`, {
+    headers: { Authorization: `Bearer ${tvMonitorToken}` },
+  });
+  const tvSyncJson = await tvSyncRes.json();
+  assert(
+    hbRes.status === 200 &&
+      hbJson.success === true &&
+      tvSyncRes.status === 200 &&
+      tvSyncJson.mode === 'paired' &&
+      tvSyncJson.monitor?.language === 'uz-Latn-new' &&
+      tvSyncJson.monitor?.template === 'premium_emerald' &&
+      Array.isArray(tvSyncJson.schedule?.times) &&
+      tvSyncJson.schedule.times.length === 8,
+    'SMART DISPLAY 6: TV heartbeat & sync deliver paired config, 8 admin prayer times, and online status'
+  );
+
+  // 12.6 Admin disables monitor -> TV sync immediately reflects disabled status -> Admin cleans up test monitor
+  const disableMonRes = await fetch(`${BASE_URL}/api/admin/display/monitors/${createdMonitorId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${fsAdminToken}`,
+    },
+    body: JSON.stringify({ status: 'disabled' }),
+  });
+  const disabledSyncJson = await (
+    await fetch(`${BASE_URL}/api/display/sync`, {
+      headers: { Authorization: `Bearer ${tvMonitorToken}` },
+    })
+  ).json();
+  const deleteMonRes = await fetch(`${BASE_URL}/api/admin/display/monitors/${createdMonitorId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${fsAdminToken}` },
+  });
+  assert(
+    disableMonRes.status === 200 &&
+      disabledSyncJson.monitorStatus === 'disabled' &&
+      deleteMonRes.status === 200,
+    'SMART DISPLAY 7: Admin pause/disable propagates immediately to TV screen and test monitor cleaned up'
   );
 
   console.log('\n================================================================');

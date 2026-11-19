@@ -72,6 +72,7 @@ import { GlobalSearchView } from './components/features/search/GlobalSearchView'
 import { GlobalSearchModal } from './components/features/search/GlobalSearchModal';
 import { IslamicAchievementsView } from './components/features/profile/IslamicAchievementsView';
 import { SmartTvModal } from './components/features/tv/SmartTvModal';
+import { SmartMosqueDisplayPage } from './components/features/tv/SmartMosqueDisplayPage';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
 import { PrivacyPolicyModal } from './components/features/legal/PrivacyPolicyModal';
@@ -97,6 +98,9 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const pathName = (window.location.pathname || '').toLowerCase();
       const hashVal = (window.location.hash || '').toLowerCase();
+      if (pathName.startsWith('/display') || hashVal === '#display') {
+        return 'display';
+      }
       if (pathName.startsWith('/admin') || hashVal.includes('admin')) {
         return 'admin';
       }
@@ -307,7 +311,13 @@ export default function App() {
     setActiveTab(tab);
     try {
       if (typeof window !== 'undefined' && window.history?.pushState) {
-        window.history.pushState({ tab }, '', `#${tab}`);
+        if (tab === 'display') {
+          window.history.pushState({ tab }, '', '/display');
+        } else if (window.location.pathname.startsWith('/display')) {
+          window.history.pushState({ tab }, '', `/#${tab}`);
+        } else {
+          window.history.pushState({ tab }, '', `#${tab}`);
+        }
       }
     } catch {
       // ignore
@@ -319,6 +329,10 @@ export default function App() {
   // Preserve browser back/forward navigation history & global keyboard shortcuts (Ctrl+K, Shift+T)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      if (window.location.pathname.toLowerCase().startsWith('/display')) {
+        setActiveTab('display');
+        return;
+      }
       const stateTab = e.state?.tab as NavigationTab | undefined;
       if (stateTab) {
         setActiveTab(stateTab);
@@ -436,6 +450,24 @@ export default function App() {
   }, [prayerSchedule]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+  // Standalone full-bleed 24/7 Smart Mosque Display screen (/display)
+  if (activeTab === 'display') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <SmartMosqueDisplayPage
+          onExitToApp={() => {
+            try {
+              window.history.pushState({ tab: 'home' }, '', '/');
+            } catch {
+              // ignore
+            }
+            setActiveTab('home');
+          }}
+        />
+      </MotionConfig>
+    );
+  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -697,6 +729,7 @@ export default function App() {
             {[
               { id: 'home', label: 'Bosh sahifa' },
               { id: 'prayer', label: 'Namoz vaqtlari' },
+              { id: 'display', label: 'Smart Mosque Display (24/7 TV)' },
               { id: 'quran', label: 'Qurʼoni Karim' },
               { id: 'quran_quiz', label: 'Qurʼon Viktorinasi (Shorts)' },
               { id: 'hadith', label: 'Hadislar toʻplami' },
@@ -781,6 +814,10 @@ export default function App() {
         schedule={prayerSchedule}
         dailyAyah={DAILY_FEATURED_AYAH}
         dailyHadith={FEATURED_DAILY_HADITH}
+        onOpenSmartDisplay={() => {
+          setIsTvModalOpen(false);
+          handleNavigate('display');
+        }}
       />
 
       {/* First-Launch Skippable Onboarding & Personalization Modal */}

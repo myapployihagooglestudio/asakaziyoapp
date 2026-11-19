@@ -364,6 +364,84 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "contentId", "reason", "status", "createdAt"]
+    },
+    "DisplayMonitor": {
+      "title": "DisplayMonitor",
+      "description": "Smart Mosque Display TV/LED monitor registration, pairing state, template, language, and heartbeat telemetry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 160 },
+        "mosqueName": { "type": "string", "maxLength": 200 },
+        "locationLabel": { "type": "string", "maxLength": 200 },
+        "scheduleId": { "type": "string", "maxLength": 128 },
+        "pairingCode": { "type": "string", "maxLength": 12 },
+        "status": { "type": "string", "enum": ["active", "disabled", "blocked"] },
+        "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
+        "template": { "type": "string", "enum": ["classic_mosque", "premium_emerald", "minimal_modern"] },
+        "settings": { "type": "object" },
+        "tokenHash": { "type": "string", "maxLength": 128 },
+        "lastHeartbeatAt": { "type": "string", "maxLength": 64 },
+        "lastSyncAt": { "type": "string", "maxLength": 64 },
+        "version": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "scheduleId", "status", "language", "template", "updatedAt"]
+    },
+    "DisplayConnection": {
+      "title": "DisplayConnection",
+      "description": "Paired Smart Mosque Display TV device connection log and live heartbeat status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "monitorId": { "type": "string", "maxLength": 128 },
+        "monitorName": { "type": "string", "maxLength": 160 },
+        "pairedAt": { "type": "string", "maxLength": 64 },
+        "lastHeartbeatAt": { "type": "string", "maxLength": 64 },
+        "resolution": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["connected", "disconnected", "revoked"] }
+      },
+      "required": ["id", "monitorId", "pairedAt", "status"]
+    },
+    "DisplaySchedule": {
+      "title": "DisplaySchedule",
+      "description": "Administrator-verified prayer schedule profile for Smart Mosque Display including Azan, Iqamah, Ishraq, Juma, and validity dates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "mosqueName": { "type": "string", "maxLength": 200 },
+        "location": { "type": "string", "maxLength": 200 },
+        "timezone": { "type": "string", "maxLength": 64 },
+        "effectiveDate": { "type": "string", "maxLength": 32 },
+        "validUntil": { "type": "string", "maxLength": 32 },
+        "hijriDate": { "type": "string", "maxLength": 120 },
+        "ishraqTime": { "type": "string", "maxLength": 16 },
+        "jumaTime": { "type": "string", "maxLength": 16 },
+        "jumaIqamahTime": { "type": "string", "maxLength": 16 },
+        "isAdministratorPublished": { "type": "boolean" },
+        "times": { "type": "array" },
+        "version": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "mosqueName", "effectiveDate", "validUntil", "times", "updatedAt"]
+    },
+    "DisplayAnnouncement": {
+      "title": "DisplayAnnouncement",
+      "description": "Multilingual Smart Mosque Display ticker announcements and media slides",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 240 },
+        "body": { "type": "string", "maxLength": 1500 },
+        "priority": { "type": "string", "enum": ["normal", "important", "urgent"] },
+        "mediaUrl": { "type": "string", "maxLength": 1000 },
+        "isActive": { "type": "boolean" },
+        "displayDurationSec": { "type": "number" },
+        "version": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "title", "body", "priority", "isActive", "updatedAt"]
     }
   },
   "firestore": {
@@ -466,6 +544,22 @@
     "/ugcReports/{reportId}": {
       "schema": "UGCReport",
       "description": "User moderation reports for comments and user-generated content"
+    },
+    "/displayMonitors/{monitorId}": {
+      "schema": "DisplayMonitor",
+      "description": "Registered Smart Mosque Display TV/LED monitors (admin-only reads and writes)"
+    },
+    "/displayConnections/{connectionId}": {
+      "schema": "DisplayConnection",
+      "description": "Active and historical paired Smart Mosque Display device sessions"
+    },
+    "/displaySchedules/{scheduleId}": {
+      "schema": "DisplaySchedule",
+      "description": "Administrator-verified Smart Mosque Display prayer schedules with Ishraq, Juma, and validity dates"
+    },
+    "/displayAnnouncements/{announcementId}": {
+      "schema": "DisplayAnnouncement",
+      "description": "Admin-managed multilingual announcements and slides for Smart Mosque Display monitors"
     }
   }
 }

@@ -373,3 +373,100 @@ export async function fetchAllFromSupabase(): Promise<{
     return { success: false, error: err?.message };
   }
 }
+
+/**
+ * Secondary backup synchronization for Smart Mosque Display monitors, schedules, and announcements.
+ * Never blocks Firestore primary storage or offline local cache.
+ */
+export async function syncDisplaySystemToSupabase(payload: {
+  monitors?: any[];
+  displaySchedules?: any[];
+  displayAnnouncements?: any[];
+}): Promise<SupabaseSyncResult> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: 'Supabase backup not configured or disabled.' };
+  }
+
+  const syncedTables: string[] = [];
+  const failedTables: { table: string; error: string }[] = [];
+
+  const safeUpsert = async (table: string, rows: Record<string, any>[]) => {
+    if (!rows || rows.length === 0) return;
+    try {
+      await withRetry(async () => {
+        const { error } = await client.from(table).upsert(rows, { onConflict: 'id' });
+        if (error) throw error;
+      }, 1, 400);
+      syncedTables.push(table);
+    } catch (err: any) {
+      failedTables.push({ table, error: err?.message || 'Supabase upsert error' });
+    }
+  };
+
+  if (payload.monitors && payload.monitors.length > 0) {
+    await safeUpsert(
+      'display_monitors',
+      payload.monitors.map((m) => ({
+        id: m.id,
+        name: m.name,
+        mosque_name: m.mosqueName,
+        location_label: m.locationLabel,
+        schedule_id: m.scheduleId,
+        status: m.status,
+        language: m.language,
+        template: m.template,
+        settings: m.settings,
+        last_heartbeat_at: m.lastHeartbeatAt || null,
+        version: m.version || 1,
+        updated_at: m.updatedAt || new Date().toISOString(),
+      }))
+    );
+  }
+
+  if (payload.displaySchedules && payload.displaySchedules.length > 0) {
+    await safeUpsert(
+      'display_schedules',
+      payload.displaySchedules.map((s) => ({
+        id: s.id,
+        mosque_name: s.mosqueName,
+        location: s.location,
+        effective_date: s.effectiveDate,
+        valid_until: s.validUntil,
+        hijri_date: s.hijriDate,
+        ishraq_time: s.ishraqTime,
+        juma_time: s.jumaTime,
+        juma_iqamah_time: s.jumaIqamahTime,
+        times: s.times,
+        is_published: Boolean(s.isAdministratorPublished),
+        version: s.version || 1,
+        updated_at: s.updatedAt || new Date().toISOString(),
+      }))
+    );
+  }
+
+  if (payload.displayAnnouncements && payload.displayAnnouncements.length > 0) {
+    await safeUpsert(
+      'display_announcements',
+      payload.displayAnnouncements.map((a) => ({
+        id: a.id,
+        title: a.title,
+        body: a.body,
+        translations: a.translations || null,
+        priority: a.priority || 'normal',
+        media_url: a.mediaUrl || null,
+        is_active: a.isActive !== false,
+        display_duration_sec: a.displayDurationSec || 10,
+        version: a.version || 1,
+        updated_at: a.updatedAt || new Date().toISOString(),
+      }))
+    );
+  }
+
+  return {
+    success: syncedTables.length > 0,
+    syncedTables,
+    failedTables: failedTables.length > 0 ? failedTables : undefined,
+  };
+}
+

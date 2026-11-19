@@ -73,6 +73,7 @@ import {
   Activity,
   Zap,
   BarChart3,
+  Tv,
 } from 'lucide-react';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -200,6 +201,7 @@ import {
   DEFAULT_RBAC_MATRIX,
 } from '../../../utils/enterpriseAdminService';
 import { EnterpriseAudioAndModulesWorkspaces } from './EnterpriseAudioAndModulesWorkspaces';
+import { SmartMosqueDisplayAdmin } from './SmartMosqueDisplayAdmin';
 
 interface AdminPortalProps {
   currentSchedule: PrayerSchedule;
@@ -213,6 +215,7 @@ type AdminTab =
   | 'users'
   | 'drafts'
   | 'prayer_schedule'
+  | 'smart_mosque_display'
   | 'content'
   | 'archive'
   | 'inquiries'
@@ -2126,6 +2129,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     case 'prayer_schedules':
                       setActiveTab('prayer_schedule');
                       break;
+                    case 'smart_mosque_display':
+                      setActiveTab('smart_mosque_display');
+                      break;
                     case 'hadith':
                       setCmsTab('hadiths');
                       setActiveTab('content');
@@ -2209,6 +2215,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           { id: 'users', label: `Foydalanuvchilar (${usersList.length})`, icon: Users, mod: 'users_profiles' as EnterpriseModuleId },
           { id: 'drafts', label: `Telegram Moderatsiya (${draftsList.filter((d) => d.status === 'pending').length} yangi)`, icon: Inbox, mod: 'comments_moderation' as EnterpriseModuleId },
           { id: 'prayer_schedule', label: '8 Namoz Vaqtlari', icon: Clock, mod: 'prayer_schedules' as EnterpriseModuleId },
+          { id: 'smart_mosque_display', label: 'Smart Mosque Display (TV)', icon: Tv, mod: 'smart_mosque_display' as EnterpriseModuleId },
           { id: 'notifications', label: 'Push & Xabarlar Kanali', icon: Bell, mod: 'notifications_broadcast' as EnterpriseModuleId },
           { id: 'quiz_management', label: 'Kunlik Viktorina', icon: Award, mod: 'quiz_bank' as EnterpriseModuleId },
           { id: 'adhan_settings', label: 'Azon Sozlamalari', icon: Volume2, mod: 'adhan_library' as EnterpriseModuleId },
@@ -2261,6 +2268,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           onStatusMessage={(msg) => {
             setSaveSuccessMsg(msg);
             setTimeout(() => setSaveSuccessMsg(null), 3500);
+          }}
+        />
+      ) : activeTab === 'smart_mosque_display' ? (
+        <SmartMosqueDisplayAdmin
+          currentMainSchedule={currentSchedule}
+          onStatusMessage={(msg) => {
+            setSaveSuccessMsg(msg);
+            setTimeout(() => setSaveSuccessMsg(null), 4000);
+          }}
+          onMainScheduleUpdated={(updated) => {
+            onUpdateSchedule(updated);
           }}
         />
       ) : null}

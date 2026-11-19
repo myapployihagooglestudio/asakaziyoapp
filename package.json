@@ -11,18 +11,20 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/databaseService.test.ts && tsx src/utils/quran.test.ts && tsx src/utils/quranAudioSync.test.ts && tsx src/utils/quranQuiz.test.ts && tsx src/utils/extendedModules.test.ts && tsx src/utils/e2eFullSuite.test.ts && node scripts/firebase-audit-test.cjs",
+    "test": "tsx src/utils/newUzbekAlphabet.test.ts && tsx src/utils/prayerTimeUtils.test.ts && tsx src/utils/smartMosqueDisplay.test.ts && tsx src/utils/databaseService.test.ts && tsx src/utils/quran.test.ts && tsx src/utils/quranAudioSync.test.ts && tsx src/utils/quranQuiz.test.ts && tsx src/utils/extendedModules.test.ts && tsx src/utils/e2eFullSuite.test.ts && node scripts/firebase-audit-test.cjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^3.0.0",
     "@supabase/supabase-js": "^2.118.0",
+    "@types/qrcode": "^1.5.6",
     "express": "^4.21.2",
     "firebase": "^13.2.0",
     "firebase-admin": "^14.5.0",
     "i18next": "^26.7.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "qrcode": "^1.5.4",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-i18next": "^17.1.11"

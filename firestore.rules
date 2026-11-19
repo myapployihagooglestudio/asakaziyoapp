@@ -571,6 +571,78 @@ service cloud.firestore {
         isAnyAdmin() || isVerifiedServerWrite('ugcReports', reportId)
       );
     }
+
+    // 37. Smart Mosque Display System — Validation Helpers & Hardened Rules
+    function isValidDisplayMonitor(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 160 &&
+        data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 128 &&
+        data.status in ['active', 'disabled', 'blocked'] &&
+        data.language in ['uz-Latn', 'uz-Cyrl', 'uz-Latn-new', 'ru', 'en'] &&
+        data.template in ['classic_mosque', 'premium_emerald', 'minimal_modern'];
+    }
+
+    function isValidDisplayConnection(data) {
+      return data.monitorId is string && data.monitorId.size() >= 1 && data.monitorId.size() <= 128 &&
+        data.status in ['connected', 'disconnected', 'revoked'];
+    }
+
+    function isValidDisplaySchedule(data) {
+      return data.mosqueName is string && data.mosqueName.size() >= 1 && data.mosqueName.size() <= 200 &&
+        data.effectiveDate is string && data.effectiveDate.size() >= 8 && data.effectiveDate.size() <= 32 &&
+        data.validUntil is string && data.validUntil.size() >= 8 && data.validUntil.size() <= 32 &&
+        data.times is list && data.times.size() >= 5 && data.times.size() <= 16;
+    }
+
+    function isValidDisplayAnnouncement(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 240 &&
+        data.body is string && data.body.size() >= 1 && data.body.size() <= 1500 &&
+        data.priority in ['normal', 'important', 'urgent'] &&
+        data.isActive is bool;
+    }
+
+    // 37A. Registered Smart Mosque Monitors (Strictly admin-only read/write; pairing codes & token hashes never exposed to public clients)
+    match /displayMonitors/{monitorId} {
+      allow get: if isValidId(monitorId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(monitorId) &&
+        isValidDisplayMonitor(incoming()) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('displayMonitors', monitorId));
+      allow delete: if isValidId(monitorId) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('displayMonitors', monitorId));
+    }
+
+    // 37B. Smart Mosque Display Device Connections & Heartbeat Logs (Admin-only)
+    match /displayConnections/{connectionId} {
+      allow get: if isValidId(connectionId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(connectionId) &&
+        isValidDisplayConnection(incoming()) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('displayConnections', connectionId));
+      allow delete: if isValidId(connectionId) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('displayConnections', connectionId));
+    }
+
+    // 37C. Smart Mosque Display Verified Prayer Schedules (Public read for TV sync, Admin-only write)
+    match /displaySchedules/{scheduleId} {
+      allow read: if true;
+      allow create, update: if isValidId(scheduleId) &&
+        isValidDisplaySchedule(incoming()) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('displaySchedules', scheduleId));
+      allow delete: if isValidId(scheduleId) &&
+        scheduleId != 'asaka-main' &&
+        (isPrayerAdmin() || isVerifiedServerWrite('displaySchedules', scheduleId));
+    }
+
+    // 37D. Smart Mosque Display Announcements & Media Slides (Public read for TV sync, Admin-only write)
+    match /displayAnnouncements/{announcementId} {
+      allow read: if true;
+      allow create, update: if isValidId(announcementId) &&
+        isValidDisplayAnnouncement(incoming()) &&
+        (isContentAdmin() || isPrayerAdmin() || isVerifiedServerWrite('displayAnnouncements', announcementId));
+      allow delete: if isValidId(announcementId) &&
+        (isContentAdmin() || isPrayerAdmin() || isVerifiedServerWrite('displayAnnouncements', announcementId));
+    }
   }
 }
+
 

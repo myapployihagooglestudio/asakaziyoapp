@@ -29,6 +29,7 @@ import {
   startQuizPartRenderJob,
   verifyMp4FileIntegrity,
 } from './server/quranQuizVideoRenderer';
+import { createSmartMosqueDisplayRouter } from './server/smartMosqueDisplayRouter';
 
 
 // Force IPv4 resolution first to prevent 10s IPv6 AAAA timeout delays on outbound API calls
@@ -729,6 +730,10 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'contentLikes',
   'contentViews',
   'ugcReports',
+  'displayMonitors',
+  'displayConnections',
+  'displaySchedules',
+  'displayAnnouncements',
   '_diagnostics',
   '_metadata',
 ]);
@@ -935,6 +940,10 @@ function syncLocalMirrorForDoc(
       quranReciters: 'quranReciters',
       adhanLibrary: 'adhanLibrary',
       ownAudioLibrary: 'ownAudioLibrary',
+      displayMonitors: 'displayMonitors',
+      displayConnections: 'displayConnections',
+      displaySchedules: 'displaySchedules',
+      displayAnnouncements: 'displayAnnouncements',
     };
 
     const dbKey = arrayCollectionMap[collectionName];
@@ -4705,7 +4714,7 @@ const SERVER_ROLE_MODULES: Record<string, string[]> = {
   ADMIN: ['*'],
   CONTENT_MANAGER: ['dashboard', 'home_featured', 'hadith', 'dhikr_duas', 'articles', 'news', 'announcements', 'quiz_bank', 'mosque_events', 'digital_library'],
   QURAN_AUDIO_MANAGER: ['dashboard', 'quran_translations', 'quran_reciters_audio', 'adhan_library', 'audio_video_media', 'reels_short_videos'],
-  PRAYER_TIMES_MANAGER: ['dashboard', 'prayer_schedules'],
+  PRAYER_TIMES_MANAGER: ['dashboard', 'prayer_schedules', 'smart_mosque_display'],
   EDITOR: ['dashboard', 'articles', 'news', 'announcements', 'hadith', 'dhikr_duas', 'languages_translations'],
   MODERATOR: ['dashboard', 'comments_moderation', 'ask_imam', 'notifications_broadcast'],
   ANALYST: ['dashboard', 'engagement_analytics', 'favorites_saved', 'audit_logs'],
@@ -5686,6 +5695,20 @@ app.get('/delete-account', (_req: Request, res: Response) => {
 </body>
 </html>`);
 });
+
+// Smart Mosque Display System API (Admin Fleet Control + Scoped TV Device Pairing/Sync/Heartbeat)
+app.use(
+  createSmartMosqueDisplayRouter({
+    requireAdminAuth,
+    sensitiveActionLimiter,
+    sessionSecret: ADMIN_SESSION_SECRET,
+    readDatabase,
+    writeDatabase,
+    serverWriteFirestoreDoc,
+    serverDeleteFirestoreDoc,
+    serverReadFirestoreCollection,
+  })
+);
 
 // Explicit API 404 JSON Guard — prevents any /api/* request from falling through to Vite/SPA index.html
 app.all('/api/*', (req: Request, res: Response) => {
