@@ -11,11 +11,48 @@
 
 import { PrayerKey, PrayerSchedule, PrayerTimeEntry, SupportedLocale } from '../types';
 
-export type CanonicalDisplayProfileId =
+export type OriginalDisplayProfileId =
   | 'royal_ivory'
   | 'emerald_royal'
   | 'modern_minimal'
   | 'madina_portrait';
+
+export type Phase2PremiumProfileId =
+  | 'sultan_royal'
+  | 'noor_classic'
+  | 'midnight_premium'
+  | 'vision_modern'
+  | 'islamic_heritage'
+  | 'masjid_al_nabawi';
+
+export type DedicatedTabloProfileId = 'masjid_namoz_tablosa_uz_cyrl';
+
+export type CanonicalDisplayProfileId =
+  | OriginalDisplayProfileId
+  | Phase2PremiumProfileId
+  | DedicatedTabloProfileId;
+
+export const ORIGINAL_DISPLAY_PROFILE_IDS: OriginalDisplayProfileId[] = [
+  'royal_ivory',
+  'emerald_royal',
+  'modern_minimal',
+  'madina_portrait',
+];
+
+export const PHASE2_PREMIUM_PROFILE_IDS: Phase2PremiumProfileId[] = [
+  'sultan_royal',
+  'noor_classic',
+  'midnight_premium',
+  'vision_modern',
+  'islamic_heritage',
+  'masjid_al_nabawi',
+];
+
+export const ALL_CANONICAL_DISPLAY_PROFILE_IDS: CanonicalDisplayProfileId[] = [
+  ...ORIGINAL_DISPLAY_PROFILE_IDS,
+  ...PHASE2_PREMIUM_PROFILE_IDS,
+  'masjid_namoz_tablosa_uz_cyrl',
+];
 
 export type DisplayTemplateId =
   | CanonicalDisplayProfileId
@@ -36,9 +73,38 @@ export function normalizeDisplayTemplate(template?: string | null): CanonicalDis
       return 'modern_minimal';
     case 'madina_portrait':
       return 'madina_portrait';
+    case 'sultan_royal':
+      return 'sultan_royal';
+    case 'noor_classic':
+      return 'noor_classic';
+    case 'midnight_premium':
+      return 'midnight_premium';
+    case 'vision_modern':
+      return 'vision_modern';
+    case 'islamic_heritage':
+      return 'islamic_heritage';
+    case 'masjid_al_nabawi':
+      return 'masjid_al_nabawi';
+    case 'masjid_namoz_tablosa_uz_cyrl':
+      return 'masjid_namoz_tablosa_uz_cyrl';
     default:
       return 'royal_ivory';
   }
+}
+
+export function formatTimeForClockFormat(
+  hhmm: string,
+  clockFormat: '24h' | '12h' = '24h'
+): string {
+  if (!hhmm || clockFormat === '24h') return hhmm;
+  const match = hhmm.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return hhmm;
+  const rawH = Number(match[1]);
+  const mm = match[2];
+  const ss = match[3];
+  const h12 = rawH % 12 === 0 ? 12 : rawH % 12;
+  const hh12 = String(h12).padStart(2, '0');
+  return ss !== undefined ? `${hh12}:${mm}:${ss}` : `${hh12}:${mm}`;
 }
 
 export type DisplayMonitorStatus = 'active' | 'disabled' | 'blocked';
@@ -57,6 +123,10 @@ export interface SmartDisplaySettings {
   fontScale: 'standard' | 'large' | 'xlarge';
   brightnessPct: number;
   autoWakeLock: boolean;
+  clockFormat?: '24h' | '12h';
+  showBackgroundTexture?: boolean;
+  showSideIndicators?: boolean;
+  orientationPreference?: 'auto' | 'portrait' | 'landscape';
 }
 
 export const DEFAULT_SMART_DISPLAY_SETTINGS: SmartDisplaySettings = {
@@ -73,6 +143,10 @@ export const DEFAULT_SMART_DISPLAY_SETTINGS: SmartDisplaySettings = {
   fontScale: 'standard',
   brightnessPct: 100,
   autoWakeLock: true,
+  clockFormat: '24h',
+  showBackgroundTexture: true,
+  showSideIndicators: true,
+  orientationPreference: 'auto',
 };
 
 export interface SmartMosqueScheduleProfile {
@@ -188,7 +262,6 @@ export interface SmartDisplayTimeline {
   nextAzanCountdown: string;
   isNextAzanTomorrow: boolean;
   iqamahPrayerKey: PrayerKey | 'juma' | null;
-  iqamahPrayerNameAr: string;
   iqamahTime: string;
   secondsToIqamah: number;
   iqamahCountdown: string;
@@ -526,7 +599,7 @@ export function computeSmartDisplayTimeline(
           entry: {
             ...base,
             nameUz: 'Juma',
-            nameAr: 'الجُمُعَة',
+            nameAr: '',
             time: jumaAzan,
             iqamahTime: jumaIqamah,
           },
@@ -565,7 +638,6 @@ export function computeSmartDisplayTimeline(
       nextAzanCountdown: '00:00:00',
       isNextAzanTomorrow: false,
       iqamahPrayerKey: null,
-      iqamahPrayerNameAr: 'الصلاة',
       iqamahTime: '--:--',
       secondsToIqamah: 0,
       iqamahCountdown: '00:00:00',
@@ -635,7 +707,6 @@ export function computeSmartDisplayTimeline(
     nextAzanCountdown: formatSecondsHms(secondsToNextAzan),
     isNextAzanTomorrow,
     iqamahPrayerKey: iqamahSlot.key,
-    iqamahPrayerNameAr: iqamahSlot.entry.nameAr,
     iqamahTime: iqamahSlot.iqamahTime,
     secondsToIqamah,
     iqamahCountdown: formatSecondsHms(secondsToIqamah),

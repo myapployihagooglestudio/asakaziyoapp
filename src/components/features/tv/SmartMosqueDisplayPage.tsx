@@ -12,8 +12,10 @@ import {
   validateDisplaySchedule,
 } from '../../../utils/smartMosqueDisplayEngine';
 import {
-  adaptDisplayTextForLocale,
+  DISPLAY_SUPPORTED_LOCALES,
   getDisplayLocaleBundle,
+  localizeHijriDate,
+  sanitizeDisplayDynamicText,
 } from '../../../utils/smartMosqueDisplayI18n';
 import {
   DisplaySyncSnapshot,
@@ -27,11 +29,9 @@ import {
   syncDisplaySnapshotFromServer,
 } from '../../../utils/smartMosqueDisplayService';
 import {
-  ARABIC_WEEKDAYS,
   CANONICAL_PROFILE_ORDER,
   DISPLAY_PROFILE_THEMES,
   DisplayPrayerRowItem,
-  HARAMAYN_ARABIC_NAMES,
   parseHijriParts,
 } from './display/displayProfiles';
 import { DisplayClockHeader } from './display/DisplayClockHeader';
@@ -39,9 +39,29 @@ import { DisplayPrayerLedger } from './display/DisplayPrayerLedger';
 import { DisplayCountdownBand } from './display/DisplayCountdownBand';
 import { DisplayAnnouncementBar } from './display/DisplayAnnouncementBar';
 import { DisplayPairingModal, DisplayStandbyScreen } from './display/DisplayPairingModal';
+import {
+  Phase2GalleryProfileId,
+  Phase2PremiumDisplayRenderer,
+} from './display/Phase2PremiumDisplayRenderer';
+import { MasjidAlNabawiDisplay } from './display/MasjidAlNabawiDisplay';
+import { useDisplayResponsiveLayout } from '../../../utils/smartMosqueResponsiveEngine';
 
 interface SmartMosqueDisplayPageProps {
   onExitToApp?: () => void;
+}
+
+function resolveInitialPreviewLocale(): SupportedLocale {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = window.localStorage.getItem('asaka_ziyo_locale') as SupportedLocale | null;
+      if (saved && DISPLAY_SUPPORTED_LOCALES.includes(saved)) {
+        return saved;
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return 'uz-Latn';
 }
 
 export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
@@ -57,13 +77,10 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
   const [snapshot, setSnapshot] = useState<DisplaySyncSnapshot>(() =>
     buildFallbackLocalSnapshot()
   );
-  const [previewLocale, setPreviewLocale] = useState<SupportedLocale>('uz-Latn');
+  const [previewLocale, setPreviewLocale] = useState<SupportedLocale>(() =>
+    resolveInitialPreviewLocale()
+  );
   const [previewProfile, setPreviewProfile] = useState<CanonicalDisplayProfileId>('royal_ivory');
-  const [hasExplicitProfileParam, setHasExplicitProfileParam] = useState<boolean>(false);
-  const [viewport, setViewport] = useState<{ w: number; h: number }>({
-    w: typeof window !== 'undefined' ? window.innerWidth : 1920,
-    h: typeof window !== 'undefined' ? window.innerHeight : 1080,
-  });
 
   const [nowTick, setNowTick] = useState<Date>(() => new Date());
   const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -79,23 +96,6 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
   const [activeAnnIdx, setActiveAnnIdx] = useState<number>(0);
 
   const isPaired = Boolean(session && snapshot.mode === 'paired' && snapshot.monitor);
-  const isNativePortraitViewport = viewport.h > viewport.w * 1.05;
-
-  const activeLocale: SupportedLocale = isPaired
-    ? snapshot.monitor!.language
-    : previewLocale;
-
-  const activeProfile: CanonicalDisplayProfileId = useMemo(() => {
-    if (isPaired && snapshot.monitor?.template) {
-      return normalizeDisplayTemplate(snapshot.monitor.template);
-    }
-    if (!hasExplicitProfileParam && isNativePortraitViewport) {
-      return 'madina_portrait';
-    }
-    return previewProfile;
-  }, [isPaired, snapshot.monitor?.template, hasExplicitProfileParam, isNativePortraitViewport, previewProfile]);
-
-  const theme = DISPLAY_PROFILE_THEMES[activeProfile];
 
   const settings: SmartDisplaySettings = useMemo(
     () => ({
@@ -104,6 +104,25 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
     }),
     [snapshot.monitor]
   );
+
+  // Shared Automatic Universal Responsive Layout Engine (strictly independent of design profile!)
+  const responsiveLayout = useDisplayResponsiveLayout(settings.orientationPreference || 'auto');
+  const isNativePortraitViewport = responsiveLayout.isPortrait;
+
+  const activeLocale: SupportedLocale = useMemo(() => {
+    const candidate = isPaired ? snapshot.monitor?.language : previewLocale;
+    return candidate && DISPLAY_SUPPORTED_LOCALES.includes(candidate) ? candidate : 'uz-Latn';
+  }, [isPaired, snapshot.monitor?.language, previewLocale]);
+
+  // Design selection is strictly independent of viewport dimensions or orientation
+  const activeProfile: CanonicalDisplayProfileId = useMemo(() => {
+    if (isPaired && snapshot.monitor?.template) {
+      return normalizeDisplayTemplate(snapshot.monitor.template);
+    }
+    return previewProfile;
+  }, [isPaired, snapshot.monitor?.template, previewProfile]);
+
+  const theme = DISPLAY_PROFILE_THEMES[activeProfile];
 
   const t = useMemo(() => getDisplayLocaleBundle(activeLocale), [activeLocale]);
 
@@ -126,13 +145,6 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
       return true;
     });
   }, [snapshot.announcements, timeline.clock.dateStr]);
-
-  // Viewport tracker for responsive 1366x768, 1920x1080, 3840x2160, 1080x1920 adaptation
-  useEffect(() => {
-    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   // Wake Lock API (24/7 awake)
   const requestWakeLock = useCallback(async () => {
@@ -189,9 +201,8 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
 
     if (urlTemplate) {
       setPreviewProfile(normalizeDisplayTemplate(urlTemplate));
-      setHasExplicitProfileParam(true);
     }
-    if (urlLang && SUPPORTED_LOCALES.some((l) => l.code === urlLang)) {
+    if (urlLang && DISPLAY_SUPPORTED_LOCALES.includes(urlLang)) {
       setPreviewLocale(urlLang);
     }
 
@@ -357,7 +368,6 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
         setPairModalOpen((prev) => !prev);
       } else if (!isPaired && lower === 't') {
         e.preventDefault();
-        setHasExplicitProfileParam(true);
         setPreviewProfile((prev) => {
           const idx = (CANONICAL_PROFILE_ORDER.indexOf(prev) + 1) % CANONICAL_PROFILE_ORDER.length;
           return CANONICAL_PROFILE_ORDER[idx];
@@ -402,7 +412,7 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
     performSync(null);
   };
 
-  // Prepare exact admin prayer schedule rows (zero auto-calculation)
+  // Prepare exact admin prayer schedule rows (zero auto-calculation, zero Arabic fields)
   const timesByKey = useMemo(() => {
     const map = new Map<PrayerKey, (typeof snapshot.schedule.times)[number]>();
     for (const item of snapshot.schedule.times || []) {
@@ -425,7 +435,6 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
       return {
         key: effectiveKey,
         label: t.prayerNames[effectiveKey],
-        nameAr: HARAMAYN_ARABIC_NAMES[effectiveKey],
         azanTime,
         iqamahTime,
         isCurrent: timeline.currentPrayerKey === effectiveKey,
@@ -451,30 +460,37 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
   const gregorianMonth = t.months[timeline.clock.monthIndex] || '';
   const gregorianYear = String(timeline.clock.year);
   const localizedWeekday = t.weekdays[timeline.clock.weekdayIndex] || '';
-  const arabicWeekday = ARABIC_WEEKDAYS[timeline.clock.weekdayIndex] || '';
 
-  const hijriRawDisplay = useMemo(
-    () => adaptDisplayTextForLocale(snapshot.schedule.hijriDate || '', activeLocale),
+  // Strictly sanitize and localize ALL dynamic strings (zero Arabic script ever rendered)
+  const hijriLocalized = useMemo(
+    () => localizeHijriDate(snapshot.schedule.hijriDate, activeLocale),
     [snapshot.schedule.hijriDate, activeLocale]
   );
-  const hijriParts = useMemo(() => parseHijriParts(hijriRawDisplay), [hijriRawDisplay]);
+  const hijriParts = useMemo(() => parseHijriParts(hijriLocalized), [hijriLocalized]);
 
   const mosqueTitleDisplay = useMemo(
     () =>
-      adaptDisplayTextForLocale(
-        snapshot.monitor?.mosqueName || snapshot.schedule.mosqueName || t.mosqueSubtitleDefault,
-        activeLocale
+      sanitizeDisplayDynamicText(
+        snapshot.monitor?.mosqueName || snapshot.schedule.mosqueName,
+        activeLocale,
+        t.mosqueSubtitleDefault
       ),
     [snapshot.monitor?.mosqueName, snapshot.schedule.mosqueName, t.mosqueSubtitleDefault, activeLocale]
   );
 
   const locationDisplay = useMemo(
     () =>
-      adaptDisplayTextForLocale(
-        snapshot.monitor?.locationLabel || snapshot.schedule.location || 'Asaka, Andijon',
-        activeLocale
+      sanitizeDisplayDynamicText(
+        snapshot.monitor?.locationLabel || snapshot.schedule.location,
+        activeLocale,
+        t.tashkentTimeLabel
       ),
-    [snapshot.monitor?.locationLabel, snapshot.schedule.location, activeLocale]
+    [snapshot.monitor?.locationLabel, snapshot.schedule.location, t.tashkentTimeLabel, activeLocale]
+  );
+
+  const safeMonitorName = useMemo(
+    () => sanitizeDisplayDynamicText(snapshot.monitor?.name, activeLocale, t.brandTitle),
+    [snapshot.monitor?.name, activeLocale, t.brandTitle]
   );
 
   const currentAnnouncement: DisplayAnnouncementItem | null =
@@ -492,8 +508,16 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
     }
     const translated = currentAnnouncement.translations?.[activeLocale];
     return {
-      title: translated?.title || adaptDisplayTextForLocale(currentAnnouncement.title, activeLocale),
-      body: translated?.body || adaptDisplayTextForLocale(currentAnnouncement.body, activeLocale),
+      title: sanitizeDisplayDynamicText(
+        translated?.title || currentAnnouncement.title,
+        activeLocale,
+        t.defaultAnnouncementTitle
+      ),
+      body: sanitizeDisplayDynamicText(
+        translated?.body || currentAnnouncement.body,
+        activeLocale,
+        t.defaultAnnouncementBody
+      ),
       mediaUrl: currentAnnouncement.mediaUrl,
     };
   }, [currentAnnouncement, activeLocale, t]);
@@ -516,7 +540,7 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
         <DisplayPairingModal
           isOpen={pairModalOpen}
           isPaired={isPaired}
-          monitorName={snapshot.monitor?.name}
+          monitorName={safeMonitorName}
           pairCodeInput={pairCodeInput}
           pairError={pairError}
           isPairing={isPairing}
@@ -553,8 +577,7 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
     gregorianMonth,
     gregorianYear,
     localizedWeekday,
-    arabicWeekday,
-    hijriRaw: hijriRawDisplay,
+    hijriLocalized,
     hijriParts,
     t,
   };
@@ -635,7 +658,6 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
             aria-label={t.templateLabel}
             value={activeProfile}
             onChange={(e) => {
-              setHasExplicitProfileParam(true);
               setPreviewProfile(e.target.value as CanonicalDisplayProfileId);
             }}
             className="bg-white/10 text-[#FAF7F0] text-xs font-semibold px-2 py-1 rounded-lg border border-white/15 cursor-pointer"
@@ -681,10 +703,118 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
       )}
 
       {/* =================================================================== */}
-      {/* PROFILE COMPOSITIONS (4 ARCHITECTURALLY DISTINCT SCREEN LAYOUTS)    */}
+      {/* PROFILE COMPOSITIONS: 4 ORIGINAL + 6 PHASE 2 + UZBEK CYRILLIC TABLO */}
       {/* =================================================================== */}
 
-      {/* D. MADINA PORTRAIT (9:16 Vertical Pillar — Native Full-Bleed or Centered 9:16 Frame) */}
+      {/* PHASE 2 DESIGN 6 (MASJID AL-NABAWI) & DEDICATED UZBEK CYRILLIC TABLO */}
+      {(activeProfile === 'masjid_al_nabawi' ||
+        activeProfile === 'masjid_namoz_tablosa_uz_cyrl') && (
+        <MasjidAlNabawiDisplay
+          languageMode={
+            activeProfile === 'masjid_namoz_tablosa_uz_cyrl' ? 'uz_cyrl_locked' : 'multilingual'
+          }
+          layout={responsiveLayout}
+          settings={settings}
+          timeline={timeline}
+          prayers={fiveMainPrayers}
+          sunriseTime={sunriseTime}
+          ishraqTime={ishraqTime}
+          jumaTime={jumaTimeDisplay}
+          mosqueTitle={mosqueTitleDisplay}
+          locationLabel={locationDisplay}
+          hijriLocalized={hijriLocalized}
+          rawHijriDate={snapshot.schedule.hijriDate}
+          t={t}
+          isOnline={isOnline}
+        />
+      )}
+
+      {/* PHASE 2 DESIGNS 1–5 (SULTAN ROYAL, NOOR CLASSIC, MIDNIGHT PREMIUM, VISION MODERN, ISLAMIC HERITAGE) */}
+      {(activeProfile === 'sultan_royal' ||
+        activeProfile === 'noor_classic' ||
+        activeProfile === 'midnight_premium' ||
+        activeProfile === 'vision_modern' ||
+        activeProfile === 'islamic_heritage') && (
+        <Phase2PremiumDisplayRenderer
+          profileId={activeProfile as Phase2GalleryProfileId}
+          theme={theme}
+          layout={responsiveLayout}
+          settings={settings}
+          timeline={timeline}
+          prayers={fiveMainPrayers}
+          sunriseTime={sunriseTime}
+          ishraqTime={ishraqTime}
+          jumaTime={jumaTimeDisplay}
+          jumaIqamahTime={jumaIqamahDisplay}
+          tahajjudTime={tahajjudTime}
+          subhTime={subhTime}
+          mosqueTitle={mosqueTitleDisplay}
+          locationLabel={locationDisplay}
+          gregorianMonth={gregorianMonth}
+          gregorianYear={gregorianYear}
+          localizedWeekday={localizedWeekday}
+          hijriLocalized={hijriLocalized}
+          nextPrayerLabel={nextPrayerLabel}
+          iqamahPrayerLabel={iqamahPrayerLabel}
+          announcementKey={currentAnnouncement?.id || 'default'}
+          announcementTitle={localizedAnnouncement.title}
+          announcementBody={localizedAnnouncement.body}
+          announcementMediaUrl={localizedAnnouncement.mediaUrl}
+          totalAnnouncements={activeAnnouncements.length}
+          activeAnnouncementIndex={activeAnnIdx}
+          isOnline={isOnline}
+          scheduleValidation={scheduleValidation}
+          activeLocale={activeLocale}
+          t={t}
+        />
+      )}
+
+      {/* ORIGINAL 4 PROFILES — COMPACT SMARTPHONE PORTRAIT FALLBACK (NEVER SQUEEZES DESKTOP COLUMNS) */}
+      {(activeProfile === 'royal_ivory' ||
+        activeProfile === 'emerald_royal' ||
+        activeProfile === 'modern_minimal') &&
+        responsiveLayout.deviceTier === 'mobile_portrait' && (
+          <Phase2PremiumDisplayRenderer
+            profileId={
+              activeProfile === 'emerald_royal'
+                ? 'sultan_royal'
+                : activeProfile === 'modern_minimal'
+                  ? 'vision_modern'
+                  : 'noor_classic'
+            }
+            theme={theme}
+            layout={responsiveLayout}
+            settings={settings}
+            timeline={timeline}
+            prayers={fiveMainPrayers}
+            sunriseTime={sunriseTime}
+            ishraqTime={ishraqTime}
+            jumaTime={jumaTimeDisplay}
+            jumaIqamahTime={jumaIqamahDisplay}
+            tahajjudTime={tahajjudTime}
+            subhTime={subhTime}
+            mosqueTitle={mosqueTitleDisplay}
+            locationLabel={locationDisplay}
+            gregorianMonth={gregorianMonth}
+            gregorianYear={gregorianYear}
+            localizedWeekday={localizedWeekday}
+            hijriLocalized={hijriLocalized}
+            nextPrayerLabel={nextPrayerLabel}
+            iqamahPrayerLabel={iqamahPrayerLabel}
+            announcementKey={currentAnnouncement?.id || 'default'}
+            announcementTitle={localizedAnnouncement.title}
+            announcementBody={localizedAnnouncement.body}
+            announcementMediaUrl={localizedAnnouncement.mediaUrl}
+            totalAnnouncements={activeAnnouncements.length}
+            activeAnnouncementIndex={activeAnnIdx}
+            isOnline={isOnline}
+            scheduleValidation={scheduleValidation}
+            activeLocale={activeLocale}
+            t={t}
+          />
+        )}
+
+      {/* D. MADINA PORTRAIT (Original Untouched 9:16 Vertical Pillar — Native Full-Bleed or Centered 9:16 Frame) */}
       {activeProfile === 'madina_portrait' && (
         <div
           className={`w-full h-full flex items-center justify-center ${
@@ -692,7 +822,9 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
           }`}
         >
           <main
-            className={`h-full flex flex-col overflow-hidden ${theme.surfaceBg} ${theme.inkPrimary} ${
+            className={`h-full flex flex-col ${
+              responsiveLayout.allowVerticalScrollFallback ? 'overflow-y-auto' : 'overflow-hidden'
+            } ${theme.surfaceBg} ${theme.inkPrimary} ${
               isNativePortraitViewport
                 ? 'w-full'
                 : 'aspect-[9/16] max-w-full rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] ring-1 ring-[#DFBD69]/25'
@@ -711,49 +843,71 @@ export const SmartMosqueDisplayPage: React.FC<SmartMosqueDisplayPageProps> = ({
         </div>
       )}
 
-      {/* B. EMERALD ROYAL (16:9 Asymmetric 38% Left Sanctuary + 62% Right Monumental Ledger) */}
-      {activeProfile === 'emerald_royal' && (
-        <div className="w-full h-full flex flex-col overflow-hidden">
-          <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12">
-            <aside
-              className={`lg:col-span-5 xl:col-span-5 flex flex-col min-h-0 ${theme.secondarySurfaceBg} border-b lg:border-b-0 lg:border-r ${theme.hairline} px-[clamp(20px,2.8vw,48px)] py-[clamp(18px,2.8vh,38px)]`}
+      {/* B. EMERALD ROYAL (Original Untouched 16:9 Asymmetric Left Sanctuary + Right Monumental Ledger) */}
+      {activeProfile === 'emerald_royal' &&
+        responsiveLayout.deviceTier !== 'mobile_portrait' && (
+          <div className="w-full h-full flex items-center justify-center overflow-hidden">
+            <div
+              style={
+                responsiveLayout.contentMaxWidthPx
+                  ? { maxWidth: `${responsiveLayout.contentMaxWidthPx}px` }
+                  : undefined
+              }
+              className="w-full h-full flex flex-col overflow-hidden"
+            >
+              <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12">
+                <aside
+                  className={`lg:col-span-5 xl:col-span-5 flex flex-col min-h-0 ${theme.secondarySurfaceBg} border-b lg:border-b-0 lg:border-r ${theme.hairline} px-[clamp(20px,2.8vw,48px)] py-[clamp(18px,2.8vh,38px)]`}
+                >
+                  <DisplayClockHeader {...sharedClockHeaderProps} />
+                  <DisplayCountdownBand {...sharedCountdownProps} />
+                </aside>
+                <main className={`lg:col-span-7 xl:col-span-7 flex flex-col min-h-0 ${theme.surfaceBg}`}>
+                  <DisplayPrayerLedger
+                    profileId="emerald_royal"
+                    theme={theme}
+                    prayers={fiveMainPrayers}
+                    t={t}
+                  />
+                </main>
+              </div>
+              <DisplayAnnouncementBar {...sharedAnnouncementProps} />
+            </div>
+          </div>
+        )}
+
+      {/* A. ROYAL IVORY & C. MODERN MINIMAL (Original Untouched Full-Bleed 16:9 Horizontal Signage) */}
+      {(activeProfile === 'royal_ivory' || activeProfile === 'modern_minimal') &&
+        responsiveLayout.deviceTier !== 'mobile_portrait' && (
+          <div className="w-full h-full flex items-center justify-center overflow-hidden">
+            <main
+              style={
+                responsiveLayout.contentMaxWidthPx
+                  ? { maxWidth: `${responsiveLayout.contentMaxWidthPx}px` }
+                  : undefined
+              }
+              className={`w-full h-full flex flex-col ${
+                responsiveLayout.allowVerticalScrollFallback ? 'overflow-y-auto' : 'overflow-hidden'
+              } ${theme.surfaceBg}`}
             >
               <DisplayClockHeader {...sharedClockHeaderProps} />
-              <DisplayCountdownBand {...sharedCountdownProps} />
-            </aside>
-            <main className={`lg:col-span-7 xl:col-span-7 flex flex-col min-h-0 ${theme.surfaceBg}`}>
               <DisplayPrayerLedger
-                profileId="emerald_royal"
+                profileId={activeProfile}
                 theme={theme}
                 prayers={fiveMainPrayers}
                 t={t}
               />
+              <DisplayCountdownBand {...sharedCountdownProps} />
+              <DisplayAnnouncementBar {...sharedAnnouncementProps} />
             </main>
           </div>
-          <DisplayAnnouncementBar {...sharedAnnouncementProps} />
-        </div>
-      )}
-
-      {/* A. ROYAL IVORY & C. MODERN MINIMAL (Full-Bleed 16:9 Horizontal Signage) */}
-      {(activeProfile === 'royal_ivory' || activeProfile === 'modern_minimal') && (
-        <main className={`w-full h-full flex flex-col overflow-hidden ${theme.surfaceBg}`}>
-          <DisplayClockHeader {...sharedClockHeaderProps} />
-          <DisplayPrayerLedger
-            profileId={activeProfile}
-            theme={theme}
-            prayers={fiveMainPrayers}
-            t={t}
-          />
-          <DisplayCountdownBand {...sharedCountdownProps} />
-          <DisplayAnnouncementBar {...sharedAnnouncementProps} />
-        </main>
-      )}
+        )}
 
       {/* Monitor Pairing Modal */}
       <DisplayPairingModal
         isOpen={pairModalOpen}
         isPaired={isPaired}
-        monitorName={snapshot.monitor?.name}
+        monitorName={safeMonitorName}
         pairCodeInput={pairCodeInput}
         pairError={pairError}
         isPairing={isPairing}

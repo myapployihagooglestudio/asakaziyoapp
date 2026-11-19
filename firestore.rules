@@ -578,7 +578,7 @@ service cloud.firestore {
         data.scheduleId is string && data.scheduleId.size() >= 1 && data.scheduleId.size() <= 128 &&
         data.status in ['active', 'disabled', 'blocked'] &&
         data.language in ['uz-Latn', 'uz-Cyrl', 'uz-Latn-new', 'ru', 'en'] &&
-        data.template in ['royal_ivory', 'emerald_royal', 'modern_minimal', 'madina_portrait', 'classic_mosque', 'premium_emerald', 'minimal_modern'];
+        data.template in ['royal_ivory', 'emerald_royal', 'modern_minimal', 'madina_portrait', 'sultan_royal', 'noor_classic', 'midnight_premium', 'vision_modern', 'islamic_heritage', 'masjid_al_nabawi', 'masjid_namoz_tablosa_uz_cyrl', 'classic_mosque', 'premium_emerald', 'minimal_modern'];
     }
 
     function isValidDisplayConnection(data) {

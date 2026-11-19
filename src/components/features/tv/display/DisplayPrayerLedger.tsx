@@ -22,7 +22,7 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
   if (profileId === 'modern_minimal') {
     return (
       <section
-        aria-label="Prayer Times"
+        aria-label={t.prayerColumnLabel}
         className="flex-1 min-h-0 flex flex-col px-[clamp(20px,3vw,56px)] py-[clamp(14px,2vh,32px)]"
       >
         <div
@@ -35,7 +35,7 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
             return (
               <div
                 key={prayer.key}
-                className={`relative flex flex-col justify-between px-[clamp(12px,1.8vw,32px)] py-[clamp(18px,3vh,46px)] transition-colors duration-300 ${
+                className={`relative flex flex-col justify-between px-[clamp(14px,2vw,36px)] py-[clamp(20px,3.2vh,50px)] transition-colors duration-300 ${
                   isActive
                     ? theme.activeRowClass
                     : isNext
@@ -44,33 +44,21 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
                 }`}
               >
                 {/* Top indicator bar for Next Prayer */}
-                {isNext && (
-                  <div className="absolute inset-x-0 top-0 h-[4px] bg-[#9C752C]" />
-                )}
+                {isNext && <div className="absolute inset-x-0 top-0 h-[4px] bg-[#9C752C]" />}
 
-                {/* Top: Arabic Calligraphy + Localized Prayer Name */}
-                <div className="space-y-1.5">
+                {/* Top: Localized Prayer Name + Active / Next Status */}
+                <div className="space-y-2">
                   <div
-                    dir="rtl"
-                    className={`font-arabic-signage font-bold text-right text-[clamp(1.6rem,2.6vw,3.9rem)] ${
-                      isActive ? theme.activeAccentText : theme.inkPrimary
+                    className={`font-display font-extrabold uppercase tracking-[0.08em] leading-tight text-[clamp(1.15rem,1.9vw,2.85rem)] truncate ${
+                      isActive ? 'text-white' : theme.inkPrimary
                     }`}
                   >
-                    {prayer.nameAr}
+                    {prayer.label}
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`font-display font-extrabold uppercase tracking-[0.08em] text-[clamp(0.95rem,1.45vw,2.1rem)] truncate ${
-                        isActive ? 'text-white' : theme.inkPrimary
-                      }`}
-                    >
-                      {prayer.label}
-                    </span>
-                  </div>
-                  <div className="min-h-[1.3em]">
+                  <div className="min-h-[1.4em]">
                     {(isActive || isNext) && (
                       <span
-                        className={`inline-block text-[clamp(0.65rem,0.82vw,1.05rem)] font-bold uppercase tracking-[0.12em] ${
+                        className={`inline-block text-[clamp(0.7rem,0.92vw,1.2rem)] font-bold uppercase tracking-[0.12em] ${
                           isActive ? theme.activeAccentText : theme.goldText
                         }`}
                       >
@@ -81,16 +69,16 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
                 </div>
 
                 {/* Middle: Monumental Azan Time */}
-                <div className="my-auto py-3">
+                <div className="my-auto py-4">
                   <div
-                    className={`text-[clamp(0.64rem,0.78vw,0.98rem)] font-bold uppercase tracking-[0.14em] mb-1 ${
-                      isActive ? 'text-white/70' : theme.inkMuted
+                    className={`text-[clamp(0.68rem,0.86vw,1.1rem)] font-bold uppercase tracking-[0.14em] mb-1.5 ${
+                      isActive ? 'text-white/75' : theme.inkMuted
                     }`}
                   >
                     {t.azanColumnLabel}
                   </div>
                   <div
-                    className={`font-mono-numbers tabular-nums font-extrabold tracking-[-0.03em] leading-none text-[clamp(2.2rem,4.1vw,6.2rem)] ${
+                    className={`font-mono-numbers tabular-nums font-extrabold tracking-[-0.03em] leading-none text-[clamp(2.4rem,4.5vw,6.8rem)] ${
                       isActive ? 'text-white' : theme.inkPrimary
                     }`}
                   >
@@ -98,21 +86,21 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
                   </div>
                 </div>
 
-                {/* Bottom: Crisp Iqamah Row */}
+                {/* Bottom: Large, High-Contrast Iqamah Row */}
                 <div
-                  className={`pt-3 border-t flex items-baseline justify-between gap-2 ${
-                    isActive ? 'border-white/20' : theme.hairline
+                  className={`pt-4 border-t flex items-baseline justify-between gap-2 ${
+                    isActive ? 'border-white/25' : theme.hairline
                   }`}
                 >
                   <span
-                    className={`text-[clamp(0.68rem,0.85vw,1.1rem)] font-bold uppercase tracking-[0.12em] ${
-                      isActive ? 'text-white/75' : theme.inkMuted
+                    className={`text-[clamp(0.72rem,0.92vw,1.2rem)] font-bold uppercase tracking-[0.12em] ${
+                      isActive ? 'text-white/80' : theme.inkMuted
                     }`}
                   >
                     {t.iqamahColumnLabel}
                   </span>
                   <span
-                    className={`font-mono-numbers tabular-nums font-bold leading-none text-[clamp(1.25rem,2vw,3rem)] ${
+                    className={`font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.45rem,2.45vw,3.7rem)] ${
                       isActive ? theme.activeAccentText : theme.inkSecondary
                     }`}
                   >
@@ -128,35 +116,33 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
   }
 
   // =========================================================================
-  // 2. ROYAL IVORY · EMERALD ROYAL · MADINA PORTRAIT (Monumental 5-Row Ledger)
+  // 2. ROYAL IVORY · EMERALD ROYAL · MADINA PORTRAIT (Balanced 3-Column Ledger)
+  //    Columns: 1) Prayer Name   2) Giant Azan Time   3) Large Iqamah Time
   // =========================================================================
   const isPortrait = profileId === 'madina_portrait';
   const isSanctuary = profileId === 'emerald_royal';
 
   return (
     <section
-      aria-label="Prayer Times"
+      aria-label={t.prayerColumnLabel}
       className={`flex-1 min-h-0 flex flex-col ${
         isSanctuary
-          ? 'px-[clamp(22px,3vw,54px)] py-[clamp(18px,2.8vh,40px)]'
+          ? 'px-[clamp(24px,3.2vw,58px)] py-[clamp(18px,2.8vh,40px)]'
           : isPortrait
-            ? 'px-[clamp(16px,2.8vw,38px)] py-[clamp(8px,1.2vh,18px)]'
-            : 'px-[clamp(20px,3vw,56px)] py-[clamp(10px,1.5vh,22px)]'
+            ? 'px-[clamp(18px,3vw,42px)] py-[clamp(10px,1.4vh,20px)]'
+            : 'px-[clamp(24px,3.4vw,64px)] py-[clamp(12px,1.6vh,24px)]'
       }`}
     >
-      {/* Subtle 4-column header bar */}
+      {/* Crisp 3-Column Header Bar */}
       <div
-        className={`grid grid-cols-[1.2fr_1.05fr_0.85fr_1.1fr] items-center px-[clamp(12px,1.8vw,32px)] pb-[clamp(6px,0.9vh,12px)] border-b ${theme.accentHairline} ${theme.inkMuted} text-[clamp(0.66rem,0.85vw,1.15rem)] font-bold uppercase tracking-[0.14em]`}
+        className={`grid grid-cols-[1.4fr_1fr_1fr] items-center px-[clamp(16px,2.2vw,38px)] pb-[clamp(8px,1vh,14px)] border-b ${theme.accentHairline} ${theme.inkMuted} text-[clamp(0.72rem,0.95vw,1.28rem)] font-bold uppercase tracking-[0.14em]`}
       >
-        <span>{t.timeColumnLabel}</span>
+        <span>{t.prayerColumnLabel}</span>
         <span className="text-center">{t.azanColumnLabel}</span>
-        <span className="text-center">{t.iqamahColumnLabel}</span>
-        <span dir="rtl" className="text-right font-arabic-signage normal-case tracking-normal text-[1.3em]">
-          الصلاة
-        </span>
+        <span className="text-right">{t.iqamahColumnLabel}</span>
       </div>
 
-      {/* 5 Spacious Dominant Prayer Rows */}
+      {/* 5 Spacious Dominant Prayer Rows (Zero Empty Columns) */}
       <div className={`flex-1 min-h-0 flex flex-col justify-between divide-y ${theme.hairline}`}>
         {prayers.map((prayer) => {
           const isActive = prayer.isCurrent;
@@ -165,30 +151,30 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
           return (
             <div
               key={prayer.key}
-              className={`flex-1 min-h-0 grid grid-cols-[1.2fr_1.05fr_0.85fr_1.1fr] items-center px-[clamp(12px,1.8vw,32px)] transition-colors duration-300 ${
+              className={`flex-1 min-h-0 grid grid-cols-[1.4fr_1fr_1fr] items-center px-[clamp(16px,2.2vw,38px)] transition-colors duration-300 ${
                 isActive
-                  ? `${theme.activeRowClass} rounded-xl my-[2px]`
+                  ? `${theme.activeRowClass} rounded-xl my-[3px]`
                   : isNext
-                    ? `${theme.nextRowClass} rounded-xl my-[2px]`
+                    ? `${theme.nextRowClass} rounded-xl my-[3px]`
                     : ''
               }`}
             >
-              {/* Col 1: Localized Prayer Name + Quiet Active/Next Cue */}
-              <div className="min-w-0 pr-2">
+              {/* Col 1: Bold Localized Prayer Name + Crisp Active / Next Status */}
+              <div className="min-w-0 pr-3">
                 <div
                   className={`font-display font-extrabold uppercase tracking-[0.06em] leading-none truncate ${
                     isPortrait
-                      ? 'text-[clamp(1.2rem,2.45vh,2.75rem)]'
+                      ? 'text-[clamp(1.35rem,2.75vh,3.15rem)]'
                       : isSanctuary
-                        ? 'text-[clamp(1.35rem,2.2vw,3.3rem)]'
-                        : 'text-[clamp(1.4rem,2.35vw,3.5rem)]'
+                        ? 'text-[clamp(1.55rem,2.55vw,3.85rem)]'
+                        : 'text-[clamp(1.65rem,2.75vw,4.1rem)]'
                   } ${isActive ? 'text-white' : theme.inkPrimary}`}
                 >
                   {prayer.label}
                 </div>
                 {(isActive || isNext) && (
                   <div
-                    className={`mt-1 text-[clamp(0.62rem,0.78vw,1.02rem)] font-bold uppercase tracking-[0.1em] truncate ${
+                    className={`mt-1.5 text-[clamp(0.68rem,0.88vw,1.15rem)] font-bold uppercase tracking-[0.12em] truncate ${
                       isActive ? theme.activeAccentText : theme.goldText
                     }`}
                   >
@@ -201,40 +187,26 @@ export const DisplayPrayerLedger: React.FC<DisplayPrayerLedgerProps> = ({
               <div
                 className={`text-center font-mono-numbers tabular-nums font-extrabold tracking-[-0.025em] leading-none ${
                   isPortrait
-                    ? 'text-[clamp(1.85rem,4.25vh,4.5rem)]'
+                    ? 'text-[clamp(2.05rem,4.6vh,4.95rem)]'
                     : isSanctuary
-                      ? 'text-[clamp(2.1rem,3.9vw,5.8rem)]'
-                      : 'text-[clamp(2.2rem,4.1vw,6.1rem)]'
+                      ? 'text-[clamp(2.35rem,4.35vw,6.4rem)]'
+                      : 'text-[clamp(2.45rem,4.65vw,6.9rem)]'
                 } ${isActive ? 'text-white' : theme.inkPrimary}`}
               >
                 {prayer.azanTime}
               </div>
 
-              {/* Col 3: Crisp Iqamah Time */}
+              {/* Col 3: LARGE, Crisp Iqamah Time */}
               <div
-                className={`text-center font-mono-numbers tabular-nums font-bold tracking-[-0.02em] leading-none ${
+                className={`text-right font-mono-numbers tabular-nums font-extrabold tracking-[-0.02em] leading-none ${
                   isPortrait
-                    ? 'text-[clamp(1.2rem,2.55vh,2.7rem)]'
+                    ? 'text-[clamp(1.55rem,3.35vh,3.65rem)]'
                     : isSanctuary
-                      ? 'text-[clamp(1.35rem,2.3vw,3.4rem)]'
-                      : 'text-[clamp(1.35rem,2.35vw,3.5rem)]'
+                      ? 'text-[clamp(1.75rem,3.15vw,4.7rem)]'
+                      : 'text-[clamp(1.85rem,3.35vw,5rem)]'
                 } ${isActive ? theme.activeAccentText : theme.inkSecondary}`}
               >
                 {prayer.iqamahTime || '—'}
-              </div>
-
-              {/* Col 4: RTL Arabic Calligraphic Title */}
-              <div
-                dir="rtl"
-                className={`text-right font-arabic-signage font-bold ${
-                  isPortrait
-                    ? 'text-[clamp(1.65rem,3.8vh,4.1rem)]'
-                    : isSanctuary
-                      ? 'text-[clamp(1.85rem,3.3vw,4.9rem)]'
-                      : 'text-[clamp(1.9rem,3.4vw,5.1rem)]'
-                } ${isActive ? theme.activeAccentText : theme.inkPrimary}`}
-              >
-                {prayer.nameAr}
               </div>
             </div>
           );

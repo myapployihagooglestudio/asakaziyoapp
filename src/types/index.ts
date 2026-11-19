@@ -32,7 +32,8 @@ export type NavigationTab =
   | 'achievements'
   | 'ai_assistant'
   | 'search'
-  | 'display';
+  | 'display'
+  | 'masjid_tv';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 

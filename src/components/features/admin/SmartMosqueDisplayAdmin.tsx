@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import {
   Tv,
@@ -28,13 +29,19 @@ import {
   Monitor,
   Sparkles,
   Image as ImageIcon,
+  RotateCcw,
+  Maximize2,
 } from 'lucide-react';
 import { PrayerSchedule, PrayerTimeEntry, SupportedLocale } from '../../../types';
 import {
+  ALL_CANONICAL_DISPLAY_PROFILE_IDS,
+  CanonicalDisplayProfileId,
   DEFAULT_SMART_DISPLAY_SETTINGS,
   DisplayAnnouncementItem,
   DisplayMonitorStatus,
   DisplayTemplateId,
+  ORIGINAL_DISPLAY_PROFILE_IDS,
+  PHASE2_PREMIUM_PROFILE_IDS,
   SmartDisplayMonitor,
   SmartDisplaySettings,
   SmartMosqueScheduleProfile,
@@ -54,9 +61,14 @@ import {
   saveAdminDisplaySchedule,
   updateAdminDisplayMonitor,
 } from '../../../utils/smartMosqueDisplayService';
-import { DISPLAY_LANGUAGE_LABELS } from '../../../utils/smartMosqueDisplayI18n';
+import {
+  DISPLAY_LANGUAGE_LABELS,
+  DISPLAY_SUPPORTED_LOCALES,
+  getDisplayLocaleBundle,
+} from '../../../utils/smartMosqueDisplayI18n';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { DisplayDesignThumbnail } from './DisplayDesignThumbnail';
 
 interface SmartMosqueDisplayAdminProps {
   currentMainSchedule: PrayerSchedule;
@@ -66,30 +78,9 @@ interface SmartMosqueDisplayAdminProps {
 
 type DisplayAdminSubTab = 'monitors' | 'schedules' | 'announcements' | 'connections';
 
-const TEMPLATE_OPTIONS: { id: DisplayTemplateId; label: string; desc: string }[] = [
-  {
-    id: 'royal_ivory',
-    label: 'Royal Ivory (16:9)',
-    desc: 'Yorugʻ va nafis ivory fon, oltin chiziq va qirollik yashil hisoblagich tasmasi',
-  },
-  {
-    id: 'emerald_royal',
-    label: 'Emerald Royal (16:9)',
-    desc: 'Toʻq zumrad premium 2 ustunli kompozitsiya — yirik soat va yuqori kontrast',
-  },
-  {
-    id: 'modern_minimal',
-    label: 'Modern Minimal (16:9)',
-    desc: 'Ortiqcha bezaksiz, 5 ustunli zamonaviy arxitekturaviy namoz jadvali',
-  },
-  {
-    id: 'madina_portrait',
-    label: 'Madina Portrait (9:16)',
-    desc: 'Vertikal 1080×1920 monitorlar uchun Masjidi Nabaviy uslubidagi maxsus kompozitsiya',
-  },
-];
+const PROFILE_IDS: CanonicalDisplayProfileId[] = [...ALL_CANONICAL_DISPLAY_PROFILE_IDS];
 
-const LANGUAGE_LIST: SupportedLocale[] = ['uz-Latn', 'uz-Cyrl', 'uz-Latn-new', 'ru', 'en'];
+const LANGUAGE_LIST: SupportedLocale[] = DISPLAY_SUPPORTED_LOCALES;
 
 function formatShortDateTime(iso?: string): string {
   if (!iso) return '—';
@@ -114,6 +105,22 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
   onStatusMessage,
   onMainScheduleUpdated,
 }) => {
+  const { i18n } = useTranslation();
+  const adminLocale: SupportedLocale = DISPLAY_SUPPORTED_LOCALES.includes(
+    i18n.language as SupportedLocale
+  )
+    ? (i18n.language as SupportedLocale)
+    : 'uz-Latn';
+  const dt = useMemo(() => getDisplayLocaleBundle(adminLocale), [adminLocale]);
+  const TEMPLATE_OPTIONS = useMemo(
+    () =>
+      PROFILE_IDS.map((id) => ({
+        id: id as DisplayTemplateId,
+        label: dt.templates[id],
+        desc: dt.admin.profileDescriptions[id],
+      })),
+    [dt]
+  );
   const [subTab, setSubTab] = useState<DisplayAdminSubTab>('monitors');
   const [overview, setOverview] = useState<AdminDisplayOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,6 +143,12 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
 
   // Edit Monitor Modal state
   const [editingMonitor, setEditingMonitor] = useState<SmartDisplayMonitor | null>(null);
+
+  // Phase 2 Design Showcase target monitor & restore-previous history
+  const [designTargetMonitorId, setDesignTargetMonitorId] = useState<string>('');
+  const [previousTemplatesByMonitor, setPreviousTemplatesByMonitor] = useState<
+    Record<string, CanonicalDisplayProfileId>
+  >({});
 
   // Schedule Editor state
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('asaka-main');
@@ -323,6 +336,54 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
       await loadOverview(true);
     } else {
       setErrorMsg(res.error || 'Monitorni oʻchirib boʻlmadi.');
+    }
+  };
+
+  const handleAssignDesignToMonitor = async (
+    monitor: SmartDisplayMonitor,
+    nextProfile: CanonicalDisplayProfileId
+  ) => {
+    const prevProfile = normalizeDisplayTemplate(monitor.template);
+    if (prevProfile === nextProfile) return;
+    setBusyAction(`design_${monitor.id}_${nextProfile}`);
+    setErrorMsg(null);
+    const res = await updateAdminDisplayMonitor(monitor.id, {
+      template: nextProfile,
+    });
+    setBusyAction(null);
+    if (res.success) {
+      setPreviousTemplatesByMonitor((prev) => ({
+        ...prev,
+        [monitor.id]: prevProfile,
+      }));
+      notify(
+        `«${monitor.name}» → ${dt.templates[nextProfile]} (${dt.admin.selectedDesignBadge})`
+      );
+      await loadOverview(true);
+    } else {
+      setErrorMsg(res.error || 'Monitor dizaynini oʻzgartirib boʻlmadi.');
+    }
+  };
+
+  const handleRestorePreviousDesign = async (monitor: SmartDisplayMonitor) => {
+    const previous = previousTemplatesByMonitor[monitor.id];
+    if (!previous) return;
+    setBusyAction(`restore_${monitor.id}`);
+    setErrorMsg(null);
+    const res = await updateAdminDisplayMonitor(monitor.id, {
+      template: previous,
+    });
+    setBusyAction(null);
+    if (res.success) {
+      setPreviousTemplatesByMonitor((prev) => {
+        const next = { ...prev };
+        delete next[monitor.id];
+        return next;
+      });
+      notify(`«${monitor.name}» → ${dt.templates[previous]}`);
+      await loadOverview(true);
+    } else {
+      setErrorMsg(res.error || 'Oldingi dizaynni tiklab boʻlmadi.');
     }
   };
 
@@ -541,28 +602,36 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#FFF8E8]">
-                  ASAKA ZIYO — Smart Mosque Display Boshqaruvi
+                  {dt.admin.headerTitle}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  24/7 TV & LED Ekranlar
+                  {dt.admin.headerBadge}
                 </span>
               </div>
               <p className="text-xs text-[#DFBD69]/85 mt-1 max-w-2xl">
-                Masjid va madrasalardagi barcha televizor monitorlarini QR/6-xonali kod bilan ulang,
-                administrator tasdiqlagan aniq namoz jadvallari, 5 til, 4 dizayn profili va eʼlonlarni markazlashgan holda boshqaring.
+                {dt.admin.headerSubtitle}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href="/display"
+              href={`/display?lang=${encodeURIComponent(adminLocale)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-[#DFBD69]/40 text-xs font-bold text-[#FFF8E8] transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5 text-[#DFBD69]" />
-              <span>/display Ekranini Ochish</span>
+              <span>{dt.admin.openDisplayBtn}</span>
+            </a>
+            <a
+              href="/masjid-tv"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/45 border border-emerald-400/45 text-xs font-bold text-emerald-100 transition-colors"
+            >
+              <Tv className="w-3.5 h-3.5 text-emerald-300" />
+              <span>{dt.admin.openMasjidTvBtn}</span>
             </a>
             <button
               type="button"
@@ -571,7 +640,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-[#FFF8E8] cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Yangilash</span>
+              <span>{dt.admin.refreshBtn}</span>
             </button>
             <button
               type="button"
@@ -582,7 +651,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#DFBD69] hover:bg-[#e8ca7e] text-[#03170F] text-xs font-extrabold shadow-md cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Monitor Qoʻshish</span>
+              <span>{dt.admin.addMonitorBtn}</span>
             </button>
           </div>
         </div>
@@ -591,35 +660,35 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
           <div className="rounded-xl bg-black/25 border border-white/10 p-3.5">
             <div className="text-[11px] uppercase tracking-wider text-white/60 font-semibold">
-              Jami Monitorlar
+              {dt.admin.kpiTotalMonitors}
             </div>
             <div className="text-2xl font-extrabold font-mono-numbers text-[#FFF8E8] mt-1">
               {monitors.length}
             </div>
             <div className="text-[11px] text-[#DFBD69]/80 mt-0.5">
-              {schedules.length} ta namoz jadvali mavjud
+              {schedules.length} {dt.admin.kpiSchedulesCountSuffix}
             </div>
           </div>
           <div className="rounded-xl bg-emerald-950/50 border border-emerald-500/30 p-3.5">
             <div className="text-[11px] uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
-              <Wifi className="w-3.5 h-3.5" /> Onlayn Ekranlar
+              <Wifi className="w-3.5 h-3.5" /> {dt.admin.kpiOnlineScreens}
             </div>
             <div className="text-2xl font-extrabold font-mono-numbers text-emerald-300 mt-1">
               {onlineCount}
             </div>
             <div className="text-[11px] text-emerald-200/70 mt-0.5">
-              Jonli heartbeat aloqada
+              {dt.admin.kpiLiveHeartbeat}
             </div>
           </div>
           <div className="rounded-xl bg-black/25 border border-white/10 p-3.5">
             <div className="text-[11px] uppercase tracking-wider text-white/60 font-semibold flex items-center gap-1.5">
-              <WifiOff className="w-3.5 h-3.5" /> Oflayn / Toʻxtatilgan
+              <WifiOff className="w-3.5 h-3.5" /> {dt.admin.kpiOfflinePaused}
             </div>
             <div className="text-2xl font-extrabold font-mono-numbers text-amber-300 mt-1">
               {offlineCount}
             </div>
             <div className="text-[11px] text-white/60 mt-0.5">
-              Faol eʼlonlar: {announcements.filter((a) => a.isActive).length} ta
+              {dt.admin.kpiActiveAnnouncements}: {announcements.filter((a) => a.isActive).length}
             </div>
           </div>
           <div
@@ -635,13 +704,17 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               ) : (
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               )}
-              Jadval Nazorati
+              {dt.admin.kpiScheduleAudit}
             </div>
             <div className="text-2xl font-extrabold font-mono-numbers text-[#FFF8E8] mt-1">
-              {scheduleAlertCount === 0 ? 'Aniq' : `${scheduleAlertCount} ogoh`}
+              {scheduleAlertCount === 0
+                ? dt.admin.kpiAccurate
+                : `${scheduleAlertCount} ${dt.admin.kpiAlertsSuffix}`}
             </div>
             <div className="text-[11px] text-white/70 mt-0.5">
-              {overview?.firestoreConnected ? 'Firestore: Ulangan' : 'Mahalliy zaxira rejimi'}
+              {overview?.firestoreConnected
+                ? dt.admin.kpiFirestoreConnected
+                : dt.admin.kpiLocalFallback}
             </div>
           </div>
         </div>
@@ -663,10 +736,10 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
       {/* Sub-tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
-          { id: 'monitors', label: `Monitorlar (${monitors.length})`, icon: Monitor },
-          { id: 'schedules', label: `Namoz Jadvallari (${schedules.length})`, icon: Clock },
-          { id: 'announcements', label: `TV Eʼlonlar va Media (${announcements.length})`, icon: Megaphone },
-          { id: 'connections', label: `Ulanishlar Tarixi (${connections.length})`, icon: Activity },
+          { id: 'monitors', label: `${dt.admin.tabMonitors} (${monitors.length})`, icon: Monitor },
+          { id: 'schedules', label: `${dt.admin.tabSchedules} (${schedules.length})`, icon: Clock },
+          { id: 'announcements', label: `${dt.admin.tabAnnouncements} (${announcements.length})`, icon: Megaphone },
+          { id: 'connections', label: `${dt.admin.tabConnections} (${connections.length})`, icon: Activity },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = subTab === tab.id;
@@ -698,7 +771,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-extrabold text-primary flex items-center gap-2">
                   <Plus className="w-4 h-4 text-[#DFBD69]" />
-                  Yangi Smart TV / LED Monitor Roʻyxatdan Oʻtkazish
+                  {dt.admin.registerMonitorTitle}
                 </h3>
                 <button
                   type="button"
@@ -711,20 +784,20 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               <form onSubmit={handleCreateMonitor} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Monitor Nomi (noyob nom) *
+                    {dt.admin.monitorNameLabel}
                   </label>
                   <input
                     type="text"
                     required
                     value={newMonName}
                     onChange={(e) => setNewMonName(e.target.value)}
-                    placeholder="Masalan: Asosiy Zal TV #1"
+                    placeholder="TV #1"
                     className="w-full px-3 py-2 rounded-xl border border-divider bg-canvas text-primary text-xs"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Masjid / Madrasa Nomi
+                    {dt.admin.mosqueNameLabel}
                   </label>
                   <input
                     type="text"
@@ -735,19 +808,18 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Joylashuv / Zal Belgisi
+                    {dt.admin.locationLabel}
                   </label>
                   <input
                     type="text"
                     value={newMonLocation}
                     onChange={(e) => setNewMonLocation(e.target.value)}
-                    placeholder="Masalan: Kirish foyesi / 2-qavat"
                     className="w-full px-3 py-2 rounded-xl border border-divider bg-canvas text-primary text-xs"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Biriktirilgan Namoz Jadvali
+                    {dt.admin.assignedScheduleLabel}
                   </label>
                   <select
                     value={newMonScheduleId}
@@ -763,7 +835,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Ekran Tili (5 til)
+                    {dt.admin.screenLanguageLabel}
                   </label>
                   <select
                     value={newMonLanguage}
@@ -779,7 +851,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-secondary mb-1">
-                    Dizayn Profili (4 ta)
+                    {dt.admin.designProfileLabel}
                   </label>
                   <select
                     value={newMonTemplate}
@@ -800,10 +872,10 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                     size="sm"
                     onClick={() => setShowAddMonitor(false)}
                   >
-                    Bekor qilish
+                    {dt.admin.cancelBtn}
                   </Button>
                   <Button type="submit" size="sm" disabled={busyAction === 'create_monitor'}>
-                    {busyAction === 'create_monitor' ? 'Yaratilmoqda...' : 'Yaratish va QR/Kod Olish'}
+                    {busyAction === 'create_monitor' ? dt.admin.creatingBtn : dt.admin.createAndGetQrBtn}
                   </Button>
                 </div>
               </form>
@@ -859,7 +931,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                                 : 'bg-stone-500/15 text-stone-600 dark:text-stone-400'
                             }`}
                           >
-                            {online ? 'Onlayn' : 'Oflayn'}
+                            {online ? dt.admin.onlineBadge : dt.admin.offlineBadge}
                           </span>
                           {mon.status !== 'active' && (
                             <span
@@ -869,7 +941,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                                   : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
                               }`}
                             >
-                              {mon.status === 'blocked' ? 'Bloklangan' : 'Toʻxtatilgan'}
+                              {mon.status === 'blocked' ? dt.admin.blockedBadge : dt.admin.pausedBadge}
                             </span>
                           )}
                         </div>
@@ -883,7 +955,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                           type="button"
                           onClick={() => setQrMonitor(mon)}
                           className="px-2.5 py-1.5 rounded-lg bg-[#063D32] text-[#FFF8E8] border border-[#DFBD69]/50 text-[11px] font-bold flex items-center gap-1 cursor-pointer hover:brightness-110"
-                          title="QR-kod va 6 xonali ulash kodi"
+                          title={dt.pairScreenTitle}
                         >
                           <QrCode className="w-3.5 h-3.5 text-[#DFBD69]" />
                           <span className="font-mono-numbers tracking-wider">{mon.pairingCode}</span>
@@ -894,20 +966,20 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                     {/* Metadata Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4 text-[11px]">
                       <div className="p-2 rounded-lg bg-canvas/70 border border-divider/60">
-                        <span className="text-muted block">Jadval</span>
+                        <span className="text-muted block">{dt.admin.scheduleCardLabel}</span>
                         <span className="font-bold text-primary truncate block">
                           {boundSchedule?.mosqueName || mon.scheduleId}
                         </span>
                       </div>
                       <div className="p-2 rounded-lg bg-canvas/70 border border-divider/60">
-                        <span className="text-muted block">Til & Shablon</span>
+                        <span className="text-muted block">{dt.admin.langProfileCardLabel}</span>
                         <span className="font-bold text-primary truncate block">
                           {DISPLAY_LANGUAGE_LABELS[mon.language] || mon.language} ·{' '}
                           {TEMPLATE_OPTIONS.find((t) => t.id === normalizeDisplayTemplate(mon.template))?.label || mon.template}
                         </span>
                       </div>
                       <div className="p-2 rounded-lg bg-canvas/70 border border-divider/60 col-span-2 sm:col-span-1">
-                        <span className="text-muted block">Oxirgi sinxronlash</span>
+                        <span className="text-muted block">{dt.admin.lastSyncCardLabel}</span>
                         <span className="font-mono-numbers font-bold text-primary block">
                           {formatShortDateTime(mon.lastHeartbeatAt || mon.lastSyncAt)}
                         </span>
@@ -917,13 +989,13 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                     {mon.deviceInfo?.resolution && (
                       <div className="flex flex-wrap items-center gap-2 mt-2.5 text-[10px] text-secondary">
                         <span className="px-2 py-0.5 rounded bg-canvas border border-divider/60 font-mono-numbers">
-                          Ekran: {mon.deviceInfo.resolution}
+                          {mon.deviceInfo.resolution}
                         </span>
                         <span className="px-2 py-0.5 rounded bg-canvas border border-divider/60">
-                          Fullscreen: {mon.deviceInfo.fullscreen ? 'Ha' : 'Yoʻq'}
+                          Fullscreen: {mon.deviceInfo.fullscreen ? 'ON' : 'OFF'}
                         </span>
                         <span className="px-2 py-0.5 rounded bg-canvas border border-divider/60">
-                          WakeLock: {mon.deviceInfo.wakeLockActive ? 'Faol' : 'Kutilmoqda'}
+                          WakeLock: {mon.deviceInfo.wakeLockActive ? 'ON' : 'OFF'}
                         </span>
                       </div>
                     )}
@@ -950,7 +1022,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                           className="px-2.5 py-1.5 rounded-lg bg-canvas hover:bg-canvas/90 border border-divider text-[11px] font-bold text-primary flex items-center gap-1 cursor-pointer"
                         >
                           <Sliders className="w-3.5 h-3.5 text-[#DFBD69]" />
-                          Sozlamalar
+                          {dt.admin.settingsBtn}
                         </button>
                         {mon.status === 'active' ? (
                           <button
@@ -960,7 +1032,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                             className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/35 text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1 cursor-pointer"
                           >
                             <Power className="w-3.5 h-3.5" />
-                            Toʻxtatish
+                            {dt.admin.pauseBtn}
                           </button>
                         ) : (
                           <button
@@ -1001,6 +1073,232 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               })}
             </div>
           )}
+
+          {/* ================================================================= */}
+          {/* PHASE 2 VISUAL DESIGN SHOWCASE & PER-MONITOR DESIGN SELECTOR      */}
+          {/* ================================================================= */}
+          {(() => {
+            const activeTargetMonitor =
+              monitors.find((m) => m.id === designTargetMonitorId) || monitors[0] || null;
+            const activeTemplateId = activeTargetMonitor
+              ? normalizeDisplayTemplate(activeTargetMonitor.template)
+              : null;
+            const prevTemplateId = activeTargetMonitor
+              ? previousTemplatesByMonitor[activeTargetMonitor.id]
+              : undefined;
+            const samplePrayers: [string, string][] = [
+              [dt.prayerNames.bomdod.toUpperCase(), '05:14'],
+              [dt.prayerNames.peshin.toUpperCase(), '12:06'],
+              [dt.prayerNames.asr.toUpperCase(), '15:15'],
+              [dt.prayerNames.shom.toUpperCase(), '17:37'],
+              [dt.prayerNames.xufton.toUpperCase(), '19:07'],
+            ];
+
+            const renderDesignCard = (
+              profileId: CanonicalDisplayProfileId,
+              badgeText?: string,
+              customPreviewHref?: string
+            ) => {
+              const isSelected = activeTemplateId === profileId;
+              const isBusy =
+                activeTargetMonitor !== null &&
+                busyAction === `design_${activeTargetMonitor.id}_${profileId}`;
+              const previewHref =
+                customPreviewHref ||
+                `/display?template=${encodeURIComponent(profileId)}&lang=${encodeURIComponent(
+                  activeTargetMonitor?.language || adminLocale
+                )}`;
+
+              return (
+                <div
+                  key={profileId}
+                  className={`rounded-2xl border p-3.5 flex flex-col justify-between gap-3 transition-all bg-canvas/85 ${
+                    isSelected
+                      ? 'border-[#1E6B38] ring-2 ring-[#1E6B38]/25 shadow-md'
+                      : 'border-divider hover:border-[#DFBD69]/60'
+                  }`}
+                >
+                  <div className="space-y-2.5">
+                    <div className="relative">
+                      <DisplayDesignThumbnail
+                        profileId={profileId}
+                        samplePrayers={samplePrayers}
+                      />
+                      {badgeText && (
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/75 text-[#F2D583] text-[10px] font-extrabold uppercase tracking-wider backdrop-blur-xs">
+                          {badgeText}
+                        </span>
+                      )}
+                      {isSelected && (
+                        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-[#1E6B38] text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 shadow">
+                          <Check className="w-3 h-3" />
+                          {dt.admin.selectedDesignBadge}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-extrabold text-primary leading-snug">
+                        {dt.templates[profileId]}
+                      </h4>
+                      <p className="text-[11px] text-secondary mt-0.5 leading-relaxed">
+                        {dt.admin.profileDescriptions[profileId]}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-divider/60">
+                    {activeTargetMonitor ? (
+                      <button
+                        type="button"
+                        disabled={isSelected || isBusy}
+                        onClick={() =>
+                          handleAssignDesignToMonitor(activeTargetMonitor, profileId)
+                        }
+                        className={`flex-1 px-3 py-2 rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35 cursor-default'
+                            : 'bg-[#063D32] hover:bg-[#085243] text-[#FFF8E8] border border-[#DFBD69]/45 cursor-pointer disabled:opacity-50'
+                        }`}
+                      >
+                        {isSelected ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{dt.admin.selectedDesignBadge}</span>
+                          </>
+                        ) : (
+                          <span>{isBusy ? dt.admin.savingBtn : dt.admin.selectDesignBtn}</span>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewMonTemplate(profileId);
+                          setShowAddMonitor(true);
+                        }}
+                        className="flex-1 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-[#063D32] hover:bg-[#085243] text-[#FFF8E8] border border-[#DFBD69]/45 cursor-pointer"
+                      >
+                        {dt.admin.selectDesignBtn}
+                      </button>
+                    )}
+
+                    <a
+                      href={previewHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-2 rounded-xl bg-canvas hover:bg-canvas/70 border border-divider text-[11px] font-bold text-primary inline-flex items-center gap-1 shrink-0"
+                      title={dt.admin.previewFullscreenBtn}
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-[#DFBD69]" />
+                      <span className="hidden xl:inline">{dt.admin.previewFullscreenBtn}</span>
+                    </a>
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <Card elevated className="p-5 border-[#DFBD69]/40 space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-divider">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Sparkles className="w-4 h-4 text-[#DFBD69]" />
+                      <h3 className="text-sm sm:text-base font-extrabold text-primary uppercase tracking-wide">
+                        {dt.admin.newPremiumDesignsHeading}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
+                        +6 PHASE 2 · +1 /masjid-tv
+                      </span>
+                    </div>
+                    <p className="text-xs text-secondary mt-1">
+                      {dt.admin.newPremiumDesignsSubtitle}
+                    </p>
+                  </div>
+
+                  {monitors.length > 0 && activeTargetMonitor && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-[11px] font-bold text-secondary">
+                        {dt.admin.targetMonitorLabel}:
+                      </label>
+                      <select
+                        value={activeTargetMonitor.id}
+                        onChange={(e) => setDesignTargetMonitorId(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl border border-divider bg-canvas text-primary text-xs font-bold"
+                      >
+                        {monitors.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({dt.templates[normalizeDisplayTemplate(m.template)]})
+                          </option>
+                        ))}
+                      </select>
+
+                      {prevTemplateId && (
+                        <button
+                          type="button"
+                          disabled={busyAction === `restore_${activeTargetMonitor.id}`}
+                          onClick={() => handleRestorePreviousDesign(activeTargetMonitor)}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>
+                            {dt.admin.restorePreviousDesignBtn} ({dt.templates[prevTemplateId]})
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 6 NEW PHASE 2 PREMIUM DESIGNS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {PHASE2_PREMIUM_PROFILE_IDS.map((profileId) =>
+                    renderDesignCard(
+                      profileId,
+                      profileId === 'masjid_al_nabawi' ? 'REFERENCE' : 'NEW'
+                    )
+                  )}
+                </div>
+
+                {/* DEDICATED UZBEK CYRILLIC TABLO (/masjid-tv) */}
+                <div className="pt-4 border-t border-divider/70 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-secondary">
+                      {dt.admin.dedicatedTabloHeading}
+                    </h4>
+                    <a
+                      href="/masjid-tv"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>/masjid-tv</span>
+                    </a>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {renderDesignCard(
+                      'masjid_namoz_tablosa_uz_cyrl',
+                      'ЎЗБЕК КИРИЛЛ · /masjid-tv',
+                      '/masjid-tv'
+                    )}
+                  </div>
+                </div>
+
+                {/* ORIGINAL 4 CLASSIC PROFILES (PRESERVED UNTOUCHED) */}
+                <div className="pt-4 border-t border-divider/70 space-y-3">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-secondary">
+                    {dt.admin.classicDesignsHeading}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                    {ORIGINAL_DISPLAY_PROFILE_IDS.map((profileId) =>
+                      renderDesignCard(profileId, 'CLASSIC')
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })()}
         </div>
       )}
 
@@ -1256,15 +1554,14 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
               </div>
             </div>
 
-            {/* 8 Prayer Rows (Tahajjud, Subh, Bomdod, Quyosh, Peshin, Asr, Shom, Xufton) */}
+            {/* 8 Prayer Rows (Tahajjud, Subh, Bomdod, Quyosh, Peshin, Asr, Shom, Xufton — 5 Languages, Zero Arabic Column) */}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-divider text-secondary uppercase text-[10px] tracking-wider">
-                    <th className="py-2.5 px-3">Namoz</th>
-                    <th className="py-2.5 px-3">Arabcha</th>
-                    <th className="py-2.5 px-3">Azon / Kirish Vaqti (HH:MM)</th>
-                    <th className="py-2.5 px-3">Iqomat / Jamoat Vaqti (HH:MM)</th>
+                    <th className="py-2.5 px-3">{dt.prayerColumnLabel}</th>
+                    <th className="py-2.5 px-3">{dt.admin.azanEntryCol}</th>
+                    <th className="py-2.5 px-3">{dt.admin.iqamahCongregationCol}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-divider/60">
@@ -1273,15 +1570,12 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                     return (
                       <tr key={entry.key} className="hover:bg-canvas/50">
                         <td className="py-2.5 px-3 font-bold text-primary">
-                          {entry.nameUz}
+                          {dt.prayerNames[entry.key] || entry.nameUz}
                           {['tahajjud', 'subh'].includes(entry.key) && (
                             <span className="ml-1.5 text-[10px] font-normal text-secondary">
-                              (ixtiyoriy)
+                              {dt.admin.optionalTag}
                             </span>
                           )}
-                        </td>
-                        <td className="py-2.5 px-3 font-arabic text-base text-[#C6A45C]" dir="rtl">
-                          {entry.nameAr}
                         </td>
                         <td className="py-2.5 px-3">
                           <input
@@ -1329,7 +1623,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                     }
                     className="w-4 h-4 accent-[#063D32]"
                   />
-                  <span>Rasmiy tasdiqlangan (TV ekranlarida faol koʻrsatilsin)</span>
+                  <span>{dt.admin.officialConfirmedLabel}</span>
                 </label>
                 {scheduleDraft.id === 'asaka-main' && (
                   <label className="flex items-center gap-2 text-xs text-secondary cursor-pointer">
@@ -1983,6 +2277,8 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                       ['showIqamahCountdown', 'Iqomat taymeri'],
                       ['showAnnouncements', 'Pastki eʼlonlar'],
                       ['autoWakeLock', 'Wake Lock (uyqusiz)'],
+                      ['showBackgroundTexture', 'Fon teksturasi'],
+                      ['showSideIndicators', 'Yon sana belgilari'],
                     ] as [keyof SmartDisplaySettings, string][]
                   ).map(([key, label]) => (
                     <label key={key} className="flex items-center gap-2 cursor-pointer">
@@ -2005,7 +2301,7 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-divider/60">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2 border-t border-divider/60">
                   <div>
                     <label className="block text-[11px] font-bold text-secondary mb-1">
                       Shrift Kattaligi
@@ -2026,6 +2322,52 @@ export const SmartMosqueDisplayAdmin: React.FC<SmartMosqueDisplayAdminProps> = (
                       <option value="standard">Standart (100%)</option>
                       <option value="large">Katta (110%)</option>
                       <option value="xlarge">Juda Katta (118%)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-secondary mb-1">
+                      Soat Formati
+                    </label>
+                    <select
+                      value={editingMonitor.settings.clockFormat || '24h'}
+                      onChange={(e) =>
+                        setEditingMonitor({
+                          ...editingMonitor,
+                          settings: {
+                            ...editingMonitor.settings,
+                            clockFormat: e.target.value as '24h' | '12h',
+                          },
+                        })
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-divider bg-canvas text-xs"
+                    >
+                      <option value="24h">24 soat (14:30)</option>
+                      <option value="12h">12 soat (02:30)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-secondary mb-1">
+                      Ekran Yoʻnalishi
+                    </label>
+                    <select
+                      value={editingMonitor.settings.orientationPreference || 'auto'}
+                      onChange={(e) =>
+                        setEditingMonitor({
+                          ...editingMonitor,
+                          settings: {
+                            ...editingMonitor.settings,
+                            orientationPreference: e.target.value as
+                              | 'auto'
+                              | 'portrait'
+                              | 'landscape',
+                          },
+                        })
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-divider bg-canvas text-xs"
+                    >
+                      <option value="auto">Avtomatik</option>
+                      <option value="landscape">Gorizontal (16:9)</option>
+                      <option value="portrait">Vertikal (9:16)</option>
                     </select>
                   </div>
                   <div>

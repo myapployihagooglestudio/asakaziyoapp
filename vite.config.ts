@@ -88,7 +88,7 @@ export default defineConfig(({ command }) => {
           skipWaiting: true,
           clientsClaim: true,
           cleanupOutdatedCaches: true,
-          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           navigateFallbackDenylist: [/^\/api\//, /^\/privacy$/, /^\/delete-account$/],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}'],
           globIgnores: ['**/*.apk', '**/*.aab', '**/*.mp4', '**/*.mp3'],
@@ -162,6 +162,12 @@ export default defineConfig(({ command }) => {
             }
             if (id.includes('node_modules/i18next') || id.includes('node_modules/react-i18next')) {
               return 'vendor-i18n';
+            }
+            if (
+              id.includes('/src/components/features/tv/') ||
+              id.includes('/src/utils/smartMosque')
+            ) {
+              return 'smart-mosque-display';
             }
             if (id.includes('/src/data/')) {
               return 'app-data';

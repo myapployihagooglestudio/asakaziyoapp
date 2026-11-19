@@ -73,6 +73,7 @@ import { GlobalSearchModal } from './components/features/search/GlobalSearchModa
 import { IslamicAchievementsView } from './components/features/profile/IslamicAchievementsView';
 import { SmartTvModal } from './components/features/tv/SmartTvModal';
 import { SmartMosqueDisplayPage } from './components/features/tv/SmartMosqueDisplayPage';
+import { MasjidTvTabloPage } from './components/features/tv/MasjidTvTabloPage';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
 import { PrivacyPolicyModal } from './components/features/legal/PrivacyPolicyModal';
@@ -98,6 +99,9 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const pathName = (window.location.pathname || '').toLowerCase();
       const hashVal = (window.location.hash || '').toLowerCase();
+      if (pathName.startsWith('/masjid-tv') || hashVal === '#masjid-tv' || hashVal === '#masjid_tv') {
+        return 'masjid_tv';
+      }
       if (pathName.startsWith('/display') || hashVal === '#display') {
         return 'display';
       }
@@ -311,13 +315,18 @@ export default function App() {
     setActiveTab(tab);
     try {
       if (typeof window !== 'undefined' && window.history?.pushState) {
-        if (tab === 'display') {
+        if (tab === 'masjid_tv') {
+          window.history.pushState({ tab }, '', '/masjid-tv');
+        } else if (tab === 'display') {
           const nextPath =
             window.location.pathname === '/display' && window.location.search
               ? `/display${window.location.search}`
               : '/display';
           window.history.pushState({ tab }, '', nextPath);
-        } else if (window.location.pathname.startsWith('/display')) {
+        } else if (
+          window.location.pathname.startsWith('/display') ||
+          window.location.pathname.startsWith('/masjid-tv')
+        ) {
           window.history.pushState({ tab }, '', `/#${tab}`);
         } else {
           window.history.pushState({ tab }, '', `#${tab}`);
@@ -333,6 +342,10 @@ export default function App() {
   // Preserve browser back/forward navigation history & global keyboard shortcuts (Ctrl+K, Shift+T)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      if (window.location.pathname.toLowerCase().startsWith('/masjid-tv')) {
+        setActiveTab('masjid_tv');
+        return;
+      }
       if (window.location.pathname.toLowerCase().startsWith('/display')) {
         setActiveTab('display');
         return;
@@ -454,6 +467,24 @@ export default function App() {
   }, [prayerSchedule]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+  // Standalone Uzbek Cyrillic Masjid Namoz Vaqtlari Tablosi (/masjid-tv)
+  if (activeTab === 'masjid_tv') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <MasjidTvTabloPage
+          onExitToApp={() => {
+            try {
+              window.history.pushState({ tab: 'home' }, '', '/');
+            } catch {
+              // ignore
+            }
+            setActiveTab('home');
+          }}
+        />
+      </MotionConfig>
+    );
+  }
 
   // Standalone full-bleed 24/7 Smart Mosque Display screen (/display)
   if (activeTab === 'display') {

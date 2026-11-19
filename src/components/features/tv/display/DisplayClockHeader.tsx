@@ -14,13 +14,12 @@ interface DisplayClockHeaderProps {
   gregorianMonth: string;
   gregorianYear: string;
   localizedWeekday: string;
-  arabicWeekday: string;
-  hijriRaw: string;
+  hijriLocalized: string;
   hijriParts: { day: string; month: string; year: string };
   t: SmartDisplayLocaleBundle;
 }
 
-/** Crisp octagonal day medallion used exclusively in Madina Portrait to mirror Masjid an-Nabawi pillar screens */
+/** Crisp octagonal day medallion used exclusively in Madina Portrait for vertical pillar symmetry */
 const PillarDayOctagon: React.FC<{
   value: string;
   stroke: string;
@@ -59,20 +58,22 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
   gregorianMonth,
   gregorianYear,
   localizedWeekday,
-  arabicWeekday,
-  hijriRaw,
+  hijriLocalized,
   hijriParts,
   t,
 }) => {
   const gregorianDay = String(clock.day).padStart(2, '0');
   const clockMain = `${clock.hh}:${clock.mm}`;
+  const hasHijri = showHijriDate && Boolean(hijriLocalized);
 
   // =========================================================================
-  // 1. MADINA PORTRAIT (9:16 Vertical Pillar — Masjid an-Nabawi Layout)
+  // 1. MADINA PORTRAIT (9:16 Vertical Pillar Composition)
   // =========================================================================
   if (profileId === 'madina_portrait') {
     return (
-      <header className={`shrink-0 border-b ${theme.hairline} px-[clamp(18px,3.2vw,42px)] pt-[clamp(12px,1.8vh,26px)] pb-[clamp(10px,1.5vh,22px)]`}>
+      <header
+        className={`shrink-0 border-b ${theme.hairline} px-[clamp(18px,3.2vw,42px)] pt-[clamp(12px,1.8vh,26px)] pb-[clamp(10px,1.5vh,22px)]`}
+      >
         {/* Quiet top mosque brand bar */}
         <div className="flex items-center justify-between gap-3 mb-[clamp(8px,1.2vh,18px)]">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -81,12 +82,16 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
               alt="ASAKA ZIYO"
               className="w-[clamp(28px,3vh,46px)] h-[clamp(28px,3vh,46px)] rounded-full object-cover border border-[#B38A3B]/60 shrink-0"
             />
-            <div className="min-w-0">
-              <span className={`font-display font-extrabold tracking-[0.14em] uppercase text-[clamp(0.7rem,1.05vh,1.15rem)] ${theme.goldText}`}>
+            <div className="min-w-0 truncate">
+              <span
+                className={`font-display font-extrabold tracking-[0.14em] uppercase text-[clamp(0.7rem,1.05vh,1.15rem)] ${theme.goldText}`}
+              >
                 {t.brandTitle}
               </span>
               <span className={`mx-2 opacity-35 ${theme.inkMuted}`}>·</span>
-              <span className={`font-semibold text-[clamp(0.72rem,1.15vh,1.2rem)] truncate ${theme.inkSecondary}`}>
+              <span
+                className={`font-semibold text-[clamp(0.72rem,1.15vh,1.2rem)] ${theme.inkSecondary}`}
+              >
                 {mosqueTitle}
               </span>
             </div>
@@ -106,15 +111,15 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
             fill={theme.medallionFill}
             textColor={theme.medallionText}
           />
-          <div className={`font-mono-numbers tabular-nums font-extrabold tracking-[-0.03em] leading-none text-[clamp(2.9rem,7.2vh,7.4rem)] ${theme.inkPrimary}`}>
+          <div
+            className={`font-mono-numbers tabular-nums font-extrabold tracking-[-0.03em] leading-none text-[clamp(2.9rem,7.2vh,7.4rem)] ${theme.inkPrimary}`}
+          >
             {clockMain}
-            {showSeconds && (
-              <span className="opacity-75">:{clock.ss}</span>
-            )}
+            {showSeconds && <span className="opacity-75">:{clock.ss}</span>}
           </div>
-          {showHijriDate && (
+          {hasHijri && hijriParts.day && (
             <PillarDayOctagon
-              value={hijriParts.day || '--'}
+              value={hijriParts.day}
               stroke={theme.medallionStroke}
               fill={theme.medallionFill}
               textColor={theme.medallionText}
@@ -122,43 +127,64 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
           )}
         </div>
 
-        {/* Clean 3-Column Calendar Strip */}
+        {/* Clean 3-Column Localized Calendar Strip (Selected Language Only) */}
         <div className="grid grid-cols-3 items-center gap-2 mt-[clamp(10px,1.4vh,20px)]">
           <div className="text-left">
-            <div className={`font-display font-bold leading-tight text-[clamp(0.95rem,1.7vh,1.9rem)] ${theme.inkPrimary}`}>
+            <div
+              className={`text-[clamp(0.6rem,0.88vh,0.9rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+            >
+              {t.milodiyLabel}
+            </div>
+            <div
+              className={`font-display font-bold leading-tight text-[clamp(0.95rem,1.65vh,1.85rem)] ${theme.inkPrimary}`}
+            >
               {gregorianMonth}
             </div>
-            <div className={`font-mono-numbers font-bold leading-tight text-[clamp(0.9rem,1.55vh,1.7rem)] ${theme.inkSecondary}`}>
+            <div
+              className={`font-mono-numbers font-bold leading-tight text-[clamp(0.88rem,1.45vh,1.6rem)] ${theme.inkSecondary}`}
+            >
               {gregorianYear}
             </div>
           </div>
 
           <div className="text-center">
             <div
-              dir="rtl"
-              className={`font-arabic-signage font-bold text-[clamp(1.3rem,2.45vh,2.6rem)] ${theme.inkPrimary}`}
+              className={`font-display font-extrabold uppercase tracking-[0.06em] leading-tight text-[clamp(1.1rem,2.15vh,2.35rem)] ${theme.inkPrimary}`}
             >
-              {arabicWeekday}
-            </div>
-            <div className={`font-semibold text-[clamp(0.82rem,1.4vh,1.5rem)] ${theme.inkSecondary}`}>
               {localizedWeekday}
+            </div>
+            <div
+              className={`mt-0.5 text-[clamp(0.68rem,1.05vh,1.15rem)] font-semibold ${theme.goldText} truncate`}
+            >
+              {t.tashkentTimeLabel}
             </div>
           </div>
 
           <div className="text-right">
-            {showHijriDate ? (
+            {hasHijri ? (
               <>
-                <div className={`font-display font-bold leading-tight text-[clamp(0.9rem,1.6vh,1.8rem)] ${theme.inkPrimary} truncate`}>
-                  {hijriParts.month || hijriRaw}
+                <div
+                  className={`text-[clamp(0.6rem,0.88vh,0.9rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+                >
+                  {t.hijriyLabel}
+                </div>
+                <div
+                  className={`font-display font-bold leading-tight text-[clamp(0.9rem,1.55vh,1.75rem)] ${theme.goldText} truncate`}
+                >
+                  {hijriParts.month || hijriLocalized}
                 </div>
                 {hijriParts.year && (
-                  <div className={`font-mono-numbers font-bold leading-tight text-[clamp(0.9rem,1.55vh,1.7rem)] ${theme.inkSecondary}`}>
+                  <div
+                    className={`font-mono-numbers font-bold leading-tight text-[clamp(0.88rem,1.45vh,1.6rem)] ${theme.inkSecondary}`}
+                  >
                     {hijriParts.year}
                   </div>
                 )}
               </>
             ) : (
-              <div className={`text-[clamp(0.75rem,1.2vh,1.3rem)] font-medium ${theme.inkMuted} truncate`}>
+              <div
+                className={`text-[clamp(0.75rem,1.2vh,1.3rem)] font-medium ${theme.inkMuted} truncate`}
+              >
                 {locationLabel}
               </div>
             )}
@@ -169,7 +195,7 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
   }
 
   // =========================================================================
-  // 2. EMERALD ROYAL (Left Sanctuary Column Stack — 38% width pane)
+  // 2. EMERALD ROYAL (Left Sanctuary Column Stack — Asymmetric 2-Column)
   // =========================================================================
   if (profileId === 'emerald_royal') {
     return (
@@ -182,10 +208,14 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
             className="w-[clamp(42px,3.6vw,68px)] h-[clamp(42px,3.6vw,68px)] rounded-full object-cover border border-[#DFBD69]/55 shrink-0"
           />
           <div className="min-w-0">
-            <div className={`font-display font-extrabold tracking-[0.16em] uppercase text-[clamp(0.75rem,0.95vw,1.25rem)] ${theme.goldText}`}>
+            <div
+              className={`font-display font-extrabold tracking-[0.16em] uppercase text-[clamp(0.75rem,0.95vw,1.25rem)] ${theme.goldText}`}
+            >
               {t.brandTitle}
             </div>
-            <h1 className={`font-display font-bold leading-tight truncate text-[clamp(1rem,1.35vw,1.85rem)] ${theme.inkPrimary}`}>
+            <h1
+              className={`font-display font-bold leading-tight truncate text-[clamp(1rem,1.35vw,1.85rem)] ${theme.inkPrimary}`}
+            >
               {mosqueTitle}
             </h1>
             <p className={`text-[clamp(0.72rem,0.88vw,1.1rem)] truncate ${theme.inkMuted}`}>
@@ -196,7 +226,9 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
 
         {/* Monumental Live Clock */}
         <div className="mt-[clamp(14px,2.4vh,30px)]">
-          <div className={`font-mono-numbers tabular-nums font-extrabold tracking-[-0.03em] leading-none text-[clamp(3.1rem,5.4vw,7.6rem)] ${theme.inkPrimary}`}>
+          <div
+            className={`font-mono-numbers tabular-nums font-extrabold tracking-[-0.03em] leading-none text-[clamp(3.1rem,5.4vw,7.6rem)] ${theme.inkPrimary}`}
+          >
             {clockMain}
             {showSeconds && (
               <span className={`text-[0.58em] font-bold ml-1 ${theme.goldText}`}>:{clock.ss}</span>
@@ -204,29 +236,34 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
           </div>
         </div>
 
-        {/* Clean Structured Calendar Row */}
-        <div className="mt-[clamp(12px,1.8vh,22px)] grid grid-cols-2 gap-4 items-end">
+        {/* Clean Structured Localized Calendar Row */}
+        <div
+          className={`mt-[clamp(12px,1.8vh,22px)] grid ${hasHijri ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-end`}
+        >
           <div>
-            <div className="flex items-baseline gap-2.5">
-              <span dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.25rem,1.7vw,2.3rem)] ${theme.goldText}`}>
-                {arabicWeekday}
-              </span>
-              <span className={`font-semibold text-[clamp(0.85rem,1.05vw,1.4rem)] ${theme.inkSecondary}`}>
-                {localizedWeekday}
-              </span>
+            <div
+              className={`font-display font-extrabold uppercase tracking-[0.06em] text-[clamp(1.05rem,1.45vw,2rem)] ${theme.goldText}`}
+            >
+              {localizedWeekday}
             </div>
-            <div className={`mt-1 font-mono-numbers font-bold text-[clamp(0.95rem,1.2vw,1.65rem)] ${theme.inkPrimary}`}>
+            <div
+              className={`mt-1 font-mono-numbers font-bold text-[clamp(0.95rem,1.2vw,1.65rem)] ${theme.inkPrimary}`}
+            >
               {gregorianDay} {gregorianMonth} {gregorianYear}
             </div>
           </div>
 
-          {showHijriDate && hijriRaw && (
+          {hasHijri && (
             <div className={`text-right pl-3 border-l ${theme.hairline}`}>
-              <div className={`text-[clamp(0.68rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}>
+              <div
+                className={`text-[clamp(0.68rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+              >
                 {t.hijriyLabel}
               </div>
-              <div className={`mt-0.5 font-display font-bold text-[clamp(0.92rem,1.15vw,1.55rem)] ${theme.goldText} truncate`}>
-                {hijriRaw}
+              <div
+                className={`mt-0.5 font-display font-bold text-[clamp(0.95rem,1.2vw,1.6rem)] ${theme.goldText} truncate`}
+              >
+                {hijriLocalized}
               </div>
             </div>
           )}
@@ -255,7 +292,9 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
         />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`font-display font-extrabold tracking-[0.16em] uppercase text-[clamp(0.75rem,0.95vw,1.3rem)] ${theme.goldText}`}>
+            <span
+              className={`font-display font-extrabold tracking-[0.16em] uppercase text-[clamp(0.75rem,0.95vw,1.3rem)] ${theme.goldText}`}
+            >
               {t.brandTitle}
             </span>
             {clock.isFriday && (
@@ -264,7 +303,9 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
               </span>
             )}
           </div>
-          <h1 className={`font-display font-extrabold leading-tight truncate text-[clamp(1.05rem,1.5vw,2.2rem)] ${theme.inkPrimary}`}>
+          <h1
+            className={`font-display font-extrabold leading-tight truncate text-[clamp(1.05rem,1.5vw,2.2rem)] ${theme.inkPrimary}`}
+          >
             {mosqueTitle}
           </h1>
           <p className={`text-[clamp(0.72rem,0.88vw,1.15rem)] truncate ${theme.inkMuted}`}>
@@ -273,33 +314,43 @@ export const DisplayClockHeader: React.FC<DisplayClockHeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Clean Milodiy · Arabic/Local Weekday · Hijriy Calendar */}
+      {/* Center: Clean Localized Weekday · Milodiy · Hijriy Calendar */}
       <div className="hidden md:flex items-center gap-[clamp(18px,2.4vw,44px)] shrink-0">
         <div className="text-right">
-          <div className={`text-[clamp(0.64rem,0.76vw,0.95rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}>
+          <div
+            className={`text-[clamp(0.64rem,0.76vw,0.95rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+          >
             {t.milodiyLabel}
           </div>
-          <div className={`font-display font-bold leading-tight text-[clamp(1rem,1.35vw,1.95rem)] ${theme.inkPrimary}`}>
+          <div
+            className={`font-display font-bold leading-tight text-[clamp(1rem,1.35vw,1.95rem)] ${theme.inkPrimary}`}
+          >
             {gregorianDay} {gregorianMonth} {gregorianYear}
           </div>
         </div>
 
-        <div className={`px-[clamp(14px,1.8vw,30px)] border-x ${theme.hairline} text-center`}>
-          <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.35rem,1.9vw,2.75rem)] ${theme.inkPrimary}`}>
-            {arabicWeekday}
-          </div>
-          <div className={`font-semibold text-[clamp(0.78rem,0.98vw,1.3rem)] ${theme.inkSecondary}`}>
+        <div className={`px-[clamp(16px,2vw,34px)] border-x ${theme.hairline} text-center`}>
+          <div
+            className={`font-display font-extrabold uppercase tracking-[0.06em] leading-tight text-[clamp(1.15rem,1.65vw,2.4rem)] ${theme.inkPrimary}`}
+          >
             {localizedWeekday}
+          </div>
+          <div className={`mt-0.5 text-[clamp(0.68rem,0.82vw,1.05rem)] font-semibold ${theme.inkMuted}`}>
+            {t.tashkentTimeLabel}
           </div>
         </div>
 
-        {showHijriDate && hijriRaw && (
+        {hasHijri && (
           <div className="text-left">
-            <div className={`text-[clamp(0.64rem,0.76vw,0.95rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}>
+            <div
+              className={`text-[clamp(0.64rem,0.76vw,0.95rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+            >
               {t.hijriyLabel}
             </div>
-            <div className={`font-display font-bold leading-tight text-[clamp(1rem,1.35vw,1.95rem)] ${theme.goldText}`}>
-              {hijriRaw}
+            <div
+              className={`font-display font-bold leading-tight text-[clamp(1rem,1.35vw,1.95rem)] ${theme.goldText}`}
+            >
+              {hijriLocalized}
             </div>
           </div>
         )}

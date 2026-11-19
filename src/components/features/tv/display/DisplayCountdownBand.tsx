@@ -42,7 +42,7 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
     (settings.showTahajjud && Boolean(tahajjudTime)) || (settings.showSubh && Boolean(subhTime));
 
   // =========================================================================
-  // 1. MADINA PORTRAIT (9:16 Vertical Pillar — Masjid an-Nabawi Lower Stack)
+  // 1. MADINA PORTRAIT (9:16 Vertical Pillar — Clean Localized Lower Stack)
   // =========================================================================
   if (profileId === 'madina_portrait') {
     const bandCols =
@@ -54,40 +54,47 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
 
     return (
       <div className="shrink-0">
-        {/* Clean 1px Hairline + Twin Solar Times (Ishraq & Sunrise) */}
+        {/* Clean 1px Hairline + Twin Solar Times (Sunrise & Ishraq) */}
         <section
-          aria-label="Sunrise and Ishraq"
-          className={`border-t ${theme.accentHairline} px-[clamp(18px,3vw,42px)] py-[clamp(10px,1.5vh,22px)]`}
+          aria-label={`${t.sunriseLabel} & ${t.ishraqLabel}`}
+          className={`border-t ${theme.accentHairline} px-[clamp(18px,3vw,42px)] py-[clamp(12px,1.7vh,24px)]`}
         >
-          <div className={`grid ${settings.showIshraq ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-center text-center`}>
+          <div
+            className={`grid ${settings.showIshraq ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-center text-center`}
+          >
+            <div>
+              <div
+                className={`text-[clamp(0.75rem,1.25vh,1.35rem)] font-extrabold uppercase tracking-[0.12em] ${theme.inkSecondary}`}
+              >
+                {t.sunriseLabel}
+              </div>
+              <div
+                className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.9rem,3.9vh,4.1rem)] ${theme.inkPrimary}`}
+              >
+                {sunriseTime}
+              </div>
+            </div>
+
             {settings.showIshraq && (
-              <div>
-                <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1rem,1.8vh,1.9rem)] ${theme.inkSecondary}`}>
-                  ابتداء وقت الضحى
-                </div>
-                <div className={`text-[clamp(0.68rem,1.05vh,1.1rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}>
+              <div className={`border-l ${theme.hairline}`}>
+                <div
+                  className={`text-[clamp(0.75rem,1.25vh,1.35rem)] font-extrabold uppercase tracking-[0.12em] ${theme.inkSecondary}`}
+                >
                   {t.ishraqLabel}
                 </div>
-                <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.75rem,3.6vh,3.8rem)] ${theme.inkPrimary}`}>
+                <div
+                  className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.9rem,3.9vh,4.1rem)] ${theme.inkPrimary}`}
+                >
                   {ishraqTime}
                 </div>
               </div>
             )}
-            <div className={settings.showIshraq ? `border-l ${theme.hairline}` : ''}>
-              <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1rem,1.8vh,1.9rem)] ${theme.inkSecondary}`}>
-                الشروق
-              </div>
-              <div className={`text-[clamp(0.68rem,1.05vh,1.1rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}>
-                {t.sunriseLabel}
-              </div>
-              <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.75rem,3.6vh,3.8rem)] ${theme.inkPrimary}`}>
-                {sunriseTime}
-              </div>
-            </div>
           </div>
 
           {showAuxiliaryMeta && (
-            <div className={`mt-2 pt-2 border-t ${theme.hairline} flex items-center justify-center gap-6 text-[clamp(0.72rem,1.15vh,1.2rem)] ${theme.inkSecondary}`}>
+            <div
+              className={`mt-2.5 pt-2 border-t ${theme.hairline} flex items-center justify-center gap-6 text-[clamp(0.74rem,1.2vh,1.25rem)] ${theme.inkSecondary}`}
+            >
               {settings.showTahajjud && tahajjudTime && (
                 <span>
                   <span className={`font-semibold ${theme.inkMuted}`}>{t.tahajjudLabel}: </span>
@@ -104,25 +111,24 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
           )}
         </section>
 
-        {/* Signature Masjid an-Nabawi Solid Royal Mosque Green Band */}
+        {/* Signature Solid Royal Mosque Green Band */}
         <section
-          aria-label="Juma and Prayer Countdowns"
-          className={`${theme.greenBandBg} px-[clamp(14px,2.5vw,36px)] py-[clamp(12px,1.85vh,26px)]`}
+          aria-label={`${t.jumaLabel} & ${t.nextAzanLabel}`}
+          className={`${theme.greenBandBg} px-[clamp(14px,2.5vw,36px)] py-[clamp(14px,2vh,28px)]`}
         >
           <div className={`grid ${bandCols} items-center gap-x-3 text-center`}>
             {settings.showJuma && (
               <div>
-                <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.05rem,2vh,2.05rem)] ${theme.greenBandAccent}`}>
-                  الجمعة
-                </div>
-                <div className="text-[clamp(0.66rem,1vh,1.05rem)] font-bold uppercase tracking-wider text-white/85">
+                <div
+                  className={`text-[clamp(0.74rem,1.25vh,1.32rem)] font-extrabold uppercase tracking-[0.1em] ${theme.greenBandAccent}`}
+                >
                   {t.jumaLabel}
                 </div>
-                <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.55rem,3.4vh,3.5rem)] text-white">
+                <div className="mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.7rem,3.7vh,3.8rem)] text-white">
                   {jumaTime}
                 </div>
                 {jumaIqamahTime && jumaIqamahTime !== jumaTime && (
-                  <div className="mt-1 text-[clamp(0.62rem,0.9vh,0.95rem)] font-mono-numbers text-white/75">
+                  <div className="mt-1.5 text-[clamp(0.64rem,0.95vh,1rem)] font-mono-numbers text-white/80">
                     {t.iqamahColumnLabel}: {jumaIqamahTime}
                   </div>
                 )}
@@ -130,16 +136,18 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
             )}
 
             <div className={settings.showJuma ? 'border-l border-white/20 pl-2' : ''}>
-              <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.05rem,2vh,2.05rem)] ${theme.greenBandAccent}`}>
-                الأذان التالي بعد
+              <div
+                className={`text-[clamp(0.74rem,1.25vh,1.32rem)] font-extrabold uppercase tracking-[0.1em] ${theme.greenBandAccent} truncate`}
+              >
+                {t.nextAzanLabel}
               </div>
-              <div className="text-[clamp(0.66rem,1vh,1.05rem)] font-bold uppercase tracking-wider text-white/90 truncate">
+              <div className="text-[clamp(0.66rem,1vh,1.05rem)] font-bold text-white/90 truncate mt-0.5">
                 {nextPrayerLabel}
               </div>
-              <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.55rem,3.4vh,3.5rem)] text-white">
+              <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.7rem,3.7vh,3.8rem)] text-white">
                 {timeline.nextAzanCountdown}
               </div>
-              <div className="mt-1 text-[clamp(0.62rem,0.9vh,0.95rem)] font-mono-numbers text-white/75">
+              <div className="mt-1 text-[clamp(0.64rem,0.95vh,1rem)] font-mono-numbers text-white/80">
                 {timeline.nextAzanTime}
                 {timeline.isNextAzanTomorrow ? ` · ${t.tomorrowPrefix}` : ''}
               </div>
@@ -148,23 +156,27 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
             {settings.showIqamahCountdown && (
               <div
                 className={`border-l border-white/20 pl-2 rounded-lg transition-colors ${
-                  timeline.isBetweenAzanAndIqamah ? 'bg-[#F3D788]/18 py-1.5 ring-1 ring-[#F3D788]/70' : ''
+                  timeline.isBetweenAzanAndIqamah
+                    ? 'bg-[#F3D788]/18 py-1.5 ring-1 ring-[#F3D788]/70'
+                    : ''
                 }`}
               >
-                <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.05rem,2vh,2.05rem)] ${theme.greenBandAccent}`}>
-                  الإقامة بعد
+                <div
+                  className={`text-[clamp(0.74rem,1.25vh,1.32rem)] font-extrabold uppercase tracking-[0.1em] ${theme.greenBandAccent} truncate`}
+                >
+                  {timeline.isBetweenAzanAndIqamah ? t.iqamahWaitingLabel : t.iqamahColumnLabel}
                 </div>
-                <div className="text-[clamp(0.66rem,1vh,1.05rem)] font-bold uppercase tracking-wider text-white/90 truncate">
-                  {timeline.isBetweenAzanAndIqamah ? t.iqamahWaitingLabel : iqamahPrayerLabel}
+                <div className="text-[clamp(0.66rem,1vh,1.05rem)] font-bold text-white/90 truncate mt-0.5">
+                  {iqamahPrayerLabel}
                 </div>
                 <div
-                  className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.55rem,3.4vh,3.5rem)] ${
+                  className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.7rem,3.7vh,3.8rem)] ${
                     timeline.isBetweenAzanAndIqamah ? theme.greenBandAccent : 'text-white'
                   }`}
                 >
                   {timeline.iqamahCountdown}
                 </div>
-                <div className="mt-1 text-[clamp(0.62rem,0.9vh,0.95rem)] font-mono-numbers text-white/75 truncate">
+                <div className="mt-1 text-[clamp(0.64rem,0.95vh,1rem)] font-mono-numbers text-white/80 truncate">
                   {t.iqamahColumnLabel}: {timeline.iqamahTime}
                 </div>
               </div>
@@ -180,63 +192,58 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
   // =========================================================================
   if (profileId === 'emerald_royal') {
     return (
-      <section aria-label="Countdowns and Solar Times" className="flex-1 min-h-0 flex flex-col justify-between gap-4 pt-[clamp(14px,2vh,26px)]">
+      <section
+        aria-label={`${t.nextAzanLabel} & ${t.iqamahLabel}`}
+        className="flex-1 min-h-0 flex flex-col justify-between gap-4 pt-[clamp(14px,2vh,26px)]"
+      >
         {/* Stacked Primary Countdowns */}
-        <div className="space-y-[clamp(10px,1.6vh,20px)]">
+        <div className="space-y-[clamp(12px,1.8vh,22px)]">
           {/* Next Azan Countdown */}
-          <div className="rounded-2xl bg-[#093424] border border-[#DFBD69]/28 px-[clamp(14px,1.6vw,26px)] py-[clamp(12px,1.8vh,22px)]">
+          <div className="rounded-2xl bg-[#093424] border border-[#DFBD69]/28 px-[clamp(16px,1.8vw,28px)] py-[clamp(14px,2vh,26px)]">
             <div className="flex items-baseline justify-between gap-2">
-              <span className={`text-[clamp(0.7rem,0.88vw,1.1rem)] font-bold uppercase tracking-[0.12em] ${theme.inkSecondary}`}>
+              <span
+                className={`text-[clamp(0.76rem,0.98vw,1.25rem)] font-extrabold uppercase tracking-[0.12em] ${theme.goldText} truncate`}
+              >
                 {t.nextAzanLabel} · {nextPrayerLabel}
               </span>
-              <span dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1rem,1.25vw,1.65rem)] ${theme.goldText}`}>
-                الأذان التالي بعد
-              </span>
-            </div>
-            <div className="mt-1.5 flex items-baseline justify-between gap-3">
-              <div className="font-mono-numbers tabular-nums font-extrabold leading-none tracking-[-0.03em] text-[clamp(2.2rem,3.6vw,5rem)] text-white">
-                {timeline.nextAzanCountdown}
-              </div>
-              <div className={`text-right font-mono-numbers font-bold text-[clamp(0.85rem,1.1vw,1.45rem)] ${theme.goldText}`}>
+              <span className="font-mono-numbers font-bold text-[clamp(0.85rem,1.08vw,1.4rem)] text-white/80 shrink-0">
                 {timeline.nextAzanTime}
                 {timeline.isNextAzanTomorrow ? ` (${t.tomorrowPrefix})` : ''}
-              </div>
+              </span>
+            </div>
+            <div className="mt-2 font-mono-numbers tabular-nums font-extrabold leading-none tracking-[-0.03em] text-[clamp(2.35rem,3.9vw,5.4rem)] text-white">
+              {timeline.nextAzanCountdown}
             </div>
           </div>
 
           {/* Iqamah Countdown */}
           {settings.showIqamahCountdown && (
             <div
-              className={`rounded-2xl px-[clamp(14px,1.6vw,26px)] py-[clamp(12px,1.8vh,22px)] border transition-colors ${
+              className={`rounded-2xl px-[clamp(16px,1.8vw,28px)] py-[clamp(14px,2vh,26px)] border transition-colors ${
                 timeline.isBetweenAzanAndIqamah
                   ? 'bg-[#0E5E38] border-[#FFE498]/75'
                   : 'bg-[#07291C] border-[#DFBD69]/20'
               }`}
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[clamp(0.7rem,0.88vw,1.1rem)] font-bold uppercase tracking-[0.12em] text-white/85 truncate">
+                <span className="text-[clamp(0.76rem,0.98vw,1.25rem)] font-extrabold uppercase tracking-[0.12em] text-white/90 truncate">
                   {timeline.isBetweenAzanAndIqamah
                     ? t.iqamahWaitingLabel
-                    : `${t.iqamahColumnLabel} · ${iqamahPrayerLabel}`}
+                    : `${t.iqamahLabel} · ${iqamahPrayerLabel}`}
                 </span>
-                <span dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1rem,1.25vw,1.65rem)] ${theme.goldText}`}>
-                  الإقامة بعد
+                <span className="font-mono-numbers font-bold text-[clamp(0.85rem,1.08vw,1.4rem)] text-white/80 shrink-0">
+                  {timeline.iqamahTime}
                 </span>
               </div>
-              <div className="mt-1.5 flex items-baseline justify-between gap-3">
-                <div
-                  className={`font-mono-numbers tabular-nums font-extrabold leading-none tracking-[-0.03em] text-[clamp(2rem,3.2vw,4.5rem)] ${
-                    timeline.isBetweenAzanAndIqamah ? 'text-[#FFE498]' : 'text-white'
-                  }`}
-                >
-                  {timeline.iqamahCountdown}
-                </div>
-                <div className="text-right font-mono-numbers font-bold text-[clamp(0.85rem,1.1vw,1.45rem)] text-white/80">
-                  {timeline.iqamahTime}
-                </div>
+              <div
+                className={`mt-2 font-mono-numbers tabular-nums font-extrabold leading-none tracking-[-0.03em] text-[clamp(2.1rem,3.45vw,4.8rem)] ${
+                  timeline.isBetweenAzanAndIqamah ? 'text-[#FFE498]' : 'text-white'
+                }`}
+              >
+                {timeline.iqamahCountdown}
               </div>
               {timeline.isBetweenAzanAndIqamah && (
-                <div className="mt-2 text-[clamp(0.72rem,0.88vw,1.1rem)] font-semibold text-[#FFE498]">
+                <div className="mt-2 text-[clamp(0.74rem,0.9vw,1.15rem)] font-semibold text-[#FFE498]">
                   {t.iqamahPrepareNotice}
                 </div>
               )}
@@ -245,23 +252,31 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
         </div>
 
         {/* Clean Aligned Sunrise / Ishraq / Juma Footer Metrics */}
-        <div className={`pt-[clamp(10px,1.4vh,18px)] border-t ${theme.hairline}`}>
+        <div className={`pt-[clamp(12px,1.6vh,20px)] border-t ${theme.hairline}`}>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className={`text-[clamp(0.62rem,0.75vw,0.95rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}>
+              <div
+                className={`text-[clamp(0.66rem,0.8vw,1.02rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}
+              >
                 {t.sunriseLabel}
               </div>
-              <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.25rem,1.85vw,2.6rem)] ${theme.inkPrimary}`}>
+              <div
+                className={`mt-1 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.35rem,2vw,2.8rem)] ${theme.inkPrimary}`}
+              >
                 {sunriseTime}
               </div>
             </div>
 
             {settings.showIshraq && (
               <div className={`border-l ${theme.hairline}`}>
-                <div className={`text-[clamp(0.62rem,0.75vw,0.95rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}>
+                <div
+                  className={`text-[clamp(0.66rem,0.8vw,1.02rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}
+                >
                   {t.ishraqLabel}
                 </div>
-                <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.25rem,1.85vw,2.6rem)] ${theme.inkPrimary}`}>
+                <div
+                  className={`mt-1 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.35rem,2vw,2.8rem)] ${theme.inkPrimary}`}
+                >
                   {ishraqTime}
                 </div>
               </div>
@@ -269,10 +284,14 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
 
             {settings.showJuma && (
               <div className={`border-l ${theme.hairline}`}>
-                <div className={`text-[clamp(0.62rem,0.75vw,0.95rem)] font-bold uppercase tracking-[0.1em] ${theme.goldText}`}>
+                <div
+                  className={`text-[clamp(0.66rem,0.8vw,1.02rem)] font-bold uppercase tracking-[0.1em] ${theme.goldText}`}
+                >
                   {t.jumaLabel}
                 </div>
-                <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.25rem,1.85vw,2.6rem)] ${theme.goldText}`}>
+                <div
+                  className={`mt-1 font-mono-numbers tabular-nums font-extrabold text-[clamp(1.35rem,2vw,2.8rem)] ${theme.goldText}`}
+                >
                   {jumaTime}
                 </div>
               </div>
@@ -280,7 +299,9 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
           </div>
 
           {showAuxiliaryMeta && (
-            <div className={`mt-2.5 pt-2 border-t ${theme.hairline} flex items-center justify-center gap-6 text-[clamp(0.72rem,0.85vw,1.08rem)] ${theme.inkSecondary}`}>
+            <div
+              className={`mt-2.5 pt-2 border-t ${theme.hairline} flex items-center justify-center gap-6 text-[clamp(0.72rem,0.85vw,1.08rem)] ${theme.inkSecondary}`}
+            >
               {settings.showTahajjud && tahajjudTime && (
                 <span>
                   <span className={theme.inkMuted}>{t.tahajjudLabel}: </span>
@@ -306,39 +327,37 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
   if (profileId === 'modern_minimal') {
     return (
       <section
-        aria-label="Solar Times and Countdowns"
+        aria-label={`${t.sunriseLabel}, ${t.ishraqLabel}, ${t.jumaLabel}`}
         className="shrink-0 px-[clamp(20px,3vw,56px)] pb-[clamp(12px,1.6vh,24px)]"
       >
         <div
           className={`grid grid-cols-2 lg:grid-cols-5 items-center border ${theme.hairline} divide-x ${theme.hairline} bg-[#F5F4EF]`}
         >
           {/* Sunrise */}
-          <div className="px-[clamp(12px,1.4vw,24px)] py-[clamp(10px,1.4vh,20px)]">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className={`text-[clamp(0.65rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}>
-                {t.sunriseLabel}
-              </span>
-              <span dir="rtl" className={`font-arabic-signage text-[clamp(0.95rem,1.15vw,1.5rem)] ${theme.inkSecondary}`}>
-                الشروق
-              </span>
+          <div className="px-[clamp(14px,1.5vw,26px)] py-[clamp(12px,1.5vh,22px)]">
+            <div
+              className={`text-[clamp(0.68rem,0.85vw,1.08rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+            >
+              {t.sunriseLabel}
             </div>
-            <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.5rem,2.3vw,3.3rem)] ${theme.inkPrimary}`}>
+            <div
+              className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.45vw,3.5rem)] ${theme.inkPrimary}`}
+            >
               {sunriseTime}
             </div>
           </div>
 
           {/* Ishraq */}
           {settings.showIshraq && (
-            <div className="px-[clamp(12px,1.4vw,24px)] py-[clamp(10px,1.4vh,20px)]">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={`text-[clamp(0.65rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}>
-                  {t.ishraqLabel}
-                </span>
-                <span dir="rtl" className={`font-arabic-signage text-[clamp(0.95rem,1.15vw,1.5rem)] ${theme.inkSecondary}`}>
-                  الضحى
-                </span>
+            <div className="px-[clamp(14px,1.5vw,26px)] py-[clamp(12px,1.5vh,22px)]">
+              <div
+                className={`text-[clamp(0.68rem,0.85vw,1.08rem)] font-bold uppercase tracking-[0.12em] ${theme.inkMuted}`}
+              >
+                {t.ishraqLabel}
               </div>
-              <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.5rem,2.3vw,3.3rem)] ${theme.inkPrimary}`}>
+              <div
+                className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.45vw,3.5rem)] ${theme.inkPrimary}`}
+              >
                 {ishraqTime}
               </div>
             </div>
@@ -346,29 +365,26 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
 
           {/* Juma */}
           {settings.showJuma && (
-            <div className="px-[clamp(12px,1.4vw,24px)] py-[clamp(10px,1.4vh,20px)]">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={`text-[clamp(0.65rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] ${theme.goldText}`}>
-                  {t.jumaLabel}
-                </span>
-                <span dir="rtl" className={`font-arabic-signage text-[clamp(0.95rem,1.15vw,1.5rem)] ${theme.goldText}`}>
-                  الجمعة
-                </span>
+            <div className="px-[clamp(14px,1.5vw,26px)] py-[clamp(12px,1.5vh,22px)]">
+              <div
+                className={`text-[clamp(0.68rem,0.85vw,1.08rem)] font-bold uppercase tracking-[0.12em] ${theme.goldText}`}
+              >
+                {t.jumaLabel}
               </div>
-              <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.5rem,2.3vw,3.3rem)] ${theme.inkPrimary}`}>
+              <div
+                className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.45vw,3.5rem)] ${theme.inkPrimary}`}
+              >
                 {jumaTime}
               </div>
             </div>
           )}
 
           {/* Next Azan Countdown */}
-          <div className="px-[clamp(12px,1.4vw,24px)] py-[clamp(10px,1.4vh,20px)] bg-[#0B4C2E] text-white">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[clamp(0.65rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] text-white/80 truncate">
-                {t.nextAzanLabel} · {nextPrayerLabel}
-              </span>
+          <div className="px-[clamp(14px,1.5vw,26px)] py-[clamp(12px,1.5vh,22px)] bg-[#0B4C2E] text-white">
+            <div className="text-[clamp(0.68rem,0.85vw,1.08rem)] font-bold uppercase tracking-[0.12em] text-white/85 truncate">
+              {t.nextAzanLabel} · {nextPrayerLabel}
             </div>
-            <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.5rem,2.3vw,3.3rem)] text-white">
+            <div className="mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.45vw,3.5rem)] text-white">
               {timeline.nextAzanCountdown}
             </div>
           </div>
@@ -376,18 +392,18 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
           {/* Iqamah Countdown */}
           {settings.showIqamahCountdown && (
             <div
-              className={`px-[clamp(12px,1.4vw,24px)] py-[clamp(10px,1.4vh,20px)] ${
-                timeline.isBetweenAzanAndIqamah ? 'bg-[#0E5E38] text-[#F3D88E]' : 'bg-[#0A3D25] text-white'
+              className={`px-[clamp(14px,1.5vw,26px)] py-[clamp(12px,1.5vh,22px)] ${
+                timeline.isBetweenAzanAndIqamah
+                  ? 'bg-[#0E5E38] text-[#F3D88E]'
+                  : 'bg-[#0A3D25] text-white'
               }`}
             >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[clamp(0.65rem,0.8vw,1rem)] font-bold uppercase tracking-[0.12em] text-white/80 truncate">
-                  {timeline.isBetweenAzanAndIqamah
-                    ? t.iqamahWaitingLabel
-                    : `${t.iqamahColumnLabel} · ${iqamahPrayerLabel}`}
-                </span>
+              <div className="text-[clamp(0.68rem,0.85vw,1.08rem)] font-bold uppercase tracking-[0.12em] text-white/85 truncate">
+                {timeline.isBetweenAzanAndIqamah
+                  ? t.iqamahWaitingLabel
+                  : `${t.iqamahColumnLabel} · ${iqamahPrayerLabel}`}
               </div>
-              <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.5rem,2.3vw,3.3rem)]">
+              <div className="mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.45vw,3.5rem)]">
                 {timeline.iqamahCountdown}
               </div>
             </div>
@@ -395,15 +411,19 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
         </div>
 
         {showAuxiliaryMeta && (
-          <div className={`mt-2 flex items-center justify-end gap-6 text-[clamp(0.72rem,0.85vw,1.08rem)] ${theme.inkMuted}`}>
+          <div
+            className={`mt-2 flex items-center justify-end gap-6 text-[clamp(0.72rem,0.85vw,1.08rem)] ${theme.inkMuted}`}
+          >
             {settings.showTahajjud && tahajjudTime && (
               <span>
-                {t.tahajjudLabel}: <strong className={`font-mono-numbers ${theme.inkPrimary}`}>{tahajjudTime}</strong>
+                {t.tahajjudLabel}:{' '}
+                <strong className={`font-mono-numbers ${theme.inkPrimary}`}>{tahajjudTime}</strong>
               </span>
             )}
             {settings.showSubh && subhTime && (
               <span>
-                {t.subhLabel}: <strong className={`font-mono-numbers ${theme.inkPrimary}`}>{subhTime}</strong>
+                {t.subhLabel}:{' '}
+                <strong className={`font-mono-numbers ${theme.inkPrimary}`}>{subhTime}</strong>
               </span>
             )}
           </div>
@@ -417,36 +437,40 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
   // =========================================================================
   return (
     <section
-      aria-label="Solar Times, Juma and Countdowns"
+      aria-label={`${t.sunriseLabel}, ${t.jumaLabel} & ${t.nextAzanLabel}`}
       className="shrink-0 px-[clamp(20px,3vw,56px)] pb-[clamp(12px,1.6vh,22px)]"
     >
       <div className="grid grid-cols-12 gap-[clamp(12px,1.5vw,24px)] items-stretch">
         {/* Left 4 columns: Clean Sunrise & Ishraq (+ optional Tahajjud/Subh) */}
         <div
-          className={`col-span-12 lg:col-span-4 rounded-2xl border ${theme.hairline} ${theme.secondarySurfaceBg} px-[clamp(14px,1.6vw,26px)] py-[clamp(10px,1.5vh,20px)] flex flex-col justify-center`}
+          className={`col-span-12 lg:col-span-4 rounded-2xl border ${theme.hairline} ${theme.secondarySurfaceBg} px-[clamp(14px,1.6vw,26px)] py-[clamp(12px,1.6vh,22px)] flex flex-col justify-center`}
         >
-          <div className={`grid ${settings.showIshraq ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-center text-center`}>
+          <div
+            className={`grid ${settings.showIshraq ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-center text-center`}
+          >
             <div>
-              <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1rem,1.25vw,1.65rem)] ${theme.inkSecondary}`}>
-                الشروق
-              </div>
-              <div className={`text-[clamp(0.64rem,0.78vw,0.98rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}>
+              <div
+                className={`text-[clamp(0.72rem,0.9vw,1.15rem)] font-extrabold uppercase tracking-[0.1em] ${theme.inkSecondary}`}
+              >
                 {t.sunriseLabel}
               </div>
-              <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.4vw,3.4rem)] ${theme.inkPrimary}`}>
+              <div
+                className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.75rem,2.65vw,3.7rem)] ${theme.inkPrimary}`}
+              >
                 {sunriseTime}
               </div>
             </div>
 
             {settings.showIshraq && (
               <div className={`border-l ${theme.hairline} pl-3`}>
-                <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1rem,1.25vw,1.65rem)] ${theme.inkSecondary}`}>
-                  ابتداء وقت الضحى
-                </div>
-                <div className={`text-[clamp(0.64rem,0.78vw,0.98rem)] font-bold uppercase tracking-[0.1em] ${theme.inkMuted}`}>
+                <div
+                  className={`text-[clamp(0.72rem,0.9vw,1.15rem)] font-extrabold uppercase tracking-[0.1em] ${theme.inkSecondary}`}
+                >
                   {t.ishraqLabel}
                 </div>
-                <div className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.6rem,2.4vw,3.4rem)] ${theme.inkPrimary}`}>
+                <div
+                  className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.75rem,2.65vw,3.7rem)] ${theme.inkPrimary}`}
+                >
                   {ishraqTime}
                 </div>
               </div>
@@ -454,7 +478,9 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
           </div>
 
           {showAuxiliaryMeta && (
-            <div className={`mt-2 pt-2 border-t ${theme.hairline} flex items-center justify-center gap-5 text-[clamp(0.68rem,0.82vw,1.04rem)] ${theme.inkSecondary}`}>
+            <div
+              className={`mt-2.5 pt-2 border-t ${theme.hairline} flex items-center justify-center gap-5 text-[clamp(0.7rem,0.85vw,1.08rem)] ${theme.inkSecondary}`}
+            >
               {settings.showTahajjud && tahajjudTime && (
                 <span>
                   <span className={theme.inkMuted}>{t.tahajjudLabel}: </span>
@@ -473,7 +499,7 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
 
         {/* Right 8 columns: Signature Solid Royal Mosque Green Band */}
         <div
-          className={`col-span-12 lg:col-span-8 rounded-2xl ${theme.greenBandBg} px-[clamp(16px,2vw,34px)] py-[clamp(12px,1.6vh,22px)] flex items-center`}
+          className={`col-span-12 lg:col-span-8 rounded-2xl ${theme.greenBandBg} px-[clamp(16px,2vw,34px)] py-[clamp(14px,1.8vh,24px)] flex items-center`}
         >
           <div
             className={`w-full grid items-center gap-x-[clamp(12px,1.8vw,30px)] text-center ${
@@ -486,17 +512,16 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
           >
             {settings.showJuma && (
               <div>
-                <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.05rem,1.4vw,1.95rem)] ${theme.greenBandAccent}`}>
-                  الجمعة
-                </div>
-                <div className="text-[clamp(0.66rem,0.82vw,1.05rem)] font-bold uppercase tracking-[0.1em] text-white/85">
+                <div
+                  className={`text-[clamp(0.72rem,0.92vw,1.18rem)] font-extrabold uppercase tracking-[0.1em] ${theme.greenBandAccent}`}
+                >
                   {t.jumaLabel}
                 </div>
-                <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.65rem,2.6vw,3.7rem)] text-white">
+                <div className="mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.8rem,2.85vw,4rem)] text-white">
                   {jumaTime}
                 </div>
                 {jumaIqamahTime && jumaIqamahTime !== jumaTime && (
-                  <div className="mt-1 text-[clamp(0.64rem,0.78vw,0.98rem)] font-mono-numbers text-white/75">
+                  <div className="mt-1.5 text-[clamp(0.66rem,0.82vw,1.04rem)] font-mono-numbers text-white/80">
                     {t.iqamahColumnLabel}: {jumaIqamahTime}
                   </div>
                 )}
@@ -504,16 +529,15 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
             )}
 
             <div className={settings.showJuma ? 'border-l border-white/20 pl-3' : ''}>
-              <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.05rem,1.4vw,1.95rem)] ${theme.greenBandAccent}`}>
-                الأذان التالي بعد
-              </div>
-              <div className="text-[clamp(0.66rem,0.82vw,1.05rem)] font-bold uppercase tracking-[0.1em] text-white/90 truncate">
+              <div
+                className={`text-[clamp(0.72rem,0.92vw,1.18rem)] font-extrabold uppercase tracking-[0.1em] ${theme.greenBandAccent} truncate`}
+              >
                 {t.nextAzanLabel} · {nextPrayerLabel}
               </div>
-              <div className="mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.65rem,2.6vw,3.7rem)] text-white">
+              <div className="mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.8rem,2.85vw,4rem)] text-white">
                 {timeline.nextAzanCountdown}
               </div>
-              <div className="mt-1 text-[clamp(0.64rem,0.78vw,0.98rem)] font-mono-numbers text-white/75">
+              <div className="mt-1.5 text-[clamp(0.66rem,0.82vw,1.04rem)] font-mono-numbers text-white/80">
                 {t.azanColumnLabel}: {timeline.nextAzanTime}
                 {timeline.isNextAzanTomorrow ? ` (${t.tomorrowPrefix})` : ''}
               </div>
@@ -522,25 +546,26 @@ export const DisplayCountdownBand: React.FC<DisplayCountdownBandProps> = ({
             {settings.showIqamahCountdown && (
               <div
                 className={`border-l border-white/20 pl-3 rounded-xl transition-colors ${
-                  timeline.isBetweenAzanAndIqamah ? 'bg-[#F3D788]/18 py-1.5 px-2 ring-1 ring-[#F3D788]/70' : ''
+                  timeline.isBetweenAzanAndIqamah
+                    ? 'bg-[#F3D788]/18 py-1.5 px-2 ring-1 ring-[#F3D788]/70'
+                    : ''
                 }`}
               >
-                <div dir="rtl" className={`font-arabic-signage font-bold text-[clamp(1.05rem,1.4vw,1.95rem)] ${theme.greenBandAccent}`}>
-                  الإقامة بعد
-                </div>
-                <div className="text-[clamp(0.66rem,0.82vw,1.05rem)] font-bold uppercase tracking-[0.1em] text-white/90 truncate">
+                <div
+                  className={`text-[clamp(0.72rem,0.92vw,1.18rem)] font-extrabold uppercase tracking-[0.1em] ${theme.greenBandAccent} truncate`}
+                >
                   {timeline.isBetweenAzanAndIqamah
                     ? t.iqamahWaitingLabel
                     : `${t.iqamahColumnLabel} · ${iqamahPrayerLabel}`}
                 </div>
                 <div
-                  className={`mt-1 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.65rem,2.6vw,3.7rem)] ${
+                  className={`mt-1.5 font-mono-numbers tabular-nums font-extrabold leading-none text-[clamp(1.8rem,2.85vw,4rem)] ${
                     timeline.isBetweenAzanAndIqamah ? theme.greenBandAccent : 'text-white'
                   }`}
                 >
                   {timeline.iqamahCountdown}
                 </div>
-                <div className="mt-1 text-[clamp(0.64rem,0.78vw,0.98rem)] font-mono-numbers text-white/75 truncate">
+                <div className="mt-1.5 text-[clamp(0.66rem,0.82vw,1.04rem)] font-mono-numbers text-white/80 truncate">
                   {timeline.isBetweenAzanAndIqamah
                     ? t.iqamahPrepareNotice
                     : `${t.iqamahColumnLabel}: ${timeline.iqamahTime}`}
