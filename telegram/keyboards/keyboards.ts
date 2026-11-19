@@ -23,11 +23,31 @@ import { TelegramPlatformConfig } from '../config';
 import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
 import { getTelegramLocaleBundle, TELEGRAM_LANGUAGE_NATIVE_NAMES } from '../locales';
 import { buildMiniAppEntryUrl } from '../miniapp/miniAppConfig';
+import { ResolvedAndroidReleaseView } from '../services/appReleaseService';
 
 export type ReplyKeyboardAction =
-  | 'prayer'
-  | 'quran_center'
+  | 'home'
   | 'ai'
+  | 'quran'
+  | 'hadiths'
+  | 'prayer'
+  | 'dhikr_dua'
+  | 'articles'
+  | 'announcements'
+  | 'news'
+  | 'audio_library'
+  | 'video_library'
+  | 'education'
+  | 'quizzes'
+  | 'android_app'
+  | 'web_app'
+  | 'favorites'
+  | 'notifications'
+  | 'profile'
+  | 'contact_admin'
+  | 'settings'
+  // Legacy 6 aliases preserved for full backward compatibility
+  | 'quran_center'
   | 'academy_quiz'
   | 'support'
   | 'menu';
@@ -46,7 +66,8 @@ function makeAppAction(
 }
 
 /**
- * Persistent ReplyKeyboardMarkup working harmoniously alongside Inline keyboards.
+ * Complete 20-item phone-friendly 2-column Persistent ReplyKeyboardMarkup
+ * working harmoniously alongside Inline keyboards across all 5 languages.
  */
 export function buildPersistentReplyKeyboard(
   locale: TelegramLocale
@@ -54,9 +75,16 @@ export function buildPersistentReplyKeyboard(
   const rb = getTelegramLocaleBundle(locale).replyButtons;
   return {
     keyboard: [
-      [{ text: rb.prayerTimes }, { text: rb.quranCenter }],
-      [{ text: rb.aiAssistant }, { text: rb.academyQuiz }],
-      [{ text: rb.support }, { text: rb.menuMiniApp }],
+      [{ text: rb.home }, { text: rb.ai }],
+      [{ text: rb.quran }, { text: rb.hadiths }],
+      [{ text: rb.prayer }, { text: rb.dhikrDua }],
+      [{ text: rb.articles }, { text: rb.announcements }],
+      [{ text: rb.news }, { text: rb.audioLibrary }],
+      [{ text: rb.videoLibrary }, { text: rb.education }],
+      [{ text: rb.quizzes }, { text: rb.androidApp }],
+      [{ text: rb.webApp }, { text: rb.favorites }],
+      [{ text: rb.notifications }, { text: rb.profile }],
+      [{ text: rb.contactAdmin }, { text: rb.settings }],
     ],
     resize_keyboard: true,
     is_persistent: true,
@@ -66,18 +94,36 @@ export function buildPersistentReplyKeyboard(
 
 /**
  * Matches a tapped persistent Reply Keyboard label across ALL 5 languages
- * (so tapping an old button right after switching language still works smoothly).
+ * (supports all 20 Unified Ecosystem V4 items AND all 6 legacy labels).
  */
 export function matchReplyKeyboardAction(text: string | undefined): ReplyKeyboardAction | null {
   const trimmed = (text || '').trim();
   if (!trimmed) return null;
   for (const loc of TELEGRAM_SUPPORTED_LOCALES) {
     const rb = getTelegramLocaleBundle(loc).replyButtons;
-    if (trimmed === rb.prayerTimes) return 'prayer';
+    if (trimmed === rb.home) return 'home';
+    if (trimmed === rb.ai || trimmed === rb.aiAssistant) return 'ai';
+    if (trimmed === rb.quran) return 'quran';
+    if (trimmed === rb.hadiths) return 'hadiths';
+    if (trimmed === rb.prayer || trimmed === rb.prayerTimes) return 'prayer';
+    if (trimmed === rb.dhikrDua) return 'dhikr_dua';
+    if (trimmed === rb.articles) return 'articles';
+    if (trimmed === rb.announcements) return 'announcements';
+    if (trimmed === rb.news) return 'news';
+    if (trimmed === rb.audioLibrary) return 'audio_library';
+    if (trimmed === rb.videoLibrary) return 'video_library';
+    if (trimmed === rb.education) return 'education';
+    if (trimmed === rb.quizzes) return 'quizzes';
+    if (trimmed === rb.androidApp) return 'android_app';
+    if (trimmed === rb.webApp) return 'web_app';
+    if (trimmed === rb.favorites) return 'favorites';
+    if (trimmed === rb.notifications) return 'notifications';
+    if (trimmed === rb.profile) return 'profile';
+    if (trimmed === rb.contactAdmin || trimmed === rb.support) return 'contact_admin';
+    if (trimmed === rb.settings) return 'settings';
+    // Legacy aliases
     if (trimmed === rb.quranCenter) return 'quran_center';
-    if (trimmed === rb.aiAssistant) return 'ai';
     if (trimmed === rb.academyQuiz) return 'academy_quiz';
-    if (trimmed === rb.support) return 'support';
     if (trimmed === rb.menuMiniApp) return 'menu';
   }
   return null;
@@ -148,7 +194,11 @@ export function buildMainMenuKeyboard(
           useMiniApp ? b.miniApp : b.webApp,
           makeAppAction(config, locale, 'home', useMiniApp)
         ),
+        emoji.buildKeyboardButton('brand.star', `📱 ${b.androidApp}`, { callback_data: 'nav:android_app' }),
+      ],
+      [
         emoji.buildKeyboardButton('brand.mosque', b.mosqueInfo, { callback_data: 'nav:mosque' }),
+        emoji.buildKeyboardButton('brand.star', b.myBookmarks, { callback_data: 'nav:bookmarks' }),
       ],
       bottomRow,
     ],
@@ -606,47 +656,121 @@ export function buildQuizResultKeyboard(
 
 export function buildMediaLibraryKeyboard(
   locale: TelegramLocale,
-  kind: 'articles' | 'news' | 'announcements' | 'adhan',
+  kind: 'articles' | 'news' | 'announcements' | 'adhan' | 'audio' | 'video',
   currentIndex: number,
   total: number,
-  emoji: CustomEmojiRegistry
+  emoji: CustomEmojiRegistry,
+  itemId?: string
 ): TelegramInlineKeyboardMarkup {
   const dict = getTelegramLocaleBundle(locale);
   const b = dict.buttons;
-  const prevIdx = (currentIndex - 1 + total) % total;
-  const nextIdx = (currentIndex + 1) % total;
+  const safeTotal = Math.max(1, total);
+  const prevIdx = (currentIndex - 1 + safeTotal) % safeTotal;
+  const nextIdx = (currentIndex + 1) % safeTotal;
 
-  return {
-    inline_keyboard: [
-      [
-        emoji.buildKeyboardButton('nav.prev', b.prevItem, {
-          callback_data: `library:view:${kind}:${prevIdx}`,
-        }),
-        emoji.buildKeyboardButton('nav.next', b.nextItem, {
-          callback_data: `library:view:${kind}:${nextIdx}`,
-        }),
-      ],
-      [
-        emoji.buildKeyboardButton('brand.book', dict.mediaArticlesLabel, {
-          callback_data: 'library:view:articles:0',
-        }),
-        emoji.buildKeyboardButton('channel.broadcast', dict.mediaNewsLabel, {
-          callback_data: 'library:view:news:0',
-        }),
-      ],
-      [
-        emoji.buildKeyboardButton('nav.channels', dict.mediaAnnouncementsLabel, {
-          callback_data: 'library:view:announcements:0',
-        }),
-        emoji.buildKeyboardButton('nav.prayer', dict.mediaAdhanLabel, {
-          callback_data: 'library:view:adhan:0',
-        }),
-      ],
-      [
-        emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
-      ],
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+      emoji.buildKeyboardButton('nav.prev', b.prevItem, {
+        callback_data: `library:view:${kind}:${prevIdx}`,
+      }),
+      emoji.buildKeyboardButton('nav.next', b.nextItem, {
+        callback_data: `library:view:${kind}:${nextIdx}`,
+      }),
     ],
-  };
+    [
+      emoji.buildKeyboardButton('brand.book', dict.mediaArticlesLabel, {
+        callback_data: 'library:view:articles:0',
+      }),
+      emoji.buildKeyboardButton('channel.broadcast', dict.mediaNewsLabel, {
+        callback_data: 'library:view:news:0',
+      }),
+    ],
+    [
+      emoji.buildKeyboardButton('nav.channels', dict.mediaAnnouncementsLabel, {
+        callback_data: 'library:view:announcements:0',
+      }),
+      emoji.buildKeyboardButton('nav.prayer', dict.mediaAudioLabel, {
+        callback_data: 'library:view:audio:0',
+      }),
+    ],
+    [
+      emoji.buildKeyboardButton('brand.star', dict.mediaVideoLabel, {
+        callback_data: 'library:view:video:0',
+      }),
+      ...(itemId
+        ? [
+            emoji.buildKeyboardButton('brand.star', b.bookmarkToggle, {
+              callback_data: `bookmark:media:${kind}:${currentIndex}`,
+            }),
+          ]
+        : [
+            emoji.buildKeyboardButton('nav.prayer', dict.mediaAdhanLabel, {
+              callback_data: 'library:view:adhan:0',
+            }),
+          ]),
+    ],
+    [
+      emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+    ],
+  ];
+
+  return { inline_keyboard: rows };
+}
+
+export function buildAndroidAppKeyboard(
+  locale: TelegramLocale,
+  info: ResolvedAndroidReleaseView,
+  emoji: CustomEmojiRegistry,
+  config: TelegramPlatformConfig,
+  miniAppEnabled = true
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = [];
+
+  if (info.apkAvailable) {
+    const publicBase = (config.miniAppUrl || 'https://asakaziyo.ai.studio').replace(/\/+$/, '');
+    const dlUrl =
+      info.remoteApkUrl && info.remoteApkUrl.startsWith('https://')
+        ? info.remoteApkUrl
+        : `${publicBase}/api/apk/download`;
+    rows.push([
+      emoji.buildKeyboardButton('status.ok', `⬇️ ${b.androidDownload} (${info.fileSizeDisplay})`, {
+        url: dlUrl,
+      }),
+    ]);
+  } else {
+    rows.push([
+      emoji.buildKeyboardButton('status.info', `🔄 ${b.androidCheckUpdates}`, {
+        callback_data: 'android:check',
+      }),
+    ]);
+  }
+
+  rows.push([
+    emoji.buildKeyboardButton('brand.book', b.androidInstallGuide, {
+      callback_data: 'android:guide',
+    }),
+    emoji.buildKeyboardButton('calendar.date', b.androidReleaseHistory, {
+      callback_data: 'android:history',
+    }),
+  ]);
+
+  rows.push([
+    emoji.buildKeyboardButton('status.info', b.androidCheckUpdates, {
+      callback_data: 'android:check',
+    }),
+    emoji.buildKeyboardButton(
+      miniAppEnabled ? 'nav.miniapp' : 'nav.web',
+      b.openWebApp,
+      makeAppAction(config, locale, 'home', miniAppEnabled)
+    ),
+  ]);
+
+  rows.push([
+    emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+
+  return { inline_keyboard: rows };
 }
 
 export function buildSupportHomeKeyboard(

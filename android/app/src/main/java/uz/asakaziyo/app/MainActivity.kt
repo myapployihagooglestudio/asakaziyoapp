@@ -9,7 +9,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -637,7 +636,7 @@ class MainActivity : AppCompatActivity() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 val resolvedChannel = if (channelId.isNotBlank()) channelId else "asaka_ziyo_prayer_adhan"
-                val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+                val largeIcon = AsakaIconUtils.renderLauncherBitmap(this@MainActivity)
                 val builder = NotificationCompat.Builder(this@MainActivity, resolvedChannel)
                     .setSmallIcon(R.drawable.ic_stat_asaka_ziyo)
                     .setLargeIcon(largeIcon)

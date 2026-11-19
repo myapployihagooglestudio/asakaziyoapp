@@ -7,7 +7,9 @@ import { registerSW } from 'virtual:pwa-register';
 import { INITIAL_ASAKA_PRAYER_SCHEDULE } from './data/prayerTimesData';
 import { ASAKA_ZIYO_APK_RELEASE } from './utils/apkPackage';
 
-const CLOUD_API_ORIGIN: string = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+const CLOUD_API_ORIGIN: string = (
+  (import.meta as any).env?.VITE_API_BASE_URL || 'https://asakaziyo.ai.studio'
+).replace(/\/+$/, '');
 
 function isRunningInNativeAndroidApk(): boolean {
   if (typeof window === 'undefined') return false;

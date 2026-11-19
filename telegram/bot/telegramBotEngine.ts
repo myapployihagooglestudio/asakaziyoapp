@@ -35,6 +35,9 @@ import { TelegramPublishingService } from '../publishing/publishingService';
 import { TelegramAdminService } from '../admin/adminService';
 import { AiGenerateFn, AiTranscribeFn, AiTtsFn, TelegramAiBridge } from '../ai/aiBridge';
 import { TelegramIslamicContentAdapter } from '../content/islamicContentAdapter';
+import { CentralContentProvider, CentralDatabaseReader } from '../content/centralContentProvider';
+import { AppReleaseService } from '../services/appReleaseService';
+import { UnifiedSyncEngine } from '../sync/syncEngine';
 import { TelegramAcademyQuizService } from '../services/academyQuizService';
 import { TelegramSupportService } from '../support/supportService';
 import { TelegramBroadcastManager } from '../broadcast/broadcastManager';
@@ -62,7 +65,16 @@ export interface TelegramBotEngineOptions {
   config?: TelegramPlatformConfig;
   firestore?: ScopedFirestoreBridge;
   storePath?: string;
+  outboxPath?: string;
   readOnlyPrayerProvider?: ReadOnlyPrayerScheduleProvider;
+  centralContentReader?: CentralDatabaseReader;
+  appReleaseService?: AppReleaseService;
+  serverWriteFirestoreDoc?: (
+    collectionName: string,
+    docId: string,
+    data: Record<string, any>
+  ) => Promise<{ success: boolean; error?: string }>;
+  serverReadFirestoreCollection?: (collectionName: string) => Promise<any[]>;
   fetchImpl?: FetchLike;
   aiGenerator?: AiGenerateFn;
   aiTranscriber?: AiTranscribeFn;
@@ -145,9 +157,29 @@ export interface TelegramLiveDiagnosticsReport {
 }
 
 const REPLY_ACTION_TO_COMMAND: Record<ReplyKeyboardAction, string> = {
-  prayer: '/prayer',
-  quran_center: '/quran',
+  // Unified 20-button Reply Keyboard
+  home: '/menu',
   ai: '/ask',
+  quran: '/quran',
+  hadiths: '/hadith',
+  prayer: '/prayer',
+  dhikr_dua: '/dhikr',
+  articles: '/maqolalar',
+  announcements: '/elonlar',
+  news: '/yangiliklar',
+  audio_library: '/audio',
+  video_library: '/video',
+  education: '/academy',
+  quizzes: '/quiz',
+  android_app: '/android',
+  web_app: '/webapp',
+  favorites: '/bookmarks',
+  notifications: '/bildirishnomalar',
+  profile: '/profile',
+  contact_admin: '/support',
+  settings: '/settings',
+  // Legacy 6-button Reply Keyboard compatibility
+  quran_center: '/quran',
   academy_quiz: '/academy',
   support: '/support',
   menu: '/menu',
@@ -162,7 +194,10 @@ export class TelegramBotEngine {
   public readonly rateLimiter: TelegramRateLimiter;
   public readonly userService: TelegramUserService;
   public readonly prayerAdapter: TelegramPrayerAdapter;
+  public readonly centralContent: CentralContentProvider;
   public readonly contentAdapter: TelegramIslamicContentAdapter;
+  public readonly appReleaseService: AppReleaseService;
+  public readonly syncEngine: UnifiedSyncEngine;
   public readonly academyQuizService: TelegramAcademyQuizService;
   public readonly supportService: TelegramSupportService;
   public readonly channelService: TelegramChannelService;
@@ -214,7 +249,24 @@ export class TelegramBotEngine {
     );
     this.userService = new TelegramUserService(this.repository);
     this.prayerAdapter = new TelegramPrayerAdapter(options.readOnlyPrayerProvider);
-    this.contentAdapter = new TelegramIslamicContentAdapter();
+    this.centralContent = new CentralContentProvider(options.centralContentReader);
+    this.contentAdapter = new TelegramIslamicContentAdapter(this.centralContent);
+    this.appReleaseService =
+      options.appReleaseService ||
+      new AppReleaseService({
+        serverWriteFirestoreDoc: options.serverWriteFirestoreDoc,
+        serverReadFirestoreCollection: options.serverReadFirestoreCollection,
+        fetchImpl: options.fetchImpl as typeof fetch | undefined,
+      });
+    this.syncEngine = new UnifiedSyncEngine({
+      storePath: options.outboxPath,
+      repository: this.repository,
+      apiClient: this.apiClient,
+      emojiRegistry: this.emojiRegistry,
+      miniAppUrl: this.config.miniAppUrl,
+      logger: this.logger,
+      serverWriteFirestoreDoc: options.serverWriteFirestoreDoc,
+    });
     this.academyQuizService = new TelegramAcademyQuizService(this.repository);
     this.supportService = new TelegramSupportService(
       this.repository,
@@ -269,11 +321,15 @@ export class TelegramBotEngine {
     // Hydrate from Firestore (if bridge attached) safely without blocking startup
     try {
       await this.repository.hydrateFromFirestore();
+      await this.appReleaseService.hydrateFromFirestore();
     } catch (err) {
       this.logger.warn('Firestore hydration encountered an error during startup', {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+
+    // Start durable Unified Sync outbox worker & recover any interrupted jobs
+    this.syncEngine.startWorker();
 
     if (!this.config.isConfigured) {
       this.startupState = 'disabled';
@@ -431,6 +487,7 @@ export class TelegramBotEngine {
       clearTimeout(this.startupRetryTimer);
       this.startupRetryTimer = null;
     }
+    this.syncEngine.stopWorker();
     this.jobScheduler.stopPolling();
     this.jobScheduler.stopScheduledJobs();
   }
@@ -602,14 +659,21 @@ export class TelegramBotEngine {
       { command: 'hadith', description: dict.commands.hadith },
       { command: 'dhikr', description: dict.commands.dhikr },
       { command: 'dua', description: dict.commands.dua },
+      { command: 'maqolalar', description: dict.mediaArticlesLabel },
+      { command: 'elonlar', description: dict.mediaAnnouncementsLabel },
+      { command: 'yangiliklar', description: dict.mediaNewsLabel },
+      { command: 'audio', description: dict.mediaAudioLabel },
+      { command: 'video', description: dict.mediaVideoLabel },
       { command: 'academy', description: dict.commands.academy },
       { command: 'quiz', description: dict.commands.quiz },
-      { command: 'library', description: dict.commands.library },
-      { command: 'mosque', description: dict.commands.mosque },
+      { command: 'android', description: dict.buttons.androidApp },
+      { command: 'webapp', description: dict.buttons.webApp },
+      { command: 'bookmarks', description: dict.commands.bookmarks },
       { command: 'ask', description: dict.commands.ask },
       { command: 'support', description: dict.commands.support },
       { command: 'profile', description: dict.commands.profile },
       { command: 'language', description: dict.commands.language },
+      { command: 'settings', description: dict.commands.settings },
       { command: 'help', description: dict.commands.help },
     ];
 
@@ -1067,6 +1131,7 @@ export class TelegramBotEngine {
           channelService: this.channelService,
           publishingService: this.publishingService,
           repository: this.repository,
+          appReleaseService: this.appReleaseService,
           runDiagnostics: () => this.runLiveDiagnostics(),
         });
         return {
@@ -1082,7 +1147,7 @@ export class TelegramBotEngine {
         return { ok: true, updateId, kind: 'ignored' };
       }
 
-      // 5. Bot Commands (all 27 commands)
+      // 5. Bot Commands (complete Unified Ecosystem V4 command suite)
       if (message.text) {
         const parsedCmd = parseBotCommand(message.text);
         if (parsedCmd) {
@@ -1102,6 +1167,7 @@ export class TelegramBotEngine {
             aiBridge: this.aiBridge,
             adminService: this.adminService,
             repository: this.repository,
+            appReleaseService: this.appReleaseService,
           });
           return {
             ok: true,
@@ -1111,7 +1177,7 @@ export class TelegramBotEngine {
           };
         }
 
-        // 6. Persistent Reply Keyboard button match across all 5 languages
+        // 6. Persistent Reply Keyboard button match across all 5 languages (20 new + 6 legacy)
         const replyAction = matchReplyKeyboardAction(message.text);
         if (replyAction) {
           if (user.activeFlow && user.activeFlow.type !== 'idle') {
@@ -1136,6 +1202,7 @@ export class TelegramBotEngine {
               aiBridge: this.aiBridge,
               adminService: this.adminService,
               repository: this.repository,
+              appReleaseService: this.appReleaseService,
             }
           );
           return {
@@ -1315,12 +1382,14 @@ export class TelegramBotEngine {
     return {
       ok: true,
       module: 'asaka-ziyo-telegram-platform',
-      phase: 'super_platform',
+      phase: 'unified_ecosystem_v4',
       miniAppUrl: this.config.miniAppUrl,
       config: getSafeTelegramConfigSummary(this.config),
       pollingActive: this.jobScheduler.isPolling(),
       runtime,
       firestoreSync: this.repository.getFirestoreSyncStatus(),
+      syncEngine: this.syncEngine.getStatusSummary(),
+      centralContentCounts: this.centralContent.getSummaryCounts(),
       emojiCompatibility: this.emojiRegistry.validateCompatibility(),
       aiBridge: this.aiBridge.getStatus(),
       stats: this.repository.getStats(),

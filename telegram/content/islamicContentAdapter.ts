@@ -27,6 +27,7 @@ import {
 import { CustomEmojiRegistry, FormattedEmojiMessage } from '../emoji/customEmojiRegistry';
 import { TelegramRepository } from '../database/telegramRepository';
 import { getTelegramLocaleBundle } from '../locales';
+import { CentralContentProvider } from './centralContentProvider';
 
 const FEATURED_SURAH_NUMBERS = [1, 2, 18, 36, 55, 56, 67, 112, 113, 114];
 
@@ -253,6 +254,16 @@ export class TelegramIslamicContentAdapter {
     return AUTHENTIC_DHIKRS.length;
   }
 
+  public readonly centralContent: CentralContentProvider;
+
+  constructor(centralContent?: CentralContentProvider) {
+    this.centralContent = centralContent || new CentralContentProvider();
+  }
+
+  getCentralContentProvider(): CentralContentProvider {
+    return this.centralContent;
+  }
+
   getTotalSurahs(): number {
     return SURAHS_LIST.length;
   }
@@ -285,16 +296,17 @@ export class TelegramIslamicContentAdapter {
   searchHadiths(query: string) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return AUTHENTIC_HADITHS.filter((h) =>
-      `${h.collectionNameUz} ${h.chapterUz} ${h.translationUz} ${h.narratorUz} ${h.keywords.join(' ')}`
+    return this.centralContent.getPublishedHadiths().filter((h) =>
+      `${h.collectionNameUz || ''} ${h.chapterUz || ''} ${h.translationUz || ''} ${h.narratorUz || ''} ${(h.keywords || []).join(' ')}`
         .toLowerCase()
         .includes(q)
     );
   }
 
   getHadithsByCollection(collection: 'all' | 'bukhari' | 'muslim' | 'nawawi') {
-    if (collection === 'all') return AUTHENTIC_HADITHS;
-    return AUTHENTIC_HADITHS.filter((h) => h.collection === collection);
+    const all = this.centralContent.getPublishedHadiths();
+    if (collection === 'all') return all;
+    return all.filter((h) => h.collection === collection);
   }
 
   formatQuranDailyAyah(
@@ -437,27 +449,28 @@ export class TelegramIslamicContentAdapter {
     locale: TelegramLocale,
     emojiRegistry: CustomEmojiRegistry
   ): { formatted: FormattedEmojiMessage; index: number; total: number; hadithId: string; title: string } {
-    const total = AUTHENTIC_HADITHS.length;
+    const hadiths = this.centralContent.getPublishedHadiths();
+    const total = Math.max(1, hadiths.length);
     const safeIdx = ((index % total) + total) % total;
-    const hadith = AUTHENTIC_HADITHS[safeIdx];
+    const hadith = hadiths[safeIdx] || AUTHENTIC_HADITHS[0];
     const dict = getTelegramLocaleBundle(locale);
 
-    const collection = localizeUzbekString(hadith.collectionNameUz, locale);
-    const chapter = localizeUzbekString(hadith.chapterUz, locale);
-    const narrator = localizeUzbekString(hadith.narratorUz, locale);
-    const translation = localizeUzbekString(hadith.translationUz, locale);
-    const reference = localizeUzbekString(hadith.reference, locale);
+    const collection = localizeUzbekString(hadith.collectionNameUz || 'Hadis', locale);
+    const chapter = localizeUzbekString(hadith.chapterUz || '', locale);
+    const narrator = localizeUzbekString(hadith.narratorUz || '', locale);
+    const translation = localizeUzbekString(hadith.translationUz || '', locale);
+    const reference = localizeUzbekString(hadith.reference || '', locale);
 
     const lines = [
       `${dict.hadithTitle} (${safeIdx + 1}/${total})`,
-      `{{emoji:nav.hadith}} ${collection} — ${chapter}`,
+      `{{emoji:nav.hadith}} ${collection}${chapter ? ` — ${chapter}` : ''}`,
       '',
       hadith.textAr,
       '',
       translation,
       '',
-      `• ${dict.hadithNarratorLabel}: ${narrator}`,
-      `• ${dict.hadithSourceLabel}: ${reference} (${hadith.grade})`,
+      ...(narrator ? [`• ${dict.hadithNarratorLabel}: ${narrator}`] : []),
+      ...(reference ? [`• ${dict.hadithSourceLabel}: ${reference}${hadith.grade ? ` (${hadith.grade})` : ''}`] : []),
     ];
 
     return {
@@ -465,7 +478,7 @@ export class TelegramIslamicContentAdapter {
       index: safeIdx,
       total,
       hadithId: hadith.id,
-      title: `${collection} #${hadith.number}`,
+      title: `${collection} #${hadith.number || safeIdx + 1}`,
     };
   }
 
@@ -483,13 +496,14 @@ export class TelegramIslamicContentAdapter {
     targetCount: number;
     dhikrId: string;
   } {
-    const total = AUTHENTIC_DHIKRS.length;
+    const dhikrs = this.centralContent.getPublishedDhikrs();
+    const total = Math.max(1, dhikrs.length);
     const safeIdx = ((index % total) + total) % total;
-    const dhikr = AUTHENTIC_DHIKRS[safeIdx];
+    const dhikr = dhikrs[safeIdx] || AUTHENTIC_DHIKRS[0];
     const dict = getTelegramLocaleBundle(locale);
 
-    const category = localizeUzbekString(dhikr.categoryTitleUz, locale);
-    const title = localizeUzbekString(dhikr.titleUz, locale);
+    const category = localizeUzbekString(dhikr.categoryTitleUz || 'Zikr', locale);
+    const title = localizeUzbekString(dhikr.titleUz || '', locale);
     const translit = localizeUzbekString(dhikr.transliterationUz, locale);
     const translation = localizeUzbekString(dhikr.translationUz, locale);
     const virtue = localizeUzbekString(dhikr.virtueUz, locale);
@@ -572,89 +586,203 @@ export class TelegramIslamicContentAdapter {
   }
 
   formatMediaLibraryItem(
-    kind: 'articles' | 'news' | 'announcements' | 'adhan',
+    kind: 'articles' | 'news' | 'announcements' | 'adhan' | 'audio' | 'video',
     index: number,
     locale: TelegramLocale,
     emojiRegistry: CustomEmojiRegistry
-  ): { formatted: FormattedEmojiMessage; index: number; total: number; audioUrl?: string } {
+  ): {
+    formatted: FormattedEmojiMessage;
+    index: number;
+    total: number;
+    itemId?: string;
+    itemTitle?: string;
+    audioUrl?: string;
+    videoUrl?: string;
+  } {
     const dict = getTelegramLocaleBundle(locale);
 
     if (kind === 'articles') {
-      const total = EDITORIAL_ARTICLES.length;
+      const list = this.centralContent.getPublishedArticles();
+      if (list.length === 0) {
+        return {
+          formatted: emojiRegistry.formatMessage(`${dict.mediaLibraryTitle} — ${dict.mediaArticlesLabel}\n\nHozircha maqolalar mavjud emas.`),
+          index: 0,
+          total: 0,
+        };
+      }
+      const total = list.length;
       const safeIdx = ((index % total) + total) % total;
-      const a = EDITORIAL_ARTICLES[safeIdx];
+      const a = list[safeIdx];
       const tr = (a.translations as any)?.[locale];
-      const title = tr?.title || localizeUzbekString(a.title, locale);
-      const excerpt = tr?.excerpt || localizeUzbekString(a.excerpt, locale);
-      const body = tr?.bodyParagraphs?.[0] || localizeUzbekString(a.bodyParagraphs[0] || '', locale);
+      const title = tr?.title || localizeUzbekString(a.title || '', locale);
+      const excerpt = tr?.excerpt || localizeUzbekString(a.excerpt || '', locale);
+      const body = tr?.bodyParagraphs?.[0] || localizeUzbekString((a.bodyParagraphs || [])[0] || '', locale);
       const lines = [
         `${dict.mediaLibraryTitle} — ${dict.mediaArticlesLabel} (${safeIdx + 1}/${total})`,
         `{{emoji:brand.book}} ${title}`,
-        `✍️ ${localizeUzbekString(a.author, locale)} | ${localizeUzbekString(a.publishedDate, locale)}`,
+        `✍️ ${localizeUzbekString(a.author || 'ASAKA ZIYO', locale)} | ${localizeUzbekString(a.publishedDate || '', locale)}`,
         '',
         excerpt,
-        '',
-        body,
+        ...(body ? ['', body] : []),
       ];
-      return { formatted: emojiRegistry.formatMessage(lines.join('\n')), index: safeIdx, total };
+      return {
+        formatted: emojiRegistry.formatMessage(lines.join('\n')),
+        index: safeIdx,
+        total,
+        itemId: a.id,
+        itemTitle: title,
+      };
     }
 
     if (kind === 'news') {
-      const total = COMMUNITY_NEWS.length;
+      const list = this.centralContent.getPublishedNews();
+      if (list.length === 0) {
+        return {
+          formatted: emojiRegistry.formatMessage(`${dict.mediaLibraryTitle} — ${dict.mediaNewsLabel}\n\nHozircha yangiliklar mavjud emas.`),
+          index: 0,
+          total: 0,
+        };
+      }
+      const total = list.length;
       const safeIdx = ((index % total) + total) % total;
-      const n = COMMUNITY_NEWS[safeIdx];
+      const n = list[safeIdx];
       const tr = (n.translations as any)?.[locale];
-      const title = tr?.title || localizeUzbekString(n.title, locale);
-      const summary = tr?.summary || localizeUzbekString(n.summary, locale);
-      const content = tr?.content || localizeUzbekString(n.content, locale);
+      const title = tr?.title || localizeUzbekString(n.title || '', locale);
+      const summary = tr?.summary || localizeUzbekString(n.summary || '', locale);
+      const content = tr?.content || localizeUzbekString(n.content || '', locale);
       const lines = [
         `${dict.mediaLibraryTitle} — ${dict.mediaNewsLabel} (${safeIdx + 1}/${total})`,
         `{{emoji:channel.broadcast}} ${title}`,
-        `📅 ${localizeUzbekString(n.publishedDate, locale)}`,
+        `📅 ${localizeUzbekString(n.publishedDate || '', locale)}`,
         '',
         summary,
-        '',
-        content,
+        ...(content && content !== summary ? ['', content] : []),
       ];
-      return { formatted: emojiRegistry.formatMessage(lines.join('\n')), index: safeIdx, total };
+      return {
+        formatted: emojiRegistry.formatMessage(lines.join('\n')),
+        index: safeIdx,
+        total,
+        itemId: n.id,
+        itemTitle: title,
+      };
     }
 
     if (kind === 'announcements') {
-      const total = COMMUNITY_ANNOUNCEMENTS.length;
+      const list = this.centralContent.getPublishedAnnouncements();
+      if (list.length === 0) {
+        return {
+          formatted: emojiRegistry.formatMessage(`${dict.mediaLibraryTitle} — ${dict.mediaAnnouncementsLabel}\n\nHozircha eʼlonlar mavjud emas.`),
+          index: 0,
+          total: 0,
+        };
+      }
+      const total = list.length;
       const safeIdx = ((index % total) + total) % total;
-      const ann = COMMUNITY_ANNOUNCEMENTS[safeIdx];
+      const ann = list[safeIdx];
       const tr = (ann.translations as any)?.[locale];
-      const title = tr?.title || localizeUzbekString(ann.title, locale);
-      const desc = tr?.description || localizeUzbekString(ann.description, locale);
+      const title = tr?.title || localizeUzbekString(ann.title || '', locale);
+      const desc = tr?.description || localizeUzbekString(ann.description || '', locale);
       const lines = [
         `${dict.mediaLibraryTitle} — ${dict.mediaAnnouncementsLabel} (${safeIdx + 1}/${total})`,
         `📢 ${title}`,
-        `📅 ${localizeUzbekString(ann.date, locale)} • ⏰ ${ann.time}`,
-        `📍 ${localizeUzbekString(ann.location, locale)}`,
+        `📅 ${localizeUzbekString(ann.date || '', locale)}${ann.time ? ` • ⏰ ${ann.time}` : ''}`,
+        ...(ann.location ? [`📍 ${localizeUzbekString(ann.location, locale)}`] : []),
         '',
         desc,
       ];
-      return { formatted: emojiRegistry.formatMessage(lines.join('\n')), index: safeIdx, total };
+      return {
+        formatted: emojiRegistry.formatMessage(lines.join('\n')),
+        index: safeIdx,
+        total,
+        itemId: ann.id,
+        itemTitle: title,
+      };
     }
 
-    const total = ADHAN_TRACKS.length;
+    if (kind === 'video') {
+      const videos = this.centralContent.getPublishedVideoItems();
+      if (videos.length === 0) {
+        return {
+          formatted: emojiRegistry.formatMessage(
+            `${dict.mediaLibraryTitle} — ${dict.mediaVideoLabel}\n\n🎬 Hozircha nashr qilingan video materiallar yoʻq. Admin panelda yangi video qoʻshilishi bilan bu yerda avtomatik koʻrinadi.`
+          ),
+          index: 0,
+          total: 0,
+        };
+      }
+      const total = videos.length;
+      const safeIdx = ((index % total) + total) % total;
+      const v = videos[safeIdx];
+      const title = localizeUzbekString(v.title, locale);
+      const lines = [
+        `${dict.mediaLibraryTitle} — ${dict.mediaVideoLabel} (${safeIdx + 1}/${total})`,
+        `🎬 ${title}`,
+        `👤 ${localizeUzbekString(v.author, locale)} | 📂 ${localizeUzbekString(v.category, locale)}`,
+        ...(v.caption ? ['', localizeUzbekString(v.caption, locale)] : []),
+        '',
+        `▶️ Video: ${v.mediaUrl}`,
+      ];
+      return {
+        formatted: emojiRegistry.formatMessage(lines.join('\n')),
+        index: safeIdx,
+        total,
+        itemId: v.id,
+        itemTitle: title,
+        videoUrl: v.mediaUrl,
+      };
+    }
+
+    // Audio Library & Adhan tracks unified from central content provider
+    const audios = this.centralContent.getPublishedAudioItems();
+    const total = Math.max(1, audios.length);
     const safeIdx = ((index % total) + total) % total;
-    const track = ADHAN_TRACKS[safeIdx];
+    const track = audios[safeIdx];
+    const title = localizeUzbekString(track?.title || 'Audio', locale);
     const lines = [
-      `${dict.mediaLibraryTitle} — ${dict.mediaAdhanLabel} (${safeIdx + 1}/${total})`,
-      `🎙 ${localizeUzbekString(track.titleUz, locale)}`,
-      `👤 ${localizeUzbekString(track.muezzinUz, locale)}`,
-      `⏱ ${track.durationLabel} | ${localizeUzbekString(track.styleUz, locale)}`,
+      `${dict.mediaLibraryTitle} — ${kind === 'adhan' ? dict.mediaAdhanLabel : dict.mediaAudioLabel} (${safeIdx + 1}/${total})`,
+      `🎧 ${title}`,
+      `👤 ${localizeUzbekString(track?.author || 'ASAKA ZIYO', locale)}${track?.duration ? ` | ⏱ ${track.duration}` : ''}`,
+      ...(track?.category ? [`📂 ${localizeUzbekString(track.category, locale)}`] : []),
+      ...(track?.caption ? ['', localizeUzbekString(track.caption, locale)] : []),
       '',
-      localizeUzbekString(track.descriptionUz, locale),
-      `🎧 MP3: ${track.audioUrl}`,
+      `▶️ Audio: ${track?.mediaUrl || ''}`,
     ];
     return {
       formatted: emojiRegistry.formatMessage(lines.join('\n')),
       index: safeIdx,
       total,
-      audioUrl: track.audioUrl,
+      itemId: track?.id,
+      itemTitle: title,
+      audioUrl: track?.mediaUrl,
     };
+  }
+
+  async recordArticleRead(repo: TelegramRepository, telegramId: string, articleId: string): Promise<void> {
+    if (!articleId) return;
+    const eng = repo.getUserEngagement(telegramId);
+    const prev = Array.isArray(eng.readArticleIds) ? eng.readArticleIds : [];
+    eng.readArticleIds = [articleId, ...prev.filter((x) => x !== articleId)].slice(0, 100);
+    await repo.saveUserEngagement(eng);
+  }
+
+  async recordVideoWatched(repo: TelegramRepository, telegramId: string, videoId: string): Promise<void> {
+    if (!videoId) return;
+    const eng = repo.getUserEngagement(telegramId);
+    const prev = Array.isArray(eng.watchedVideoIds) ? eng.watchedVideoIds : [];
+    eng.watchedVideoIds = [videoId, ...prev.filter((x) => x !== videoId)].slice(0, 100);
+    await repo.saveUserEngagement(eng);
+  }
+
+  async recordAudioResume(
+    repo: TelegramRepository,
+    telegramId: string,
+    audioId: string,
+    title: string
+  ): Promise<void> {
+    if (!audioId) return;
+    const eng = repo.getUserEngagement(telegramId);
+    eng.audioResume = { audioId, title, updatedAt: new Date().toISOString() };
+    await repo.saveUserEngagement(eng);
   }
 
   formatMosqueInfoCard(
@@ -798,11 +926,11 @@ export class TelegramIslamicContentAdapter {
     const surahs = this.searchSurahs(query);
     const hadiths = this.searchHadiths(query);
     const q = query.trim().toLowerCase();
-    const dhikrs = AUTHENTIC_DHIKRS.filter((d) =>
-      `${d.titleUz} ${d.translationUz}`.toLowerCase().includes(q)
+    const dhikrs = this.centralContent.getPublishedDhikrs().filter((d) =>
+      `${d.titleUz || ''} ${d.translationUz || ''}`.toLowerCase().includes(q)
     );
-    const articles = EDITORIAL_ARTICLES.filter((a) =>
-      `${a.title} ${a.excerpt}`.toLowerCase().includes(q)
+    const articles = this.centralContent.getPublishedArticles().filter((a) =>
+      `${a.title || ''} ${a.excerpt || ''}`.toLowerCase().includes(q)
     );
     const glossary = ISLAMIC_GLOSSARY.filter((g) =>
       `${g.term[locale]} ${g.definition[locale]}`.toLowerCase().includes(q)

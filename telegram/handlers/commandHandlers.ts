@@ -18,11 +18,13 @@ import { TelegramSupportService } from '../support/supportService';
 import { TelegramAiBridge } from '../ai/aiBridge';
 import { TelegramAdminService } from '../admin/adminService';
 import { TelegramRepository } from '../database/telegramRepository';
+import { AppReleaseService } from '../services/appReleaseService';
 import { getTelegramLocaleBundle, TELEGRAM_LANGUAGE_NATIVE_NAMES } from '../locales';
 import {
   buildAcademyKeyboard,
   buildAdminHomeKeyboard,
   buildAiModeKeyboard,
+  buildAndroidAppKeyboard,
   buildBackOnlyKeyboard,
   buildDhikrKeyboard,
   buildDuaKeyboard,
@@ -55,6 +57,7 @@ export interface CommandHandlerContext {
   aiBridge: TelegramAiBridge;
   adminService: TelegramAdminService;
   repository: TelegramRepository;
+  appReleaseService: AppReleaseService;
 }
 
 export function parseBotCommand(text: string | undefined): { command: string; args: string } | null {
@@ -111,10 +114,16 @@ export function formatProfileMessageText(
   ];
 
   if (eng) {
+    const readCount = Array.isArray(eng.readArticleIds) ? eng.readArticleIds.length : 0;
+    const watchedCount = Array.isArray(eng.watchedVideoIds) ? eng.watchedVideoIds.length : 0;
     lines.push(
       `• Xatchoʻplar: ${eng.bookmarks.length} | Darslar: ${eng.completedLessonIds.length} | Viktorina balli: ${eng.quizTotalPoints}`,
+      `• Oʻqilgan maqolalar: ${readCount} | Koʻrilgan videolar: ${watchedCount}`,
       `• Tasbeh (bugun / jami): ${eng.dhikr.todayCount} / ${eng.dhikr.totalAllTimeCount}`
     );
+    if (eng.audioResume?.title) {
+      lines.push(`• Oxirgi audio: ${eng.audioResume.title}`);
+    }
   }
 
   lines.push(
@@ -189,17 +198,151 @@ export async function handleBotCommand(
   const settings = ctx.repository.getSettings();
   const menuOpts = { isAdmin: Boolean(role), miniAppEnabled: Boolean(settings.miniAppEnabled) };
 
-  // Reset active input flow and exit AI mode when switching commands (except /ask)
+  // Reset active input flow and exit AI mode when switching commands (except /ask & /ai)
   if (user.activeFlow && user.activeFlow.type !== 'idle') {
     await ctx.userService.setActiveFlow(user.telegramId, { type: 'idle' });
   }
-  if (parsed.command !== '/ask') {
+  if (parsed.command !== '/ask' && parsed.command !== '/ai') {
     ctx.aiBridge.exitAiMode(user.telegramId);
   }
 
+  const sendMediaCategory = async (
+    kind: 'articles' | 'news' | 'announcements' | 'adhan' | 'audio' | 'video',
+    index = 0
+  ) => {
+    const res = ctx.contentAdapter.formatMediaLibraryItem(kind, index, user.language, ctx.emojiRegistry);
+    if (res.itemId) {
+      if (kind === 'articles') {
+        await ctx.contentAdapter.recordArticleRead(ctx.repository, user.telegramId, res.itemId);
+      } else if (kind === 'video') {
+        await ctx.contentAdapter.recordVideoWatched(ctx.repository, user.telegramId, res.itemId);
+      } else if (kind === 'audio' || kind === 'adhan') {
+        await ctx.contentAdapter.recordAudioResume(
+          ctx.repository,
+          user.telegramId,
+          res.itemId,
+          res.itemTitle || kind
+        );
+      }
+    }
+    await ctx.apiClient.sendMessage({
+      chat_id: chatId,
+      text: res.formatted.text,
+      ...(res.formatted.entities.length > 0 ? { entities: res.formatted.entities } : {}),
+      reply_markup: buildMediaLibraryKeyboard(
+        user.language,
+        kind,
+        res.index,
+        res.total,
+        ctx.emojiRegistry,
+        res.itemId
+      ),
+      disable_web_page_preview: true,
+    });
+  };
+
+  const sendAndroidAppScreen = async (checkGitHub = false) => {
+    const info = await ctx.appReleaseService.getResolvedReleaseInfo({ checkGitHub });
+    const card = ctx.appReleaseService.formatTelegramAndroidAppCard(
+      info,
+      user.language,
+      ctx.emojiRegistry
+    );
+    await ctx.apiClient.sendMessage({
+      chat_id: chatId,
+      text: card.text,
+      ...(card.entities.length > 0 ? { entities: card.entities } : {}),
+      reply_markup: buildAndroidAppKeyboard(
+        user.language,
+        info,
+        ctx.emojiRegistry,
+        ctx.config,
+        menuOpts.miniAppEnabled
+      ),
+      disable_web_page_preview: true,
+    });
+  };
+
   switch (parsed.command) {
     case '/start': {
-      // Attach persistent Reply Keyboard seamlessly
+      // Handle deep-link payloads: /start article_<id>, news_<id>, announcement_<id>, hadith_<id>, audio_<id>, video_<id>, apk, prayer, quran
+      const deepLink = parsed.args.trim();
+      if (deepLink) {
+        if (deepLink === 'apk' || deepLink === 'android' || deepLink.startsWith('app_release_')) {
+          await sendAndroidAppScreen(false);
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink === 'prayer' || deepLink.startsWith('prayer_')) {
+          const formatted = ctx.prayerAdapter.formatPrayerScheduleMessage(
+            user.language,
+            ctx.emojiRegistry
+          );
+          await ctx.apiClient.sendMessage({
+            chat_id: chatId,
+            text: formatted.text,
+            ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+            reply_markup: buildPrayerKeyboard(
+              user.language,
+              ctx.emojiRegistry,
+              ctx.config,
+              menuOpts.miniAppEnabled
+            ),
+            disable_web_page_preview: true,
+          });
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink.startsWith('article_')) {
+          const id = deepLink.slice('article_'.length);
+          const list = ctx.contentAdapter.centralContent.getPublishedArticles();
+          const idx = Math.max(0, list.findIndex((a) => String(a.id) === id));
+          await sendMediaCategory('articles', idx);
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink.startsWith('news_')) {
+          const id = deepLink.slice('news_'.length);
+          const list = ctx.contentAdapter.centralContent.getPublishedNews();
+          const idx = Math.max(0, list.findIndex((n) => String(n.id) === id));
+          await sendMediaCategory('news', idx);
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink.startsWith('announcement_')) {
+          const id = deepLink.slice('announcement_'.length);
+          const list = ctx.contentAdapter.centralContent.getPublishedAnnouncements();
+          const idx = Math.max(0, list.findIndex((a) => String(a.id) === id));
+          await sendMediaCategory('announcements', idx);
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink.startsWith('audio_')) {
+          const id = deepLink.slice('audio_'.length);
+          const list = ctx.contentAdapter.centralContent.getPublishedAudioItems();
+          const idx = Math.max(0, list.findIndex((a) => String(a.id) === id));
+          await sendMediaCategory('audio', idx);
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink.startsWith('video_')) {
+          const id = deepLink.slice('video_'.length);
+          const list = ctx.contentAdapter.centralContent.getPublishedVideoItems();
+          const idx = Math.max(0, list.findIndex((v) => String(v.id) === id));
+          await sendMediaCategory('video', idx);
+          return { handled: true, command: '/start' };
+        }
+        if (deepLink.startsWith('hadith_')) {
+          const id = deepLink.slice('hadith_'.length);
+          const list = ctx.contentAdapter.getHadithsByCollection('all');
+          const idx = Math.max(0, list.findIndex((h) => String(h.id) === id));
+          const res = ctx.contentAdapter.formatHadithCard(idx, user.language, ctx.emojiRegistry);
+          await ctx.apiClient.sendMessage({
+            chat_id: chatId,
+            text: res.formatted.text,
+            ...(res.formatted.entities.length > 0 ? { entities: res.formatted.entities } : {}),
+            reply_markup: buildHadithKeyboard(user.language, res.index, res.total, ctx.emojiRegistry),
+            disable_web_page_preview: true,
+          });
+          return { handled: true, command: '/start' };
+        }
+      }
+
+      // Attach persistent 20-item 2-column Reply Keyboard seamlessly
       const replyBanner = ctx.emojiRegistry.formatMessage(
         `${dict.welcomeTitle}\n\n${dict.welcomeBody}`
       );
@@ -237,7 +380,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/start' };
     }
 
-    case '/menu': {
+    case '/menu':
+    case '/home': {
       const formatted = ctx.emojiRegistry.formatMessage(
         `${dict.mainMenuTitle}\n\n${dict.mainMenuPrompt}`
       );
@@ -248,10 +392,11 @@ export async function handleBotCommand(
         reply_markup: buildMainMenuKeyboard(user.language, ctx.emojiRegistry, ctx.config, menuOpts),
         disable_web_page_preview: true,
       });
-      return { handled: true, command: '/menu' };
+      return { handled: true, command: parsed.command };
     }
 
-    case '/prayer': {
+    case '/prayer':
+    case '/namoz': {
       const formatted = ctx.prayerAdapter.formatPrayerScheduleMessage(
         user.language,
         ctx.emojiRegistry
@@ -311,7 +456,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/calendar' };
     }
 
-    case '/quran': {
+    case '/quran':
+    case '/quron': {
       if (parsed.args) {
         const matches = ctx.contentAdapter.searchSurahs(parsed.args);
         if (matches.length > 0) {
@@ -383,7 +529,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/khatm' };
     }
 
-    case '/hadith': {
+    case '/hadith':
+    case '/hadislar': {
       const res = ctx.contentAdapter.formatHadithCard(0, user.language, ctx.emojiRegistry);
       await ctx.apiClient.sendMessage({
         chat_id: chatId,
@@ -395,7 +542,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/hadith' };
     }
 
-    case '/dhikr': {
+    case '/dhikr':
+    case '/zikr': {
       const eng = ctx.repository.getUserEngagement(user.telegramId);
       const res = ctx.contentAdapter.formatDhikrCard(
         0,
@@ -456,7 +604,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/glossary' };
     }
 
-    case '/academy': {
+    case '/academy':
+    case '/talim': {
       const res = ctx.academyQuizService.formatLessonCard(
         0,
         user.telegramId,
@@ -478,7 +627,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/academy' };
     }
 
-    case '/quiz': {
+    case '/quiz':
+    case '/viktorina': {
       const started = ctx.academyQuizService.startQuizSession(user.telegramId, 5);
       if (!started.currentQuestion) {
         await ctx.apiClient.sendMessage({
@@ -515,27 +665,71 @@ export async function handleBotCommand(
       return { handled: true, command: '/leaderboard' };
     }
 
-    case '/library': {
-      const res = ctx.contentAdapter.formatMediaLibraryItem(
-        'articles',
-        0,
-        user.language,
-        ctx.emojiRegistry
+    case '/library':
+    case '/maqolalar':
+    case '/articles': {
+      await sendMediaCategory('articles', 0);
+      return { handled: true, command: parsed.command };
+    }
+
+    case '/elonlar':
+    case '/announcements': {
+      await sendMediaCategory('announcements', 0);
+      return { handled: true, command: parsed.command };
+    }
+
+    case '/yangiliklar':
+    case '/news': {
+      await sendMediaCategory('news', 0);
+      return { handled: true, command: parsed.command };
+    }
+
+    case '/audio': {
+      await sendMediaCategory('audio', 0);
+      return { handled: true, command: '/audio' };
+    }
+
+    case '/video': {
+      await sendMediaCategory('video', 0);
+      return { handled: true, command: '/video' };
+    }
+
+    case '/android':
+    case '/apk': {
+      await sendAndroidAppScreen(false);
+      return { handled: true, command: '/android' };
+    }
+
+    case '/webapp': {
+      const webUrl = (ctx.config.miniAppUrl || 'https://asakaziyo.ai.studio').replace(/\/+$/, '');
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `${dict.webAppTitle}\n\n${dict.webAppBody}\n\n🌐 ${webUrl}`
       );
+      const openBtn =
+        menuOpts.miniAppEnabled && webUrl.startsWith('https://')
+          ? ctx.emojiRegistry.buildKeyboardButton('nav.miniapp', dict.buttons.miniApp, {
+              web_app: { url: webUrl },
+            })
+          : ctx.emojiRegistry.buildKeyboardButton('nav.web', dict.buttons.openWebApp, {
+              url: webUrl,
+            });
       await ctx.apiClient.sendMessage({
         chat_id: chatId,
-        text: res.formatted.text,
-        ...(res.formatted.entities.length > 0 ? { entities: res.formatted.entities } : {}),
-        reply_markup: buildMediaLibraryKeyboard(
-          user.language,
-          'articles',
-          res.index,
-          res.total,
-          ctx.emojiRegistry
-        ),
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: {
+          inline_keyboard: [
+            [openBtn],
+            [
+              ctx.emojiRegistry.buildKeyboardButton('nav.back', dict.buttons.backToMenu, {
+                callback_data: 'nav:home',
+              }),
+            ],
+          ],
+        },
         disable_web_page_preview: true,
       });
-      return { handled: true, command: '/library' };
+      return { handled: true, command: '/webapp' };
     }
 
     case '/mosque': {
@@ -550,7 +744,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/mosque' };
     }
 
-    case '/search': {
+    case '/search':
+    case '/qidiruv': {
       if (parsed.args) {
         const resText =
           ctx.contentAdapter.performGlobalSearch(parsed.args, user.language) ||
@@ -579,7 +774,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/search' };
     }
 
-    case '/bookmarks': {
+    case '/bookmarks':
+    case '/sevimlilar': {
       const formatted = formatBookmarksMessageText(user, ctx.repository, ctx.emojiRegistry);
       await ctx.apiClient.sendMessage({
         chat_id: chatId,
@@ -590,7 +786,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/bookmarks' };
     }
 
-    case '/support': {
+    case '/support':
+    case '/aloqa': {
       const formatted = ctx.emojiRegistry.formatMessage(
         `${dict.supportTitle}\n\n${dict.supportPrompt}`
       );
@@ -603,7 +800,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/support' };
     }
 
-    case '/ask': {
+    case '/ask':
+    case '/ai': {
       if (parsed.args.length > 0) {
         await ctx.apiClient.sendChatAction(chatId, 'typing');
         const aiRes = await ctx.aiBridge.handleQuestion(user.telegramId, user.language, parsed.args);
@@ -659,7 +857,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/ask' };
     }
 
-    case '/profile': {
+    case '/profile':
+    case '/profil': {
       const formatted = formatProfileMessageText(user, role, ctx.emojiRegistry, ctx.repository);
       await ctx.apiClient.sendMessage({
         chat_id: chatId,
@@ -670,7 +869,8 @@ export async function handleBotCommand(
       return { handled: true, command: '/profile' };
     }
 
-    case '/language': {
+    case '/language':
+    case '/til': {
       const formatted = ctx.emojiRegistry.formatMessage(
         `${dict.languageTitle}\n\n${dict.languagePrompt}`
       );
@@ -683,7 +883,10 @@ export async function handleBotCommand(
       return { handled: true, command: '/language' };
     }
 
-    case '/settings': {
+    case '/settings':
+    case '/sozlamalar':
+    case '/bildirishnomalar':
+    case '/notifications': {
       const formatted = formatSettingsMessageText(user, ctx.emojiRegistry);
       await ctx.apiClient.sendMessage({
         chat_id: chatId,
@@ -691,7 +894,7 @@ export async function handleBotCommand(
         ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
         reply_markup: buildSettingsKeyboard(user, ctx.emojiRegistry),
       });
-      return { handled: true, command: '/settings' };
+      return { handled: true, command: parsed.command };
     }
 
     case '/stop': {

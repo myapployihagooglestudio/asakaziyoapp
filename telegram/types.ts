@@ -565,7 +565,7 @@ export interface TelegramContentDraftRecord {
 
 export interface TelegramUserBookmark {
   id: string;
-  kind: 'ayah' | 'surah' | 'hadith' | 'dhikr' | 'article';
+  kind: 'ayah' | 'surah' | 'hadith' | 'dhikr' | 'article' | 'news' | 'announcement' | 'audio' | 'video';
   refId: string;
   title: string;
   createdAt: string;
@@ -596,6 +596,14 @@ export interface TelegramAiChatTurn {
   timestamp: string;
 }
 
+export interface TelegramPersonalReminder {
+  id: string;
+  label: string;
+  timeHHMM: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
 export interface TelegramUserEngagementRecord {
   telegramId: string;
   bookmarks: TelegramUserBookmark[];
@@ -603,6 +611,10 @@ export interface TelegramUserEngagementRecord {
   khatmPlan?: TelegramKhatmPlan;
   dhikr: TelegramDhikrProgress;
   completedLessonIds: string[];
+  readArticleIds?: string[];
+  watchedVideoIds?: string[];
+  audioResume?: { audioId: string; title: string; updatedAt: string };
+  personalReminders?: TelegramPersonalReminder[];
   quizTotalAttempts: number;
   quizBestScore: number;
   quizTotalPoints: number;

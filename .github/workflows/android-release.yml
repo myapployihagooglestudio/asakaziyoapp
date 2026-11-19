@@ -1,6 +1,12 @@
 name: ASAKA ZIYO Android v4.0.0 Release (APK & AAB)
 
 on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v4.*'
+      - 'android-v*'
   workflow_dispatch:
     inputs:
       allow_unsigned_test_build:
@@ -8,85 +14,104 @@ on:
         required: false
         default: 'false'
         type: boolean
-  push:
-    tags:
-      - 'v4.*'
-      - 'android-v*'
+      publish_github_release:
+        description: 'Publish permanent GitHub Release (requires signed APK/AAB)'
+        required: false
+        default: 'true'
+        type: boolean
 
 permissions:
   contents: read
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-android-release:
     name: Build, Sign & Verify ASAKA ZIYO v4.0.0 (APK + AAB)
     runs-on: ubuntu-latest
+    outputs:
+      signed: ${{ steps.signing.outputs.signed }}
+      apk_name: ${{ steps.package.outputs.apk_name }}
+      aab_name: ${{ steps.package.outputs.aab_name }}
+      apk_sha256: ${{ steps.package.outputs.apk_sha256 }}
+      aab_sha256: ${{ steps.package.outputs.aab_sha256 }}
+      release_tag: ${{ steps.package.outputs.release_tag }}
 
     steps:
       # 1. Checkout repository
       - name: 1. Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js 22
-      - name: 2. Setup Node.js 22
+      # 2. Setup Bun (matches repository bun.lock — replaces broken npm cache/npm ci)
+      - name: 2. Setup Bun 1.4.4
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+
+      # 3. Setup Node.js 22 (for native Node scripts without npm lockfile cache)
+      - name: 3. Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      # 3. Install dependencies
-      - name: 3. Install dependencies (npm ci)
-        run: npm ci
+      # 4. Install dependencies using repository bun.lock
+      - name: 4. Install dependencies (bun install --frozen-lockfile)
+        run: bun install --frozen-lockfile
 
-      # 4. TypeScript type-check
-      - name: 4. TypeScript static check (npm run lint)
-        run: npm run lint
+      # 5. TypeScript static type-check
+      - name: 5. TypeScript static check (bun run lint)
+        run: bun run lint
 
-      # 5. Unit test suite
-      - name: 5. Run unit test suite
+      # 6. Automated Unit, Telegram Super Platform & Unified Ecosystem V4 tests
+      - name: 6. Run automated test suite
         run: |
-          npx tsx src/utils/newUzbekAlphabet.test.ts
-          npx tsx src/utils/prayerTimeUtils.test.ts
-          npx tsx src/utils/smartMosqueDisplay.test.ts
-          npx tsx src/utils/quran.test.ts
-          npx tsx src/utils/quranAudioSync.test.ts
-          npx tsx src/utils/quranQuiz.test.ts
-          npx tsx telegram/tests/telegramPlatform.test.ts
+          bunx tsx src/utils/newUzbekAlphabet.test.ts
+          bunx tsx src/utils/prayerTimeUtils.test.ts
+          bunx tsx src/utils/smartMosqueDisplay.test.ts
+          bunx tsx src/utils/quran.test.ts
+          bunx tsx src/utils/quranAudioSync.test.ts
+          bunx tsx src/utils/quranQuiz.test.ts
+          bunx tsx telegram/tests/telegramPlatform.test.ts
+          bunx tsx telegram/tests/unifiedEcosystemV4.test.ts
 
-      # 6. Production web build
-      - name: 6. Build Vite production bundle
-        run: npm run build
+      # 7. Production Vite web build
+      - name: 7. Build Vite production bundle
+        run: bun run build
 
-      # 7. Regenerate & validate unified Web/PWA/Android icons
-      - name: 7. Generate & validate icons (official mosque seal)
-        run: npm run icons:generate
+      # 8. Regenerate & validate unified Web/PWA/Android icons
+      - name: 8. Generate & validate icons (official mosque seal)
+        run: bun run icons:generate
 
-      # 8. Sync & verify WebView assets inside android/app/src/main/assets/public/
-      - name: 8. Sync & verify Android WebView assets + XML resources
-        run: npm run android:sync
+      # 9. Sync & verify WebView assets inside android/app/src/main/assets/public/
+      - name: 9. Sync & verify Android WebView assets + XML resources
+        run: bun run android:sync
 
-      # 9. Setup JDK 17
-      - name: 9. Setup Java 17 (Temurin)
+      # 10. Setup JDK 17
+      - name: 10. Setup Java 17 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 10. Setup Android SDK (API 36 + Build-Tools 36.0.0)
-      - name: 10. Setup Android SDK (API 36)
+      # 11. Setup Android SDK (API 36 + Build-Tools 36.0.0)
+      - name: 11. Setup Android SDK (API 36)
         uses: android-actions/setup-android@v3
-      - name: 10b. Install Android Platform 36 & Build-Tools 36.0.0
+
+      - name: 11b. Install Android Platform 36 & Build-Tools 36.0.0
         run: |
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
-      # 11. Setup Gradle 8.9
-      - name: 11. Setup Gradle 8.9
+      # 12. Setup Gradle 8.9
+      - name: 12. Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      # 12. Decode Android release signing keystore from GitHub Secrets (NEVER committed)
-      - name: 12. Configure Android release signing keystore
+      # 13. Decode Android release signing keystore from GitHub Secrets (NEVER committed)
+      - name: 13. Configure Android release signing keystore
         id: signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -94,12 +119,18 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+          MISSING=""
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && MISSING="$MISSING ANDROID_KEYSTORE_BASE64"
+          [ -z "$ANDROID_KEYSTORE_PASSWORD" ] && MISSING="$MISSING ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$ANDROID_KEY_ALIAS" ] && MISSING="$MISSING ANDROID_KEY_ALIAS"
+          [ -z "$ANDROID_KEY_PASSWORD" ] && MISSING="$MISSING ANDROID_KEY_PASSWORD"
+
+          if [ -z "$MISSING" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/asaka-ziyo-release.jks"
             cat <<EOF > keystore.properties
           storeFile=$RUNNER_TEMP/asaka-ziyo-release.jks
           storePassword=$ANDROID_KEYSTORE_PASSWORD
-          keyAlias=${ANDROID_KEY_ALIAS:-asakaziyo}
+          keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
             echo "signed=true" >> "$GITHUB_OUTPUT"
@@ -107,14 +138,14 @@ jobs:
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
             if [ "${{ inputs.allow_unsigned_test_build }}" != "true" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
-              echo "❌ Release tag build requires ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD secrets."
+              echo "❌ Release tag build blocked — missing required GitHub Secrets:$MISSING"
               exit 1
             fi
-            echo "⚠️  Signing secrets absent — building UNSIGNED TEST-ONLY artifacts (NOT for Play Store)."
+            echo "⚠️  Signing secrets missing ($MISSING) — building UNSIGNED TEST-ONLY artifacts (will NOT be published as production GitHub Release)."
           fi
 
-      # 13. Run Gradle clean assembleDebug assembleRelease bundleRelease
-      - name: 13. Compile Android Debug APK, Release APK & Release AAB
+      # 14. Compile Debug APK, Release APK & Release AAB
+      - name: 14. Compile Android Debug APK, Release APK & Release AAB
         working-directory: android
         run: |
           if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
@@ -123,21 +154,37 @@ jobs:
             gradle clean assembleDebug assembleRelease bundleRelease -PallowUnsignedRelease=true --no-daemon
           fi
 
-      # 14. Verify APK signature with apksigner (when signed)
-      - name: 14. Verify Release APK cryptographic signature (apksigner)
+      # 15. Verify APK cryptographic signature with apksigner (mandatory for signed builds)
+      - name: 15. Verify Release APK signature (apksigner)
+        id: apksigner
         run: |
           APK_FILE=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
           test -n "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
             APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
-            "$APKSIGNER" verify --verbose --print-certs "$APK_FILE"
+            VERIFY_OUT=$("$APKSIGNER" verify --verbose --print-certs "$APK_FILE")
+            echo "$VERIFY_OUT"
+            CERT_SHA=$(echo "$VERIFY_OUT" | grep -i "Signer #1 certificate SHA-256 digest:" | awk '{print $NF}' | head -n 1)
+            echo "cert_sha256=$CERT_SHA" >> "$GITHUB_OUTPUT"
           else
+            echo "cert_sha256=" >> "$GITHUB_OUTPUT"
             echo "⚠️  Skipping apksigner verify (unsigned test build)."
           fi
 
-      # 15. Verify ZIP integrity & mandatory compiled entries inside APK and AAB
-      - name: 15. Verify APK & AAB internal resources (unzip -t & manifest/dex/icons/webview)
+      # 16. Verify Android package ID, versionName & versionCode with aapt2 dump badging
+      - name: 16. Verify package ID & version metadata (aapt2 dump badging)
+        run: |
+          AAPT2="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          BADGING=$("$AAPT2" dump badging "$APK_FILE")
+          echo "$BADGING" | head -n 20
+          echo "$BADGING" | grep -q "name='uz.asakaziyo.app'"
+          echo "$BADGING" | grep -q "versionCode='400'"
+          echo "$BADGING" | grep -q "versionName='4.0.0'"
+          echo "✅ Verified aapt2 badging: package=uz.asakaziyo.app, versionName=4.0.0, versionCode=400."
+
+      # 17. Verify ZIP integrity & mandatory compiled entries inside APK and AAB
+      - name: 17. Verify APK & AAB internal resources (unzip -t & manifest/dex/icons/webview)
         run: |
           AAB_FILE=$(ls android/app/build/outputs/bundle/release/*.aab | head -n 1)
           test -n "$AAB_FILE"
@@ -155,8 +202,9 @@ jobs:
           echo "$LISTING" | grep -q "assets/public/images/asaka-ziyo-logo-seal.jpg"
           echo "✅ Verified APK & AAB internal structure (AXML, DEX, resources.arsc, mipmap icons, WebView assets)."
 
-      # 16. Export canonical Asaka-Ziyo-v4.0.0.apk & Asaka-Ziyo-v4.0.0.aab + SHA-256 metadata
-      - name: 16. Package Asaka-Ziyo-v4.0.0.apk, Asaka-Ziyo-v4.0.0.aab & release metadata
+      # 18. Export canonical Asaka-Ziyo-v4.0.0.apk, Asaka-Ziyo-v4.0.0.aab, SHA256SUMS.txt & apk_release_metadata.json
+      - name: 18. Package release binaries, SHA256SUMS.txt & apk_release_metadata.json
+        id: package
         run: |
           mkdir -p release-output
           if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
@@ -169,17 +217,30 @@ jobs:
           cp "$APK_FILE" "release-output/$APK_NAME"
           cp "$AAB_FILE" "release-output/$AAB_NAME"
 
+          (cd release-output && sha256sum "$APK_NAME" "$AAB_NAME" > SHA256SUMS.txt)
+          cat release-output/SHA256SUMS.txt
+
           APK_SHA=$(sha256sum "release-output/$APK_NAME" | awk '{print $1}')
           AAB_SHA=$(sha256sum "release-output/$AAB_NAME" | awk '{print $1}')
           APK_BYTES=$(stat -c%s "release-output/$APK_NAME")
           AAB_BYTES=$(stat -c%s "release-output/$AAB_NAME")
           SIGNED_BOOL="${{ steps.signing.outputs.signed }}"
+          CERT_SHA="${{ steps.apksigner.outputs.cert_sha256 }}"
+          RELEASE_TAG="v4.0.0"
+
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "aab_name=$AAB_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$APK_SHA" >> "$GITHUB_OUTPUT"
+          echo "aab_sha256=$AAB_SHA" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
           node -e "
             const fs = require('fs');
             const apkBytes = Number('$APK_BYTES');
             const aabBytes = Number('$AAB_BYTES');
             const signed = '$SIGNED_BOOL' === 'true';
+            const repo = '${{ github.repository }}';
+            const tag = '$RELEASE_TAG';
             const meta = {
               appName: 'ASAKA ZIYO',
               packageId: 'uz.asakaziyo.app',
@@ -195,6 +256,7 @@ jobs:
               aabAvailable: true,
               signed,
               apksignerVerified: signed,
+              signingCertSha256: '$CERT_SHA',
               sizeBytes: apkBytes,
               fileSizeDisplay: (apkBytes / (1024 * 1024)).toFixed(2) + ' MB',
               sha256Checksum: '$APK_SHA',
@@ -207,6 +269,11 @@ jobs:
               pkcs7Signed: signed,
               downloadUrl: '/api/apk/download',
               directUrl: '/Asaka-Ziyo-v4.0.0.apk',
+              githubTag: tag,
+              githubReleaseUrl: signed ? 'https://github.com/' + repo + '/releases/tag/' + tag : '',
+              githubApkAssetUrl: signed ? 'https://github.com/' + repo + '/releases/download/' + tag + '/$APK_NAME' : '',
+              githubAabAssetUrl: signed ? 'https://github.com/' + repo + '/releases/download/' + tag + '/$AAB_NAME' : '',
+              commitSha: '${{ github.sha }}',
               releaseDate: new Date().toISOString().slice(0, 10),
               verifiedAt: new Date().toISOString()
             };
@@ -216,24 +283,78 @@ jobs:
           rm -f keystore.properties "$RUNNER_TEMP/asaka-ziyo-release.jks"
           ls -lh release-output/
 
-      # 17. Upload APK, AAB & Metadata as separate GitHub Actions artifacts
-      - name: 17a. Upload APK artifact
+      # 19. Upload APK, AAB, SHA256SUMS & Metadata as GitHub Actions artifacts
+      - name: 19a. Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Asaka-Ziyo-v4.0.0-apk
           path: release-output/*.apk
-          retention-days: 30
+          retention-days: 90
 
-      - name: 17b. Upload AAB artifact (Google Play)
+      - name: 19b. Upload AAB artifact (Google Play)
         uses: actions/upload-artifact@v4
         with:
           name: Asaka-Ziyo-v4.0.0-aab
           path: release-output/*.aab
-          retention-days: 30
+          retention-days: 90
 
-      - name: 17c. Upload Release Metadata artifact
+      - name: 19c. Upload Release Metadata & Checksums
         uses: actions/upload-artifact@v4
         with:
           name: Asaka-Ziyo-v4.0.0-metadata
-          path: release-output/apk_release_metadata.json
-          retention-days: 30
+          path: |
+            release-output/apk_release_metadata.json
+            release-output/SHA256SUMS.txt
+          retention-days: 90
+
+  publish-github-release:
+    name: Publish Permanent GitHub Release (v4.0.0)
+    needs: build-android-release
+    if: >-
+      needs.build-android-release.outputs.signed == 'true' &&
+      (github.event_name != 'workflow_dispatch' || inputs.publish_github_release != false)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 20. Download verified release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: 21. Verify checksums before publishing Release
+        working-directory: release-artifacts
+        run: |
+          ls -la
+          sha256sum -c SHA256SUMS.txt
+
+      - name: 22. Publish permanent GitHub Release v4.0.0 (preserving previous releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build-android-release.outputs.release_tag }}
+          name: ASAKA ZIYO v4.0.0 (Build 400) — Rasmiy Android Release
+          draft: false
+          prerelease: false
+          make_latest: true
+          generate_release_notes: true
+          body: |
+            ## ASAKA ZIYO v4.0.0 (Build 400) — Rasmiy Android APK & AAB
+
+            - **Package ID:** `uz.asakaziyo.app`
+            - **Version:** `4.0.0` (`versionCode: 400`)
+            - **Android Support:** Android 7.0 – Android 16 (API 24 – API 36)
+            - **APK SHA-256:** `${{ needs.build-android-release.outputs.apk_sha256 }}`
+            - **AAB SHA-256:** `${{ needs.build-android-release.outputs.aab_sha256 }}`
+
+            ### Asosiy yangiliklar (Unified Ecosystem V4)
+            - Rasmiy «MuhammadSolih Hoji» Jomeʼ masjidi muhr logosi asosida yagona Web, PWA va Android Adaptive Icon (66% safe-zone) tizimi
+            - Android 12+ SplashScreen API, monoxrom bildirishnoma ikonkasi, R8/ProGuard himoyasi va Deep Link marshrutizatsiyasi
+            - Web App + Android + Telegram Bot yagona Firestore sinxronizatsiyasi
+            - Eski `v3.0.0` foydalanuvchilari uchun maʼlumotlarni yoʻqotmasdan toʻgʻridan-toʻgʻri yangilash imkoniyati
+          files: |
+            release-artifacts/Asaka-Ziyo-v4.0.0.apk
+            release-artifacts/Asaka-Ziyo-v4.0.0.aab
+            release-artifacts/apk_release_metadata.json
+            release-artifacts/SHA256SUMS.txt

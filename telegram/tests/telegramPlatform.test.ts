@@ -783,6 +783,7 @@ async function runTests(): Promise<void> {
           adminService: engine.adminService,
           channelService: engine.channelService,
           publishingService: engine.publishingService,
+          appReleaseService: engine.appReleaseService,
           repository: engine.repository,
           runDiagnostics: () => engine.runLiveDiagnostics(),
         }

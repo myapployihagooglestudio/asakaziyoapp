@@ -202,6 +202,7 @@ import {
 } from '../../../utils/enterpriseAdminService';
 import { EnterpriseAudioAndModulesWorkspaces } from './EnterpriseAudioAndModulesWorkspaces';
 import { SmartMosqueDisplayAdmin } from './SmartMosqueDisplayAdmin';
+import { TelegramManagementCenter } from './TelegramManagementCenter';
 
 interface AdminPortalProps {
   currentSchedule: PrayerSchedule;
@@ -5369,6 +5370,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* ---------------- TAB 6: TELEGRAM BOT & CHANNEL ---------------- */}
       {activeTab === 'telegram' && (
+        <div className="space-y-6">
         <Card elevated className="p-6 space-y-6">
           <div className="space-y-1">
             <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
@@ -5495,6 +5497,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
         </Card>
+        <TelegramManagementCenter />
+        </div>
       )}
 
       {/* ---------------- TAB: FIREBASE FIRESTORE (ACTIVE & CONNECTED) ---------------- */}

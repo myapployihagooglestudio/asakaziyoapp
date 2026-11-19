@@ -11,6 +11,7 @@ keystore.properties
 android/keystore.properties
 *.jks
 *.keystore
+data/.android-signing/
 data/.android_signing_key.pem
 data/*.pem
 android/app/google-services.json

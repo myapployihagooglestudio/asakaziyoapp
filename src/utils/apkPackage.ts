@@ -190,6 +190,20 @@ export async function downloadVerifiedApkWithProgress(
       throw new Error('Yuklab olingan fayl haqiqiy Android APK arxivi emas (ZIP/APK sarlavhasi tasdiqlanmadi).');
     }
 
+    // Optional cryptographic SHA-256 checksum verification against server header
+    const expectedSha256 = (response.headers.get('x-apk-sha256') || '').trim().toLowerCase();
+    if (expectedSha256 && /^[a-f0-9]{64}$/.test(expectedSha256) && typeof crypto !== 'undefined' && crypto.subtle) {
+      const digestBuf = await crypto.subtle.digest('SHA-256', combined.buffer);
+      const actualSha256 = Array.from(new Uint8Array(digestBuf))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      if (actualSha256 !== expectedSha256) {
+        throw new Error(
+          'APK SHA-256 tekshiruvi mos kelmadi — yuklab olish paytida fayl shikastlangan boʻlishi mumkin. Qayta urinib koʻring.'
+        );
+      }
+    }
+
     onProgress?.(100, loadedBytes, loadedBytes);
 
     const blob = new Blob([combined], { type: 'application/vnd.android.package-archive' });

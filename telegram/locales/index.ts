@@ -87,6 +87,8 @@ export interface TelegramLocaleDictionary {
   mediaNewsLabel: string;
   mediaAnnouncementsLabel: string;
   mediaAdhanLabel: string;
+  mediaAudioLabel: string;
+  mediaVideoLabel: string;
   mosqueInfoTitle: string;
   mosqueInfoBody: string;
   academyTitle: string;
@@ -142,12 +144,34 @@ export interface TelegramLocaleDictionary {
   unknownCommand: string;
   genericError: string;
   replyButtons: {
+    // Legacy 6 keys kept for full backward compatibility
     prayerTimes: string;
     quranCenter: string;
     aiAssistant: string;
     academyQuiz: string;
     support: string;
     menuMiniApp: string;
+    // Complete 20-item Unified Ecosystem V4 Reply Keyboard
+    home: string;
+    ai: string;
+    quran: string;
+    hadiths: string;
+    prayer: string;
+    dhikrDua: string;
+    articles: string;
+    announcements: string;
+    news: string;
+    audioLibrary: string;
+    videoLibrary: string;
+    education: string;
+    quizzes: string;
+    androidApp: string;
+    webApp: string;
+    favorites: string;
+    notifications: string;
+    profile: string;
+    contactAdmin: string;
+    settings: string;
   };
   buttons: {
     prayerTimes: string;
@@ -232,6 +256,13 @@ export interface TelegramLocaleDictionary {
     adminAiToggleFallback: string;
     adminAiToggleVoice: string;
     adminAnalytics: string;
+    androidApp: string;
+    androidDownload: string;
+    androidInstallGuide: string;
+    androidCheckUpdates: string;
+    androidReleaseHistory: string;
+    audioLibrary: string;
+    videoLibrary: string;
   };
   prayerNames: {
     tahajjud: string;
@@ -362,6 +393,8 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   mediaNewsLabel: 'Masjid yangiliklari',
   mediaAnnouncementsLabel: 'Eʼlonlar',
   mediaAdhanLabel: 'Azon audio qiroatlari',
+  mediaAudioLabel: 'Audio kutubxonasi',
+  mediaVideoLabel: 'Video kutubxonasi',
   mosqueInfoTitle: '{{emoji:brand.mosque}} «MuhammadSolih Hoji» Jomeʼ Masjidi Haqida',
   mosqueInfoBody:
     'Besh vaqt jamoat namozlari, Juma maʼruzalari va maʼrifiy suhbatlar manzili.\nSavol va murojaatlar uchun: /support',
@@ -432,6 +465,26 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     academyQuiz: '🎓 Akademiya & Test',
     support: '🎫 Murojaat / Imom',
     menuMiniApp: '🏛️ Menyu & Sozlama',
+    home: '🏠 Bosh sahifa',
+    ai: '🤖 ASAKA ZIYO AI',
+    quran: '📖 Qur’on',
+    hadiths: '📚 Hadislar',
+    prayer: '🕌 Namoz vaqtlari',
+    dhikrDua: '📿 Zikrlar va duolar',
+    articles: '📰 Maqolalar',
+    announcements: '📢 E’lonlar',
+    news: '🌍 Yangiliklar',
+    audioLibrary: '🎧 Audio kutubxonasi',
+    videoLibrary: '🎬 Video kutubxonasi',
+    education: '🎓 Ta’lim markazi',
+    quizzes: '🧠 Viktorinalar',
+    androidApp: '📱 Rasmiy Android ilova',
+    webApp: '🌐 Web App',
+    favorites: '⭐ Sevimlilar',
+    notifications: '🔔 Bildirishnomalar',
+    profile: '👤 Shaxsiy kabinet',
+    contactAdmin: '💬 Administrator bilan aloqa',
+    settings: '⚙️ Sozlamalar',
   },
   buttons: {
     prayerTimes: 'Namoz vaqtlari',
@@ -516,6 +569,13 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     adminAiToggleFallback: 'Auto-Fallback',
     adminAiToggleVoice: 'Ovozli javob (TTS)',
     adminAnalytics: 'Analitika',
+    androidApp: 'Rasmiy Android ilova',
+    androidDownload: 'APK v4.0.0 yuklab olish',
+    androidInstallGuide: 'Oʻrnatish qoʻllanmasi',
+    androidCheckUpdates: 'Yangilanishni tekshirish',
+    androidReleaseHistory: 'Versiyalar tarixi',
+    audioLibrary: 'Audio kutubxonasi',
+    videoLibrary: 'Video kutubxonasi',
   },
   prayerNames: {
     tahajjud: 'Tahajjud',
@@ -646,6 +706,8 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   mediaNewsLabel: 'Масжид янгиликлари',
   mediaAnnouncementsLabel: 'Эълонлар',
   mediaAdhanLabel: 'Азон аудио қироатлари',
+  mediaAudioLabel: 'Аудио кутубхонаси',
+  mediaVideoLabel: 'Видео кутубхонаси',
   mosqueInfoTitle: '{{emoji:brand.mosque}} «МуҳаммадСолиҳ Ҳожи» Жомеъ Масжиди Ҳақида',
   mosqueInfoBody:
     'Беш вақт жамоат намозлари, Жума маърузалари ва маърифий суҳбатлар манзили.\nСавол ва мурожаатлар учун: /support',
@@ -716,6 +778,26 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     academyQuiz: '🎓 Академия & Тест',
     support: '🎫 Мурожаат / Имом',
     menuMiniApp: '🏛️ Меню & Созлама',
+    home: '🏠 Бош саҳифа',
+    ai: '🤖 ASAKA ZIYO AI',
+    quran: '📖 Қуръон',
+    hadiths: '📚 Ҳадислар',
+    prayer: '🕌 Намоз вақтлари',
+    dhikrDua: '📿 Зикрлар ва дуолар',
+    articles: '📰 Мақолалар',
+    announcements: '📢 Эълонлар',
+    news: '🌍 Янгиликлар',
+    audioLibrary: '🎧 Аудио кутубхонаси',
+    videoLibrary: '🎬 Видео кутубхонаси',
+    education: '🎓 Таълим маркази',
+    quizzes: '🧠 Викториналар',
+    androidApp: '📱 Расмий Android илова',
+    webApp: '🌐 Web App',
+    favorites: '⭐ Севимлилар',
+    notifications: '🔔 Билдиришномалар',
+    profile: '👤 Шахсий кабинет',
+    contactAdmin: '💬 Администратор билан алоқа',
+    settings: '⚙️ Созламалар',
   },
   buttons: {
     prayerTimes: 'Намоз вақтлари',
@@ -800,6 +882,13 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     adminAiToggleFallback: 'Auto-Fallback',
     adminAiToggleVoice: 'Овозли жавоб (TTS)',
     adminAnalytics: 'Аналитика',
+    androidApp: 'Расмий Android илова',
+    androidDownload: 'APK v4.0.0 юклаб олиш',
+    androidInstallGuide: 'Ўрнатиш қўлланмаси',
+    androidCheckUpdates: 'Янгиланишни текшириш',
+    androidReleaseHistory: 'Версиялар тарихи',
+    audioLibrary: 'Аудио кутубхонаси',
+    videoLibrary: 'Видео кутубхонаси',
   },
   prayerNames: {
     tahajjud: 'Таҳажжуд',
@@ -930,6 +1019,8 @@ const RU_DICT: TelegramLocaleDictionary = {
   mediaNewsLabel: 'Новости мечети',
   mediaAnnouncementsLabel: 'Объявления',
   mediaAdhanLabel: 'Аудиозаписи азана',
+  mediaAudioLabel: 'Аудиотека',
+  mediaVideoLabel: 'Видеотека',
   mosqueInfoTitle: '{{emoji:brand.mosque}} О соборной мечети «МухаммадСолих Хожи»',
   mosqueInfoBody:
     'Пятикратные коллективные намазы, пятничные проповеди и просветительские встречи.\nДля вопросов имаму: /support',
@@ -996,6 +1087,26 @@ const RU_DICT: TelegramLocaleDictionary = {
     academyQuiz: '🎓 Академия и Тест',
     support: '🎫 Вопрос имаму',
     menuMiniApp: '🏛️ Меню и Настройки',
+    home: '🏠 Главная',
+    ai: '🤖 ASAKA ZIYO AI',
+    quran: '📖 Коран',
+    hadiths: '📚 Хадисы',
+    prayer: '🕌 Время намаза',
+    dhikrDua: '📿 Зикры и дуа',
+    articles: '📰 Статьи',
+    announcements: '📢 Объявления',
+    news: '🌍 Новости',
+    audioLibrary: '🎧 Аудиотека',
+    videoLibrary: '🎬 Видеотека',
+    education: '🎓 Центр обучения',
+    quizzes: '🧠 Викторины',
+    androidApp: '📱 Приложение Android',
+    webApp: '🌐 Web App',
+    favorites: '⭐ Избранное',
+    notifications: '🔔 Уведомления',
+    profile: '👤 Личный кабинет',
+    contactAdmin: '💬 Связь с админом',
+    settings: '⚙️ Настройки',
   },
   buttons: {
     prayerTimes: 'Время намаза',
@@ -1080,6 +1191,13 @@ const RU_DICT: TelegramLocaleDictionary = {
     adminAiToggleFallback: 'Auto-Fallback',
     adminAiToggleVoice: 'Голос (TTS)',
     adminAnalytics: 'Аналитика',
+    androidApp: 'Приложение Android',
+    androidDownload: 'Скачать APK v4.0.0',
+    androidInstallGuide: 'Инструкция установки',
+    androidCheckUpdates: 'Проверить обновления',
+    androidReleaseHistory: 'История версий',
+    audioLibrary: 'Аудиотека',
+    videoLibrary: 'Видеотека',
   },
   prayerNames: {
     tahajjud: 'Тахаджуд',
@@ -1210,6 +1328,8 @@ const EN_DICT: TelegramLocaleDictionary = {
   mediaNewsLabel: 'Mosque News',
   mediaAnnouncementsLabel: 'Announcements',
   mediaAdhanLabel: 'Adhan Audio Tracks',
+  mediaAudioLabel: 'Audio Library',
+  mediaVideoLabel: 'Video Library',
   mosqueInfoTitle: '{{emoji:brand.mosque}} MuhammadSolih Hoji Jome Mosque',
   mosqueInfoBody:
     'Five daily congregational prayers, Jumuah sermons, and educational circles.\nQuestions or inquiries: /support',
@@ -1276,6 +1396,26 @@ const EN_DICT: TelegramLocaleDictionary = {
     academyQuiz: '🎓 Academy & Quiz',
     support: '🎫 Imam / Support',
     menuMiniApp: '🏛️ Menu & Settings',
+    home: '🏠 Home',
+    ai: '🤖 ASAKA ZIYO AI',
+    quran: '📖 Quran',
+    hadiths: '📚 Hadiths',
+    prayer: '🕌 Prayer Times',
+    dhikrDua: '📿 Dhikr & Duas',
+    articles: '📰 Articles',
+    announcements: '📢 Announcements',
+    news: '🌍 News',
+    audioLibrary: '🎧 Audio Library',
+    videoLibrary: '🎬 Video Library',
+    education: '🎓 Education Center',
+    quizzes: '🧠 Quizzes',
+    androidApp: '📱 Official Android App',
+    webApp: '🌐 Web App',
+    favorites: '⭐ Favorites',
+    notifications: '🔔 Notifications',
+    profile: '👤 Personal Cabinet',
+    contactAdmin: '💬 Contact Admin',
+    settings: '⚙️ Settings',
   },
   buttons: {
     prayerTimes: 'Prayer Times',
@@ -1360,6 +1500,13 @@ const EN_DICT: TelegramLocaleDictionary = {
     adminAiToggleFallback: 'Auto-Fallback',
     adminAiToggleVoice: 'Voice Reply (TTS)',
     adminAnalytics: 'Analytics',
+    androidApp: 'Official Android App',
+    androidDownload: 'Download APK v4.0.0',
+    androidInstallGuide: 'Install Guide',
+    androidCheckUpdates: 'Check Updates',
+    androidReleaseHistory: 'Release History',
+    audioLibrary: 'Audio Library',
+    videoLibrary: 'Video Library',
   },
   prayerNames: {
     tahajjud: 'Tahajjud',

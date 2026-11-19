@@ -735,6 +735,32 @@ service cloud.firestore {
         data.score is number && data.total is number;
     }
 
+    function isValidAppRelease(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.platform in ['android', 'ios', 'pwa'] &&
+        data.packageId is string && data.packageId.size() >= 3 && data.packageId.size() <= 128 &&
+        data.versionName is string && data.versionName.size() >= 1 && data.versionName.size() <= 32 &&
+        data.versionCode is number && data.versionCode >= 1 &&
+        data.status in ['draft', 'published', 'archived'];
+    }
+
+    function isValidSyncOutboxEvent(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.entityType in ['article', 'news', 'announcement', 'hadith', 'dhikr', 'audio', 'video', 'prayer_schedule', 'quiz', 'course', 'app_release'] &&
+        data.entityId is string && data.entityId.size() >= 1 && data.entityId.size() <= 128 &&
+        data.action in ['created', 'updated', 'published', 'archived', 'restored'] &&
+        data.idempotencyKey is string && data.idempotencyKey.size() >= 1 && data.idempotencyKey.size() <= 240 &&
+        data.status in ['pending', 'processing', 'completed', 'failed', 'dead_letter'];
+    }
+
+    function isValidSyncAuditLog(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.eventId is string && data.eventId.size() >= 1 && data.eventId.size() <= 128 &&
+        data.entityType is string && data.entityType.size() >= 1 && data.entityType.size() <= 64 &&
+        data.status is string && data.status.size() >= 1 && data.status.size() <= 32 &&
+        data.timestamp is string && data.timestamp.size() >= 4 && data.timestamp.size() <= 64;
+    }
+
     // 38A. Telegram Bot Users (Zero public client access — admin/server-only)
     match /telegramUsers/{userId} {
       allow get: if isValidId(userId) && isAnyAdmin();
@@ -874,6 +900,39 @@ service cloud.firestore {
         (isSuperAdmin() || isVerifiedServerWrite('telegramQuizAttempts', attemptId));
       allow delete: if isValidId(attemptId) &&
         (isSuperAdmin() || isVerifiedServerWrite('telegramQuizAttempts', attemptId));
+    }
+
+    // 39. Central Official App Releases (Public read for published releases; Admin/server-only write)
+    match /app_releases/{releaseId} {
+      allow get: if isValidId(releaseId) &&
+        (resource.data.status == 'published' || isAnyAdmin());
+      allow list: if resource.data.status == 'published' || isAnyAdmin();
+      allow create, update: if isValidId(releaseId) &&
+        isValidAppRelease(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('app_releases', releaseId));
+      allow delete: if isValidId(releaseId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('app_releases', releaseId));
+    }
+
+    // 40. Unified Ecosystem Transactional Sync Outbox (Admin/server-only — zero public access)
+    match /sync_outbox/{eventId} {
+      allow get: if isValidId(eventId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(eventId) &&
+        isValidSyncOutboxEvent(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('sync_outbox', eventId));
+      allow delete: if isValidId(eventId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('sync_outbox', eventId));
+    }
+
+    // 41. Unified Ecosystem Sync Audit Logs (Append-only; Admin/server-only)
+    match /sync_audit_logs/{logId} {
+      allow get: if isValidId(logId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create: if isValidId(logId) &&
+        isValidSyncAuditLog(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('sync_audit_logs', logId));
+      allow update, delete: if false;
     }
   }
 }

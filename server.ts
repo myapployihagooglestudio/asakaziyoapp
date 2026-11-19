@@ -31,6 +31,8 @@ import {
 } from './server/quranQuizVideoRenderer';
 import { createSmartMosqueDisplayRouter } from './server/smartMosqueDisplayRouter';
 import { createTelegramPlatformRouter } from './telegram/bot/router';
+import { AppReleaseService } from './telegram/services/appReleaseService';
+import type { SyncActionType, SyncEntityType } from './telegram/sync/syncEngine';
 
 
 // Force IPv4 resolution first to prevent 10s IPv6 AAAA timeout delays on outbound API calls
@@ -1415,6 +1417,34 @@ app.post('/api/admin/firestore/write', requireAdminAuth, async (req: Request, re
   // Keep local server mirror in sync after confirmed Firestore write
   syncLocalMirrorForDoc(String(collectionName), String(docId), enrichedPayload, false);
 
+  // Trigger non-blocking Unified Ecosystem V4 sync for relevant collections
+  const colToSyncType: Record<string, SyncEntityType> = {
+    articles: 'article',
+    news: 'news',
+    announcements: 'announcement',
+    hadiths: 'hadith',
+    dhikrs: 'dhikr',
+    mediaPosts: enrichedPayload.type === 'audio' ? 'audio' : 'video',
+    ownAudioLibrary: 'audio',
+    adhanLibrary: 'audio',
+    schedules: 'prayer_schedule',
+  };
+  const mappedSyncType = colToSyncType[String(collectionName)];
+  if (mappedSyncType) {
+    const syncAction: SyncActionType = enrichedPayload.isArchived
+      ? 'archived'
+      : enrichedPayload.createdAt === enrichedPayload.updatedAt
+      ? 'created'
+      : 'updated';
+    triggerEcosystemSync(
+      mappedSyncType,
+      String(docId),
+      syncAction,
+      enrichedPayload,
+      req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL
+    );
+  }
+
   return res.json({
     success: true,
     firestoreConfirmed: true,
@@ -1807,6 +1837,13 @@ app.post('/api/database/prayer', requireAdminAuth, async (req: Request, res: Res
 
   db.prayerSchedule = updatedSchedule;
   writeDatabase(db);
+  triggerEcosystemSync(
+    'prayer_schedule',
+    'asaka-main',
+    'updated',
+    updatedSchedule,
+    req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL
+  );
 
   res.json({
     success: true,
@@ -1960,6 +1997,17 @@ app.post('/api/database/articles', async (req: Request, res: Response) => {
   }
 
   writeDatabase(db);
+  if (targetRecord && targetRecord.id) {
+    const syncAction: SyncActionType =
+      action === 'archive' || action === 'delete'
+        ? 'archived'
+        : action === 'restore'
+        ? 'restored'
+        : action === 'create'
+        ? 'created'
+        : 'updated';
+    triggerEcosystemSync('article', String(targetRecord.id), syncAction, targetRecord, verifiedAdmin.email);
+  }
   res.json({ success: true, firestoreConfirmed: true, articles: db.articles });
 });
 
@@ -2077,6 +2125,18 @@ app.post('/api/database/media', async (req: Request, res: Response) => {
   }
 
   writeDatabase(db);
+  if (targetPost && targetPost.id) {
+    const syncAction: SyncActionType =
+      action === 'archive' || action === 'delete'
+        ? 'archived'
+        : action === 'restore'
+        ? 'restored'
+        : action === 'create'
+        ? 'created'
+        : 'updated';
+    const mediaEntityType: SyncEntityType = targetPost.type === 'audio' ? 'audio' : 'video';
+    triggerEcosystemSync(mediaEntityType, String(targetPost.id), syncAction, targetPost, verifiedAdmin.email);
+  }
   res.json({ success: true, firestoreConfirmed: true, mediaPosts: db.mediaPosts });
 });
 
@@ -2133,6 +2193,11 @@ app.post('/api/database/hadiths', requireAdminAuth, async (req: Request, res: Re
   }
 
   writeDatabase(db);
+  if (targetHadith && targetHadith.id) {
+    const syncAction: SyncActionType =
+      action === 'archive' || action === 'delete' ? 'archived' : action === 'restore' ? 'restored' : action === 'create' ? 'created' : 'updated';
+    triggerEcosystemSync('hadith', String(targetHadith.id), syncAction, targetHadith, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
+  }
   res.json({ success: true, firestoreConfirmed: true, hadiths: db.hadiths });
 });
 
@@ -2188,6 +2253,11 @@ app.post('/api/database/dhikrs', requireAdminAuth, async (req: Request, res: Res
   }
 
   writeDatabase(db);
+  if (targetDhikr && targetDhikr.id) {
+    const syncAction: SyncActionType =
+      action === 'archive' || action === 'delete' ? 'archived' : action === 'restore' ? 'restored' : action === 'create' ? 'created' : 'updated';
+    triggerEcosystemSync('dhikr', String(targetDhikr.id), syncAction, targetDhikr, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
+  }
   res.json({ success: true, firestoreConfirmed: true, dhikrs: db.dhikrs });
 });
 
@@ -2242,6 +2312,11 @@ app.post('/api/database/news', requireAdminAuth, async (req: Request, res: Respo
   }
 
   writeDatabase(db);
+  if (targetNews && targetNews.id) {
+    const syncAction: SyncActionType =
+      action === 'archive' || action === 'delete' ? 'archived' : action === 'restore' ? 'restored' : action === 'create' ? 'created' : 'updated';
+    triggerEcosystemSync('news', String(targetNews.id), syncAction, targetNews, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
+  }
   return res.json({ success: true, firestoreConfirmed: true, news: db.news });
 });
 
@@ -2295,6 +2370,11 @@ app.post('/api/database/announcements', requireAdminAuth, async (req: Request, r
   }
 
   writeDatabase(db);
+  if (targetAnn && targetAnn.id) {
+    const syncAction: SyncActionType =
+      action === 'archive' || action === 'delete' ? 'archived' : action === 'restore' ? 'restored' : action === 'create' ? 'created' : 'updated';
+    triggerEcosystemSync('announcement', String(targetAnn.id), syncAction, targetAnn, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
+  }
   return res.json({ success: true, firestoreConfirmed: true, announcements: db.announcements });
 });
 
@@ -5177,6 +5257,7 @@ app.post('/api/admin/adhan-library', requireAdminAuth, async (req: Request, res:
       db.adhanLibrary.unshift(updatedRecording);
     }
     writeDatabase(db);
+    triggerEcosystemSync('audio', String(recording.id), 'updated', updatedRecording, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
     return res.json({ success: true, firestoreConfirmed: true, adhanLibrary: db.adhanLibrary });
   }
 
@@ -5219,6 +5300,7 @@ app.post('/api/admin/audio-library', requireAdminAuth, async (req: Request, res:
       db.ownAudioLibrary.unshift(updatedItem);
     }
     writeDatabase(db);
+    triggerEcosystemSync('audio', String(item.id), idx >= 0 ? 'updated' : 'created', updatedItem, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
     return res.json({ success: true, firestoreConfirmed: true, library: db.ownAudioLibrary });
   }
 
@@ -5226,6 +5308,7 @@ app.post('/api/admin/audio-library', requireAdminAuth, async (req: Request, res:
     await serverDeleteFirestoreDoc('ownAudioLibrary', String(id));
     db.ownAudioLibrary = db.ownAudioLibrary.filter((x: any) => x.id !== id);
     writeDatabase(db);
+    triggerEcosystemSync('audio', String(id), 'archived', { id }, req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL);
     return res.json({ success: true, firestoreConfirmed: true, library: db.ownAudioLibrary });
   }
 
@@ -5403,126 +5486,85 @@ function resolveVerifiedV4ApkFile(): {
   };
 }
 
-app.get('/api/apk/info', (_req: Request, res: Response) => {
+const appReleaseService = new AppReleaseService({
+  rootDir: __dirname,
+  serverWriteFirestoreDoc,
+  serverReadFirestoreCollection,
+});
+void appReleaseService.hydrateFromFirestore().catch(() => {});
+
+app.get('/api/apk/info', async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  const meta = readApkReleaseMetadataFile();
-  const resolved = resolveVerifiedV4ApkFile();
-
-  if (!resolved) {
-    const aabAvailable = fs.existsSync(AAB_RELEASE_PATH_V4) && isValidZipBinaryHeader(AAB_RELEASE_PATH_V4).valid;
-    return res.status(200).json({
-      success: true,
-      appName: 'ASAKA ZIYO',
-      packageId: 'uz.asakaziyo.app',
-      version: APK_TARGET_VERSION,
-      buildCode: APK_TARGET_BUILD_CODE,
-      minSdk: 24,
-      targetSdk: 36,
-      minAndroid: 'Android 7.0+ (API 24 – API 36)',
-      targetAndroid: 'Android 16 (API 36)',
-      apkFilename: APK_CANONICAL_FILENAME,
-      aabFilename: AAB_CANONICAL_FILENAME,
-      apkAvailable: false,
-      aabAvailable,
-      signed: false,
-      apksignerVerified: false,
-      sizeBytes: 0,
-      fileSizeDisplay: 'CI/CD orqali yigʻilmoqda',
-      sha256Checksum: '',
-      signatureScheme: 'APK Signature Scheme v1 + v2 + v3 (RSA-2048 SHA-256)',
-      axmlVerified: false,
-      dexVerified: false,
-      resourcesArscVerified: false,
-      pkcs7Signed: false,
-      downloadUrl: '/api/apk/download',
-      directUrl: `/${APK_CANONICAL_FILENAME}`,
-      releaseDate: meta.releaseDate || '2026-11-19',
-      status: 'awaiting_ci_artifact',
-      statusMessageUz:
-        meta.statusMessageUz ||
-        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli hali serverga yuklanmagan. GitHub Actions (android-release.yml) orqali yigʻilib joylashtirilgach, yuklab olish avtomatik faollashadi.',
-      releaseHistory: Array.isArray(meta.releaseHistory) ? meta.releaseHistory : [],
-    });
-  }
-
-  const sizeMb = (resolved.sizeBytes / (1024 * 1024)).toFixed(2);
-  const resolvedSigned = Boolean(resolved.metadata.signed ?? resolved.metadata.pkcs7Signed ?? false);
+  const forceRefresh = req.query.refresh === '1';
+  const checkGitHub = req.query.checkGitHub === '1';
+  const release = await appReleaseService.getResolvedReleaseInfo({
+    checkGitHub,
+    forceRefresh,
+  });
   return res.status(200).json({
     success: true,
-    appName: 'ASAKA ZIYO',
-    packageId: 'uz.asakaziyo.app',
-    version: APK_TARGET_VERSION,
-    buildCode: APK_TARGET_BUILD_CODE,
-    minSdk: 24,
-    targetSdk: 36,
-    minAndroid: 'Android 7.0+ (API 24 – API 36)',
-    targetAndroid: 'Android 16 (API 36)',
-    apkFilename: APK_CANONICAL_FILENAME,
-    aabFilename: AAB_CANONICAL_FILENAME,
-    apkAvailable: true,
-    aabAvailable: resolved.aabAvailable,
-    signed: resolvedSigned,
-    apksignerVerified: Boolean(resolved.metadata.apksignerVerified ?? resolvedSigned),
-    sizeBytes: resolved.sizeBytes,
-    fileSizeDisplay: `${sizeMb} MB`,
-    sha256Checksum: resolved.sha256,
-    signatureScheme:
-      resolved.metadata.signatureScheme ||
-      'APK Signature Scheme v1 + v2 + v3 (RSA-2048 SHA-256)',
-    axmlVerified: true,
-    dexVerified: true,
-    resourcesArscVerified: true,
-    pkcs7Signed: resolvedSigned,
-    downloadUrl: '/api/apk/download',
-    directUrl: `/${APK_CANONICAL_FILENAME}`,
-    releaseDate: resolved.metadata.releaseDate || '2026-11-19',
-    status: 'ready',
-    statusMessageUz: `ASAKA ZIYO v${APK_TARGET_VERSION} (Build ${APK_TARGET_BUILD_CODE}) rasmiy Android APK yuklab olishga tayyor.`,
-    releaseHistory: Array.isArray(resolved.metadata.releaseHistory)
-      ? resolved.metadata.releaseHistory
-      : [],
+    ...release,
+    apk: release,
   });
 });
 
-function streamVerifiedApkResponse(req: Request, res: Response) {
-  const resolved = resolveVerifiedV4ApkFile();
-  if (!resolved) {
+async function streamVerifiedApkResponse(req: Request, res: Response) {
+  const release = await appReleaseService.getResolvedReleaseInfo({ checkGitHub: false });
+
+  if (!release.apkAvailable) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     return res.status(404).json({
       success: false,
       apkAvailable: false,
-      version: APK_TARGET_VERSION,
-      buildCode: APK_TARGET_BUILD_CODE,
-      packageId: 'uz.asakaziyo.app',
-      error:
-        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli hali serverga yuklanmagan. GitHub Actions android-release workflow orqali haqiqiy APK yigʻilib joylashtirilgach, yuklab olish faollashadi.',
+      version: release.version,
+      buildCode: release.buildCode,
+      packageId: release.packageId,
+      error: release.statusMessageUz,
     });
   }
 
-  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', `attachment; filename="${APK_CANONICAL_FILENAME}"`);
-  res.setHeader('Content-Length', String(resolved.sizeBytes));
-  res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-APK-Package-Id', 'uz.asakaziyo.app');
-  res.setHeader('X-APK-Version', APK_TARGET_VERSION);
-  res.setHeader('X-APK-Build-Code', String(APK_TARGET_BUILD_CODE));
-  res.setHeader('X-APK-SHA256', resolved.sha256);
+  if (release.localFilePath && fs.existsSync(release.localFilePath)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', `attachment; filename="${release.apkFilename}"`);
+    res.setHeader('Content-Length', String(release.sizeBytes));
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-APK-Package-Id', release.packageId);
+    res.setHeader('X-APK-Version', release.version);
+    res.setHeader('X-APK-Build-Code', String(release.buildCode));
+    if (release.sha256Checksum) {
+      res.setHeader('X-APK-SHA256', release.sha256Checksum);
+    }
 
-  if (req.method === 'HEAD') {
-    return res.status(200).end();
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
+
+    void appReleaseService.incrementDownloadCount().catch(() => {});
+    const stream = fs.createReadStream(release.localFilePath);
+    stream.on('error', (err) => {
+      console.error('[APK Stream Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'APK faylini uzatishda server xatosi yuz berdi.' });
+      }
+    });
+    return stream.pipe(res);
   }
 
-  const stream = fs.createReadStream(resolved.filePath);
-  stream.on('error', (err) => {
-    console.error('[APK Stream Error]:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, error: 'APK faylini uzatishda server xatosi yuz berdi.' });
+  if (release.remoteApkUrl && release.remoteApkUrl.startsWith('https://')) {
+    if (req.method === 'GET') {
+      void appReleaseService.incrementDownloadCount().catch(() => {});
     }
+    return res.redirect(302, release.remoteApkUrl);
+  }
+
+  return res.status(404).json({
+    success: false,
+    apkAvailable: false,
+    error: 'APK fayli topilmadi.',
   });
-  return stream.pipe(res);
 }
 
 app.get('/api/apk/download', streamVerifiedApkResponse);
@@ -5798,7 +5840,7 @@ app.use(
   })
 );
 
-// ASAKA ZIYO Telegram Platform (Isolated Phase 1 Module — mounted strictly under /api/telegram/platform/*)
+// ASAKA ZIYO Telegram Platform (Unified Ecosystem V4 — mounted strictly under /api/telegram/platform/*)
 const telegramPlatform = createTelegramPlatformRouter({
   requireAdminAuth,
   sensitiveActionLimiter,
@@ -5806,8 +5848,46 @@ const telegramPlatform = createTelegramPlatformRouter({
   serverDeleteFirestoreDoc,
   serverReadFirestoreCollection,
   readOnlyPrayerProvider: () => readDatabase().prayerSchedule || null,
+  centralContentReader: () => readDatabase() as any,
+  appReleaseService,
 });
 app.use('/api/telegram/platform', telegramPlatform.router);
+
+function triggerEcosystemSync(
+  entityType: SyncEntityType,
+  entityId: string,
+  action: SyncActionType,
+  payload: Record<string, any>,
+  actor: string
+): void {
+  try {
+    if (!telegramPlatform?.engine?.syncEngine) return;
+    const shouldNotify =
+      (action === 'created' || action === 'published') &&
+      !payload?.isArchived &&
+      (entityType === 'announcement' || entityType === 'news' || entityType === 'article' || entityType === 'app_release');
+    void telegramPlatform.engine.syncEngine
+      .enqueueContentEvent({
+        entityType,
+        entityId,
+        action,
+        payload: {
+          title: String(payload?.title || payload?.titleUz || payload?.name || entityId),
+          summary: String(payload?.excerpt || payload?.summary || payload?.content || payload?.translationUz || '').slice(0, 280),
+          category: typeof payload?.category === 'string' ? payload.category : undefined,
+        },
+        notifyOptions: {
+          mode: shouldNotify ? 'publish_and_notify' : 'section_only',
+        },
+        createdBy: actor,
+      })
+      .catch((err) => {
+        console.warn('[UnifiedSync] Enqueue warning:', err?.message || err);
+      });
+  } catch {
+    // Non-blocking sync hook must never affect primary Web/Admin write response
+  }
+}
 
 // Explicit API 404 JSON Guard — prevents any /api/* request from falling through to Vite/SPA index.html
 app.all('/api/*', (req: Request, res: Response) => {

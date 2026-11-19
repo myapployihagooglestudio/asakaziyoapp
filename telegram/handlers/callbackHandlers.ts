@@ -26,6 +26,7 @@ import { TelegramAdminService } from '../admin/adminService';
 import { TelegramChannelService } from '../channels/channelService';
 import { TelegramPublishingService } from '../publishing/publishingService';
 import { TelegramRepository } from '../database/telegramRepository';
+import { AppReleaseService } from '../services/appReleaseService';
 import { getTelegramLocaleBundle, isValidTelegramLocale } from '../locales';
 import {
   buildAcademyKeyboard,
@@ -38,6 +39,7 @@ import {
   buildAdminSupportKeyboard,
   buildAdminUsersKeyboard,
   buildAiModeKeyboard,
+  buildAndroidAppKeyboard,
   buildBackOnlyKeyboard,
   buildChannelsKeyboard,
   buildDhikrKeyboard,
@@ -81,6 +83,7 @@ export interface CallbackHandlerContext {
   channelService: TelegramChannelService;
   publishingService: TelegramPublishingService;
   repository: TelegramRepository;
+  appReleaseService: AppReleaseService;
   runDiagnostics: () => Promise<{
     readyToAnswerStart: boolean;
     mode: string;
@@ -707,12 +710,16 @@ export async function handleCallbackQuery(
     return { handled: true, action: 'quiz:leaderboard' };
   }
 
-  // 8. Media Library: library:view:<kind>:<idx>
+  // 8. Media Library: library:view:<kind>:<idx> & bookmark:media:<kind>:<idx>
   if (data.startsWith('library:view:')) {
     const parts = data.split(':');
     const rawKind = parts[2];
-    const kind =
-      rawKind === 'news' || rawKind === 'announcements' || rawKind === 'adhan'
+    const kind: 'articles' | 'news' | 'announcements' | 'adhan' | 'audio' | 'video' =
+      rawKind === 'news' ||
+      rawKind === 'announcements' ||
+      rawKind === 'adhan' ||
+      rawKind === 'audio' ||
+      rawKind === 'video'
         ? rawKind
         : 'articles';
     const idx = Number(parts[3]) || 0;
@@ -722,6 +729,20 @@ export async function handleCallbackQuery(
       user.language,
       ctx.emojiRegistry
     );
+    if (res.itemId) {
+      if (kind === 'articles') {
+        await ctx.contentAdapter.recordArticleRead(ctx.repository, user.telegramId, res.itemId);
+      } else if (kind === 'video') {
+        await ctx.contentAdapter.recordVideoWatched(ctx.repository, user.telegramId, res.itemId);
+      } else if (kind === 'audio' || kind === 'adhan') {
+        await ctx.contentAdapter.recordAudioResume(
+          ctx.repository,
+          user.telegramId,
+          res.itemId,
+          res.itemTitle || kind
+        );
+      }
+    }
     await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
     await renderScreenUpdate(ctx.apiClient, callback, {
       text: res.formatted.text,
@@ -731,10 +752,131 @@ export async function handleCallbackQuery(
         kind,
         res.index,
         res.total,
-        ctx.emojiRegistry
+        ctx.emojiRegistry,
+        res.itemId
       ),
     });
     return { handled: true, action: data };
+  }
+
+  if (data.startsWith('bookmark:media:')) {
+    const parts = data.split(':');
+    const rawKind = parts[2];
+    const kind: 'articles' | 'news' | 'announcements' | 'adhan' | 'audio' | 'video' =
+      rawKind === 'news' ||
+      rawKind === 'announcements' ||
+      rawKind === 'adhan' ||
+      rawKind === 'audio' ||
+      rawKind === 'video'
+        ? rawKind
+        : 'articles';
+    const idx = Number(parts[3]) || 0;
+    const item = ctx.contentAdapter.formatMediaLibraryItem(
+      kind,
+      idx,
+      user.language,
+      ctx.emojiRegistry
+    );
+    const bookmarkKind =
+      kind === 'articles'
+        ? 'article'
+        : kind === 'news'
+          ? 'news'
+          : kind === 'announcements'
+            ? 'announcement'
+            : kind === 'video'
+              ? 'video'
+              : 'audio';
+    const refId = item.itemId || `${kind}_${idx}`;
+    const toggled = await ctx.contentAdapter.toggleBookmark(ctx.repository, user.telegramId, {
+      id: `${bookmarkKind}_${refId}`,
+      kind: bookmarkKind,
+      refId,
+      title: item.itemTitle || `${kind} #${idx + 1}`,
+    });
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: toggled.saved ? dict.bookmarkSavedToast : dict.bookmarkRemovedToast,
+    });
+    return { handled: true, action: data };
+  }
+
+  // 8B. Official Android App Section: nav:android_app | android:check | android:guide | android:history
+  if (data === 'nav:android_app' || data === 'android:check') {
+    const isRefresh = data === 'android:check';
+    const info = await ctx.appReleaseService.getResolvedReleaseInfo({
+      checkGitHub: isRefresh,
+      forceRefresh: isRefresh,
+    });
+    const card = ctx.appReleaseService.formatTelegramAndroidAppCard(
+      info,
+      user.language,
+      ctx.emojiRegistry
+    );
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      ...(isRefresh
+        ? { text: `v${info.version} — ${info.apkAvailable ? 'APK tayyor' : 'Tekshirildi'}` }
+        : {}),
+    });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: card.text,
+      entities: card.entities,
+      reply_markup: buildAndroidAppKeyboard(
+        user.language,
+        info,
+        ctx.emojiRegistry,
+        ctx.config,
+        menuOpts.miniAppEnabled
+      ),
+    });
+    return { handled: true, action: data };
+  }
+
+  if (data === 'android:guide') {
+    const info = await ctx.appReleaseService.getResolvedReleaseInfo({ checkGitHub: false });
+    const formatted = ctx.appReleaseService.formatTelegramAndroidAppCard(
+      info,
+      user.language,
+      ctx.emojiRegistry,
+      'install_guide'
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildAndroidAppKeyboard(
+        user.language,
+        info,
+        ctx.emojiRegistry,
+        ctx.config,
+        menuOpts.miniAppEnabled
+      ),
+    });
+    return { handled: true, action: 'android:guide' };
+  }
+
+  if (data === 'android:history') {
+    const info = await ctx.appReleaseService.getResolvedReleaseInfo({ checkGitHub: false });
+    const formatted = ctx.appReleaseService.formatTelegramAndroidAppCard(
+      info,
+      user.language,
+      ctx.emojiRegistry,
+      'history'
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildAndroidAppKeyboard(
+        user.language,
+        info,
+        ctx.emojiRegistry,
+        ctx.config,
+        menuOpts.miniAppEnabled
+      ),
+    });
+    return { handled: true, action: 'android:history' };
   }
 
   // 9. Support Center: support:cat:<category> | support:my_tickets

@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -37,7 +36,7 @@ class AsakaPrayerAlarmReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val largeIcon = BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+            val largeIcon = AsakaIconUtils.renderLauncherBitmap(context)
             val notification = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_stat_asaka_ziyo)
                 .setLargeIcon(largeIcon)

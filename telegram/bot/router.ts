@@ -18,6 +18,14 @@ import {
   createScopedTelegramFirestoreBridge,
 } from '../database/telegramRepository';
 import { ReadOnlyPrayerScheduleProvider } from '../prayer/prayerAdapter';
+import { CentralDatabaseReader } from '../content/centralContentProvider';
+import { AppReleaseService } from '../services/appReleaseService';
+import {
+  SyncActionType,
+  SyncAudienceSegment,
+  SyncEntityType,
+  SyncNotifyMode,
+} from '../sync/syncEngine';
 import { TelegramPlatformConfig } from '../config';
 import { verifyTelegramMiniAppInitData } from '../miniapp/miniAppConfig';
 import {
@@ -42,6 +50,8 @@ export interface TelegramPlatformRouterDeps {
   ) => Promise<{ success: boolean; error?: string }>;
   serverReadFirestoreCollection?: (collectionName: string) => Promise<any[]>;
   readOnlyPrayerProvider?: ReadOnlyPrayerScheduleProvider;
+  centralContentReader?: CentralDatabaseReader;
+  appReleaseService?: AppReleaseService;
   config?: TelegramPlatformConfig;
   storePath?: string;
 }
@@ -61,6 +71,10 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     firestore: firestoreBridge,
     storePath: deps.storePath,
     readOnlyPrayerProvider: deps.readOnlyPrayerProvider,
+    centralContentReader: deps.centralContentReader,
+    appReleaseService: deps.appReleaseService,
+    serverWriteFirestoreDoc: deps.serverWriteFirestoreDoc,
+    serverReadFirestoreCollection: deps.serverReadFirestoreCollection,
   });
 
   engine.startRuntimeIfConfigured();
@@ -853,6 +867,167 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       },
     });
   });
+
+  // 14. Unified Ecosystem V4 — Real-Time Sync Outbox, Retries, Releases & Command Sync
+  router.get('/sync/status', deps.requireAdminAuth, (_req: Request, res: Response) => {
+    return res.json({
+      success: true,
+      sync: engine.syncEngine.getStatusSummary(),
+      centralContent: engine.centralContent.getSummaryCounts(),
+      auditLogs: engine.syncEngine.listAuditLogs(40),
+    });
+  });
+
+  router.post(
+    '/sync/retry/:id',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const result = await engine.syncEngine.retryEvent(req.params.id);
+      return res.status(result.ok ? 200 : 404).json({ success: result.ok, ...result });
+    }
+  );
+
+  router.post(
+    '/sync/retry-failed',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (_req: Request, res: Response) => {
+      const result = await engine.syncEngine.retryAllFailed();
+      return res.json({ success: true, ...result });
+    }
+  );
+
+  router.post(
+    '/sync/publish-event',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const entityType = String(req.body?.entityType || 'announcement').trim() as SyncEntityType;
+      const entityId = String(req.body?.entityId || `manual_${Date.now()}`).trim();
+      const action = String(req.body?.action || 'published').trim() as SyncActionType;
+      const notifyMode = String(req.body?.notifyMode || 'publish_and_notify').trim() as SyncNotifyMode;
+      const title = String(req.body?.title || '').trim();
+      const summary = String(req.body?.summary || '').trim();
+      if (!title) {
+        return res.status(400).json({ success: false, error: 'title is required.' });
+      }
+      const outcome = await engine.syncEngine.enqueueContentEvent({
+        entityType,
+        entityId,
+        action,
+        payload: {
+          title,
+          summary,
+          url: typeof req.body?.webUrl === 'string' ? req.body.webUrl : undefined,
+        },
+        notifyOptions: {
+          mode: notifyMode,
+          scheduledAt: typeof req.body?.scheduledAt === 'string' ? req.body.scheduledAt : undefined,
+          segment: req.body?.segment as SyncAudienceSegment | undefined,
+          deepLinkCallback: typeof req.body?.deepLink === 'string' ? req.body.deepLink : undefined,
+        },
+        createdBy: 'web_admin',
+      });
+      return res.json({ success: true, ...outcome });
+    }
+  );
+
+  router.get('/releases', deps.requireAdminAuth, async (req: Request, res: Response) => {
+    const forceRefresh = req.query.refresh === 'true';
+    const current = await engine.appReleaseService.getResolvedReleaseInfo({
+      checkGitHub: true,
+      forceRefresh,
+    });
+    return res.json({
+      success: true,
+      current,
+      releases: engine.appReleaseService.listReleases(),
+    });
+  });
+
+  router.post(
+    '/releases',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const versionName = String(req.body?.versionName || req.body?.version || '').trim();
+      const versionCode = Number(req.body?.versionCode);
+      const apkDownloadUrl = String(req.body?.apkDownloadUrl || req.body?.apkUrl || '').trim();
+      if (
+        !versionName ||
+        !Number.isFinite(versionCode) ||
+        versionCode < 1 ||
+        (!apkDownloadUrl.startsWith('https://') && !apkDownloadUrl.startsWith('/'))
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: 'Valid version, numeric versionCode, and HTTPS/local apkDownloadUrl are required.',
+        });
+      }
+      const saved = await engine.appReleaseService.upsertRelease(
+        {
+          id: typeof req.body?.id === 'string' ? req.body.id : undefined,
+          platform: 'android',
+          appName: typeof req.body?.appName === 'string' ? req.body.appName : 'ASAKA ZIYO',
+          packageId: typeof req.body?.packageId === 'string' ? req.body.packageId : 'uz.asakaziyo.app',
+          versionName,
+          versionCode: Math.floor(versionCode),
+          releaseNotesUz: String(req.body?.releaseNotesUz || `ASAKA ZIYO v${versionName}`),
+          apkDownloadUrl,
+          githubReleaseUrl:
+            typeof req.body?.githubReleaseUrl === 'string' ? req.body.githubReleaseUrl : undefined,
+          apkFilename:
+            typeof req.body?.apkFilename === 'string'
+              ? req.body.apkFilename
+              : `Asaka-Ziyo-v${versionName}.apk`,
+          apkSizeBytes: Number(req.body?.apkSizeBytes || req.body?.fileSizeBytes) || 0,
+          sha256Checksum:
+            typeof req.body?.sha256Checksum === 'string'
+              ? req.body.sha256Checksum
+              : typeof req.body?.sha256 === 'string'
+              ? req.body.sha256
+              : undefined,
+          signed: Boolean(req.body?.signed ?? true),
+          apksignerVerified: Boolean(req.body?.apksignerVerified ?? req.body?.signed ?? true),
+          minSdk: Number(req.body?.minSdk) || 24,
+          targetSdk: Number(req.body?.targetSdk) || 36,
+          status: req.body?.status === 'archived' ? 'archived' : 'published',
+        },
+        'web_admin'
+      );
+
+      let syncEvent = null;
+      if (saved.status === 'published') {
+        syncEvent = await engine.syncEngine.enqueueContentEvent({
+          entityType: 'app_release',
+          entityId: saved.id,
+          action: 'published',
+          payload: {
+            title: `ASAKA ZIYO Android v${saved.versionName} chiqdi!`,
+            summary: saved.releaseNotesUz,
+          },
+          notifyOptions: {
+            mode: req.body?.notifyUsers ? 'publish_and_notify' : 'section_only',
+            deepLinkCallback: 'nav:android_app',
+          },
+          createdBy: 'web_admin',
+        });
+      }
+
+      return res.json({ success: true, release: saved, syncEvent });
+    }
+  );
+
+  router.post(
+    '/commands/sync',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (_req: Request, res: Response) => {
+      const result = await engine.syncBotCommandsWithTelegram();
+      return res.status(result.ok ? 200 : 400).json({ success: result.ok, ...result });
+    }
+  );
 
   return { router, engine };
 }

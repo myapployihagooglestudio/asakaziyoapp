@@ -661,6 +661,81 @@
         "createdAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["id", "telegramId", "score", "total", "createdAt"]
+    },
+    "AppRelease": {
+      "title": "AppRelease",
+      "description": "Central verified Android APK/AAB release metadata shared across Web App, Android app, and Telegram Bot",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "platform": { "type": "string", "enum": ["android", "ios", "pwa"] },
+        "appName": { "type": "string", "maxLength": 120 },
+        "packageId": { "type": "string", "maxLength": 128 },
+        "versionName": { "type": "string", "maxLength": 32 },
+        "versionCode": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "signed": { "type": "boolean" },
+        "apksignerVerified": { "type": "boolean" },
+        "apkFilename": { "type": "string", "maxLength": 160 },
+        "aabFilename": { "type": "string", "maxLength": 160 },
+        "apkDownloadUrl": { "type": "string", "maxLength": 1000 },
+        "aabDownloadUrl": { "type": "string", "maxLength": 1000 },
+        "githubReleaseUrl": { "type": "string", "maxLength": 1000 },
+        "githubTag": { "type": "string", "maxLength": 64 },
+        "apkSizeBytes": { "type": "number" },
+        "aabSizeBytes": { "type": "number" },
+        "sha256Checksum": { "type": "string", "maxLength": 128 },
+        "aabSha256Checksum": { "type": "string", "maxLength": 128 },
+        "signingCertSha256": { "type": "string", "maxLength": 128 },
+        "minSdk": { "type": "number" },
+        "targetSdk": { "type": "number" },
+        "releaseNotesUz": { "type": "string", "maxLength": 4000 },
+        "releaseDate": { "type": "string", "maxLength": 64 },
+        "downloadCount": { "type": "number" },
+        "publishedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "platform", "packageId", "versionName", "versionCode", "status", "updatedAt"]
+    },
+    "SyncOutboxEvent": {
+      "title": "SyncOutboxEvent",
+      "description": "Transactional outbox event for real-time Web App to Telegram Bot synchronization with idempotency, retries, and DLQ",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "eventType": { "type": "string", "maxLength": 64 },
+        "entityType": { "type": "string", "enum": ["article", "news", "announcement", "hadith", "dhikr", "audio", "video", "prayer_schedule", "quiz", "course", "app_release"] },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "enum": ["created", "updated", "published", "archived", "restored"] },
+        "version": { "type": "number" },
+        "idempotencyKey": { "type": "string", "maxLength": 200 },
+        "contentHash": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed", "dead_letter"] },
+        "attempts": { "type": "number" },
+        "maxAttempts": { "type": "number" },
+        "lastError": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "entityType", "entityId", "action", "idempotencyKey", "status", "createdAt", "updatedAt"]
+    },
+    "SyncAuditLog": {
+      "title": "SyncAuditLog",
+      "description": "Append-only delivery and synchronization audit log for Web App to Telegram Bot events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "eventId": { "type": "string", "maxLength": 128 },
+        "entityType": { "type": "string", "maxLength": 64 },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 32 },
+        "recipientsNotified": { "type": "number" },
+        "deduplicated": { "type": "boolean" },
+        "error": { "type": "string", "maxLength": 1000 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "eventId", "entityType", "status", "timestamp"]
     }
   },
   "firestore": {
@@ -831,6 +906,18 @@
     "/telegramQuizAttempts/{attemptId}": {
       "schema": "TelegramQuizAttempt",
       "description": "Isolated Telegram Islamic quiz attempt records and leaderboard stats"
+    },
+    "/app_releases/{releaseId}": {
+      "schema": "AppRelease",
+      "description": "Central verified Android APK/AAB release metadata shared across Web App, Android app, and Telegram Bot"
+    },
+    "/sync_outbox/{eventId}": {
+      "schema": "SyncOutboxEvent",
+      "description": "Durable transactional outbox queue for real-time Web App to Telegram Bot synchronization (admin/server-only)"
+    },
+    "/sync_audit_logs/{logId}": {
+      "schema": "SyncAuditLog",
+      "description": "Append-only synchronization and notification audit log (admin/server-only)"
     }
   }
 }

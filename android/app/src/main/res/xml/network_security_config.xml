@@ -8,6 +8,7 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">asakaziyo.uz</domain>
         <domain includeSubdomains="true">asakaziyo.ai.studio</domain>
+        <domain includeSubdomains="true">run.app</domain>
         <domain includeSubdomains="true">appassets.androidplatform.net</domain>
         <domain includeSubdomains="true">googleapis.com</domain>
         <domain includeSubdomains="true">firebaseio.com</domain>

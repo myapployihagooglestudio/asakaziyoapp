@@ -66,6 +66,7 @@ function validateAndroidProjectResources() {
     'android/app/src/main/java/uz/asakaziyo/app/AsakaFirebaseMessagingService.kt',
     'android/app/src/main/java/uz/asakaziyo/app/AsakaPrayerAlarmReceiver.kt',
     'android/app/src/main/java/uz/asakaziyo/app/AsakaBootReceiver.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/AsakaIconUtils.kt',
     'android/app/src/main/res/values/strings.xml',
     'android/app/src/main/res/values/colors.xml',
     'android/app/src/main/res/values/styles.xml',
@@ -130,6 +131,7 @@ function main() {
     'android/app/src/main/assets/public/pwa-192x192.png',
     'android/app/src/main/assets/public/pwa-512x512.png',
     'android/app/src/main/assets/public/images/asaka-ziyo-logo-seal.jpg',
+    'android/app/src/main/assets/public/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg',
     'android/app/src/main/assets/public/manifest.webmanifest',
   ];
   for (const rel of requiredSyncedAssets) {
