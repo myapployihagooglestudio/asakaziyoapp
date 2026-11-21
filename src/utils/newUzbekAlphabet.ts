@@ -36,9 +36,11 @@ const G_APOS_REGEX_UPPER = new RegExp(`G${APOSTROPHE_VARIANTS}`, 'g');
 // Pattern to detect segments that MUST NOT be transformed:
 // - URLs (https://..., http://...)
 // - Email addresses
+// - Telegram custom emoji tokens ({{emoji:...}})
+// - Telegram slash commands (/command) and @usernames
 // - Arabic text segments (\u0600-\u06FF, \u0750-\u077F, \u08A0-\u08FF, \uFB50-\uFDFF, \uFE70-\uFEFF)
 // - HTML tags (<...>)
-const UNTOUCHABLE_PATTERN = /(https?:\/\/[^\s]+|[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+|[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+|<[^>]+>)/g;
+const UNTOUCHABLE_PATTERN = /(https?:\/\/[^\s]+|[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+|\{\{emoji:[a-zA-Z0-9_.-]+\}\}|(?<![a-zA-Z0-9])\/[a-z][a-z0-9_]{1,31}\b|(?<![a-zA-Z0-9])@[a-zA-Z0-9_]{3,32}\b|[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+|<[^>]+>)/g;
 
 /**
  * Transforms an individual plain-text slice from standard Uzbek Latin to the New Uzbek Alphabet.

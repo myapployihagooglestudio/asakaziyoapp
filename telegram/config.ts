@@ -9,7 +9,7 @@
 export type TelegramRuntimeMode = 'webhook' | 'polling' | 'disabled';
 
 export const DEFAULT_TELEGRAM_MINIAPP_URL = 'https://asakaziyo.ai.studio';
-export const DEFAULT_TELEGRAM_AI_MODEL = 'gemini-3.5-flash-lite';
+export const DEFAULT_TELEGRAM_AI_MODEL = 'gemini-3.1-flash-lite';
 
 export interface TelegramPlatformConfig {
   botToken: string;

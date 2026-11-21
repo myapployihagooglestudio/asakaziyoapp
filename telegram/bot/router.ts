@@ -11,7 +11,7 @@ import {
   isValidTelegramUpdatePayload,
   verifyWebhookSecretHeader,
 } from '../middlewares/securityMiddleware';
-import { CUSTOM_EMOJI_ID_REGEX } from '../emoji/customEmojiRegistry';
+import { CUSTOM_EMOJI_ID_REGEX, CUSTOM_EMOJI_KEY_REGEX } from '../emoji/customEmojiRegistry';
 import { normalizeTelegramLocale } from '../locales';
 import {
   ScopedFirestoreBridge,
@@ -112,12 +112,28 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       });
     }
 
-    const outcome = await engine.processUpdate(req.body);
-    return res.status(200).json({
-      ok: outcome.ok,
-      updateId: outcome.updateId,
-      kind: outcome.kind,
+    if (req.query.sync === 'true') {
+      const outcome = await engine.processUpdate(req.body);
+      return res.status(200).json({
+        ok: outcome.ok,
+        updateId: outcome.updateId,
+        kind: outcome.kind,
+      });
+    }
+
+    const updateId = req.body.update_id;
+    res.status(200).json({
+      ok: true,
+      accepted: true,
+      updateId,
     });
+    engine.processUpdate(req.body).catch((err) => {
+      engine.logger.error('Async webhook update processing failed', {
+        updateId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+    return;
   });
 
   // 3. Admin-Protected Platform Status & Live Bot Connection Verification
@@ -168,12 +184,32 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     }
   );
 
-  // 5. Admin-Protected Premium Custom Emoji Registry Management
+  // 5. Admin-Protected 100% Premium Custom Emoji Registry & Audit Management
   router.get('/emojis', deps.requireAdminAuth, (_req: Request, res: Response) => {
     return res.json({
       success: true,
       compatibility: engine.emojiRegistry.validateCompatibility(),
-      entries: engine.emojiRegistry.listAll(),
+      entries: engine.emojiRegistry.listManagedSlots(),
+      allEntries: engine.emojiRegistry.listAll(),
+      missingCanonical: engine.emojiRegistry.listMissingCanonicalSlots(),
+      ownerIdConfigured: Boolean(engine.config.ownerId),
+    });
+  });
+
+  router.get('/emojis/audit', deps.requireAdminAuth, (_req: Request, res: Response) => {
+    return res.json({
+      success: true,
+      audit: engine.emojiRegistry.buildFullAuditReport({ scanCodebase: true }),
+    });
+  });
+
+  router.get('/emojis/history', deps.requireAdminAuth, async (req: Request, res: Response) => {
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+    const logs = await engine.repository.listEmojiAuditLogs(limit);
+    return res.json({
+      success: true,
+      count: logs.length,
+      logs,
     });
   });
 
@@ -184,7 +220,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     async (req: Request, res: Response) => {
       const key = String(req.body?.key || '').trim();
       const rawId = req.body?.customEmojiId;
-      const customEmojiId = rawId === null || rawId === '' ? null : String(rawId).trim();
+      const customEmojiId = rawId === null || rawId === '' || rawId === undefined ? null : String(rawId).trim();
 
       if (!key || !engine.emojiRegistry.getEntry(key)) {
         return res.status(400).json({ success: false, error: 'Unknown semantic emoji key.' });
@@ -192,30 +228,151 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       if (customEmojiId !== null && !CUSTOM_EMOJI_ID_REGEX.test(customEmojiId)) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid customEmojiId format. Must be 15–22 numeric digits.',
+          error: 'Invalid customEmojiId format. Must be numeric digits only (1–64 digits).',
         });
       }
 
-      const updated = engine.emojiRegistry.registerCustomEmojiId(key, customEmojiId, {
-        verified: false,
-        stickerSetName:
-          typeof req.body?.stickerSetName === 'string'
-            ? req.body.stickerSetName.slice(0, 100)
-            : undefined,
+      let verified = false;
+      let stickerSetName =
+        typeof req.body?.stickerSetName === 'string'
+          ? req.body.stickerSetName.slice(0, 100)
+          : undefined;
+      let verificationNote: string | undefined;
+
+      if (customEmojiId && req.body?.verifyNow !== false && engine.apiClient.isConfigured) {
+        const stickerRes = await engine.apiClient.getCustomEmojiStickers([customEmojiId]);
+        const matchedSticker =
+          stickerRes.ok && Array.isArray(stickerRes.result)
+            ? stickerRes.result.find((s) => String(s.custom_emoji_id || '') === customEmojiId)
+            : undefined;
+        if (matchedSticker) {
+          verified = true;
+          if (matchedSticker.set_name) stickerSetName = matchedSticker.set_name;
+        } else {
+          verificationNote =
+            stickerRes.description || 'Telegram API getCustomEmojiStickers did not confirm this ID.';
+        }
+      }
+
+      const existing = engine.emojiRegistry.getEntry(key)!;
+      const updated = engine.emojiRegistry.createOrUpdateSlot({
+        key,
+        category: typeof req.body?.category === 'string' && req.body.category.trim()
+          ? req.body.category.trim()
+          : existing.category,
+        description: typeof req.body?.description === 'string' && req.body.description.trim()
+          ? req.body.description.trim()
+          : existing.description,
+        semanticPurpose: typeof req.body?.semanticPurpose === 'string' && req.body.semanticPurpose.trim()
+          ? req.body.semanticPurpose.trim()
+          : existing.semanticPurpose,
+        usedIn: Array.isArray(req.body?.usedIn) ? req.body.usedIn.map(String) : existing.usedIn,
+        customEmojiId,
+        verified,
+        stickerSetName,
+        enabled: typeof req.body?.enabled === 'boolean' ? req.body.enabled : true,
+        updatedBy: 'web_admin',
       });
       await engine.repository.saveCustomEmoji(updated);
+      if (verified) {
+        engine.emojiRegistry.setPremiumEnabled(true);
+        engine.emojiRegistry.setKeyboardIconsEnabled(true);
+        await engine.repository.saveSettings(
+          {
+            premiumEmojiEnabled: true,
+            premiumKeyboardIconsEnabled: true,
+            premiumEmojiEligibilityVerified: true,
+            premiumEmojiEligibilityCheckedAt: new Date().toISOString(),
+          },
+          'web_admin'
+        );
+      }
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
-        action: 'custom_emoji_registered',
+        action: customEmojiId ? 'custom_emoji_registered' : 'custom_emoji_cleared',
         targetType: 'emoji',
         targetId: key,
-        metadata: { hasCustomId: Boolean(customEmojiId) },
+        metadata: { hasCustomId: Boolean(customEmojiId), verified },
       });
 
       return res.json({
         success: true,
         entry: updated,
+        verified,
+        ...(verificationNote ? { verificationNote } : {}),
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  router.post(
+    '/emojis/custom',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const key = String(req.body?.key || '').trim().toLowerCase();
+      const category = String(req.body?.category || 'custom').trim();
+      const semanticPurpose = String(req.body?.semanticPurpose || req.body?.description || '').trim();
+      const description = String(req.body?.description || semanticPurpose || key).trim();
+      const rawId = req.body?.customEmojiId;
+      const customEmojiId = rawId === null || rawId === '' || rawId === undefined ? null : String(rawId).trim();
+      const usedIn = Array.isArray(req.body?.usedIn)
+        ? req.body.usedIn.map(String).filter(Boolean).slice(0, 20)
+        : ['Custom Admin Slot'];
+
+      if (!CUSTOM_EMOJI_KEY_REGEX.test(key)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid key format. Use lowercase letters, digits, dot, underscore or hyphen (2–48 chars).',
+        });
+      }
+      if (customEmojiId !== null && !CUSTOM_EMOJI_ID_REGEX.test(customEmojiId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid customEmojiId format. Must be numeric digits only (1–64 digits).',
+        });
+      }
+
+      let verified = false;
+      let stickerSetName: string | undefined;
+      if (customEmojiId && engine.apiClient.isConfigured) {
+        const stickerRes = await engine.apiClient.getCustomEmojiStickers([customEmojiId]);
+        const matchedSticker =
+          stickerRes.ok && Array.isArray(stickerRes.result)
+            ? stickerRes.result.find((s) => String(s.custom_emoji_id || '') === customEmojiId)
+            : undefined;
+        if (matchedSticker) {
+          verified = true;
+          stickerSetName = matchedSticker.set_name;
+        }
+      }
+
+      const created = engine.emojiRegistry.createOrUpdateSlot({
+        key,
+        category,
+        description,
+        semanticPurpose: semanticPurpose || description,
+        usedIn,
+        customEmojiId,
+        verified,
+        stickerSetName,
+        enabled: typeof req.body?.enabled === 'boolean' ? req.body.enabled : true,
+        updatedBy: 'web_admin',
+      });
+      await engine.repository.saveCustomEmoji(created);
+      await engine.repository.appendAuditLog({
+        actorTelegramId: 'web_admin',
+        actorRole: 'admin',
+        action: 'custom_emoji_slot_created',
+        targetType: 'emoji',
+        targetId: key,
+        metadata: { category, hasCustomId: Boolean(customEmojiId), verified },
+      });
+
+      return res.json({
+        success: true,
+        entry: created,
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
     }
@@ -251,6 +408,18 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         },
         'web_admin'
       );
+
+      await engine.repository.appendAuditLog({
+        actorTelegramId: 'web_admin',
+        actorRole: 'admin',
+        action: 'custom_emoji_verify_all',
+        targetType: 'emoji',
+        targetId: 'all',
+        metadata: {
+          verified: verifyRes.verifiedKeys.length,
+          rejected: verifyRes.rejectedKeys.length,
+        },
+      });
 
       return res.json({
         success: true,
@@ -330,6 +499,251 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         success: testResult.ok,
         ...testResult,
       });
+    }
+  );
+
+  router.post(
+    '/emojis/:key/preview',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const chatId = String(req.body?.chatId || engine.config.ownerId || '').trim();
+      if (!chatId) {
+        return res.status(400).json({
+          success: false,
+          error: 'chatId is required (or configure TELEGRAM_OWNER_ID).',
+        });
+      }
+      const preview = await engine.emojiRegistry.sendSingleEmojiPreview(
+        engine.apiClient,
+        chatId,
+        req.params.key
+      );
+      return res.status(preview.ok ? 200 : 400).json({
+        success: preview.ok,
+        ...preview,
+      });
+    }
+  );
+
+  router.post(
+    '/emojis/:key/toggle',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const existing = engine.emojiRegistry.getEntry(req.params.key);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Emoji slot not found.' });
+      }
+      const nextEnabled =
+        typeof req.body?.enabled === 'boolean' ? req.body.enabled : existing.enabled === false;
+      const updated = engine.emojiRegistry.setEntryEnabled(req.params.key, nextEnabled, 'web_admin');
+      if (updated) await engine.repository.saveCustomEmoji(updated);
+      await engine.repository.appendAuditLog({
+        actorTelegramId: 'web_admin',
+        actorRole: 'admin',
+        action: nextEnabled ? 'custom_emoji_enabled' : 'custom_emoji_disabled',
+        targetType: 'emoji',
+        targetId: req.params.key,
+      });
+      return res.json({
+        success: true,
+        entry: updated,
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  router.post(
+    '/emojis/:key/reset',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const updated = engine.emojiRegistry.resetEntryToUnicodeFallback(req.params.key, 'web_admin');
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Emoji slot not found.' });
+      }
+      await engine.repository.saveCustomEmoji(updated);
+      await engine.repository.appendAuditLog({
+        actorTelegramId: 'web_admin',
+        actorRole: 'admin',
+        action: 'custom_emoji_cleared',
+        targetType: 'emoji',
+        targetId: req.params.key,
+      });
+      return res.json({
+        success: true,
+        entry: updated,
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  router.delete(
+    '/emojis/:key',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const existing = engine.emojiRegistry.getEntry(req.params.key);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Emoji slot not found.' });
+      }
+      const outcome = engine.emojiRegistry.deleteSlot(req.params.key, 'web_admin');
+      if (outcome.permanentlyRemoved) {
+        await engine.repository.deleteCustomEmoji(req.params.key);
+      } else if (outcome.entry) {
+        await engine.repository.saveCustomEmoji(outcome.entry);
+      }
+      await engine.repository.appendAuditLog({
+        actorTelegramId: 'web_admin',
+        actorRole: 'admin',
+        action: outcome.permanentlyRemoved ? 'custom_emoji_deleted' : 'custom_emoji_cleared',
+        targetType: 'emoji',
+        targetId: req.params.key,
+      });
+      return res.json({
+        success: true,
+        removed: outcome.permanentlyRemoved,
+        entry: outcome.entry,
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  // 5B. Admin-Protected Central Style Manager (Bot API 9.4–10.4)
+  router.get('/style', deps.requireAdminAuth, (_req: Request, res: Response) => {
+    return res.json({
+      success: true,
+      style: engine.styleManager.getConfig(),
+      emojiCompatibility: engine.emojiRegistry.validateCompatibility(),
+    });
+  });
+
+  router.post(
+    '/style',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const patch: Record<string, any> = {};
+      if (typeof req.body?.buttonStylesEnabled === 'boolean') {
+        patch.buttonStylesEnabled = req.body.buttonStylesEnabled;
+      }
+      if (typeof req.body?.richMessagesEnabled === 'boolean') {
+        patch.richMessagesEnabled = req.body.richMessagesEnabled;
+      }
+      if (typeof req.body?.htmlWidgetsEnabled === 'boolean') {
+        patch.htmlWidgetsEnabled = req.body.htmlWidgetsEnabled;
+      }
+      if (typeof req.body?.aiStreamingDraftsEnabled === 'boolean') {
+        patch.aiStreamingDraftsEnabled = req.body.aiStreamingDraftsEnabled;
+      }
+      if (req.body?.buttonStyleOverrides && typeof req.body.buttonStyleOverrides === 'object') {
+        patch.buttonStyleOverrides = req.body.buttonStyleOverrides;
+      }
+      if (req.body?.richMessageTemplates && typeof req.body.richMessageTemplates === 'object') {
+        patch.richMessageTemplates = req.body.richMessageTemplates;
+      }
+      const saved = await engine.repository.saveSettings(patch, 'web_admin');
+      engine.styleManager.syncFromSettings(saved);
+      return res.json({ success: true, style: engine.styleManager.getConfig() });
+    }
+  );
+
+  router.post(
+    '/style/test-rich',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const chatId = String(req.body?.chatId || engine.config.ownerId || '').trim();
+      if (!chatId) {
+        return res.status(400).json({ success: false, error: 'chatId is required.' });
+      }
+      const emojiEntries = engine.emojiRegistry.listCanonicalSlots();
+      const result = await engine.styleManager.sendRichMessageTest(engine.apiClient, chatId, {
+        verifiedEmojis: emojiEntries.filter((e) => e.verified && e.enabled !== false).length,
+        totalEmojis: emojiEntries.length,
+        recitersCount: engine.quranMp3Service.listReciters().length,
+        usersCount: engine.repository.listUsers().length,
+      });
+      return res.status(result.ok ? 200 : 400).json({ success: result.ok, ...result });
+    }
+  );
+
+  router.post(
+    '/style/test-widget',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const chatId = String(req.body?.chatId || engine.config.ownerId || '').trim();
+      if (!chatId) {
+        return res.status(400).json({ success: false, error: 'chatId is required.' });
+      }
+      const result = await engine.styleManager.sendWidgetTest(
+        engine.apiClient,
+        chatId,
+        'private',
+        engine.prayerAdapter
+      );
+      return res.status(result.ok ? 200 : 400).json({ success: result.ok, ...result });
+    }
+  );
+
+  // 5C. Admin-Protected Quran MP3 Audio Management & Bulk Preview/Confirm
+  router.get('/quran-audio/audit', deps.requireAdminAuth, (_req: Request, res: Response) => {
+    return res.json({
+      success: true,
+      audit: engine.quranMp3Service.auditFullLibrary(),
+      importHistory: engine.quranMp3Service.listImportLogs(20),
+    });
+  });
+
+  router.post(
+    '/quran-audio/reciters',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const saved = await engine.quranMp3Service.upsertReciter(
+        {
+          id: typeof req.body?.id === 'string' ? req.body.id : undefined,
+          nameUz: String(req.body?.nameUz || req.body?.name || ''),
+          nameAr: typeof req.body?.nameAr === 'string' ? req.body.nameAr : undefined,
+          country: typeof req.body?.country === 'string' ? req.body.country : undefined,
+          styleUz: typeof req.body?.styleUz === 'string' ? req.body.styleUz : undefined,
+          serverUrl: typeof req.body?.serverUrl === 'string' ? req.body.serverUrl : undefined,
+          isActive: req.body?.isActive !== false,
+        },
+        'web_admin'
+      );
+      return res.status(saved.ok ? 200 : 400).json({ success: saved.ok, ...saved });
+    }
+  );
+
+  router.post(
+    '/quran-audio/bulk-preview',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    (req: Request, res: Response) => {
+      const reciterId = String(req.body?.reciterId || '').trim();
+      const entries = Array.isArray(req.body?.entries) ? req.body.entries : [];
+      const preview = engine.quranMp3Service.createBulkImportPreview({
+        reciterId,
+        entries,
+        actorId: 'web_admin',
+      });
+      return res.status(preview.ok ? 200 : 400).json({ success: preview.ok, ...preview });
+    }
+  );
+
+  router.post(
+    '/quran-audio/bulk-confirm/:planId',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const result = await engine.quranMp3Service.commitBulkImportPlan(
+        req.params.planId,
+        'web_admin'
+      );
+      return res.status(result.ok ? 200 : 400).json({ success: result.ok, ...result });
     }
   );
 

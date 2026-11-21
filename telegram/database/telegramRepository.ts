@@ -32,6 +32,7 @@ import {
 } from '../types';
 import { DEFAULT_TELEGRAM_AI_MODEL, DEFAULT_TELEGRAM_MINIAPP_URL } from '../config';
 import { TelegramLogger } from '../middlewares/logger';
+import { TelegramHifzProfile } from '../hifz/hifzTypes';
 
 export const ALLOWED_TELEGRAM_COLLECTIONS = [
   'telegramUsers',
@@ -47,6 +48,7 @@ export const ALLOWED_TELEGRAM_COLLECTIONS = [
   'telegramUserEngagement',
   'telegramAiLogs',
   'telegramQuizAttempts',
+  'telegramHifzProfiles',
 ] as const;
 
 export type AllowedTelegramCollection = (typeof ALLOWED_TELEGRAM_COLLECTIONS)[number];
@@ -126,6 +128,7 @@ interface TelegramLocalStoreShape {
   userEngagement: Record<string, TelegramUserEngagementRecord>;
   aiLogs: TelegramAiLogRecord[];
   quizAttempts: TelegramQuizAttemptRecord[];
+  hifzProfiles: Record<string, TelegramHifzProfile>;
 }
 
 function getTashkentDateKey(): string {
@@ -197,6 +200,7 @@ function createDefaultStore(): TelegramLocalStoreShape {
     userEngagement: {},
     aiLogs: [],
     quizAttempts: [],
+    hifzProfiles: {},
   };
 }
 
@@ -260,6 +264,7 @@ export class TelegramRepository {
           userEngagement: parsed.userEngagement || {},
           aiLogs: Array.isArray(parsed.aiLogs) ? parsed.aiLogs : [],
           quizAttempts: Array.isArray(parsed.quizAttempts) ? parsed.quizAttempts : [],
+          hifzProfiles: parsed.hifzProfiles || {},
         };
       }
     } catch (err) {
@@ -358,6 +363,7 @@ export class TelegramRepository {
         engagements,
         aiLogs,
         quizAttempts,
+        hifzProfiles,
       ] = await Promise.all([
         this.firestore.readTelegramCollection('telegramUsers'),
         this.firestore.readTelegramCollection('telegramSettings'),
@@ -371,6 +377,7 @@ export class TelegramRepository {
         this.firestore.readTelegramCollection('telegramUserEngagement'),
         this.firestore.readTelegramCollection('telegramAiLogs'),
         this.firestore.readTelegramCollection('telegramQuizAttempts'),
+        this.firestore.readTelegramCollection('telegramHifzProfiles'),
       ]);
 
       if (Array.isArray(users) && users.length > 0) {
@@ -460,6 +467,12 @@ export class TelegramRepository {
           .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
           .slice(0, 2000);
       }
+      if (Array.isArray(hifzProfiles) && hifzProfiles.length > 0) {
+        collectionsLoaded++;
+        for (const h of hifzProfiles as unknown as TelegramHifzProfile[]) {
+          if (h?.telegramId) this.state.hifzProfiles[h.telegramId] = h;
+        }
+      }
 
       this.hydratedFromFirestore = true;
       this.lastHydratedAt = new Date().toISOString();
@@ -510,10 +523,12 @@ export class TelegramRepository {
   async deleteUser(telegramId: string): Promise<{ ok: boolean }> {
     delete this.state.users[telegramId];
     delete this.state.userEngagement[telegramId];
+    delete this.state.hifzProfiles[telegramId];
     this.persistToDisk();
     await Promise.all([
       this.deleteDocFromFirestore('telegramUsers', `tg_${telegramId}`),
       this.deleteDocFromFirestore('telegramUserEngagement', `tg_eng_${telegramId}`),
+      this.deleteDocFromFirestore('telegramHifzProfiles', `hifz_${telegramId}`),
     ]);
     return { ok: true };
   }
@@ -669,6 +684,21 @@ export class TelegramRepository {
       entry as unknown as Record<string, unknown>
     );
     return entry;
+  }
+
+  async deleteCustomEmoji(key: string): Promise<boolean> {
+    const existed = Boolean(this.state.customEmojis[key]);
+    delete this.state.customEmojis[key];
+    this.persistToDisk();
+    const safeDocId = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    await this.deleteDocFromFirestore('telegramCustomEmojis', safeDocId);
+    return existed;
+  }
+
+  listEmojiAuditLogs(limit = 30): TelegramAuditLogRecord[] {
+    return this.state.auditLogs
+      .filter((l) => l.targetType === 'emoji')
+      .slice(0, Math.max(1, Math.min(200, limit)));
   }
 
   // ---- Broadcast Campaigns (telegramBroadcasts) ----
@@ -866,12 +896,73 @@ export class TelegramRepository {
     return full;
   }
 
+  // ---- Hifz Profiles (telegramHifzProfiles) ----
+
+  getHifzProfile(telegramId: string): TelegramHifzProfile | null {
+    return this.state.hifzProfiles[telegramId] || null;
+  }
+
+  listHifzProfiles(): TelegramHifzProfile[] {
+    return Object.values(this.state.hifzProfiles);
+  }
+
+  async saveHifzProfile(profile: TelegramHifzProfile): Promise<TelegramHifzProfile> {
+    const next: TelegramHifzProfile = {
+      ...profile,
+      updatedAt: new Date().toISOString(),
+    };
+    this.state.hifzProfiles[profile.telegramId] = next;
+    this.persistToDisk();
+    await this.syncDocToFirestore(
+      'telegramHifzProfiles',
+      `hifz_${profile.telegramId}`,
+      next as unknown as Record<string, unknown>
+    );
+    return next;
+  }
+
+  async deleteHifzProfile(telegramId: string): Promise<{ ok: boolean }> {
+    delete this.state.hifzProfiles[telegramId];
+    this.persistToDisk();
+    await this.deleteDocFromFirestore('telegramHifzProfiles', `hifz_${telegramId}`);
+    return { ok: true };
+  }
+
+  // ---- Persistent Scheduler Dispatch Ledger ----
+
+  hasSchedulerDispatched(key: string, dateKey?: string): boolean {
+    const ledger = this.state.settings.schedulerDispatchLedger || {};
+    const existing = ledger[key];
+    if (!existing) return false;
+    return dateKey ? existing === dateKey : true;
+  }
+
+  async markSchedulerDispatched(key: string, dateKey: string): Promise<void> {
+    const current = { ...(this.state.settings.schedulerDispatchLedger || {}) };
+    current[key] = dateKey;
+    const keys = Object.keys(current);
+    if (keys.length > 400) {
+      const pruned: Record<string, string> = {};
+      for (const k of keys.slice(-300)) {
+        pruned[k] = current[k];
+      }
+      await this.saveSettings({ schedulerDispatchLedger: pruned }, 'scheduler');
+      return;
+    }
+    await this.saveSettings({ schedulerDispatchLedger: current }, 'scheduler');
+  }
+
   getStats() {
     const tickets = Object.values(this.state.supportTickets);
     const broadcasts = Object.values(this.state.broadcasts);
+    const users = Object.values(this.state.users);
     return {
-      usersCount: Object.keys(this.state.users).length,
-      activeUsersCount: Object.values(this.state.users).filter((u) => !u.isBlocked && !u.stoppedByUser).length,
+      usersCount: users.length,
+      registeredProfilesCount: users.filter(
+        (u) => Boolean(u.profileCompleted && u.registeredFirstName && u.registeredLastName)
+      ).length,
+      activeUsersCount: users.filter((u) => !u.isBlocked && !u.stoppedByUser).length,
+      hifzProfilesCount: Object.keys(this.state.hifzProfiles).length,
       channelsCount: Object.keys(this.state.channels).length,
       adminsCount: Object.keys(this.state.admins).length,
       publicationsCount: this.state.publications.length,

@@ -144,79 +144,79 @@ function sha256Short(input: unknown): string {
 
 const NOTIFICATION_HEADERS: Record<SyncEntityType, Record<Exclude<TelegramLocale, 'uz-Latn-new'>, string>> = {
   article: {
-    'uz-Latn': '📰 Yangi maqola qoʻshildi!',
-    'uz-Cyrl': '📰 Янги мақола қўшилди!',
-    ru: '📰 Добавлена новая статья!',
-    en: '📰 New Article Published!',
+    'uz-Latn': '{{emoji:community}} Yangi maqola qoʻshildi!',
+    'uz-Cyrl': '{{emoji:community}} Янги мақола қўшилди!',
+    ru: '{{emoji:community}} Добавлена новая статья!',
+    en: '{{emoji:community}} New Article Published!',
   },
   news: {
-    'uz-Latn': '🌍 Yangi xabar joylandi!',
-    'uz-Cyrl': '🌍 Янги хабар жойланди!',
-    ru: '🌍 Опубликована новая новость!',
-    en: '🌍 New Mosque News!',
+    'uz-Latn': '{{emoji:community}} Yangi xabar joylandi!',
+    'uz-Cyrl': '{{emoji:community}} Янги хабар жойланди!',
+    ru: '{{emoji:community}} Опубликована новая новость!',
+    en: '{{emoji:community}} New Mosque News!',
   },
   announcement: {
-    'uz-Latn': '📢 Yangi eʼlon joylandi!',
-    'uz-Cyrl': '📢 Янги эълон жойланди!',
-    ru: '📢 Новое объявление!',
-    en: '📢 New Announcement!',
+    'uz-Latn': '{{emoji:community}} Yangi eʼlon joylandi!',
+    'uz-Cyrl': '{{emoji:community}} Янги эълон жойланди!',
+    ru: '{{emoji:community}} Новое объявление!',
+    en: '{{emoji:community}} New Announcement!',
   },
   hadith: {
-    'uz-Latn': '📚 Yangi sahih hadis joylandi!',
-    'uz-Cyrl': '📚 Янги саҳиҳ ҳадис жойланди!',
-    ru: '📚 Добавлен новый достоверный хадис!',
-    en: '📚 New Authentic Hadith!',
+    'uz-Latn': '{{emoji:quran}} Yangi sahih hadis joylandi!',
+    'uz-Cyrl': '{{emoji:quran}} Янги саҳиҳ ҳадис жойланди!',
+    ru: '{{emoji:quran}} Добавлен новый достоверный хадис!',
+    en: '{{emoji:quran}} New Authentic Hadith!',
   },
   dhikr: {
-    'uz-Latn': '📿 Yangi zikr va duo qoʻshildi!',
-    'uz-Cyrl': '📿 Янги зикр ва дуо қўшилди!',
-    ru: '📿 Добавлен новый зикр и дуа!',
-    en: '📿 New Dhikr & Dua Added!',
+    'uz-Latn': '{{emoji:dhikr}} Yangi zikr va duo qoʻshildi!',
+    'uz-Cyrl': '{{emoji:dhikr}} Янги зикр ва дуо қўшилди!',
+    ru: '{{emoji:dhikr}} Добавлен новый зикр и дуа!',
+    en: '{{emoji:dhikr}} New Dhikr & Dua Added!',
   },
   audio: {
-    'uz-Latn': '🎧 Yangi audio material qoʻshildi!',
-    'uz-Cyrl': '🎧 Янги аудио материал қўшилди!',
-    ru: '🎧 Добавлен новый аудиоматериал!',
-    en: '🎧 New Audio Track Added!',
+    'uz-Latn': '{{emoji:quran_mp3}} Yangi audio material qoʻshildi!',
+    'uz-Cyrl': '{{emoji:quran_mp3}} Янги аудио материал қўшилди!',
+    ru: '{{emoji:quran_mp3}} Добавлен новый аудиоматериал!',
+    en: '{{emoji:quran_mp3}} New Audio Track Added!',
   },
   video: {
-    'uz-Latn': '🎬 Yangi video material qoʻshildi!',
-    'uz-Cyrl': '🎬 Янги видео материал қўшилди!',
-    ru: '🎬 Добавлен новый видеоматериал!',
-    en: '🎬 New Video Added!',
+    'uz-Latn': '{{emoji:play}} Yangi video material qoʻshildi!',
+    'uz-Cyrl': '{{emoji:play}} Янги видео материал қўшилди!',
+    ru: '{{emoji:play}} Добавлен новый видеоматериал!',
+    en: '{{emoji:play}} New Video Added!',
   },
   prayer_schedule: {
-    'uz-Latn': '🕌 Asaka namoz vaqtlari yangilandi!',
-    'uz-Cyrl': '🕌 Асака намоз вақтлари янгиланди!',
-    ru: '🕌 Обновлено расписание намазов Асаки!',
-    en: '🕌 Official Asaka Prayer Times Updated!',
+    'uz-Latn': '{{emoji:prayer}} Asaka namoz vaqtlari yangilandi!',
+    'uz-Cyrl': '{{emoji:prayer}} Асака намоз вақтлари янгиланди!',
+    ru: '{{emoji:prayer}} Обновлено расписание намазов Асаки!',
+    en: '{{emoji:prayer}} Official Asaka Prayer Times Updated!',
   },
   quiz: {
-    'uz-Latn': '🧠 Yangi islomiy viktorina qoʻshildi!',
-    'uz-Cyrl': '🧠 Янги исломий викторина қўшилди!',
-    ru: '🧠 Добавлена новая исламская викторина!',
-    en: '🧠 New Islamic Quiz Available!',
+    'uz-Latn': '{{emoji:hifz}} Yangi islomiy viktorina qoʻshildi!',
+    'uz-Cyrl': '{{emoji:hifz}} Янги исломий викторина қўшилди!',
+    ru: '{{emoji:hifz}} Добавлена новая исламская викторина!',
+    en: '{{emoji:hifz}} New Islamic Quiz Available!',
   },
   course: {
-    'uz-Latn': '🎓 Taʼlim markaziga yangi dars qoʻshildi!',
-    'uz-Cyrl': '🎓 Таълим марказига янги дарс қўшилди!',
-    ru: '🎓 Добавлен новый урок в Академию!',
-    en: '🎓 New Lesson Added to Academy!',
+    'uz-Latn': '{{emoji:hifz}} Taʼlim markaziga yangi dars qoʻshildi!',
+    'uz-Cyrl': '{{emoji:hifz}} Таълим марказига янги дарс қўшилди!',
+    ru: '{{emoji:hifz}} Добавлен новый урок в Академию!',
+    en: '{{emoji:hifz}} New Lesson Added to Academy!',
   },
   app_release: {
-    'uz-Latn': '📱 ASAKA ZIYO Android ilovasining yangi versiyasi chiqdi!',
-    'uz-Cyrl': '📱 ASAKA ZIYO Android иловасининг янги версияси чиқди!',
-    ru: '📱 Вышла новая версия приложения ASAKA ZIYO для Android!',
-    en: '📱 New ASAKA ZIYO Android App Update Available!',
+    'uz-Latn': '{{emoji:brand}} ASAKA ZIYO Android ilovasining yangi versiyasi chiqdi!',
+    'uz-Cyrl': '{{emoji:brand}} ASAKA ZIYO Android иловасининг янги версияси чиқди!',
+    ru: '{{emoji:brand}} Вышла новая версия приложения ASAKA ZIYO для Android!',
+    en: '{{emoji:brand}} New ASAKA ZIYO Android App Update Available!',
   },
 };
 
 const OPEN_BUTTON_LABELS: Record<TelegramLocale, string> = {
-  'uz-Latn': '🔎 Botda ochish',
-  'uz-Cyrl': '🔎 Ботда очиш',
-  'uz-Latn-new': '🔎 Botda oçiş',
-  ru: '🔎 Открыть в боте',
-  en: '🔎 Open in Bot',
+  'uz-Latn': '{{emoji:brand}} Botda ochish',
+  'uz-Cyrl': '{{emoji:brand}} Ботда очиш',
+  'uz-Latn-new': '{{emoji:brand}} Botda oçiş',
+  ru: '{{emoji:brand}} Открыть в боте',
+  en: '{{emoji:brand}} Open in Bot',
 };
 
 const DEFAULT_CALLBACK_FOR_ENTITY: Record<SyncEntityType, string> = {
@@ -574,7 +574,7 @@ export class UnifiedSyncEngine {
     const adaptUserText = (s: string) =>
       locale === 'uz-Latn-new' ? toNewUzbekAlphabet(s) : s;
 
-    const lines = [headerBase, '', `📌 ${adaptUserText(rawTitle)}`];
+    const lines = [headerBase, '', `{{emoji:brand}} ${adaptUserText(rawTitle)}`];
     if (rawSummary) {
       lines.push('', adaptUserText(rawSummary).slice(0, 500));
     }
@@ -590,12 +590,12 @@ export class UnifiedSyncEngine {
     ];
     if (event.notifyOptions.externalUrl && event.notifyOptions.externalUrl.startsWith('https://')) {
       row.push({
-        text: locale === 'ru' ? '🌐 Открыть' : locale === 'en' ? '🌐 Open' : '🌐 Ochish',
+ text: locale === 'ru'? 'Открыть': locale === 'en'? 'Open': 'Ochish',
         url: event.notifyOptions.externalUrl,
       });
     } else if (this.miniAppUrl.startsWith('https://')) {
       row.push({
-        text: '🌐 Web App',
+ text: 'Web App',
         web_app: { url: this.miniAppUrl },
       });
     }

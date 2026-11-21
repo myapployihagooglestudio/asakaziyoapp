@@ -463,13 +463,13 @@ export const getReciterSurahAudioUrl = (reciterId: string, surahNumber: number):
     case 'mishary':
       return `https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/${surahNumber}.mp3`;
     case 'dussary':
-      return `https://download.quranicaudio.com/qdc/yasser_ad-dussary/murattal/${surahNumber}.mp3`;
+      return `https://server11.mp3quran.net/yasser/${padded}.mp3`;
     case 'sudais':
-      return `https://download.quranicaudio.com/qdc/abdurrahmaan_as-sudais/murattal/${surahNumber}.mp3`;
+      return `https://server11.mp3quran.net/sds/${padded}.mp3`;
     case 'shatri':
-      return `https://download.quranicaudio.com/qdc/abu_bakr_ash-shaatree/murattal/${surahNumber}.mp3`;
+      return `https://server11.mp3quran.net/shatri/${padded}.mp3`;
     case 'hussary':
-      return `https://download.quranicaudio.com/qdc/khalil_al-husary/murattal/${surahNumber}.mp3`;
+      return `https://server13.mp3quran.net/husr/${padded}.mp3`;
     case 'suwayd':
       return `https://server15.mp3quran.net/a-rushdi/Almusshaf-Al-Mo-lim/${padded}.mp3`;
     case 'juhany':

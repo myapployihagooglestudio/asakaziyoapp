@@ -48,21 +48,46 @@ import { TelegramSupportService } from '../support/supportService';
 import { TelegramBroadcastManager } from '../broadcast/broadcastManager';
 import { TelegramContentStudio } from '../content/contentStudio';
 import { TelegramJobScheduler, TelegramPollingStatus } from '../jobs/jobScheduler';
+import { TelegramHifzService } from '../hifz/hifzService';
+import { TelegramQuranMp3Service } from '../services/quranMp3Service';
+import { TelegramStyleManager } from '../style/styleManager';
+import {
+  buildHifzHomeKeyboard,
+  formatHifzAudioCheckResult,
+  formatHifzHomeText,
+  formatSurahHifzDetail,
+  getHifzStrings,
+} from '../hifz/hifzKeyboardsAndFormatter';
+import { validateRegistrationName } from '../services/profileValidation';
+import {
+  calculateQiblaFromCoordinates,
+  getCompassDirectionLabel,
+} from '../services/qiblaHijriService';
 import { handleBotCommand, parseBotCommand } from '../handlers/commandHandlers';
 import { handleCallbackQuery } from '../handlers/callbackHandlers';
 import { getTelegramLocaleBundle } from '../locales';
 import {
   ReplyKeyboardAction,
   buildAdminAiControlKeyboard,
+  buildAdminAudioBulkConfirmKeyboard,
+  buildAdminAudioHomeKeyboard,
+  buildAdminAudioReciterKeyboard,
   buildAdminBroadcastsKeyboard,
   buildAdminChannelsKeyboard,
+  buildAdminEmojiCategoriesKeyboard,
   buildAdminPrayerKeyboard,
+  buildAdminStyleHomeKeyboard,
   buildAdminSupportKeyboard,
   buildAiModeKeyboard,
   buildBackOnlyKeyboard,
   buildDhikrKeyboard,
   buildKhatmKeyboard,
   buildMainMenuKeyboard,
+  buildNotificationCenterKeyboard,
+  buildPersistentReplyKeyboard,
+  buildPersonalRemindersKeyboard,
+  buildRegistrationCancelKeyboard,
+  buildRegistrationConfirmKeyboard,
   buildSupportHomeKeyboard,
   buildSurahListKeyboard,
   matchReplyKeyboardAction,
@@ -214,6 +239,9 @@ export class TelegramBotEngine {
   public readonly contentStudio: TelegramContentStudio;
   public readonly adminService: TelegramAdminService;
   public readonly aiBridge: TelegramAiBridge;
+  public readonly hifzService: TelegramHifzService;
+  public readonly quranMp3Service: TelegramQuranMp3Service;
+  public readonly styleManager: TelegramStyleManager;
   public readonly jobScheduler: TelegramJobScheduler;
 
   private startupState: TelegramStartupState = 'not_started';
@@ -231,6 +259,7 @@ export class TelegramBotEngine {
   private lastErrorAt: string | null = null;
   private startupRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private startupRetryCount = 0;
+  private readonly processedUpdateIds = new Set<number>();
   private readonly hasCustomAiGenerator: boolean;
   private readonly centralAdminWriter?: TelegramCentralAdminWriter;
 
@@ -252,6 +281,8 @@ export class TelegramBotEngine {
       Boolean(settings.premiumEmojiEnabled && settings.premiumEmojiEligibilityVerified),
       Boolean(settings.premiumKeyboardIconsEnabled)
     );
+    // Layer 2 outgoing gateway enforcement: zero plain Unicode emoji leakage on ALL Telegram API calls
+    this.apiClient.attachEmojiRegistry(this.emojiRegistry);
 
     this.rateLimiter = new TelegramRateLimiter(
       this.config.rateLimitMaxRequests,
@@ -302,6 +333,16 @@ export class TelegramBotEngine {
       transcriber: options.aiTranscriber,
       tts: options.aiTts,
     });
+    this.styleManager = new TelegramStyleManager(this.emojiRegistry, settings);
+    this.quranMp3Service = new TelegramQuranMp3Service({
+      repository: this.repository,
+      centralContent: this.centralContent,
+      apiClient: this.apiClient,
+      emojiRegistry: this.emojiRegistry,
+      centralAdminWriter: this.centralAdminWriter,
+      fetchImpl: options.fetchImpl as typeof fetch | undefined,
+    });
+    this.hifzService = new TelegramHifzService(this.repository, this.aiBridge);
     this.jobScheduler = new TelegramJobScheduler({
       apiClient: this.apiClient,
       onUpdate: (u) => this.processUpdate(u),
@@ -313,6 +354,9 @@ export class TelegramBotEngine {
       contentStudio: this.contentStudio,
       broadcastManager: this.broadcastManager,
       contentAdapter: this.contentAdapter,
+      userService: this.userService,
+      appReleaseService: this.appReleaseService,
+      hifzService: this.hifzService,
     });
   }
 
@@ -332,6 +376,16 @@ export class TelegramBotEngine {
     try {
       await this.repository.hydrateFromFirestore();
       await this.appReleaseService.hydrateFromFirestore();
+      // Sync CustomEmojiRegistry & StyleManager with hydrated Firestore records
+      this.emojiRegistry.hydrateFromEntries(this.repository.listCustomEmojis());
+      const hydratedSettings = this.repository.getSettings();
+      this.emojiRegistry.setPremiumEnabled(
+        Boolean(hydratedSettings.premiumEmojiEnabled && hydratedSettings.premiumEmojiEligibilityVerified)
+      );
+      this.emojiRegistry.setKeyboardIconsEnabled(
+        Boolean(hydratedSettings.premiumKeyboardIconsEnabled)
+      );
+      this.styleManager.syncFromSettings(hydratedSettings);
     } catch (err) {
       this.logger.warn('Firestore hydration encountered an error during startup', {
         error: err instanceof Error ? err.message : String(err),
@@ -660,7 +714,10 @@ export class TelegramBotEngine {
     const toCommandList = (dict: ReturnType<typeof getTelegramLocaleBundle>) => [
       { command: 'start', description: dict.commands.start },
       { command: 'menu', description: dict.commands.menu },
+      { command: 'daily', description: dict.commands.daily },
+      { command: 'hifz', description: dict.commands.hifz },
       { command: 'prayer', description: dict.commands.prayer },
+      { command: 'qibla', description: dict.commands.qibla },
       { command: 'ramadan', description: dict.commands.ramadan },
       { command: 'calendar', description: dict.commands.calendar },
       { command: 'quran', description: dict.commands.quran },
@@ -761,6 +818,157 @@ export class TelegramBotEngine {
       if (message.document) return { mediaType: 'document', fileId: message.document.file_id };
       return {};
     };
+
+    // Registration & Profile Name Editing Flows
+    if (flow.type === 'register_first_name') {
+      const check = validateRegistrationName(text);
+      if (!check.valid || !check.sanitized) {
+        const fmt = this.emojiRegistry.formatMessage(dict.registerInvalidName);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: fmt.text,
+          ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+          reply_markup: buildRegistrationCancelKeyboard(locale),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'register_first_name_invalid' };
+      }
+      await this.userService.setActiveFlow(actorId, {
+        type: 'register_last_name',
+        firstName: check.sanitized,
+        mode: flow.mode,
+      });
+      const fmt = this.emojiRegistry.formatMessage(dict.registerAskLastName);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildRegistrationCancelKeyboard(locale),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'register_first_name' };
+    }
+
+    if (flow.type === 'register_last_name') {
+      const check = validateRegistrationName(text);
+      if (!check.valid || !check.sanitized) {
+        const fmt = this.emojiRegistry.formatMessage(dict.registerInvalidName);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: fmt.text,
+          ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+          reply_markup: buildRegistrationCancelKeyboard(locale),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'register_last_name_invalid' };
+      }
+      await this.userService.setActiveFlow(actorId, {
+        type: 'register_confirm',
+        firstName: flow.firstName,
+        lastName: check.sanitized,
+        mode: flow.mode,
+      });
+      const confirmText = dict.registerConfirmPrompt
+        .replace('{firstName}', flow.firstName)
+        .replace('{lastName}', check.sanitized);
+      const fmt = this.emojiRegistry.formatMessage(confirmText);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildRegistrationConfirmKeyboard(locale),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'register_last_name' };
+    }
+
+    // HIFZ Stateful Input Flows
+    if (flow.type === 'hifz_mark_range') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const m = text.match(/^(\d{1,3})(?:\s*[-–:\s]\s*(\d{1,3}))?$/);
+      const startAyah = m ? Number(m[1]) : NaN;
+      const endAyah = m ? Number(m[2] || m[1]) : NaN;
+      const res = await this.hifzService.markAyahRangeMemorized(
+        actorId,
+        flow.surahNumber,
+        startAyah,
+        endAyah
+      );
+      const profile = res.profile || (await this.hifzService.getOrCreateProfile(actorId));
+      const view = formatSurahHifzDetail(profile, flow.surahNumber, 0, locale);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: res.ok
+          ? `{{emoji:success}} ${flow.surahNumber}-sura (${startAyah}-${endAyah}-oyat) saqlandi!\n\n${view.text}`
+          : `{{emoji:error}} Oyat oraligʻi notoʻgʻri: "${text}". Masalan: 1-10\n\n${view.text}`,
+        reply_markup: view.keyboard,
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'hifz_mark_range' };
+    }
+
+    if (flow.type === 'hifz_set_goal_ayahs') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const goal = Number.parseInt(text, 10);
+      const profile = await this.hifzService.updateSettings(actorId, {
+        dailyNewAyahsGoal: Number.isFinite(goal) ? goal : 5,
+      });
+      const stats = this.hifzService.getStats(profile);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: `{{emoji:success}} Kunlik yangi oyat maqsadi: ${profile.dailyNewAyahsGoal} oyat/kun\n\n${formatHifzHomeText(profile, stats, locale)}`,
+        reply_markup: buildHifzHomeKeyboard(locale),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'hifz_set_goal_ayahs' };
+    }
+
+    if (flow.type === 'hifz_set_goal_minutes') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const mins = Number.parseInt(text, 10);
+      const profile = await this.hifzService.updateSettings(actorId, {
+        dailyReviewMinutesGoal: Number.isFinite(mins) ? mins : 25,
+      });
+      const stats = this.hifzService.getStats(profile);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: `{{emoji:success}} Kunlik murojaa vaqti: ${profile.dailyReviewMinutesGoal} daqiqa\n\n${formatHifzHomeText(profile, stats, locale)}`,
+        reply_markup: buildHifzHomeKeyboard(locale),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'hifz_set_goal_minutes' };
+    }
+
+    if (flow.type === 'hifz_coach_ask') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      await this.apiClient.sendChatAction(chatId, 'typing');
+      const coachRes = await this.hifzService.askCoach(actorId, locale, text);
+      const hs = getHifzStrings(locale);
+      const formattedCoach = this.emojiRegistry.formatAiResponse(coachRes.text);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formattedCoach.text,
+        ...(formattedCoach.entities.length > 0 ? { entities: formattedCoach.entities } : {}),
+        reply_markup: {
+          inline_keyboard: [
+            [this.emojiRegistry.buildKeyboardButton('support', 'Yana savol berish', { callback_data: 'hifz:coach:ask' })],
+            [this.emojiRegistry.buildKeyboardButton('back', hs.btnBackHifz, { callback_data: 'hifz:home' })],
+          ],
+        },
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'hifz_coach_ask' };
+    }
+
+    if (flow.type === 'hifz_log_difficult') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const m = text.match(/^(\d{1,3})(?:\s+(.*))?$/);
+      const ayahNum = m ? Number(m[1]) : NaN;
+      const note = m?.[2]?.trim();
+      const res = await this.hifzService.logDifficultAyah(actorId, flow.surahNumber, ayahNum, note);
+      const profile = await this.hifzService.getOrCreateProfile(actorId);
+      const view = formatSurahHifzDetail(profile, flow.surahNumber, 0, locale);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: res.ok
+          ? `{{emoji:warning}} ${flow.surahNumber}:${ayahNum} qiyin oyatlar roʻyxatiga qoʻshildi (ertangi murojaada alohida mashq boʻladi).\n\n${view.text}`
+          : `{{emoji:error}} Oyat raqami notoʻgʻri: "${text}".\n\n${view.text}`,
+        reply_markup: view.keyboard,
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'hifz_log_difficult' };
+    }
 
     if (flow.type === 'quran_search') {
       await this.userService.setActiveFlow(actorId, { type: 'idle' });
@@ -895,7 +1103,7 @@ export class TelegramBotEngine {
         notifyAdmins: this.config.adminIds,
       });
       const fmt = this.emojiRegistry.formatMessage(
-        `${dict.supportCreatedNotice}\n\n🆔 ${ticket.id}\n📂 ${ticket.category}`
+        `${dict.supportCreatedNotice}\n\n{{emoji:profile}} ID: ${ticket.id}\n{{emoji:settings}} Boʻlim: ${ticket.category}`
       );
       await this.apiClient.sendMessage({
         chat_id: chatId,
@@ -918,7 +1126,7 @@ export class TelegramBotEngine {
         telegramFileId: media.fileId,
       });
       const fmt = this.emojiRegistry.formatMessage(
-        `${dict.supportCreatedNotice}\n🆔 ${flow.ticketId}`
+        `${dict.supportCreatedNotice}\n{{emoji:profile}} ID: ${flow.ticketId}`
       );
       await this.apiClient.sendMessage({
         chat_id: chatId,
@@ -926,6 +1134,110 @@ export class TelegramBotEngine {
         reply_markup: buildSupportHomeKeyboard(locale, this.emojiRegistry),
       });
       return { ok: true, updateId: 0, kind: 'flow_input', detail: `support_reply:${flow.ticketId}` };
+    }
+
+    if (flow.type === 'quran_mp3_search') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const hits = this.quranMp3Service.searchRecitersAndSurahs(text, flow.reciterId);
+      const eng = this.repository.getUserEngagement(actorId);
+      const defaultRecId = flow.reciterId || eng.preferredReciterId || 'mishary';
+      const rows = [
+        ...hits.reciters.slice(0, 4).map((r) => [
+          this.emojiRegistry.buildKeyboardButton(
+            'quran_mp3',
+            `${r.nameUz} (${r.availableSurahCount}/114)`,
+            { callback_data: `qmp3:reciter:${r.id}:0` }
+          ),
+        ]),
+        ...hits.surahs.slice(0, 8).map((s) => [
+          this.emojiRegistry.buildKeyboardButton(
+            'play',
+            `${s.number}. ${s.nameUz} (${s.nameAr})`,
+            { callback_data: `qmp3:play:${defaultRecId}:${s.number}` }
+          ),
+        ]),
+        [
+          this.emojiRegistry.buildKeyboardButton('quran_mp3', 'Qurʼon MP3', {
+            callback_data: 'qmp3:home',
+          }),
+          this.emojiRegistry.buildKeyboardButton('back', dict.buttons.backToMenu, {
+            callback_data: 'nav:home',
+          }),
+        ],
+      ];
+      const hasAny = hits.reciters.length > 0 || hits.surahs.length > 0;
+      const fmt = this.emojiRegistry.formatMessage(
+        hasAny
+          ? `{{emoji:quran_mp3}} Qidiruv: "${text}" — ${hits.reciters.length} qori, ${hits.surahs.length} sura topildi:`
+          : `${dict.searchNoResults} ("${text}")`
+      );
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: this.styleManager.decorateInlineMarkup({ inline_keyboard: rows }),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'quran_mp3_search' };
+    }
+
+    if (flow.type === 'personal_reminder_add') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const m = text.match(/^([01]?\d|2[0-3]):([0-5]\d)\s+(.+)$/);
+      if (!m) {
+        const rems = this.userService.listPersonalReminders(actorId);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '{{emoji:error}} Notoʻgʻri format. Masalan: 06:30 Qurʼon tilovati',
+          reply_markup: this.styleManager.decorateInlineMarkup(
+            buildPersonalRemindersKeyboard(locale, rems, this.emojiRegistry)
+          ),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'personal_reminder_invalid' };
+      }
+      const timeHHMM = `${m[1].padStart(2, '0')}:${m[2]}`;
+      const label = m[3].trim().slice(0, 80);
+      await this.userService.addPersonalReminder(actorId, label, timeHHMM);
+      const rems = this.userService.listPersonalReminders(actorId);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: `{{emoji:success}} Shaxsiy eslatma qoʻshildi: ${timeHHMM} — ${label}`,
+        reply_markup: this.styleManager.decorateInlineMarkup(
+          buildPersonalRemindersKeyboard(locale, rems, this.emojiRegistry)
+        ),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'personal_reminder_add' };
+    }
+
+    if (flow.type === 'notif_custom_lead_minutes') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const parsed = Number.parseInt(text, 10);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 120) {
+        const prefs = this.userService.getNotificationPreferences(actorId);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '{{emoji:error}} Iltimos 0 dan 120 gacha boʻlgan daqiqa sonini kiriting (masalan: 20).',
+          reply_markup: this.styleManager.decorateInlineMarkup(
+            buildNotificationCenterKeyboard(user, prefs, this.emojiRegistry)
+          ),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'notif_custom_lead_invalid' };
+      }
+      const updatedUser = await this.userService.setCustomLeadMinutes(
+        actorId,
+        parsed === 0 ? null : parsed
+      );
+      const prefs = this.userService.getNotificationPreferences(actorId);
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text:
+          parsed === 0
+            ? '{{emoji:success}} Maxsus oldindan eslatish vaqti oʻchirildi.'
+            : `{{emoji:success}} Maxsus eslatma saqlandi: namozdan ${parsed} daqiqa oldin.`,
+        reply_markup: this.styleManager.decorateInlineMarkup(
+          buildNotificationCenterKeyboard(updatedUser.user || user, prefs, this.emojiRegistry)
+        ),
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'notif_custom_lead_minutes' };
     }
 
     // Admin-only flows
@@ -949,8 +1261,8 @@ export class TelegramBotEngine {
         const tickets = this.supportService.listAllTickets();
         const fmt = this.emojiRegistry.formatMessage(
           res.ok
-            ? `✅ Javob yuborildi (${flow.ticketId}) | Foydalanuvchiga yetkazildi: ${res.deliveredToUser ? 'HA' : 'YOʻQ'}`
-            : `❌ Xatolik: ${res.error || 'Ticket topilmadi'}`
+            ? `{{emoji:success}} Javob yuborildi (${flow.ticketId}) | Foydalanuvchiga yetkazildi: ${res.deliveredToUser ? 'HA' : 'YOʻQ'}`
+            : `{{emoji:error}} Xatolik: ${res.error || 'Ticket topilmadi'}`
         );
         await this.apiClient.sendMessage({
           chat_id: chatId,
@@ -971,7 +1283,7 @@ export class TelegramBotEngine {
                   `• ${u.firstName}${u.username ? ` (@${u.username})` : ''} — ID: ${u.telegramId} | ${u.language}${u.isBlocked ? ' [BLOCKED]' : ''}`
               );
         const fmt = this.emojiRegistry.formatMessage(
-          `👥 Qidiruv natijasi ("${text}"):\n\n${lines.join('\n')}`
+          `{{emoji:community}} Qidiruv natijasi ("${text}"):\n\n${lines.join('\n')}`
         );
         await this.apiClient.sendMessage({
           chat_id: chatId,
@@ -990,7 +1302,7 @@ export class TelegramBotEngine {
         });
         await this.apiClient.sendMessage({
           chat_id: chatId,
-          text: `📢 Sarlavha saqlandi: "${title}"\n\nEndi xabar matnini yuboring:`,
+          text: `{{emoji:community}} Sarlavha saqlandi: "${title}"\n\nEndi xabar matnini yuboring:`,
           reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_broadcast_title' };
@@ -1008,7 +1320,7 @@ export class TelegramBotEngine {
         const list = this.repository.listBroadcasts();
         await this.apiClient.sendMessage({
           chat_id: chatId,
-          text: `✅ Kampaniya yaratildi: ${campaign.title} (${campaign.id})\nMaqsadli auditoriya: ${campaign.totalTargets}`,
+          text: `{{emoji:success}} Kampaniya yaratildi: ${campaign.title} (${campaign.id})\nMaqsadli auditoriya: ${campaign.totalTargets}`,
           reply_markup: buildAdminBroadcastsKeyboard(locale, list, this.emojiRegistry),
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_broadcast_created:${campaign.id}` };
@@ -1029,7 +1341,7 @@ export class TelegramBotEngine {
         const aiStatus = this.aiBridge.getStatus();
         await this.apiClient.sendMessage({
           chat_id: chatId,
-          text: `🧠 Model yangilandi: Primary=${aiStatus.primaryModel} | Fallback=${aiStatus.fallbackModel || 'none'}`,
+          text: `{{emoji:hifz}} Model yangilandi: Primary=${aiStatus.primaryModel} | Fallback=${aiStatus.fallbackModel || 'none'}`,
           reply_markup: buildAdminAiControlKeyboard(locale, nextSettings, this.emojiRegistry),
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_ai_set_model' };
@@ -1046,7 +1358,7 @@ export class TelegramBotEngine {
         });
         await this.apiClient.sendMessage({
           chat_id: chatId,
-          text: `📝 Kanal qoralamasi saqlandi: ${draft.id}`,
+          text: `{{emoji:quran}} Kanal qoralamasi saqlandi: ${draft.id}`,
           reply_markup: buildMainMenuKeyboard(locale, this.emojiRegistry, this.config, {
             isAdmin: true,
             miniAppEnabled: Boolean(settings.miniAppEnabled),
@@ -1061,7 +1373,7 @@ export class TelegramBotEngine {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(cleanTime)) {
           await this.apiClient.sendMessage({
             chat_id: chatId,
-            text: `❌ Notoʻgʻri vaqt formati: "${cleanTime}". Iltimos HH:MM formatida kiriting (masalan: 05:18).`,
+            text: `{{emoji:error}} Notoʻgʻri vaqt formati: "${cleanTime}". Iltimos HH:MM formatida kiriting (masalan: 05:18).`,
             reply_markup: buildAdminPrayerKeyboard(locale, this.emojiRegistry),
           });
           return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_prayer_edit_invalid' };
@@ -1069,7 +1381,7 @@ export class TelegramBotEngine {
         if (!this.centralAdminWriter) {
           await this.apiClient.sendMessage({
             chat_id: chatId,
-            text: '❌ Markaziy namoz jadvali yozish ulanmagan.',
+            text: '{{emoji:error}} Markaziy namoz jadvali yozish ulanmagan.',
             reply_markup: buildAdminPrayerKeyboard(locale, this.emojiRegistry),
           });
           return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_prayer_edit_unavailable' };
@@ -1090,8 +1402,8 @@ export class TelegramBotEngine {
         await this.apiClient.sendMessage({
           chat_id: chatId,
           text: res.ok
-            ? `✅ Asaka namoz jadvali Firestore ga saqlandi!\n• ${res.updatedLabel || flow.prayerKey}: ${cleanTime}\nWeb App, Android ilova va Telegram bot yangilandi.`
-            : `❌ Saqlashda xatolik: ${res.error || 'Nomaʼlum xato'}`,
+            ? `{{emoji:success}} Asaka namoz jadvali Firestore ga saqlandi!\n• ${res.updatedLabel || flow.prayerKey}: ${cleanTime}\nWeb App, Android ilova va Telegram bot yangilandi.`
+            : `{{emoji:error}} Saqlashda xatolik: ${res.error || 'Nomaʼlum xato'}`,
           reply_markup: buildAdminPrayerKeyboard(locale, this.emojiRegistry),
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_prayer_edit:${flow.prayerKey}` };
@@ -1102,7 +1414,7 @@ export class TelegramBotEngine {
         if (!title) {
           await this.apiClient.sendMessage({
             chat_id: chatId,
-            text: '❌ Sarlavha boʻsh boʻlishi mumkin emas. Qayta yuboring:',
+            text: '{{emoji:error}} Sarlavha boʻsh boʻlishi mumkin emas. Qayta yuboring:',
           });
           return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_cms_title_empty' };
         }
@@ -1113,7 +1425,7 @@ export class TelegramBotEngine {
         });
         await this.apiClient.sendMessage({
           chat_id: chatId,
-          text: `📝 Sarlavha saqlandi: "${title}"\n\nEndi [${flow.entityType}] toʻliq matnini yuboring:`,
+          text: `{{emoji:quran}} Sarlavha saqlandi: "${title}"\n\nEndi [${flow.entityType}] toʻliq matnini yuboring:`,
           reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_cms_create_title' };
@@ -1125,7 +1437,7 @@ export class TelegramBotEngine {
         if (!this.centralAdminWriter) {
           await this.apiClient.sendMessage({
             chat_id: chatId,
-            text: '❌ Markaziy CMS yozish ulanmagan.',
+            text: '{{emoji:error}} Markaziy CMS yozish ulanmagan.',
             reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
           });
           return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_cms_unavailable' };
@@ -1147,8 +1459,8 @@ export class TelegramBotEngine {
         await this.apiClient.sendMessage({
           chat_id: chatId,
           text: res.ok
-            ? `✅ [${flow.entityType}] muvaffaqiyatli Firestore ga saqlandi va nashr qilindi!\n• ID: ${res.id}\n• Sarlavha: ${flow.title}\nWeb App, Android ilova va Telegram botga sinxronizatsiya qilindi.`
-            : `❌ Saqlashda xatolik: ${res.error || 'Nomaʼlum xato'}`,
+            ? `{{emoji:success}} [${flow.entityType}] muvaffaqiyatli Firestore ga saqlandi va nashr qilindi!\n• ID: ${res.id}\n• Sarlavha: ${flow.title}\nWeb App, Android ilova va Telegram botga sinxronizatsiya qilindi.`
+            : `{{emoji:error}} Saqlashda xatolik: ${res.error || 'Nomaʼlum xato'}`,
           reply_markup: buildMainMenuKeyboard(locale, this.emojiRegistry, this.config, {
             isAdmin: true,
             miniAppEnabled: Boolean(settings.miniAppEnabled),
@@ -1163,7 +1475,7 @@ export class TelegramBotEngine {
         if (!rawTarget || (!rawTarget.startsWith('@') && !/^-100\d{6,}$/.test(rawTarget))) {
           await this.apiClient.sendMessage({
             chat_id: chatId,
-            text: '❌ Notoʻgʻri format. Kanal/guruh @username (masalan: @Asaka_Ziyo) yoki Chat ID (-100...) yuboring.',
+            text: '{{emoji:error}} Notoʻgʻri format. Kanal/guruh @username (masalan: @Asaka_Ziyo) yoki Chat ID (-100...) yuboring.',
             reply_markup: buildAdminChannelsKeyboard(locale, this.channelService.listChannels(), this.emojiRegistry),
           });
           return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_channel_connect_invalid' };
@@ -1183,12 +1495,352 @@ export class TelegramBotEngine {
         await this.apiClient.sendMessage({
           chat_id: chatId,
           text:
-            `📡 Kanal/Guruh roʻyxatga olindi: ${rawTarget}\n` +
-            `🔐 Telegram API huquq tekshiruvi: ${perm.canPostMessages ? '✅ ADMIN / NASHR RUXSATI BOR' : '⚠️ RUXSAT TASDIQLANMADI'}\n` +
-            `📋 Tafsilot: ${perm.reason}`,
+            `{{emoji:community}} Kanal/Guruh roʻyxatga olindi: ${rawTarget}\n` +
+            `{{emoji:admin}} Telegram API huquq tekshiruvi: ${perm.canPostMessages ? '{{emoji:success}} ADMIN / NASHR RUXSATI BOR' : '{{emoji:warning}} RUXSAT TASDIQLANMADI'}\n` +
+            ` Tafsilot: ${perm.reason}`,
           reply_markup: buildAdminChannelsKeyboard(locale, this.channelService.listChannels(), this.emojiRegistry),
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_channel_connected:${chId}` };
+      }
+
+      if (flow.type === 'admin_emoji_create_custom') {
+        if (!this.adminService.hasPermission(actorId, 'manage_emojis')) {
+          await this.userService.setActiveFlow(actorId, { type: 'idle' });
+          await this.apiClient.sendMessage({ chat_id: chatId, text: dict.adminAccessDenied });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_denied' };
+        }
+        const parts = text.split('|').map((s) => s.trim());
+        const rawKey = (parts[0] || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+        const category = (parts[1] || 'custom') as any;
+        const purpose = parts[2] || parts[0] || 'Maxsus Admin Premium Emoji';
+        if (!rawKey || rawKey.length < 2) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: '{{emoji:error}} Format: kalit | kategoriya | vazifasi\nMasalan: ramadan_badge | custom | Ramazon maxsus nishoni',
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAdminEmojiCategoriesKeyboard(locale, 0, this.emojiRegistry, settings)
+            ),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_custom_invalid' };
+        }
+        try {
+          const created = this.emojiRegistry.createOrUpdateSlot({
+            key: rawKey,
+            category,
+            description: purpose,
+            semanticPurpose: purpose,
+            usedIn: ['custom_admin'],
+            updatedBy: actorId,
+          });
+          await this.repository.saveCustomEmoji(created);
+          await this.repository.appendAuditLog({
+            actorTelegramId: actorId,
+            actorRole: role,
+            action: 'custom_emoji_slot_created',
+            targetType: 'emoji',
+            targetId: created.key,
+            metadata: { category: created.category, semanticPurpose: created.semanticPurpose || '' },
+          });
+          await this.userService.setActiveFlow(actorId, {
+            type: 'admin_emoji_capture',
+            key: created.key,
+          });
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text:
+              `{{emoji:success}} Yangi slot yaratildi: ${created.key}\n` +
+              `• Kategoriya: ${created.category}\n` +
+              `• Vazifasi: ${created.semanticPurpose}\n\n` +
+              `Endi Telegram Premium emoji tanlagichidan ushbu slot uchun tayyor Premium emoji yuboring:`,
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAdminEmojiCategoriesKeyboard(locale, 0, this.emojiRegistry, settings)
+            ),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_emoji_custom_created:${created.key}` };
+        } catch (err: unknown) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: `{{emoji:error}} ${err instanceof Error ? err.message : String(err)}`,
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAdminEmojiCategoriesKeyboard(locale, 0, this.emojiRegistry, settings)
+            ),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_custom_err' };
+        }
+      }
+
+      if (flow.type === 'admin_emoji_capture') {
+        if (!this.adminService.hasPermission(actorId, 'manage_emojis')) {
+          await this.userService.setActiveFlow(actorId, { type: 'idle' });
+          await this.apiClient.sendMessage({ chat_id: chatId, text: dict.adminAccessDenied });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_denied' };
+        }
+
+        if (flow.key === '__ANY__') {
+          // Direct-Emoji-First flow: extract & verify via getCustomEmojiStickers, then ask category
+          const verified = await this.emojiRegistry.verifyOwnerCustomEmojiFromMessage(
+            this.apiClient,
+            message
+          );
+          if (!verified.ok || !verified.customEmojiId) {
+            await this.apiClient.sendMessage({
+              chat_id: chatId,
+              text:
+                `{{emoji:error}} ${verified.error || 'Haqiqiy Telegram Premium custom_emoji topilmadi.'}\n\n` +
+                `Oddiy Unicode emoji qabul qilinmaydi — Telegram Premium emoji tanlagichidan tayyor Premium emoji yuboring.`,
+              reply_markup: this.styleManager.decorateInlineMarkup(
+                buildAdminEmojiCategoriesKeyboard(locale, 0, this.emojiRegistry, settings)
+              ),
+            });
+            return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_invalid' };
+          }
+          await this.userService.setActiveFlow(actorId, {
+            type: 'admin_emoji_pending_category',
+            customEmojiId: verified.customEmojiId,
+            fallbackUnicode: verified.fallbackUnicode || '\u2B50',
+            stickerSetName: verified.stickerSetName,
+          });
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text:
+              `{{emoji:success}} Telegram Premium Custom Emoji tasdiqlandi!\n` +
+              `• ID: ${verified.customEmojiId}\n` +
+              `${verified.stickerSetName ? `• Toʻplam: ${verified.stickerSetName}\n` : ''}\n` +
+              `Endi ushbu emoji qaysi kategoriya uchun ishlatilishini tanlang:`,
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAdminEmojiCategoriesKeyboard(
+                locale,
+                0,
+                this.emojiRegistry,
+                settings,
+                verified.customEmojiId
+              )
+            ),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_pending_category' };
+        }
+
+        // Category-First flow: verify & bind directly to flow.key
+        const reg = await this.emojiRegistry.registerFromOwnerMessage(
+          this.apiClient,
+          flow.key,
+          message,
+          actorId
+        );
+        if (!reg.ok || !reg.entry) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text:
+              `{{emoji:error}} ${reg.error || 'Premium custom_emoji tasdiqlanmadi.'}\n\n` +
+              `Qayta urinib koʻring: Telegram Premium tanlagichidan tayyor emoji yuboring.`,
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAdminEmojiCategoriesKeyboard(locale, 0, this.emojiRegistry, settings)
+            ),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_capture_failed' };
+        }
+        await this.repository.saveCustomEmoji(reg.entry);
+        this.emojiRegistry.setPremiumEnabled(true);
+        const savedSettings = await this.repository.saveSettings(
+          {
+            premiumEmojiEnabled: true,
+            premiumEmojiEligibilityVerified: true,
+            premiumEmojiEligibilityCheckedAt: new Date().toISOString(),
+            premiumEmojiEligibilityReason: 'Verified live via owner Premium emoji & getCustomEmojiStickers',
+          },
+          actorId
+        );
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        await this.repository.appendAuditLog({
+          actorTelegramId: actorId,
+          actorRole: role,
+          action: 'custom_emoji_bound',
+          targetType: 'emoji',
+          targetId: reg.entry.key,
+          metadata: { customEmojiId: reg.entry.customEmojiId || '' },
+        });
+        const confirmMsg = this.emojiRegistry.formatMessage(
+          `{{emoji:${reg.entry.key}}} «${reg.entry.key}» kategoriyasi saqlandi!\n` +
+            `• custom_emoji_id: ${reg.entry.customEmojiId}\n` +
+            `• Firestore bazasida saqlandi va butun bot boʻylab darhol yangilandi.`
+        );
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: confirmMsg.text,
+          ...(confirmMsg.entities.length > 0 ? { entities: confirmMsg.entities } : {}),
+          reply_markup: this.styleManager.decorateInlineMarkup(
+            buildAdminEmojiCategoriesKeyboard(locale, 0, this.emojiRegistry, savedSettings)
+          ),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_emoji_bound:${reg.entry.key}` };
+      }
+
+      if (flow.type === 'admin_style_edit_template') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        if (
+          !this.adminService.hasPermission(actorId, 'manage_emojis') &&
+          !this.adminService.hasPermission(actorId, 'manage_settings')
+        ) {
+          await this.apiClient.sendMessage({ chat_id: chatId, text: dict.adminAccessDenied });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_style_denied' };
+        }
+        if (text) {
+          this.styleManager.setTemplate(flow.templateKey, text);
+          const nextSettings = await this.repository.saveSettings(
+            { richMessageTemplates: this.styleManager.getConfig().richMessageTemplates },
+            actorId
+          );
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: `{{emoji:success}} Shablon yangilandi: ${flow.templateKey}\n"${this.styleManager.getTemplate(flow.templateKey)}"`,
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAdminStyleHomeKeyboard(locale, nextSettings, this.emojiRegistry)
+            ),
+          });
+        }
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_style_template:${flow.templateKey}` };
+      }
+
+      if (flow.type === 'admin_audio_add_reciter') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        if (!this.adminService.hasPermission(actorId, 'manage_content')) {
+          await this.apiClient.sendMessage({ chat_id: chatId, text: dict.adminAccessDenied });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_denied' };
+        }
+        const [rawName, rawStyle, rawUrl] = text.split('|').map((s) => s.trim());
+        const saved = await this.quranMp3Service.upsertReciter(
+          {
+            nameUz: rawName || text,
+            styleUz: rawStyle || 'Murattal',
+            serverUrl: rawUrl && rawUrl.startsWith('https://') ? rawUrl : '',
+            isActive: true,
+          },
+          actorId
+        );
+        const reciters = this.quranMp3Service.listReciters({ includeInactive: true });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: saved.ok && saved.reciter
+            ? `{{emoji:success}} Yangi qori saqlandi: ${saved.reciter.nameUz} (${saved.reciter.id})`
+            : `{{emoji:error}} Qori saqlanmadi: ${saved.error || 'Xatolik'}`,
+          reply_markup: this.styleManager.decorateInlineMarkup(
+            buildAdminAudioHomeKeyboard(locale, reciters, this.emojiRegistry)
+          ),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_add_reciter' };
+      }
+
+      if (flow.type === 'admin_audio_upload_track') {
+        if (!this.adminService.hasPermission(actorId, 'manage_content')) {
+          await this.userService.setActiveFlow(actorId, { type: 'idle' });
+          await this.apiClient.sendMessage({ chat_id: chatId, text: dict.adminAccessDenied });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_denied' };
+        }
+        const mediaObj = message.audio || message.document;
+        if (!mediaObj) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: '{{emoji:error}} Iltimos haqiqiy audio fayl (.mp3/.m4a/.ogg/.wav) yuboring.',
+            reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_upload_missing_file' };
+        }
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const captionNum = Number.parseInt((message.caption || '').trim(), 10);
+        const targetSurah =
+          Number.isFinite(captionNum) && captionNum >= 1 && captionNum <= 114
+            ? captionNum
+            : flow.surahNumber;
+        const fileRes = await this.apiClient.getFile(mediaObj.file_id);
+        const dl =
+          fileRes.ok && fileRes.result?.file_path
+            ? await this.apiClient.downloadFileBuffer(fileRes.result.file_path)
+            : { ok: false, error: 'Fayl manzili olinmadi.' };
+        const uploadRes =
+          dl.ok && dl.buffer
+            ? await this.quranMp3Service.uploadTrackBuffer({
+                reciterId: flow.reciterId,
+                surahNumber: targetSurah,
+                fileName: mediaObj.file_name || `surah-${targetSurah}.mp3`,
+                buffer: dl.buffer,
+                mimeType: mediaObj.mime_type || 'audio/mpeg',
+                durationSeconds:
+                  'duration' in mediaObj && typeof mediaObj.duration === 'number'
+                    ? mediaObj.duration
+                    : undefined,
+                actorId,
+              })
+            : { ok: false, error: dl.error || 'Audio faylni yuklab olishda xatolik.' };
+        const rec = this.quranMp3Service.getReciterById(flow.reciterId);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: uploadRes.ok
+            ? `{{emoji:success}} ${flow.reciterId} — ${targetSurah}-sura audio fayli tekshirildi va saqlandi!`
+            : `{{emoji:error}} Audio qabul qilinmadi: ${uploadRes.error}`,
+          reply_markup: rec
+            ? this.styleManager.decorateInlineMarkup(
+                buildAdminAudioReciterKeyboard(locale, rec, this.emojiRegistry)
+              )
+            : buildBackOnlyKeyboard(locale, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_upload_track' };
+      }
+
+      if (flow.type === 'admin_audio_bulk_manifest') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        if (!this.adminService.hasPermission(actorId, 'manage_content')) {
+          await this.apiClient.sendMessage({ chat_id: chatId, text: dict.adminAccessDenied });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_denied' };
+        }
+        const entries = text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            if (line.includes('|')) {
+              const [left, right] = line.split('|').map((s) => s.trim());
+              return { pathOrFileName: left, sourceUrl: right };
+            }
+            if (line.startsWith('https://') || line.startsWith('http://')) {
+              const fname = line.split('/').pop() || line;
+              return { pathOrFileName: fname, sourceUrl: line };
+            }
+            return { pathOrFileName: line };
+          });
+        const preview = this.quranMp3Service.createBulkImportPreview({
+          reciterId: flow.reciterId,
+          entries,
+          actorId,
+        });
+        if (!preview.ok || !preview.plan) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: `{{emoji:error}} Bulk preview xatoligi: ${preview.error || 'Roʻyxat boʻsh'}`,
+            reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_audio_bulk_invalid' };
+        }
+        const p = preview.plan;
+        const sampleLines = p.items
+          .slice(0, 12)
+          .map((it) =>
+            it.status === 'matched'
+              ? `{{emoji:success}} ${it.fileName} → ${it.detectedSurahNumber}. ${it.surahNameUz}`
+              : `{{emoji:warning}} ${it.fileName} (${it.status}: ${it.reason})`
+          )
+          .join('\n');
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text:
+            `{{emoji:brand}} Bulk Import Preview — ${p.reciterName}\n` +
+            `• Mos kelgan: ${p.matchedCount} | Noaniq/Takror: ${p.ambiguousCount} | Rad etilgan: ${p.unmatchedCount}\n\n` +
+            `${sampleLines}\n\n` +
+            `Saqlash uchun «Tasdiqlash» tugmasini bosing (hali hech narsa yozilmadi):`,
+          reply_markup: this.styleManager.decorateInlineMarkup(
+            buildAdminAudioBulkConfirmKeyboard(p.planId, this.emojiRegistry)
+          ),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_audio_bulk_preview:${p.planId}` };
       }
     }
 
@@ -1197,6 +1849,18 @@ export class TelegramBotEngine {
 
   async processUpdate(update: TelegramApiUpdate): Promise<UpdateDispatchOutcome> {
     const updateId = update.update_id;
+
+    // Duplicate update_id deduplication (webhook retries / polling overlap)
+    if (typeof updateId === 'number' && updateId > 0) {
+      if (this.processedUpdateIds.has(updateId)) {
+        return { ok: true, updateId, kind: 'ignored', detail: 'duplicate_update_id' };
+      }
+      this.processedUpdateIds.add(updateId);
+      if (this.processedUpdateIds.size > 10_000) {
+        const oldest = this.processedUpdateIds.values().next().value;
+        if (oldest !== undefined) this.processedUpdateIds.delete(oldest);
+      }
+    }
 
     try {
       const actor = update.callback_query?.from || update.message?.from;
@@ -1278,6 +1942,9 @@ export class TelegramBotEngine {
           publishingService: this.publishingService,
           repository: this.repository,
           appReleaseService: this.appReleaseService,
+          hifzService: this.hifzService,
+          quranMp3Service: this.quranMp3Service,
+          styleManager: this.styleManager,
           centralAdminWriter: this.centralAdminWriter,
           runDiagnostics: () => this.runLiveDiagnostics(),
         });
@@ -1294,7 +1961,32 @@ export class TelegramBotEngine {
         return { ok: true, updateId, kind: 'ignored' };
       }
 
-      // 5. Bot Commands (complete Unified Ecosystem V4 command suite)
+      // 4B. GPS Location -> Exact Qibla Bearing & Distance to Kaaba
+      if (message.chat.type === 'private' && message.location) {
+        const qibla = calculateQiblaFromCoordinates(
+          message.location.latitude,
+          message.location.longitude
+        );
+        const dirLabel = getCompassDirectionLabel(qibla.bearingDegrees, user.language);
+        const formatted = this.emojiRegistry.formatMessage(
+          `${dict.qiblaTitle}\n\n` +
+            `{{emoji:prayer}} Yoʻnalish: ${qibla.bearingDegrees}° (${dirLabel})\n` +
+            ` Makka (Kaʼba) gacha masofa: ${qibla.distanceKm} km\n` +
+            `{{emoji:prayer}} Koordinata: ${message.location.latitude.toFixed(4)}, ${message.location.longitude.toFixed(4)}\n\n` +
+            `${dict.qiblaCompassNotice}`
+        );
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: formatted.text,
+          ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+          reply_markup: this.styleManager.decorateReplyMarkup(
+            buildPersistentReplyKeyboard(user.language, this.emojiRegistry)
+          ),
+        });
+        return { ok: true, updateId, kind: 'flow_input', detail: 'qibla_location' };
+      }
+
+      // 5. Bot Commands (complete Unified Ecosystem V4 + Bot 2.0 + HIFZ + 2026 Ultimate command suite)
       if (message.text) {
         const parsedCmd = parseBotCommand(message.text);
         if (parsedCmd) {
@@ -1315,6 +2007,9 @@ export class TelegramBotEngine {
             adminService: this.adminService,
             repository: this.repository,
             appReleaseService: this.appReleaseService,
+            hifzService: this.hifzService,
+            quranMp3Service: this.quranMp3Service,
+            styleManager: this.styleManager,
           });
           return {
             ok: true,
@@ -1350,6 +2045,9 @@ export class TelegramBotEngine {
               adminService: this.adminService,
               repository: this.repository,
               appReleaseService: this.appReleaseService,
+              hifzService: this.hifzService,
+              quranMp3Service: this.quranMp3Service,
+              styleManager: this.styleManager,
             }
           );
           return {
@@ -1361,7 +2059,53 @@ export class TelegramBotEngine {
         }
       }
 
-      // 7. Stateful Active Flow input (text OR media attachment for support tickets)
+      // 7A. HIFZ Voice Recitation Check (when user is in `hifz_audio_check` flow)
+      if (
+        message.chat.type === 'private' &&
+        (message.voice || message.audio) &&
+        user.activeFlow?.type === 'hifz_audio_check'
+      ) {
+        const audioFlow = user.activeFlow;
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const mediaObj = message.voice || message.audio!;
+        await this.apiClient.sendChatAction(chatId, 'typing');
+        const fileRes = await this.apiClient.getFile(mediaObj.file_id);
+        const hs = getHifzStrings(user.language);
+        if (!fileRes.ok || !fileRes.result?.file_path) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: `{{emoji:error}} Audio faylni olishda xatolik.\n\n${hs.audioDisclaimer}`,
+            reply_markup: buildHifzHomeKeyboard(user.language),
+          });
+          return { ok: true, updateId, kind: 'flow_input', detail: 'hifz_audio_lookup_failed' };
+        }
+        const dl = await this.apiClient.downloadFileBuffer(fileRes.result.file_path);
+        if (!dl.ok || !dl.buffer) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: `{{emoji:error}} Audio faylni yuklashda xatolik.\n\n${hs.audioDisclaimer}`,
+            reply_markup: buildHifzHomeKeyboard(user.language),
+          });
+          return { ok: true, updateId, kind: 'flow_input', detail: 'hifz_audio_download_failed' };
+        }
+        const checkRes = await this.hifzService.checkRecitationAudio({
+          telegramId: actorId,
+          locale: user.language,
+          surahNumber: audioFlow.surahNumber,
+          startAyah: audioFlow.startAyah,
+          endAyah: audioFlow.endAyah,
+          audioBuffer: dl.buffer,
+          mimeType: mediaObj.mime_type || 'audio/ogg',
+        });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: formatHifzAudioCheckResult(checkRes, user.language),
+          reply_markup: buildHifzHomeKeyboard(user.language),
+        });
+        return { ok: true, updateId, kind: 'flow_input', detail: 'hifz_audio_check' };
+      }
+
+      // 7B. Stateful Active Flow input (text OR media attachment for support tickets)
       if (message.chat.type === 'private' && user.activeFlow && user.activeFlow.type !== 'idle') {
         const flowOutcome = await this.handleActiveFlowInput(message, user, chatId);
         if (flowOutcome) {
@@ -1401,9 +2145,9 @@ export class TelegramBotEngine {
         });
 
         const textBody = voiceRes.ok
-          ? `${dict.aiTitle}\n\n🎤 "${voiceRes.transcript || ''}"\n\n${voiceRes.answerText || ''}`
+          ? `${dict.aiTitle}\n\n{{emoji:quran_mp3}} "${voiceRes.transcript || ''}"\n\n${voiceRes.answerText || ''}`
           : `${dict.aiTitle}\n\n${voiceRes.reason || dict.aiErrorNotice}`;
-        const formatted = this.emojiRegistry.formatMessage(textBody);
+        const formatted = this.emojiRegistry.formatAiResponse(textBody);
         await this.apiClient.sendMessage({
           chat_id: chatId,
           text: formatted.text,
@@ -1457,7 +2201,7 @@ export class TelegramBotEngine {
               caption: message.caption,
               inputType: isPhoto ? 'photo' : 'document',
             });
-            const formatted = this.emojiRegistry.formatMessage(
+            const formatted = this.emojiRegistry.formatAiResponse(
               `${dict.aiTitle}\n\n${mediaRes.answerText || mediaRes.reason || dict.aiErrorNotice}`
             );
             await this.apiClient.sendMessage({
@@ -1480,15 +2224,30 @@ export class TelegramBotEngine {
       if (message.text && message.chat.type === 'private') {
         if (this.aiBridge.isUserInAiMode(actorId)) {
           await this.apiClient.sendChatAction(chatId, 'typing');
+          if (settings.aiStreamingDraftsEnabled) {
+            const draftFmt = this.emojiRegistry.formatMessage(
+              `${dict.aiTitle}\n\n{{emoji:loading}} Javob tayyorlanmoqda...`
+            );
+            await this.apiClient
+              .sendMessageDraft({
+                chat_id: chatId,
+                draft_id: Math.max(1, (Date.now() % 2_000_000_000) | 0),
+                text: draftFmt.text,
+                ...(draftFmt.entities.length > 0 ? { entities: draftFmt.entities } : {}),
+              })
+              .catch(() => {});
+          }
           const aiRes = await this.aiBridge.handleQuestion(actorId, user.language, message.text);
-          const formatted = this.emojiRegistry.formatMessage(
+          const formatted = this.emojiRegistry.formatAiResponse(
             `${dict.aiTitle}\n\n${aiRes.answerText || aiRes.reason || dict.aiErrorNotice}`
           );
           await this.apiClient.sendMessage({
             chat_id: chatId,
             text: formatted.text,
             ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
-            reply_markup: buildAiModeKeyboard(user.language, this.emojiRegistry),
+            reply_markup: this.styleManager.decorateInlineMarkup(
+              buildAiModeKeyboard(user.language, this.emojiRegistry)
+            ),
             disable_web_page_preview: true,
           });
           return {
@@ -1506,10 +2265,12 @@ export class TelegramBotEngine {
           chat_id: chatId,
           text: formatted.text,
           ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
-          reply_markup: buildMainMenuKeyboard(user.language, this.emojiRegistry, this.config, {
-            isAdmin: Boolean(role),
-            miniAppEnabled: Boolean(settings.miniAppEnabled),
-          }),
+          reply_markup: this.styleManager.decorateInlineMarkup(
+            buildMainMenuKeyboard(user.language, this.emojiRegistry, this.config, {
+              isAdmin: Boolean(role),
+              miniAppEnabled: Boolean(settings.miniAppEnabled),
+            })
+          ),
         });
         return { ok: true, updateId, kind: 'text_fallback' };
       }
@@ -1537,8 +2298,11 @@ export class TelegramBotEngine {
       firestoreSync: this.repository.getFirestoreSyncStatus(),
       syncEngine: this.syncEngine.getStatusSummary(),
       centralContentCounts: this.centralContent.getSummaryCounts(),
+      quranMp3RecitersCount: this.quranMp3Service.listReciters().length,
+      styleConfig: this.styleManager.getConfig(),
       emojiCompatibility: this.emojiRegistry.validateCompatibility(),
       aiBridge: this.aiBridge.getStatus(),
+      registrationStats: this.userService.getRegistrationStats(),
       stats: this.repository.getStats(),
     };
   }

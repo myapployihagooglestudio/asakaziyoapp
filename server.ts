@@ -773,6 +773,10 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'telegramUserEngagement',
   'telegramAiLogs',
   'telegramQuizAttempts',
+  'telegramHifzProfiles',
+  'app_releases',
+  'sync_outbox',
+  'sync_audit_logs',
   '_diagnostics',
   '_metadata',
 ]);
@@ -958,7 +962,8 @@ export async function serverReadFirestoreCollection(collectionName: string): Pro
     }
     const snap = await fsGetDocsFromServer(fsCollection(serverFirestoreDb, collectionName));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch {
+  } catch (err: any) {
+    console.warn(`[Firestore Server Read Warning] (${collectionName}): ${err?.message || err}`);
     return [];
   }
 }
@@ -6001,6 +6006,7 @@ const telegramPlatform = createTelegramPlatformRouter({
       }
       const target = db.prayerSchedule.times.find(
         (t: any) =>
+          String(t.key || '').toLowerCase() === prayerKey.toLowerCase() ||
           String(t.id || '').toLowerCase() === prayerKey.toLowerCase() ||
           String(t.nameUz || '').toLowerCase() === prayerKey.toLowerCase()
       );
@@ -6162,6 +6168,104 @@ const telegramPlatform = createTelegramPlatformRouter({
       writeDatabase(db);
       triggerEcosystemSync(entityType, id, 'archived', updated, `telegram_admin:${actorTelegramId}`);
       return { ok: true };
+    },
+    saveReciter: async ({ reciter, actorTelegramId }) => {
+      const db = readDatabase();
+      if (!Array.isArray(db.quranReciters)) db.quranReciters = [];
+      const id = String(reciter?.id || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+      if (!id) return { ok: false, error: 'Yaroqsiz qori ID.' };
+      const nowIso = new Date().toISOString();
+      const record: any = {
+        ...reciter,
+        id,
+        updatedAt: nowIso,
+        updatedBy: `telegram_admin:${actorTelegramId}`,
+      };
+      const fsRes = await serverWriteFirestoreDoc('quranReciters', id, record);
+      if (!fsRes.success) return { ok: false, error: fsRes.error || 'Firestore xatoligi.' };
+      const idx = db.quranReciters.findIndex((r: any) => String(r.id) === id);
+      if (idx >= 0) db.quranReciters[idx] = { ...db.quranReciters[idx], ...record };
+      else db.quranReciters.push(record);
+      writeDatabase(db);
+      return { ok: true, id };
+    },
+    saveSurahAudioOverride: async ({ reciterId, surahNumber, override, actorTelegramId }) => {
+      const db = readDatabase();
+      if (!db.quranAudioOverrides || typeof db.quranAudioOverrides !== 'object') {
+        db.quranAudioOverrides = {};
+      }
+      const safeReciterId = String(reciterId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      const num = Math.floor(Number(surahNumber));
+      if (!safeReciterId || num < 1 || num > 114) {
+        return { ok: false, error: 'Qori yoki sura raqami notoʻgʻri.' };
+      }
+      const key = `${safeReciterId}_${num}`;
+      const record: any = {
+        ...override,
+        id: key,
+        reciterId: safeReciterId,
+        surahNumber: num,
+        updatedAt: new Date().toISOString(),
+        updatedBy: `telegram_admin:${actorTelegramId}`,
+      };
+      const fsRes = await serverWriteFirestoreDoc('quranAudioOverrides', key, record);
+      if (!fsRes.success) return { ok: false, error: fsRes.error || 'Firestore xatoligi.' };
+      db.quranAudioOverrides[key] = record;
+      writeDatabase(db);
+      return { ok: true };
+    },
+    uploadSurahAudioBuffer: async ({
+      reciterId,
+      surahNumber,
+      buffer,
+      mimeType,
+      durationSeconds,
+      actorTelegramId,
+    }) => {
+      const db = readDatabase();
+      if (!db.quranAudioOverrides || typeof db.quranAudioOverrides !== 'object') {
+        db.quranAudioOverrides = {};
+      }
+      const safeReciterId = String(reciterId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      const num = Math.floor(Number(surahNumber));
+      if (!safeReciterId || num < 1 || num > 114) {
+        return { ok: false, error: 'Qori yoki sura raqami notoʻgʻri.' };
+      }
+      const resolvedUploadsRoot = path.resolve(UPLOADS_DIR);
+      const reciterDir = path.resolve(resolvedUploadsRoot, 'quran-reciter-audio', safeReciterId);
+      if (!reciterDir.startsWith(resolvedUploadsRoot + path.sep)) {
+        return { ok: false, error: 'Xavfsizlik: yaroqsiz fayl yoʻli.' };
+      }
+      fs.mkdirSync(reciterDir, { recursive: true });
+      const padded = String(num).padStart(3, '0');
+      const targetName = `surah-${padded}.mp3`;
+      const targetPath = path.resolve(reciterDir, targetName);
+      if (!targetPath.startsWith(reciterDir + path.sep)) {
+        return { ok: false, error: 'Xavfsizlik: yaroqsiz fayl nomi.' };
+      }
+      fs.writeFileSync(targetPath, buffer);
+      const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
+      const key = `${safeReciterId}_${num}`;
+      const nowIso = new Date().toISOString();
+      const record: any = {
+        id: key,
+        reciterId: safeReciterId,
+        surahNumber: num,
+        storagePath: `quran-reciter-audio/${safeReciterId}/${targetName}`,
+        audioUrl: `/uploads/quran-reciter-audio/${safeReciterId}/${targetName}`,
+        fileFormat: mimeType || 'audio/mpeg',
+        fileSizeBytes: buffer.length,
+        durationSeconds: durationSeconds || undefined,
+        checksum,
+        status: 'verified_stored',
+        updatedAt: nowIso,
+        updatedBy: `telegram_admin:${actorTelegramId}`,
+      };
+      const fsRes = await serverWriteFirestoreDoc('quranAudioOverrides', key, record);
+      if (!fsRes.success) return { ok: false, error: fsRes.error || 'Firestore xatoligi.' };
+      db.quranAudioOverrides[key] = record;
+      writeDatabase(db);
+      return { ok: true, record };
     },
   },
 });

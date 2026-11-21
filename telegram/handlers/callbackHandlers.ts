@@ -6,8 +6,10 @@
 
 import {
   TelegramApiCallbackQuery,
+  TelegramInlineKeyboardButton,
   TelegramInlineKeyboardMarkup,
   TelegramMessageEntity,
+  TelegramPrayerNotificationKey,
   TelegramSupportTicketCategory,
   TelegramUserRecord,
 } from '../types';
@@ -27,17 +29,50 @@ import { TelegramChannelService } from '../channels/channelService';
 import { TelegramPublishingService } from '../publishing/publishingService';
 import { TelegramRepository } from '../database/telegramRepository';
 import { AppReleaseService } from '../services/appReleaseService';
+import { TelegramHifzService } from '../hifz/hifzService';
+import { TelegramQuranMp3Service } from '../services/quranMp3Service';
+import { DEFAULT_RICH_MESSAGE_TEMPLATES, TelegramStyleManager } from '../style/styleManager';
+import {
+  buildHifzHomeKeyboard,
+  buildHifzRecitersKeyboard,
+  buildHifzRemindersKeyboard,
+  buildHifzTaskRatingKeyboard,
+  buildHifzTodayPlanKeyboard,
+  formatHifzCalendarText,
+  formatHifzHomeText,
+  formatHifzStatsText,
+  formatHifzTaskDetailText,
+  formatHifzTodayPlanText,
+  formatJuzMapView,
+  formatMemorizedSurahsPage,
+  formatSurahHifzDetail,
+  getHifzStrings,
+} from '../hifz/hifzKeyboardsAndFormatter';
+import { HifzReviewQuality } from '../hifz/hifzTypes';
+import { getUserDisplayFullName, isUserProfileRegistered } from '../services/profileValidation';
+import {
+  ASAKA_DEFAULT_QIBLA_BEARING,
+  ASAKA_DISTANCE_TO_KAABA_KM,
+  getCompassDirectionLabel,
+} from '../services/qiblaHijriService';
 import { getTelegramLocaleBundle, isValidTelegramLocale } from '../locales';
 import {
   buildAcademyKeyboard,
+  buildAdhanAudioKeyboard,
   buildAdminAiControlKeyboard,
+  buildAdminAudioHomeKeyboard,
+  buildAdminAudioReciterKeyboard,
   buildAdminBroadcastsKeyboard,
   buildAdminChannelsKeyboard,
   buildAdminCmsKeyboard,
   buildAdminContentKeyboard,
+  buildAdminEmojiCategoriesKeyboard,
+  buildAdminEmojiSlotDetailKeyboard,
   buildAdminEmojisKeyboard,
   buildAdminHomeKeyboard,
   buildAdminPrayerKeyboard,
+  buildAdminRichTemplatesKeyboard,
+  buildAdminStyleHomeKeyboard,
   buildAdminSupportKeyboard,
   buildAdminUsersKeyboard,
   buildAiModeKeyboard,
@@ -47,19 +82,35 @@ import {
   buildDhikrKeyboard,
   buildDuaKeyboard,
   buildHadithKeyboard,
+  buildInteractiveBookmarksKeyboard,
   buildKhatmKeyboard,
   buildLanguageKeyboard,
   buildMainMenuKeyboard,
   buildMediaLibraryKeyboard,
+  buildNotificationCenterKeyboard,
+  buildPerPrayerSettingsKeyboard,
   buildPersistentReplyKeyboard,
+  buildPersonalRemindersKeyboard,
   buildPrayerKeyboard,
+  buildPrivacyCenterKeyboard,
   buildProfileKeyboard,
+  buildQiblaReplyKeyboard,
+  buildQuietHoursKeyboard,
   buildQuizQuestionKeyboard,
   buildQuizResultKeyboard,
   buildQuranKeyboard,
+  buildQuranMp3HomeKeyboard,
+  buildQuranMp3RecitersKeyboard,
+  buildQuranMp3SurahsKeyboard,
+  buildQuranMp3TrackControlsKeyboard,
+  buildQuranRecitersKeyboard,
+  buildRegistrationCancelKeyboard,
   buildSettingsKeyboard,
   buildSupportHomeKeyboard,
+  buildSupportTicketUserReplyKeyboard,
+  buildSurahDetailKeyboard,
   buildSurahListKeyboard,
+  buildSurahReaderKeyboard,
   buildTafsirKeyboard,
 } from '../keyboards/keyboards';
 import {
@@ -86,6 +137,9 @@ export interface CallbackHandlerContext {
   publishingService: TelegramPublishingService;
   repository: TelegramRepository;
   appReleaseService: AppReleaseService;
+  hifzService?: TelegramHifzService;
+  quranMp3Service?: TelegramQuranMp3Service;
+  styleManager?: TelegramStyleManager;
   centralAdminWriter?: import('../types').TelegramCentralAdminWriter;
   runDiagnostics: () => Promise<{
     readyToAnswerStart: boolean;
@@ -103,10 +157,14 @@ async function renderScreenUpdate(
     text: string;
     entities?: TelegramMessageEntity[];
     reply_markup: TelegramInlineKeyboardMarkup;
-  }
+  },
+  styleManager?: TelegramStyleManager
 ) {
   const chatId = callback.message?.chat.id || callback.from.id;
   const messageId = callback.message?.message_id;
+  const decoratedMarkup = styleManager
+    ? styleManager.decorateInlineMarkup(payload.reply_markup)
+    : payload.reply_markup;
 
   if (messageId) {
     const edited = await apiClient.editMessageText({
@@ -114,7 +172,7 @@ async function renderScreenUpdate(
       message_id: messageId,
       text: payload.text,
       ...(payload.entities && payload.entities.length > 0 ? { entities: payload.entities } : {}),
-      reply_markup: payload.reply_markup,
+      reply_markup: decoratedMarkup,
       disable_web_page_preview: true,
     });
     if (
@@ -172,32 +230,380 @@ export async function handleCallbackQuery(
         onboardingCompleted: true,
       };
     const nextDict = getTelegramLocaleBundle(updatedUser.language);
-    const formatted = ctx.emojiRegistry.formatMessage(
-      `${nextDict.languageChangedMessage}\n\n${nextDict.mainMenuPrompt}`
-    );
-
     await ctx.apiClient.answerCallbackQuery({
       callback_query_id: callback.id,
       text: nextDict.languageChangedToast,
     });
-    await renderScreenUpdate(ctx.apiClient, callback, {
-      text: formatted.text,
-      entities: formatted.entities,
-      reply_markup: buildMainMenuKeyboard(updatedUser.language, ctx.emojiRegistry, ctx.config, menuOpts),
-    });
 
-    // Refresh persistent Reply Keyboard in the newly chosen language
+    // On first-time onboarding, transition directly into registration Step 1 (First Name) if not registered yet
     if (data.startsWith('onboard:lang:')) {
       await ctx.apiClient.sendMessage({
         chat_id: chatId,
         text: nextDict.mainMenuTitle.replace(/\{\{emoji:[^}]+\}\}\s*/g, ''),
         reply_markup: buildPersistentReplyKeyboard(updatedUser.language),
       });
+
+      if (!isUserProfileRegistered(updatedUser)) {
+        await ctx.userService.setActiveFlow(updatedUser.telegramId, {
+          type: 'register_first_name',
+          mode: 'register',
+        });
+        const regMsg = ctx.emojiRegistry.formatMessage(
+          `${nextDict.languageChangedMessage}\n\n${nextDict.registerWelcomeIntro}\n\n${nextDict.registerAskFirstName}`
+        );
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: regMsg.text,
+          entities: regMsg.entities,
+          reply_markup: buildRegistrationCancelKeyboard(updatedUser.language),
+        });
+        return { handled: true, action: data };
+      }
     }
+
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `${nextDict.languageChangedMessage}\n\n${nextDict.mainMenuPrompt}`
+    );
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildMainMenuKeyboard(updatedUser.language, ctx.emojiRegistry, ctx.config, menuOpts),
+    });
     return { handled: true, action: data };
   }
 
-  // 2. Settings Toggles & Stop All Opt-Out
+  // 1B. Profile Registration & Name Editing Callbacks
+  if (data === 'register:confirm') {
+    const flow = user.activeFlow;
+    if (flow?.type === 'register_confirm') {
+      const saveRes =
+        flow.mode === 'edit'
+          ? await ctx.userService.updateProfileName(user.telegramId, flow.firstName, flow.lastName)
+          : await ctx.userService.completeProfileRegistration(
+              user.telegramId,
+              flow.firstName,
+              flow.lastName
+            );
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'idle' });
+      if (!saveRes.ok || !saveRes.user) {
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: dict.registerInvalidName.slice(0, 180),
+          show_alert: true,
+        });
+        return { handled: true, action: 'register:confirm:invalid' };
+      }
+
+      const fullName = getUserDisplayFullName(saveRes.user);
+      const doneText =
+        flow.mode === 'edit'
+          ? dict.profileEditNameDone.replace('{fullName}', fullName)
+          : dict.registerComplete.replace('{fullName}', fullName);
+      const formatted = ctx.emojiRegistry.formatMessage(doneText);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: '[ON]',
+      });
+      if (flow.mode === 'edit') {
+        const profileFmt = formatProfileMessageText(
+          saveRes.user,
+          role,
+          ctx.emojiRegistry,
+          ctx.repository,
+          ctx.hifzService
+        );
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: `${formatted.text}\n\n${profileFmt.text}`,
+          reply_markup: buildProfileKeyboard(saveRes.user.language, ctx.emojiRegistry),
+        });
+      } else {
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: `${formatted.text}\n\n${dict.mainMenuPrompt}`,
+          reply_markup: buildMainMenuKeyboard(
+            saveRes.user.language,
+            ctx.emojiRegistry,
+            ctx.config,
+            menuOpts
+          ),
+        });
+      }
+      return { handled: true, action: 'register:confirm' };
+    }
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    return { handled: true, action: 'register:confirm:noop' };
+  }
+
+  if (data === 'register:retry') {
+    const mode =
+      user.activeFlow &&
+      (user.activeFlow.type === 'register_confirm' ||
+        user.activeFlow.type === 'register_last_name' ||
+        user.activeFlow.type === 'register_first_name')
+        ? user.activeFlow.mode
+        : isUserProfileRegistered(user)
+          ? 'edit'
+          : 'register';
+    await ctx.userService.setActiveFlow(user.telegramId, {
+      type: 'register_first_name',
+      mode,
+    });
+    const formatted = ctx.emojiRegistry.formatMessage(dict.registerAskFirstName);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildRegistrationCancelKeyboard(user.language),
+    });
+    return { handled: true, action: 'register:retry' };
+  }
+
+  if (data === 'register:cancel') {
+    await ctx.userService.setActiveFlow(user.telegramId, { type: 'idle' });
+    const formatted = ctx.emojiRegistry.formatMessage(dict.registerCancelled);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildMainMenuKeyboard(user.language, ctx.emojiRegistry, ctx.config, menuOpts),
+    });
+    return { handled: true, action: 'register:cancel' };
+  }
+
+  if (data === 'profile:edit_name') {
+    const mode = isUserProfileRegistered(user) ? 'edit' : 'register';
+    await ctx.userService.setActiveFlow(user.telegramId, {
+      type: 'register_first_name',
+      mode,
+    });
+    const formatted = ctx.emojiRegistry.formatMessage(dict.registerAskFirstName);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildRegistrationCancelKeyboard(user.language),
+    });
+    return { handled: true, action: 'profile:edit_name' };
+  }
+
+  if (data === 'profile:notif_history') {
+    const formatted = ctx.contentAdapter.formatNotificationHistory(
+      user.notificationHistory || [],
+      user.language,
+      ctx.emojiRegistry
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildProfileKeyboard(user.language, ctx.emojiRegistry),
+    });
+    return { handled: true, action: 'profile:notif_history' };
+  }
+
+  // 2. Settings Toggles, Per-Prayer Alerts, Adhan Audio, Quiet Hours & Stop All Opt-Out
+  if (data === 'settings:prayers') {
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(user);
+    const formatted = ctx.emojiRegistry.formatMessage(dict.prayerSettingsTitle);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildPerPrayerSettingsKeyboard(user.language, prefs, ctx.emojiRegistry),
+    });
+    return { handled: true, action: 'settings:prayers' };
+  }
+
+  if (data.startsWith('settings:prayer:')) {
+    const prayerKey = data.slice('settings:prayer:'.length) as TelegramPrayerNotificationKey;
+    const validKeys: TelegramPrayerNotificationKey[] = [
+      'tahajjud',
+      'subh',
+      'bomdod',
+      'peshin',
+      'asr',
+      'shom',
+      'xufton',
+      'juma',
+    ];
+    if (validKeys.includes(prayerKey)) {
+      const updatedUser =
+        (await ctx.userService.togglePrayerNotification(user.telegramId, prayerKey)) || user;
+      const prefs = ctx.userService.getEffectiveNotificationPreferences(updatedUser);
+      const formatted = ctx.emojiRegistry.formatMessage(dict.prayerSettingsTitle);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: dict.settingUpdatedToast,
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildPerPrayerSettingsKeyboard(
+          updatedUser.language,
+          prefs,
+          ctx.emojiRegistry
+        ),
+      });
+      return { handled: true, action: data };
+    }
+  }
+
+  if (data.startsWith('settings:notif:')) {
+    const rawField = data.slice('settings:notif:'.length);
+    const aliasMap: Record<string, string> = {
+      dailyDigestEnabled: 'dailyBriefEnabled',
+      hifzRemindersEnabled: 'hifzMurojaaEnabled',
+    };
+    const field = aliasMap[rawField] || rawField;
+    const allowedFields = [
+      'dailyBriefEnabled',
+      'verseOfDayEnabled',
+      'hadithOfDayEnabled',
+      'dhikrReminderEnabled',
+      'hifzMurojaaEnabled',
+      'hifzNewEnabled',
+      'quranAudioUpdatesEnabled',
+      'newContentEnabled',
+      'appUpdatesEnabled',
+      'botUpdatesEnabled',
+      'adminRepliesEnabled',
+    ] as const;
+    if ((allowedFields as readonly string[]).includes(field)) {
+      const updatedUser =
+        (await ctx.userService.toggleNotificationPref(
+          user.telegramId,
+          field as (typeof allowedFields)[number]
+        )) || user;
+      const prefs = ctx.userService.getEffectiveNotificationPreferences(updatedUser);
+      const formatted = ctx.emojiRegistry.formatMessage(dict.prayerSettingsTitle);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: dict.settingUpdatedToast,
+      });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildPerPrayerSettingsKeyboard(
+            updatedUser.language,
+            prefs,
+            ctx.emojiRegistry
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+  }
+
+  if (data === 'settings:adhan') {
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(user);
+    const formatted = ctx.emojiRegistry.formatMessage(dict.adhanAudioTitle);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildAdhanAudioKeyboard(
+          user.language,
+          prefs.adhanAudioTrackId === 'none' ? null : prefs.adhanAudioTrackId,
+          ctx.emojiRegistry
+        ),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'settings:adhan' };
+  }
+
+  if (data.startsWith('settings:adhan:')) {
+    const rawTrackId = data.slice('settings:adhan:'.length);
+    const mappedTrack: 'none' | 'makkah' | 'madinah' | 'asaka' =
+      rawTrackId === 'off' || rawTrackId === 'none'
+        ? 'none'
+        : rawTrackId.toLowerCase().includes('madin')
+          ? 'madinah'
+          : rawTrackId.toLowerCase().includes('asaka')
+            ? 'asaka'
+            : 'makkah';
+    const updatedUser =
+      (await ctx.userService.setAdhanTrack(user.telegramId, mappedTrack)) || user;
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(updatedUser);
+    const formatted = ctx.emojiRegistry.formatMessage(dict.adhanAudioTitle);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.settingUpdatedToast,
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildAdhanAudioKeyboard(
+          updatedUser.language,
+          prefs.adhanAudioTrackId === 'none' ? null : prefs.adhanAudioTrackId,
+          ctx.emojiRegistry
+        ),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  if (data === 'settings:quiet') {
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(user);
+    const formatted = ctx.emojiRegistry.formatMessage(dict.quietHoursTitle);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildQuietHoursKeyboard(user.language, prefs, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'settings:quiet' };
+  }
+
+  if (data.startsWith('settings:quiet:')) {
+    const preset = data.slice('settings:quiet:'.length);
+    let updatedUser = user;
+    if (preset === 'off') {
+      updatedUser = (await ctx.userService.setQuietHours(user.telegramId, null, null)) || user;
+    } else {
+      const m = preset.match(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/);
+      if (m) {
+        updatedUser =
+          (await ctx.userService.setQuietHours(
+            user.telegramId,
+            `${m[1]}:${m[2]}`,
+            `${m[3]}:${m[4]}`
+          )) || user;
+      }
+    }
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(updatedUser);
+    const formatted = ctx.emojiRegistry.formatMessage(dict.quietHoursTitle);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.settingUpdatedToast,
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildQuietHoursKeyboard(updatedUser.language, prefs, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
   if (data === 'settings:stop_all') {
     const updatedUser = (await ctx.userService.optOutAllNotifications(user.telegramId)) || user;
     const nextDict = getTelegramLocaleBundle(updatedUser.language);
@@ -236,6 +642,59 @@ export async function handleCallbackQuery(
       });
       return { handled: true, action: `settings:toggle:${field}` };
     }
+  }
+
+  // 2B. Daily Smart Assistant & Qibla Callbacks
+  if (data === 'daily:today') {
+    const dayIdx = ctx.contentAdapter.getDayIndexedVerseIndex();
+    const ayah = ctx.contentAdapter.formatQuranDailyAyah(dayIdx, user.language, ctx.emojiRegistry);
+    const hadith = ctx.contentAdapter.formatHadithCard(dayIdx, user.language, ctx.emojiRegistry);
+    const dhikr = ctx.contentAdapter.formatDhikrCard(dayIdx, 0, user.language, ctx.emojiRegistry);
+    const announcements = ctx.contentAdapter.centralContent.getPublishedAnnouncements();
+    let hifzSummary: string | undefined;
+    if (ctx.hifzService && ctx.hifzService.getProfileIfExists(user.telegramId)) {
+      const { profile: hpProfile, plan: hp } = await ctx.hifzService.getOrGenerateTodayPlan(
+        user.telegramId
+      );
+      const hs = ctx.hifzService.getStats(hpProfile);
+      const pending = hp.tasks.filter((t) => !t.completed).length;
+      hifzSummary = `${hs.memorizedAyahsCount}/6236 (${hs.memorizedPercent}%) | Bugungi vazifalar: ${pending}`;
+    }
+    const digest = ctx.prayerAdapter.formatDailySmartDigest({
+      locale: user.language,
+      emojiRegistry: ctx.emojiRegistry,
+      userDisplayName: getUserDisplayFullName(user),
+      verseSummary: ayah.formatted.text.split('\n').slice(2, 6).join('\n'),
+      hadithSummary: hadith.formatted.text.split('\n').slice(2, 5).join('\n'),
+      dhikrSummary: dhikr.formatted.text.split('\n').slice(2, 5).join('\n'),
+      hifzSummaryLine: hifzSummary,
+      announcementTitle: announcements[0]?.title,
+    });
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: digest.text,
+      entities: digest.entities,
+      reply_markup: buildMainMenuKeyboard(user.language, ctx.emojiRegistry, ctx.config, menuOpts),
+    });
+    return { handled: true, action: 'daily:today' };
+  }
+
+  if (data === 'qibla:home') {
+    const dirLabel = getCompassDirectionLabel(ASAKA_DEFAULT_QIBLA_BEARING, user.language);
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `${dict.qiblaTitle}\n\n` +
+        `{{emoji:prayer}} Asaka: ${ASAKA_DEFAULT_QIBLA_BEARING}° (${dirLabel}) • ~${ASAKA_DISTANCE_TO_KAABA_KM} km\n\n` +
+        `${dict.qiblaPromptLocation}\n\n` +
+        `${dict.qiblaCompassNotice}`
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await ctx.apiClient.sendMessage({
+      chat_id: chatId,
+      text: formatted.text,
+      ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+      reply_markup: buildQiblaReplyKeyboard(user.language),
+    });
+    return { handled: true, action: 'qibla:home' };
   }
 
   // 3. Prayer Extras: prayer:ramadan | prayer:calendar
@@ -318,20 +777,114 @@ export async function handleCallbackQuery(
   if (data.startsWith('quran:surah:')) {
     const num = Number(data.slice('quran:surah:'.length)) || 1;
     const formatted = ctx.contentAdapter.formatSurahCard(num, user.language, ctx.emojiRegistry);
-    const page = Math.floor((num - 1) / 10);
-    const paged = ctx.contentAdapter.getSurahPage(page, 10);
     await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
     await renderScreenUpdate(ctx.apiClient, callback, {
       text: formatted.text,
       entities: formatted.entities,
-      reply_markup: buildSurahListKeyboard(
+      reply_markup: buildSurahDetailKeyboard(user.language, num, ctx.emojiRegistry),
+    });
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('quran:read:')) {
+    const parts = data.split(':');
+    const surahNum = Number(parts[2]) || 1;
+    const ayahNum = Number(parts[3]) || 1;
+    const res = await ctx.contentAdapter.formatSurahAyahReader({
+      repo: ctx.repository,
+      telegramId: user.telegramId,
+      surahNumber: surahNum,
+      ayahNumber: ayahNum,
+      locale: user.language,
+      emojiRegistry: ctx.emojiRegistry,
+    });
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: res.formatted.text,
+      entities: res.formatted.entities,
+      reply_markup: buildSurahReaderKeyboard(
         user.language,
-        paged.items,
-        ctx.emojiRegistry,
-        paged.page,
-        paged.totalPages
+        res.surahNumber,
+        res.ayahNumber,
+        res.totalAyahs,
+        ctx.emojiRegistry
       ),
     });
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('quran:reciters:')) {
+    const surahNum = Number(data.slice('quran:reciters:'.length)) || 1;
+    const eng = ctx.repository.getUserEngagement(user.telegramId);
+    const currentReciter = eng.preferredReciterId || 'mishary';
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `${dict.quranTitle}\n\n{{emoji:quran_mp3}} ${dict.buttons.quranReciters}:`
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildQuranRecitersKeyboard(
+        user.language,
+        surahNum,
+        currentReciter,
+        ctx.emojiRegistry
+      ),
+    });
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('quran:setreciter:')) {
+    const parts = data.split(':');
+    const reciterId = parts[2] || 'mishary';
+    const surahNum = Number(parts[3]) || 1;
+    const eng = ctx.repository.getUserEngagement(user.telegramId);
+    eng.preferredReciterId = reciterId;
+    await ctx.repository.saveUserEngagement(eng);
+    if (ctx.hifzService && ctx.hifzService.getProfileIfExists(user.telegramId)) {
+      await ctx.hifzService.updateSettings(user.telegramId, { preferredReciterId: reciterId });
+    }
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `${dict.quranTitle}\n\n{{emoji:success}} ${dict.settingUpdatedToast}`
+    );
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.settingUpdatedToast,
+    });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildQuranRecitersKeyboard(
+        user.language,
+        surahNum,
+        reciterId,
+        ctx.emojiRegistry
+      ),
+    });
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('quran:audio:')) {
+    const surahNum = Number(data.slice('quran:audio:'.length)) || 1;
+    const eng = ctx.repository.getUserEngagement(user.telegramId);
+    const audioInfo = ctx.contentAdapter.getReciterAudioUrl(surahNum, eng.preferredReciterId);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+ text: `${audioInfo.surahName}`,
+    });
+    await ctx.apiClient.sendAudio({
+      chat_id: chatId,
+      audio: audioInfo.url,
+      title: audioInfo.surahName,
+      performer: audioInfo.reciterName,
+      caption: `{{emoji:quran_mp3}} ${audioInfo.surahName} — ${audioInfo.reciterName}`,
+    });
+    await ctx.contentAdapter.recordAudioResume(
+      ctx.repository,
+      user.telegramId,
+      `quran_surah_${surahNum}`,
+      `${audioInfo.surahName} (${audioInfo.reciterName})`
+    );
     return { handled: true, action: data };
   }
 
@@ -420,8 +973,11 @@ export async function handleCallbackQuery(
   }
 
   if (data.startsWith('bookmark:hadith:')) {
-    const idx = Number(data.slice('bookmark:hadith:'.length)) || 0;
-    const item = ctx.contentAdapter.formatHadithCard(idx, user.language, ctx.emojiRegistry);
+    const rawKey = data.slice('bookmark:hadith:'.length);
+    const allHadiths = ctx.contentAdapter.getHadithsByCollection('all');
+    const byIdIdx = allHadiths.findIndex((h) => String(h.id) === rawKey);
+    const resolvedIdx = byIdIdx >= 0 ? byIdIdx : Number(rawKey) || 0;
+    const item = ctx.contentAdapter.formatHadithCard(resolvedIdx, user.language, ctx.emojiRegistry);
     const toggled = await ctx.contentAdapter.toggleBookmark(ctx.repository, user.telegramId, {
       id: `hadith_${item.hadithId}`,
       kind: 'hadith',
@@ -431,6 +987,77 @@ export async function handleCallbackQuery(
     await ctx.apiClient.answerCallbackQuery({
       callback_query_id: callback.id,
       text: toggled.saved ? dict.bookmarkSavedToast : dict.bookmarkRemovedToast,
+    });
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('bookmark:open:')) {
+    const bmId = data.slice('bookmark:open:'.length);
+    const eng = ctx.repository.getUserEngagement(user.telegramId);
+    const bm = eng.bookmarks.find((b) => b.id === bmId || b.id.startsWith(bmId));
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    if (!bm) {
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: dict.bookmarksEmpty,
+        reply_markup: buildInteractiveBookmarksKeyboard(
+          user.language,
+          eng.bookmarks,
+          ctx.emojiRegistry
+        ),
+      });
+      return { handled: true, action: 'bookmark:open:missing' };
+    }
+    if (bm.kind === 'hadith') {
+      const list = ctx.contentAdapter.getHadithsByCollection('all');
+      const idx = Math.max(0, list.findIndex((h) => String(h.id) === bm.refId));
+      const res = ctx.contentAdapter.formatHadithCard(idx, user.language, ctx.emojiRegistry);
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: res.formatted.text,
+        entities: res.formatted.entities,
+        reply_markup: buildHadithKeyboard(
+          user.language,
+          res.index,
+          res.total,
+          ctx.emojiRegistry,
+          'all',
+          res.hadithId
+        ),
+      });
+      return { handled: true, action: data };
+    }
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `${dict.bookmarksTitle}\n\n{{emoji:brand}} [${bm.kind.toUpperCase()}] ${bm.title}\nID: ${bm.refId}`
+    );
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildInteractiveBookmarksKeyboard(
+        user.language,
+        eng.bookmarks,
+        ctx.emojiRegistry
+      ),
+    });
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('bookmark:del:')) {
+    const bmId = data.slice('bookmark:del:'.length);
+    const eng = ctx.repository.getUserEngagement(user.telegramId);
+    eng.bookmarks = eng.bookmarks.filter((b) => b.id !== bmId && !b.id.startsWith(bmId));
+    await ctx.repository.saveUserEngagement(eng);
+    const formatted = formatBookmarksMessageText(user, ctx.repository, ctx.emojiRegistry);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.bookmarkRemovedToast,
+    });
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildInteractiveBookmarksKeyboard(
+        user.language,
+        eng.bookmarks,
+        ctx.emojiRegistry
+      ),
     });
     return { handled: true, action: data };
   }
@@ -475,7 +1102,8 @@ export async function handleCallbackQuery(
         safeSubIdx,
         totalFiltered,
         ctx.emojiRegistry,
-        col
+        col,
+        res.hadithId
       ),
     });
     return { handled: true, action: data };
@@ -612,7 +1240,7 @@ export async function handleCallbackQuery(
     );
     await ctx.apiClient.answerCallbackQuery({
       callback_query_id: callback.id,
-      text: done ? '✅ Dars yakunlandi!' : 'Holat yangilandi',
+ text: done ? '[ON] Dars yakunlandi!': 'Holat yangilandi',
     });
     await renderScreenUpdate(ctx.apiClient, callback, {
       text: res.formatted.text,
@@ -640,7 +1268,7 @@ export async function handleCallbackQuery(
     }
     const q = started.currentQuestion;
     const formatted = ctx.emojiRegistry.formatMessage(
-      `${dict.quizTitle} (1/${started.total})\n\n❓ ${q.questionUz}`
+      `${dict.quizTitle} (1/${started.total})\n\n{{emoji:warning}} ${q.questionUz}`
     );
     await renderScreenUpdate(ctx.apiClient, callback, {
       text: formatted.text,
@@ -661,7 +1289,7 @@ export async function handleCallbackQuery(
     );
     await ctx.apiClient.answerCallbackQuery({
       callback_query_id: callback.id,
-      text: ans.isCorrect ? '✅ Toʻgʻri javob!' : '❌ Notoʻgʻri javob',
+ text: ans.isCorrect ? '[ON] Toʻgʻri javob!': 'Notoʻgʻri javob',
     });
 
     if (ans.finished) {
@@ -669,7 +1297,7 @@ export async function handleCallbackQuery(
         `${dict.quizFinishedTitle}\n\n` +
           `• Natija: ${ans.score} / ${ans.total}\n` +
           `• Toʻplangan ball: +${ans.pointsEarned}\n\n` +
-          (ans.explanation ? `💡 ${ans.explanation}` : '')
+          (ans.explanation ? `{{emoji:ai_assistant}} ${ans.explanation}` : '')
       );
       await renderScreenUpdate(ctx.apiClient, callback, {
         text: formatted.text,
@@ -688,9 +1316,9 @@ export async function handleCallbackQuery(
       return { handled: true, action: data };
     }
 
-    const feedback = `${ans.isCorrect ? '✅ Toʻgʻri!' : '❌ Xato.'} ${ans.explanation ? `\n💡 ${ans.explanation}\n\n` : '\n\n'}`;
+    const feedback = `${ans.isCorrect ? '{{emoji:success}} Toʻgʻri!' : '{{emoji:error}} Xato.'} ${ans.explanation ? `\n{{emoji:ai_assistant}} ${ans.explanation}\n\n` : '\n\n'}`;
     const formatted = ctx.emojiRegistry.formatMessage(
-      `${feedback}${dict.quizTitle} (${nextQ.index + 1}/${nextQ.total})\n\n❓ ${nextQ.question.questionUz}`
+      `${feedback}${dict.quizTitle} (${nextQ.index + 1}/${nextQ.total})\n\n{{emoji:warning}} ${nextQ.question.questionUz}`
     );
     await renderScreenUpdate(ctx.apiClient, callback, {
       text: formatted.text,
@@ -864,6 +1492,86 @@ export async function handleCallbackQuery(
     return { handled: true, action: 'android:guide' };
   }
 
+  if (data === 'android:send_apk') {
+    const info = await ctx.appReleaseService.getResolvedReleaseInfo({ checkGitHub: false });
+    if (!info.apkAvailable) {
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: 'APK fayli hozircha serverda mavjud emas.',
+        show_alert: true,
+      });
+      return { handled: true, action: 'android:send_apk:unavailable' };
+    }
+
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.androidSendingToast,
+    });
+    await ctx.apiClient.sendChatAction(chatId, 'upload_document');
+
+    const caption =
+      `{{emoji:brand}} ASAKA ZIYO v${info.version} (Build ${info.buildCode})\n` +
+      `{{emoji:brand}} ${info.apkFilename} (${info.fileSizeDisplay})\n` +
+      `{{emoji:admin}} SHA-256: ${(info.sha256Checksum || '').slice(0, 16)}…`;
+
+    const cachedFileId = info.sha256Checksum
+      ? ctx.appReleaseService.getCachedTelegramFileId(info.sha256Checksum)
+      : null;
+
+    let delivered = false;
+    if (cachedFileId) {
+      const sendRes = await ctx.apiClient.sendDocument({
+        chat_id: chatId,
+        document: cachedFileId,
+        caption,
+      });
+      delivered = sendRes.ok;
+    }
+
+    if (!delivered) {
+      const verified = await ctx.appReleaseService.getVerifiedApkBuffer();
+      if (!verified.ok || !verified.buffer) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `{{emoji:error}} APK faylini tekshirishda xatolik: ${verified.error || 'APK topilmadi'}`,
+          reply_markup: buildAndroidAppKeyboard(
+            user.language,
+            info,
+            ctx.emojiRegistry,
+            ctx.config,
+            menuOpts.miniAppEnabled
+          ),
+        });
+        return { handled: true, action: 'android:send_apk:invalid' };
+      }
+      const uploadRes = await ctx.apiClient.sendDocumentBuffer({
+        chat_id: chatId,
+        buffer: verified.buffer,
+        filename: verified.filename || info.apkFilename,
+        mimeType: 'application/vnd.android.package-archive',
+        caption,
+      });
+      delivered = uploadRes.ok;
+      const newFileId = (uploadRes.result as any)?.document?.file_id;
+      if (delivered && newFileId && verified.sha256) {
+        ctx.appReleaseService.setCachedTelegramFileId(verified.sha256, newFileId, info.version);
+      }
+    }
+
+    if (delivered) {
+      ctx.appReleaseService.incrementDownloadCount();
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role || 'user',
+        action: 'android_apk_delivered_direct',
+        targetType: 'apk',
+        targetId: info.version,
+        metadata: { fileName: info.apkFilename, cachedHit: Boolean(cachedFileId) },
+      });
+    }
+    return { handled: true, action: 'android:send_apk' };
+  }
+
   if (data === 'android:history') {
     const info = await ctx.appReleaseService.getResolvedReleaseInfo({ checkGitHub: false });
     const formatted = ctx.appReleaseService.formatTelegramAndroidAppCard(
@@ -887,7 +1595,503 @@ export async function handleCallbackQuery(
     return { handled: true, action: 'android:history' };
   }
 
-  // 9. Support Center: support:cat:<category> | support:my_tickets
+  // 8C. ASAKA ZIYO HIFZ — Full Quran Memorization & Murojaa Callback Suite
+  if (data.startsWith('hifz:')) {
+    if (!ctx.hifzService) {
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: dict.genericError,
+        show_alert: true,
+      });
+      return { handled: true, action: 'hifz:unavailable' };
+    }
+    const hs = getHifzStrings(user.language);
+
+    if (data === 'hifz:home') {
+      const { profile } = await ctx.hifzService.getOrGenerateTodayPlan(user.telegramId);
+      const stats = ctx.hifzService.getStats(profile);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzHomeText(profile, stats, user.language),
+        reply_markup: buildHifzHomeKeyboard(user.language),
+      });
+      return { handled: true, action: 'hifz:home' };
+    }
+
+    if (data === 'hifz:today' || data === 'hifz:today:refresh') {
+      const { plan } = await ctx.hifzService.getOrGenerateTodayPlan(
+        user.telegramId,
+        undefined,
+        data === 'hifz:today:refresh'
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzTodayPlanText(plan, user.language),
+        reply_markup: buildHifzTodayPlanKeyboard(plan, user.language),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:task:')) {
+      const taskId = data.slice('hifz:task:'.length);
+      const { plan } = await ctx.hifzService.getOrGenerateTodayPlan(user.telegramId);
+      const task = plan.tasks.find((t) => t.id === taskId);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      if (!task) {
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: formatHifzTodayPlanText(plan, user.language),
+          reply_markup: buildHifzTodayPlanKeyboard(plan, user.language),
+        });
+        return { handled: true, action: 'hifz:task:missing' };
+      }
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzTaskDetailText(task, user.language),
+        reply_markup: buildHifzTaskRatingKeyboard(task, user.language),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:rate:')) {
+      const parts = data.split(':');
+      const taskId = parts[2] || '';
+      const rawQ = Number(parts[3]) || 2;
+      const quality = Math.max(1, Math.min(5, rawQ)) as HifzReviewQuality;
+      const res = await ctx.hifzService.completeDailyTaskWithRating(
+        user.telegramId,
+        taskId,
+        quality
+      );
+      const { plan } = await ctx.hifzService.getOrGenerateTodayPlan(user.telegramId);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: res.ok
+ ? `[ON] Saqlandi! Keyingi murojaa: ${res.nextReviewDate || '—'}`
+          : res.error || 'Xatolik',
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzTodayPlanText(plan, user.language),
+        reply_markup: buildHifzTodayPlanKeyboard(plan, user.language),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:new') {
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const text =
+        `{{emoji:brand}} ${hs.btnNewMem}\n\n` +
+        `• Kunlik yangi oyat maqsadi: ${profile.dailyNewAyahsGoal} oyat/kun\n` +
+        `• Kunlik murojaa vaqti: ${profile.dailyReviewMinutesGoal} daqiqa\n` +
+        `• Yoʻnalish: ${profile.startDirection === 'juz_amma_first' ? '30-juz (Amma) dan' : profile.startDirection === 'beginning_first' ? '1-suradan (Fotiha)' : 'Maxsus'}`;
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text,
+        reply_markup: {
+          inline_keyboard: [
+            [
+ { text: 'Kunlik oyat maqsadi', callback_data: 'hifz:new:goal_ayahs'},
+ { text: 'Murojaa daqiqasi', callback_data: 'hifz:new:goal_min'},
+            ],
+            [
+ { text: '30-Juz (Amma) dan', callback_data: 'hifz:new:dir:juz_amma_first'},
+ { text: '1-Suradan boshlash', callback_data: 'hifz:new:dir:beginning_first'},
+            ],
+            [{ text: hs.btnTodayReview, callback_data: 'hifz:today' }],
+            [{ text: hs.btnBackHifz, callback_data: 'hifz:home' }],
+          ],
+        },
+      });
+      return { handled: true, action: 'hifz:new' };
+    }
+
+    if (data === 'hifz:new:goal_ayahs') {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'hifz_set_goal_ayahs' });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: ' Kuniga nechta yangi oyat yodlamoqchisiz? (1 dan 50 gacha son yuboring, masalan: 5)',
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:new:goal_min') {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'hifz_set_goal_minutes' });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: '{{emoji:notifications}} Kuniga necha daqiqa murojaa qilmoqchisiz? (10 dan 240 gacha son yuboring, masalan: 30)',
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:new:dir:')) {
+      const dir = data.slice('hifz:new:dir:'.length);
+      if (dir === 'juz_amma_first' || dir === 'beginning_first' || dir === 'custom') {
+        await ctx.hifzService.updateSettings(user.telegramId, { startDirection: dir });
+      }
+      const { profile } = await ctx.hifzService.getOrGenerateTodayPlan(user.telegramId, undefined, true);
+      const stats = ctx.hifzService.getStats(profile);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: dict.settingUpdatedToast,
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzHomeText(profile, stats, user.language),
+        reply_markup: buildHifzHomeKeyboard(user.language),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:memorized' || data.startsWith('hifz:memorized:')) {
+      const page = data.startsWith('hifz:memorized:')
+        ? Number(data.slice('hifz:memorized:'.length)) || 0
+        : 0;
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const view = formatMemorizedSurahsPage(profile, page, user.language);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: view.text,
+        reply_markup: view.keyboard,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:surah:')) {
+      const parts = data.split(':');
+      const surahNum = Number(parts[2]) || 1;
+      const returnPage = Number(parts[3]) || 0;
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const view = formatSurahHifzDetail(profile, surahNum, returnPage, user.language);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: view.text,
+        reply_markup: view.keyboard,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:markfull:')) {
+      const parts = data.split(':');
+      const surahNum = Number(parts[2]) || 1;
+      const returnPage = Number(parts[3]) || 0;
+      const res = await ctx.hifzService.markFullSurahMemorized(user.telegramId, surahNum);
+      const profile = res.profile || (await ctx.hifzService.getOrCreateProfile(user.telegramId));
+      const view = formatSurahHifzDetail(profile, surahNum, returnPage, user.language);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: '[ON] Sura toʻliq yodlandi deb belgilandi!',
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: view.text,
+        reply_markup: view.keyboard,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:markrange:')) {
+      const surahNum = Number(data.slice('hifz:markrange:'.length)) || 1;
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'hifz_mark_range',
+        surahNumber: surahNum,
+      });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `{{emoji:quran}} ${surahNum}-sura uchun yodlagan oyat oraligʻini kiriting (masalan: 1-10 yoki 5):`,
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:unmark:')) {
+      const parts = data.split(':');
+      const surahNum = Number(parts[2]) || 1;
+      const returnPage = Number(parts[3]) || 0;
+      const res = await ctx.hifzService.unmarkSurah(user.telegramId, surahNum);
+      const profile = res.profile || (await ctx.hifzService.getOrCreateProfile(user.telegramId));
+      const view = formatSurahHifzDetail(profile, surahNum, returnPage, user.language);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: 'Del Sura belgisi olib tashlandi.',
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: view.text,
+        reply_markup: view.keyboard,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:juzmap') {
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const view = formatJuzMapView(profile, user.language);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: view.text,
+        reply_markup: view.keyboard,
+      });
+      return { handled: true, action: 'hifz:juzmap' };
+    }
+
+    if (data.startsWith('hifz:markjuz:')) {
+      const juzNum = Number(data.slice('hifz:markjuz:'.length)) || 30;
+      const res = await ctx.hifzService.markJuzMemorized(user.telegramId, juzNum);
+      const profile = res.profile || (await ctx.hifzService.getOrCreateProfile(user.telegramId));
+      const view = formatJuzMapView(profile, user.language);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: `[ON] ${juzNum}-juz belgilandi!`,
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: view.text,
+        reply_markup: view.keyboard,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:calendar') {
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const cal = ctx.hifzService.getReviewCalendar(profile, 7);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzCalendarText(cal, profile.lifelong.active, user.language),
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: 'hifz:calendar' };
+    }
+
+    if (data === 'hifz:stats') {
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const stats = ctx.hifzService.getStats(profile);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatHifzStatsText(profile, stats, user.language),
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: 'hifz:stats' };
+    }
+
+    if (data === 'hifz:coach') {
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      const coachRes = await ctx.hifzService.askCoach(user.telegramId, user.language);
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: coachRes.text,
+        reply_markup: {
+          inline_keyboard: [
+ [{ text: 'Murabbiyga savol berish', callback_data: 'hifz:coach:ask'}],
+            [{ text: hs.btnBackHifz, callback_data: 'hifz:home' }],
+          ],
+        },
+      });
+      return { handled: true, action: 'hifz:coach' };
+    }
+
+    if (data === 'hifz:coach:ask') {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'hifz_coach_ask' });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: '{{emoji:hifz}} Hifz murabbiyingizga savolingizni yozing (masalan: «Qanday qilib Baqara surasini tezroq mustahkamlasam boʻladi?»):',
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:audio') {
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'hifz_audio_check',
+        surahNumber: 1,
+        startAyah: 1,
+        endAyah: 7,
+      });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `{{emoji:quran_mp3}} ${hs.btnAudioCheck}\n\nFotiha surasi (1–7-oyat) yoki tanlangan sura tilovatingizni ovozli xabar (Voice) qilib yuboring.\n\n${hs.audioDisclaimer}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+ { text: 'Fotiha (1-7)', callback_data: 'hifz:audiostart:1:1:7'},
+ { text: 'Ixlos (1-4)', callback_data: 'hifz:audiostart:112:1:4'},
+            ],
+            [
+ { text: 'Falaq (1-5)', callback_data: 'hifz:audiostart:113:1:5'},
+ { text: 'Nas (1-6)', callback_data: 'hifz:audiostart:114:1:6'},
+            ],
+            [{ text: hs.btnBackHifz, callback_data: 'hifz:home' }],
+          ],
+        },
+      });
+      return { handled: true, action: 'hifz:audio' };
+    }
+
+    if (data.startsWith('hifz:audiostart:')) {
+      const parts = data.split(':');
+      const surahNumber = Number(parts[2]) || 1;
+      const startAyah = Number(parts[3]) || 1;
+      const endAyah = Number(parts[4]) || 7;
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'hifz_audio_check',
+        surahNumber,
+        startAyah,
+        endAyah,
+      });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `{{emoji:quran_mp3}} ${surahNumber}-sura (${startAyah}–${endAyah}-oyat) tilovatingizni endi ovozli xabar (Voice) qilib yuboring.\n\n${hs.audioDisclaimer}`,
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:play:') || data.startsWith('hifz:audio:listen:')) {
+      const surahNumber =
+        Number(
+          data.startsWith('hifz:audio:listen:')
+            ? data.slice('hifz:audio:listen:'.length)
+            : data.slice('hifz:play:'.length)
+        ) || 1;
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const reciterId = profile.preferredReciterId || 'mishary';
+      if (ctx.quranMp3Service) {
+        const eng = ctx.repository.getUserEngagement(user.telegramId);
+        const isFavSurah = Boolean(
+          eng.favoriteSurahTracks?.some(
+            (t) => t.reciterId === reciterId && t.surahNumber === surahNumber
+          )
+        );
+        const isFavReciter = Boolean(eng.favoriteReciterIds?.includes(reciterId));
+        const controls = buildQuranMp3TrackControlsKeyboard(
+          user.language,
+          reciterId,
+          surahNumber,
+          isFavSurah,
+          isFavReciter,
+          ctx.emojiRegistry,
+          ctx.config,
+          menuOpts.miniAppEnabled
+        );
+        const playRes = await ctx.quranMp3Service.sendSurahAudioToChat({
+          chatId,
+          telegramId: user.telegramId,
+          reciterId,
+          surahNumber,
+          captionPrefix: '{{emoji:hifz}} HIFZ Murojaa',
+          replyMarkup: ctx.styleManager
+            ? ctx.styleManager.decorateInlineMarkup(controls)
+            : controls,
+        });
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: playRes.ok
+ ? `${playRes.track?.surahNameUz || `${surahNumber}-sura`}`
+            : (playRes.error || 'Audio topilmadi').slice(0, 180),
+          ...(playRes.ok ? {} : { show_alert: true }),
+        });
+        return { handled: true, action: data };
+      }
+      const audioInfo = ctx.contentAdapter.getReciterAudioUrl(surahNumber, reciterId);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: `${audioInfo.surahName}`,
+      });
+      await ctx.apiClient.sendAudio({
+        chat_id: chatId,
+        audio: audioInfo.url,
+        title: audioInfo.surahName,
+        performer: audioInfo.reciterName,
+        caption: `{{emoji:quran_mp3}} HIFZ — ${audioInfo.surahName} (${audioInfo.reciterName})`,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('hifz:logdiff:')) {
+      const surahNumber = Number(data.slice('hifz:logdiff:'.length)) || 1;
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'hifz_log_difficult',
+        surahNumber,
+      });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `{{emoji:warning}} ${surahNumber}-suradagi qiyin oyat raqamini (va xohlasangiz qisqa izoh) yuboring. Masalan: 5 yoki 5 madd qoidasi`,
+        reply_markup: { inline_keyboard: [[{ text: hs.btnBackHifz, callback_data: 'hifz:home' }]] },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:reminders' || data.startsWith('hifz:rem:')) {
+      let profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      if (data.startsWith('hifz:rem:')) {
+        const slot = data.slice('hifz:rem:'.length);
+        const r = profile.reminders;
+        const patch =
+          slot === 'morning'
+            ? { morningEnabled: !r.morningEnabled }
+            : slot === 'midday'
+              ? { middayEnabled: !r.middayEnabled }
+              : slot === 'evening'
+                ? { eveningEnabled: !r.eveningEnabled }
+                : slot === 'due'
+                  ? { dueReviewAlertEnabled: !r.dueReviewAlertEnabled }
+                  : slot === 'new'
+                    ? { newMemorizationReminderEnabled: !r.newMemorizationReminderEnabled }
+                    : {};
+        profile = await ctx.hifzService.updateSettings(user.telegramId, { reminders: patch });
+      }
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        ...(data.startsWith('hifz:rem:') ? { text: dict.settingUpdatedToast } : {}),
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `{{emoji:notifications}} ${hs.btnReminders} (Asia/Tashkent)`,
+        reply_markup: buildHifzRemindersKeyboard(profile, user.language),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'hifz:reciters' || data.startsWith('hifz:setreciter:')) {
+      let profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      if (data.startsWith('hifz:setreciter:')) {
+        const recId = data.slice('hifz:setreciter:'.length);
+        profile = await ctx.hifzService.updateSettings(user.telegramId, {
+          preferredReciterId: recId,
+        });
+      }
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        ...(data.startsWith('hifz:setreciter:') ? { text: dict.settingUpdatedToast } : {}),
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `{{emoji:quran_mp3}} ${hs.btnReciters}`,
+        reply_markup: buildHifzRecitersKeyboard(profile, user.language),
+      });
+      return { handled: true, action: data };
+    }
+  }
+
+  // 9. Support Center: support:cat:<category> | support:my_tickets | support:reply_user:<ticketId>
+  if (data.startsWith('support:reply_user:')) {
+    const ticketId = data.slice('support:reply_user:'.length);
+    const ticket = ctx.repository.getSupportTicket(ticketId);
+    if (!ticket || ticket.userId !== user.telegramId) {
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: dict.genericError,
+        show_alert: true,
+      });
+      return { handled: true, action: 'support:reply_user:denied' };
+    }
+    await ctx.userService.setActiveFlow(user.telegramId, {
+      type: 'support_reply',
+      ticketId,
+    });
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `${dict.supportTitle} [${ticketId}]\n\n${dict.supportWritePrompt}`
+    );
+    await renderScreenUpdate(ctx.apiClient, callback, {
+      text: formatted.text,
+      entities: formatted.entities,
+      reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+    });
+    return { handled: true, action: data };
+  }
+
   if (data.startsWith('support:cat:')) {
     const cat = data.slice('support:cat:'.length) as TelegramSupportTicketCategory;
     await ctx.userService.setActiveFlow(user.telegramId, {
@@ -919,11 +2123,14 @@ export async function handleCallbackQuery(
             )
             .join('\n\n');
     const formatted = ctx.emojiRegistry.formatMessage(`${dict.supportTitle}\n\n${body}`);
+    const latestActive = tickets.find((t) => t.status !== 'closed');
     await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
     await renderScreenUpdate(ctx.apiClient, callback, {
       text: formatted.text,
       entities: formatted.entities,
-      reply_markup: buildSupportHomeKeyboard(user.language, ctx.emojiRegistry),
+      reply_markup: latestActive
+        ? buildSupportTicketUserReplyKeyboard(user.language, latestActive.id, ctx.emojiRegistry)
+        : buildSupportHomeKeyboard(user.language, ctx.emojiRegistry),
     });
     return { handled: true, action: 'support:my_tickets' };
   }
@@ -936,6 +2143,629 @@ export async function handleCallbackQuery(
       text: dict.aiClearHistoryToast,
     });
     return { handled: true, action: 'ai:clear' };
+  }
+
+  // 10B. Dedicated QUR'ON MP3 Section (10 Reciters × 114 Surahs + Telegram Native Audio Player)
+  if (data.startsWith('qmp3:') && ctx.quranMp3Service) {
+    const mp3 = ctx.quranMp3Service;
+
+    if (data === 'qmp3:home') {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const reciters = mp3.listReciters();
+      const stats = eng.audioListeningStats;
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:quran_mp3}} ASAKA ZIYO — QURʼON MP3 KUTUBXONASI\n\n` +
+          `{{emoji:quran_mp3}} Qorilar: ${reciters.length} ta • 114 ta sura\n` +
+          (stats?.totalPlays
+            ? `{{emoji:statistics}} Tinglangan suralar: ${stats.totalPlays} ta (~${stats.totalEstimatedMinutes} daq)\n`
+            : '') +
+          `\nTelegramning ichki audio pleyerida bevosita tinglang:`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildQuranMp3HomeKeyboard(
+            user.language,
+            ctx.emojiRegistry,
+            ctx.config,
+            Boolean(eng.audioResume?.reciterId && eng.audioResume?.surahNumber),
+            menuOpts.miniAppEnabled
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'qmp3:home' };
+    }
+
+    if (data.startsWith('qmp3:reciters:')) {
+      const page = Number(data.slice('qmp3:reciters:'.length)) || 0;
+      const reciters = mp3.listReciters();
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:quran_mp3}} Qorilar roʻyxati (${reciters.length} ta)\n\nTinglamoqchi boʻlgan qorini tanlang:`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildQuranMp3RecitersKeyboard(
+            user.language,
+            reciters,
+            eng.favoriteReciterIds || [],
+            page,
+            ctx.emojiRegistry
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('qmp3:reciter:')) {
+      const parts = data.split(':');
+      const reciterId = parts[2];
+      const page = Number(parts[3]) || 0;
+      const reciter = mp3.getReciterById(reciterId);
+      if (!reciter) {
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: 'Qori topilmadi.',
+          show_alert: true,
+        });
+        return { handled: true, action: 'qmp3:reciter:missing' };
+      }
+      const tracks = mp3.listSurahTracksForReciter(reciter.id);
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const isFav = Boolean(eng.favoriteReciterIds?.includes(reciter.id));
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:quran_mp3}} ${reciter.nameUz} (${reciter.nameAr})\n` +
+          `• Uslub: ${reciter.styleUz || 'Murattal'} | Mavjud suralar: ${reciter.availableSurahCount}/114\n\n` +
+          `Tinglash uchun surani tanlang:`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildQuranMp3SurahsKeyboard(
+            user.language,
+            reciter,
+            tracks,
+            page,
+            isFav,
+            ctx.emojiRegistry
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('qmp3:play:')) {
+      const parts = data.split(':');
+      const reciterId = parts[2];
+      const surahNumber = Number(parts[3]) || 1;
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const isFavSurah = Boolean(
+        eng.favoriteSurahTracks?.some(
+          (t) => t.reciterId === reciterId && t.surahNumber === surahNumber
+        )
+      );
+      const isFavReciter = Boolean(eng.favoriteReciterIds?.includes(reciterId));
+      const controls = buildQuranMp3TrackControlsKeyboard(
+        user.language,
+        reciterId,
+        surahNumber,
+        isFavSurah,
+        isFavReciter,
+        ctx.emojiRegistry,
+        ctx.config,
+        menuOpts.miniAppEnabled
+      );
+      const res = await mp3.sendSurahAudioToChat({
+        chatId,
+        telegramId: user.telegramId,
+        reciterId,
+        surahNumber,
+        replyMarkup: ctx.styleManager
+          ? ctx.styleManager.decorateInlineMarkup(controls)
+          : controls,
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: res.ok
+ ? `${res.track?.surahNumber}. ${res.track?.surahNameUz} (${res.usedCachedFileId ? 'Tezkor kesh': 'MP3'})`
+          : (res.error || 'Sura audiosi mavjud emas').slice(0, 180),
+        ...(res.ok ? {} : { show_alert: true }),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'qmp3:resume') {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const reciterId = eng.audioResume?.reciterId || eng.preferredReciterId || 'mishary';
+      const surahNumber = eng.audioResume?.surahNumber || 1;
+      const controls = buildQuranMp3TrackControlsKeyboard(
+        user.language,
+        reciterId,
+        surahNumber,
+        Boolean(
+          eng.favoriteSurahTracks?.some(
+            (t) => t.reciterId === reciterId && t.surahNumber === surahNumber
+          )
+        ),
+        Boolean(eng.favoriteReciterIds?.includes(reciterId)),
+        ctx.emojiRegistry,
+        ctx.config,
+        menuOpts.miniAppEnabled
+      );
+      const res = await mp3.sendSurahAudioToChat({
+        chatId,
+        telegramId: user.telegramId,
+        reciterId,
+        surahNumber,
+        replyMarkup: ctx.styleManager
+          ? ctx.styleManager.decorateInlineMarkup(controls)
+          : controls,
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: res.ok ? `${res.track?.surahNameUz}`: (res.error || 'Topilmadi').slice(0, 180),
+        ...(res.ok ? {} : { show_alert: true }),
+      });
+      return { handled: true, action: 'qmp3:resume' };
+    }
+
+    if (data.startsWith('qmp3:fav_reciter:')) {
+      const reciterId = data.slice('qmp3:fav_reciter:'.length);
+      const toggled = await mp3.toggleFavoriteReciter(user.telegramId, reciterId);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: toggled.isFavorite ? 'Qori sevimlilarga qoʻshildi!': 'Qori sevimlilardan olindi.',
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('qmp3:fav_surah:')) {
+      const parts = data.split(':');
+      const reciterId = parts[2];
+      const surahNumber = Number(parts[3]) || 1;
+      const toggled = await mp3.toggleFavoriteSurah(user.telegramId, reciterId, surahNumber);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+ text: toggled.isFavorite ? 'Sura sevimlilarga saqlandi!': 'Sura sevimlilardan olindi.',
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'qmp3:favorites') {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const favReciters = (eng.favoriteReciterIds || [])
+        .map((id) => mp3.getReciterById(id)?.nameUz || id)
+        .slice(0, 10);
+      const favSurahs = (eng.favoriteSurahTracks || []).slice(0, 10);
+      const rows: TelegramInlineKeyboardButton[][] = favSurahs.map((s) => [
+        {
+          text: `{{emoji:play}} ${s.title.slice(0, 44)}`,
+          callback_data: `qmp3:play:${s.reciterId}:${s.surahNumber}`,
+        },
+      ]);
+      rows.push([
+ ctx.emojiRegistry.buildKeyboardButton('quran_mp3', 'Qurʼon MP3', { callback_data: 'qmp3:home'}),
+        ctx.emojiRegistry.buildKeyboardButton('back', dict.buttons.backToMenu, { callback_data: 'nav:home' }),
+      ]);
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:favorites}} Sevimli Qorilar va Suralar\n\n` +
+          `{{emoji:quran_mp3}} Sevimli qorilar: ${favReciters.length > 0 ? favReciters.join(', ') : 'Hali tanlanmagan'}\n` +
+          `{{emoji:quran}} Sevimli suralar: ${favSurahs.length} ta`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: { inline_keyboard: rows },
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'qmp3:favorites' };
+    }
+
+    if (data === 'qmp3:history') {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const hist = (eng.audioListeningHistory || []).slice(0, 10);
+      const rows: TelegramInlineKeyboardButton[][] = hist.map((h) => [
+        {
+          text: `{{emoji:play}} ${h.title.slice(0, 44)}`,
+          callback_data: `qmp3:play:${h.reciterId}:${h.surahNumber}`,
+        },
+      ]);
+      rows.push([
+ ctx.emojiRegistry.buildKeyboardButton('quran_mp3', 'Qurʼon MP3', { callback_data: 'qmp3:home'}),
+        ctx.emojiRegistry.buildKeyboardButton('back', dict.buttons.backToMenu, { callback_data: 'nav:home' }),
+      ]);
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:calendar}} Oxirgi tinglangan suralar (${hist.length})`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: { inline_keyboard: rows },
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'qmp3:history' };
+    }
+
+    if (data === 'qmp3:stats') {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const st = eng.audioListeningStats || { totalPlays: 0, totalEstimatedMinutes: 0 };
+      const lastRec = st.lastReciterId ? mp3.getReciterById(st.lastReciterId)?.nameUz : '—';
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:statistics}} Qurʼon Tinglash Statistikasi\n\n` +
+          `• Jami tinglangan suralar: ${st.totalPlays} ta\n` +
+          `• Taxminiy tinglash vaqti: ~${st.totalEstimatedMinutes} daqiqa\n` +
+          `• Sevimli qorilar: ${(eng.favoriteReciterIds || []).length} ta\n` +
+          `• Sevimli suralar: ${(eng.favoriteSurahTracks || []).length} ta\n` +
+          `• Oxirgi qori: ${lastRec || '—'}`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildQuranMp3HomeKeyboard(
+            user.language,
+            ctx.emojiRegistry,
+            ctx.config,
+            Boolean(eng.audioResume?.reciterId),
+            menuOpts.miniAppEnabled
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'qmp3:stats' };
+    }
+
+    if (data === 'qmp3:search') {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'quran_mp3_search' });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: '{{emoji:brand}} Qori nomi, sura nomi yoki sura raqamini yuboring (masalan: Yasin, 36, Mishari, Odiljon):',
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'qmp3:search' };
+    }
+  }
+
+  // 10C. Notification Center (11 types + multi-select lead times), Privacy Center & Personal Reminders
+  if (data === 'notif:center') {
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(user);
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `{{emoji:notifications}} Bildirishnoma Markazi\n\n` +
+        `• Namozdan oldin eslatmalar: ${(prefs.leadMinutes || [0]).map((m) => `${m}m`).join(', ')}${prefs.customLeadMinutes ? ` + ${prefs.customLeadMinutes}m` : ''}\n` +
+        `• Vaqt zonasi: ${prefs.timezone || 'Asia/Tashkent'}`
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildNotificationCenterKeyboard(user, prefs, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'notif:center' };
+  }
+
+  if (data.startsWith('notif:lead:')) {
+    const val = data.slice('notif:lead:'.length);
+    if (val === 'custom') {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'notif_custom_lead_minutes' });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: '{{emoji:notifications}} Namozdan necha daqiqa oldin maxsus eslatma yuborilsin? (1 dan 120 gacha son yuboring, oʻchirish uchun 0):',
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'notif:lead:custom' };
+    }
+    const mins = Number(val);
+    const updatedUser =
+      (await ctx.userService.toggleNotificationLeadMinute(user.telegramId, mins)) || user;
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(updatedUser);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.settingUpdatedToast,
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: `{{emoji:notifications}} Bildirishnoma Markazi — Oldindan: ${(prefs.leadMinutes || [0]).map((m) => `${m}m`).join(', ')}`,
+        reply_markup: buildNotificationCenterKeyboard(updatedUser, prefs, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('notif:type:')) {
+    const key = data.slice('notif:type:'.length) as any;
+    const updatedUser =
+      (await ctx.userService.toggleNotificationPref(user.telegramId, key)) || user;
+    const prefs = ctx.userService.getEffectiveNotificationPreferences(updatedUser);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.settingUpdatedToast,
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: `{{emoji:notifications}} Bildirishnoma Markazi (${prefs.timezone || 'Asia/Tashkent'})`,
+        reply_markup: buildNotificationCenterKeyboard(updatedUser, prefs, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  if (data === 'privacy:home') {
+    const formatted = ctx.emojiRegistry.formatMessage(
+      `{{emoji:profile}} Maxfiylik va Maʼlumotlar Markazi\n\n` +
+        `• Maʼlumotlaringiz faqat sizning Telegram ID ingizga biriktirilgan.\n` +
+        `• JSON eksport yoki profilni oʻchirish imkoniyati:`
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildPrivacyCenterKeyboard(user.language, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'privacy:home' };
+  }
+
+  if (data === 'privacy:export') {
+    const json = ctx.userService.exportUserProfileJson(user.telegramId);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+ text: 'JSON eksport tayyorlandi!',
+    });
+    if (json) {
+      await ctx.apiClient.sendDocumentBuffer({
+        chat_id: chatId,
+        buffer: Buffer.from(json, 'utf-8'),
+        filename: `asaka_ziyo_profile_${user.telegramId}.json`,
+        mimeType: 'application/json',
+        caption: '{{emoji:brand}} ASAKA ZIYO — Shaxsiy maʼlumotlaringiz eksporti (JSON)',
+      });
+    }
+    return { handled: true, action: 'privacy:export' };
+  }
+
+  if (data === 'privacy:delete:ask') {
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: '{{emoji:warning}} Diqqat! Profilingiz, xatchoʻplar, HIFZ tarixi va barcha shaxsiy sozlamalaringiz butunlay oʻchiriladi. Tasdiqlaysizmi?',
+        reply_markup: {
+          inline_keyboard: [
+            [
+ ctx.emojiRegistry.buildKeyboardButton('error', 'Del Ha, butunlay oʻchirish', {
+                callback_data: 'privacy:delete:confirm',
+              }),
+ ctx.emojiRegistry.buildKeyboardButton('back', 'Bekor qilish', {
+                callback_data: 'privacy:home',
+              }),
+            ],
+          ],
+        },
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'privacy:delete:ask' };
+  }
+
+  if (data === 'privacy:delete:confirm') {
+    await ctx.repository.deleteUser(user.telegramId);
+    await ctx.repository.appendAuditLog({
+      actorTelegramId: user.telegramId,
+      actorRole: 'user',
+      action: 'self_service_profile_deleted',
+      targetType: 'user',
+      targetId: user.telegramId,
+    });
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+ text: '[ON] Profilingiz butunlay oʻchirildi.',
+      show_alert: true,
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: '{{emoji:success}} Profilingiz va shaxsiy maʼlumotlaringiz tizimdan oʻchirildi. Qayta boshlash uchun /start yuboring.',
+        reply_markup: { inline_keyboard: [] },
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'privacy:delete:confirm' };
+  }
+
+  if (data === 'privacy:report_error' || data === 'privacy:contact_ustoz') {
+    const category: TelegramSupportTicketCategory =
+      data === 'privacy:report_error' ? 'content_error' : 'hifz_teacher';
+    await ctx.userService.setActiveFlow(user.telegramId, {
+      type: 'support_new',
+      category,
+    });
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text:
+          data === 'privacy:report_error'
+            ? '{{emoji:quran}} Kontentdagi xato yoki taklifingizni batafsil yozib yuboring:'
+            : '{{emoji:hifz}} Hifz ustozi / masjid masʼuliga savolingizni yozib yuboring:',
+        reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  if (data === 'reminder:list') {
+    const reminders = ctx.userService.listPersonalReminders(user.telegramId);
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: `{{emoji:notifications}} Shaxsiy Eslatmalarim (${reminders.length}) — Asia/Tashkent`,
+        reply_markup: buildPersonalRemindersKeyboard(user.language, reminders, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'reminder:list' };
+  }
+
+  if (data === 'reminder:add') {
+    await ctx.userService.setActiveFlow(user.telegramId, { type: 'personal_reminder_add' });
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: '{{emoji:notifications}} Yangi eslatmani "HH:MM Matn" formatida yuboring.\nMasalan: 06:30 Tonggi zikr va Qurʼon murojaasi',
+        reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: 'reminder:add' };
+  }
+
+  if (data.startsWith('reminder:toggle:')) {
+    const remId = data.slice('reminder:toggle:'.length);
+    await ctx.userService.togglePersonalReminder(user.telegramId, remId);
+    const reminders = ctx.userService.listPersonalReminders(user.telegramId);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+      text: dict.settingUpdatedToast,
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: `{{emoji:notifications}} Shaxsiy Eslatmalarim (${reminders.length})`,
+        reply_markup: buildPersonalRemindersKeyboard(user.language, reminders, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('reminder:del:')) {
+    const remId = data.slice('reminder:del:'.length);
+    await ctx.userService.deletePersonalReminder(user.telegramId, remId);
+    const reminders = ctx.userService.listPersonalReminders(user.telegramId);
+    await ctx.apiClient.answerCallbackQuery({
+      callback_query_id: callback.id,
+ text: 'Del Eslatma oʻchirildi.',
+    });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: `{{emoji:notifications}} Shaxsiy Eslatmalarim (${reminders.length})`,
+        reply_markup: buildPersonalRemindersKeyboard(user.language, reminders, ctx.emojiRegistry),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  // 10D. Bot API 10.4 Interactive HTML Widgets (Strictly Private Chats Only + Automatic Fallback)
+  if (data.startsWith('widget:') && ctx.styleManager) {
+    const chatType = callback.message?.chat.type || 'private';
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    if (data === 'widget:prayer') {
+      const w = ctx.styleManager.buildPrayerCountdownWidgetHtml(ctx.prayerAdapter);
+      await ctx.apiClient.sendWidget(
+        { chat_id: chatId, html: w.html },
+        {
+          chatType,
+          fallbackMessageParams: { chat_id: chatId, text: w.fallbackText },
+        }
+      );
+      return { handled: true, action: 'widget:prayer' };
+    }
+    if (data === 'widget:hifz' && ctx.hifzService) {
+      const profile = await ctx.hifzService.getOrCreateProfile(user.telegramId);
+      const stats = ctx.hifzService.getStats(profile);
+      const w = ctx.styleManager.buildHifzProgressWidgetHtml(profile, stats);
+      await ctx.apiClient.sendWidget(
+        { chat_id: chatId, html: w.html },
+        {
+          chatType,
+          fallbackMessageParams: { chat_id: chatId, text: w.fallbackText },
+        }
+      );
+      return { handled: true, action: 'widget:hifz' };
+    }
+    if (data === 'widget:tasbeh') {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const w = ctx.styleManager.buildTasbehWidgetHtml(
+        'Subhanalloh',
+        'سُبْحَانَ اللَّهِ',
+        eng.dhikr.todayCount || 0,
+        33
+      );
+      await ctx.apiClient.sendWidget(
+        { chat_id: chatId, html: w.html },
+        {
+          chatType,
+          fallbackMessageParams: { chat_id: chatId, text: w.fallbackText },
+        }
+      );
+      return { handled: true, action: 'widget:tasbeh' };
+    }
   }
 
   // 11. RBAC-Protected Super Admin Callbacks: admin:*
@@ -954,6 +2784,50 @@ export async function handleCallbackQuery(
         show_alert: true,
       });
       return { handled: true, action: 'admin:denied' };
+    }
+
+    // Granular per-domain RBAC enforcement
+    const requiredPerm: string | null = data.startsWith('admin:broadcast')
+      ? 'manage_broadcasts'
+      : data.startsWith('admin:support')
+        ? 'manage_support'
+        : data.startsWith('admin:channel')
+          ? 'manage_channels'
+          : data.startsWith('admin:content') ||
+              data.startsWith('admin:cms') ||
+              data.startsWith('admin:prayer') ||
+              data.startsWith('admin:audio')
+            ? 'manage_content'
+            : data.startsWith('admin:ai')
+              ? 'manage_ai'
+              : data.startsWith('admin:users')
+                ? 'manage_users'
+                : data.startsWith('admin:emoji') || data.startsWith('admin:style')
+                  ? 'manage_emojis'
+                  : data.startsWith('admin:maintenance')
+                    ? 'manage_settings'
+                    : data === 'admin:analytics' ||
+                        data === 'admin:diagnostics' ||
+                        data.startsWith('admin:hifz') ||
+                        data.startsWith('admin:tech')
+                      ? 'view_analytics'
+                      : null;
+
+    if (requiredPerm && !ctx.adminService.hasPermission(user.telegramId, requiredPerm)) {
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_permission_denied',
+        targetType: 'admin',
+        targetId: data,
+        metadata: { requiredPerm },
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `${dict.adminAccessDenied} (${requiredPerm})`,
+        show_alert: true,
+      });
+      return { handled: true, action: 'admin:permission_denied' };
     }
 
     if (data === 'admin:home') {
@@ -1034,7 +2908,7 @@ export async function handleCallbackQuery(
       });
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
-        text: 'Yangi Primary Gemini model nomini yuboring (masalan: gemini-3.5-flash-lite yoki gemini-2.5-flash):',
+        text: 'Yangi Primary Gemini model nomini yuboring (masalan: gemini-3.1-flash-lite yoki gemini-2.5-flash):',
         reply_markup: buildAdminAiControlKeyboard(user.language, settings, ctx.emojiRegistry),
       });
       return { handled: true, action: 'admin:ai:set_primary' };
@@ -1284,7 +3158,7 @@ export async function handleCallbackQuery(
         .slice(0, 8)
         .map(
           (u) =>
-            `• ${u.telegramId} | ${u.firstName}${u.username ? ` (@${u.username})` : ''} [${u.language}]${u.isBlocked ? ' 🚫' : ''}`
+            `• ${u.telegramId} | ${u.firstName}${u.username ? ` (@${u.username})` : ''} [${u.language}]${u.isBlocked ? ' {{emoji:error}}' : ''}`
         )
         .join('\n');
       const formatted = ctx.emojiRegistry.formatMessage(
@@ -1387,8 +3261,8 @@ export async function handleCallbackQuery(
       const lines = sched.times.map((t) => `• ${t.nameUz}: ${t.time}`).join('\n');
       const formatted = ctx.emojiRegistry.formatMessage(
         `${dict.adminTitle} — Asaka Namoz Jadvali (Qoʻlda boshqaruv)\n\n` +
-          `📅 Sana: ${sched.formattedDateUz || sched.date}\n` +
-          `🌙 Hijriy: ${sched.hijriDate}\n\n${lines}\n\n` +
+          `{{emoji:calendar}} Sana: ${sched.formattedDateUz || sched.date}\n` +
+          `{{emoji:brand}} Hijriy: ${sched.hijriDate}\n\n${lines}\n\n` +
           `Oʻzgartirmoqchi boʻlgan namoz vaqtini tanlang (avtomatik hisoblanmaydi, toʻgʻridan-toʻgʻri Firestore ga saqlanadi):`
       );
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
@@ -1408,7 +3282,7 @@ export async function handleCallbackQuery(
       });
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
-        text: `🕌 «${prayerKey.toUpperCase()}» uchun yangi vaqtni HH:MM formatida yuboring (masalan: 05:15):`,
+        text: `{{emoji:prayer}} «${prayerKey.toUpperCase()}» uchun yangi vaqtni HH:MM formatida yuboring (masalan: 05:15):`,
         reply_markup: buildAdminPrayerKeyboard(user.language, ctx.emojiRegistry),
       });
       return { handled: true, action: data };
@@ -1461,7 +3335,7 @@ export async function handleCallbackQuery(
         });
         await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
         await renderScreenUpdate(ctx.apiClient, callback, {
-          text: `📝 Yangi [${entityType}] uchun sarlavhani yuboring:`,
+          text: `{{emoji:quran}} Yangi [${entityType}] uchun sarlavhani yuboring:`,
           reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
         });
       }
@@ -1475,12 +3349,12 @@ export async function handleCallbackQuery(
       const itemId = rest.slice(sep + 1);
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
-        text: `⚠️ Tasdiqlang: [${entityType}] (ID: ${itemId}) yozuvini arxivlash/oʻchirishni xohlaysizmi?`,
+        text: `{{emoji:warning}} Tasdiqlang: [${entityType}] (ID: ${itemId}) yozuvini arxivlash/oʻchirishni xohlaysizmi?`,
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '✅ Ha, oʻchirish', callback_data: `admin:cms:del:${entityType}:${itemId}` },
-              { text: '❌ Bekor qilish', callback_data: 'admin:cms' },
+ { text: '[ON] Ha, oʻchirish', callback_data: `admin:cms:del:${entityType}:${itemId}`},
+ { text: 'Bekor qilish', callback_data: 'admin:cms'},
             ],
           ],
         },
@@ -1516,7 +3390,7 @@ export async function handleCallbackQuery(
       });
       await ctx.apiClient.answerCallbackQuery({
         callback_query_id: callback.id,
-        text: res.ok ? '✅ Yozuv Firestore dan oʻchirildi/arxivlandi.' : (res.error || 'Xatolik').slice(0, 180),
+ text: res.ok ? '[ON] Yozuv Firestore dan oʻchirildi/arxivlandi.': (res.error || 'Xatolik').slice(0, 180),
         show_alert: true,
       });
       return { handled: true, action: data };
@@ -1526,7 +3400,7 @@ export async function handleCallbackQuery(
       await ctx.userService.setActiveFlow(user.telegramId, { type: 'admin_channel_connect' });
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
-        text: '📡 Ulash uchun kanal yoki guruh @username (masalan: @Asaka_Ziyo) yoki Chat ID (-100...) ni yuboring. Bot haqiqiy admin huquqlarini Telegram API orqali tekshiradi:',
+        text: '{{emoji:community}} Ulash uchun kanal yoki guruh @username (masalan: @Asaka_Ziyo) yoki Chat ID (-100...) ni yuboring. Bot haqiqiy admin huquqlarini Telegram API orqali tekshiradi:',
         reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
       });
       return { handled: true, action: 'admin:channel:connect' };
@@ -1536,12 +3410,12 @@ export async function handleCallbackQuery(
       const chId = data.slice('admin:channel:remove_confirm:'.length);
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
-        text: `⚠️ Kanal/guruh integratsiyasini (${chId}) uzishni tasdiqlaysizmi?`,
+        text: `{{emoji:warning}} Kanal/guruh integratsiyasini (${chId}) uzishni tasdiqlaysizmi?`,
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '✅ Ha, uzish', callback_data: `admin:channel:remove:${chId}` },
-              { text: '❌ Bekor qilish', callback_data: 'admin:channels' },
+ { text: '[ON] Ha, uzish', callback_data: `admin:channel:remove:${chId}`},
+ { text: 'Bekor qilish', callback_data: 'admin:channels'},
             ],
           ],
         },
@@ -1564,27 +3438,590 @@ export async function handleCallbackQuery(
       return { handled: true, action: data };
     }
 
-    if (data === 'admin:emojis') {
+    // ---- Admin Premium Emoji Manager (100% Strict Zero-Plain-Emoji Policy, Bot API 9.4+) ----
+    if (data === 'admin:emojis' || data.startsWith('admin:emoji:home:') || data.startsWith('admin:emoji:assignpage:')) {
+      const isAssignPage = data.startsWith('admin:emoji:assignpage:');
+      const page =
+        data.startsWith('admin:emoji:home:')
+          ? Number(data.slice('admin:emoji:home:'.length)) || 0
+          : isAssignPage
+            ? Number(data.slice('admin:emoji:assignpage:'.length)) || 0
+            : 0;
+      const pendingFlow =
+        user.activeFlow?.type === 'admin_emoji_pending_category' ? user.activeFlow : null;
+      if (!isAssignPage && !pendingFlow) {
+        await ctx.userService.setActiveFlow(user.telegramId, {
+          type: 'admin_emoji_capture',
+          key: '__ANY__',
+        });
+      }
       const rep = ctx.emojiRegistry.validateCompatibility();
+      const missingCount = ctx.emojiRegistry.listMissingCanonicalSlots().length;
+      const customSlotsCount = ctx.emojiRegistry.listCustomAdminSlots().length;
       const formatted = ctx.emojiRegistry.formatMessage(
-        `${dict.adminEmojisTitle}\n\n` +
-          `• Jami semantik slotlar: ${rep.totalRegisteredKeys}\n` +
-          `• Tasdiqlangan Custom ID: ${rep.verifiedCustomCount}\n` +
-          `• Unicode Fallback: ${rep.fallbackOnlyCount}\n` +
-          `• Premium Rendering: ${rep.premiumRenderingActive ? 'ON' : 'OFF (Unicode fallback)'}\n` +
-          `• Keyboard Custom Icon: ${rep.keyboardCustomIconsActive ? 'ON' : 'OFF (Unicode fallback)'}`
+        pendingFlow && isAssignPage
+          ? `{{emoji:brand}} Tasdiqlangan Premium Emoji (ID: ${pendingFlow.customEmojiId}) uchun kategoriyani tanlang:`
+          : `${dict.adminEmojisTitle} (/emoji_setup)\n\n` +
+              `• Standart kategoriyalar: 27 | Custom slotlar: ${customSlotsCount}\n` +
+              `• Faol tasdiqlangan Premium ID: ${rep.verifiedCustomCount}\n` +
+              `• Bogʻlanmagan (yetishmayotgan): ${missingCount}\n` +
+              `• Oddiy Unicode emoji qoidasi: QATʼIY TAQIQLANGAN (0 ta oddiy emoji)\n` +
+              `• Premium Rendering: ${rep.premiumRenderingActive ? 'ON' : 'OFF (toza matn rejimi)'}\n` +
+              `• Keyboard Custom Icon: ${rep.keyboardCustomIconsActive ? 'ON' : 'OFF'}\n\n` +
+              `{{emoji:brand}} Telegram Premium tanlagichidan emoji yuboring yoki pastdan kerakli boʻlimni tanlang:`
       );
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
-      await renderScreenUpdate(ctx.apiClient, callback, {
-        text: formatted.text,
-        entities: formatted.entities,
-        reply_markup: buildAdminEmojisKeyboard(user.language, ctx.emojiRegistry),
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminEmojiCategoriesKeyboard(
+            user.language,
+            page,
+            ctx.emojiRegistry,
+            settings,
+            isAssignPage && pendingFlow ? pendingFlow.customEmojiId : undefined
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:emoji:new_custom') {
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'admin_emoji_create_custom',
       });
-      return { handled: true, action: 'admin:emojis' };
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:brand}} Yangi Custom Premium Emoji sloti yaratish\n\n` +
+          `Format:\nkalit | kategoriya | maqsad (semantic purpose)\n\n` +
+          `Misol:\nramadan_banner | seasonal | Ramazon oyi maxsus eʼlon sarlavhasi\n\n` +
+          `Yaratilgach, bot darhol Telegram Premium tanlagichidan emoji yuborishni soʻraydi.`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:emoji:missing') {
+      const missing = ctx.emojiRegistry.listMissingCanonicalSlots();
+      const lines =
+        missing.length === 0
+          ? ['Barcha 27 ta standart kategoriya tasdiqlangan Premium Custom Emoji bilan bogʻlangan!']
+          : missing.map(
+              (m, idx) =>
+                `${idx + 1}. ${m.key} (${m.category}) — ${m.semanticPurpose || m.description}`
+            );
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:warning}} Yetishmayotgan Premium Emoji kategoriyalari (${missing.length} / 27)\n\n` +
+          `${lines.join('\n')}\n\n` +
+          `Bogʻlash uchun pastdagi tugmani bosing yoki toʻgʻridan-toʻgʻri Premium emoji yuboring:`
+      );
+      const rows = missing.slice(0, 12).map((m) => [
+        ctx.emojiRegistry.buildKeyboardButton('brand', `Bogʻlash: ${m.key}`, {
+          callback_data: `admin:emoji:capture:${m.key}`,
+        }),
+      ]);
+      rows.push([
+        ctx.emojiRegistry.buildKeyboardButton('back', 'Barcha kategoriyalar', {
+          callback_data: 'admin:emoji:home:0',
+        }),
+        ctx.emojiRegistry.buildKeyboardButton('admin', dict.buttons.adminPanel, {
+          callback_data: 'admin:home',
+        }),
+      ]);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: { inline_keyboard: rows },
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:emoji:audit') {
+      const audit = ctx.emojiRegistry.buildFullAuditReport({ scanCodebase: true });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:statistics}} ASAKA ZIYO — 100% Premium Emoji Toʻliq Audit Paneli\n\n` +
+          `• Jami boshqariladigan slotlar: ${audit.totalRegistered} (Standart: ${audit.canonicalTotal}, Custom admin: ${audit.customAdminSlotsCount})\n` +
+          `• Faol ishlayotgan (Verified): ${audit.workingVerifiedCount}\n` +
+          `• Vaqtincha oʻchirilgan (Disabled): ${audit.disabledCount}\n` +
+          `• Notoʻgʻri / tasdiqlanmagan: ${audit.invalidOrUnverifiedKeys.length}${
+            audit.invalidOrUnverifiedKeys.length
+              ? ` (${audit.invalidOrUnverifiedKeys.slice(0, 6).join(', ')})`
+              : ''
+          }\n` +
+          `• Ishlatilmayotgan (Unused): ${audit.unusedRegisteredKeys.length}\n` +
+          `• Yetishmayotgan asosiy kategoriyalar: ${audit.missingCanonicalKeys.length} / ${audit.canonicalTotal}\n` +
+          `• Kodda qolgan oddiy Unicode emojilar: ${audit.codebasePlainEmojiMatches.length} ta\n` +
+          `• Chiquvchi payload tekshiruvi: ${audit.outgoingPayloadAudit.auditedCount} ta (leaks: ${audit.outgoingPayloadAudit.violationCount})\n` +
+          `• Keyboard icon ogohlantirishlari: ${audit.keyboardIconWarnings.length}\n` +
+          `• Yetkazib berish xatolari: ${audit.deliveryFailures.length}\n` +
+          `• Vaqt: ${audit.generatedAt}`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                ctx.emojiRegistry.buildKeyboardButton('success', dict.buttons.adminVerifyEmojis, {
+                  callback_data: 'admin:emojis:verify',
+                }),
+                ctx.emojiRegistry.buildKeyboardButton('brand.star', dict.buttons.adminTestEmojiSend, {
+                  callback_data: 'admin:emoji:test',
+                }),
+              ],
+              [
+                ctx.emojiRegistry.buildKeyboardButton('warning', 'Yetishmayotganlar', {
+                  callback_data: 'admin:emoji:missing',
+                }),
+                ctx.emojiRegistry.buildKeyboardButton('calendar', 'Oʻzgarishlar tarixi', {
+                  callback_data: 'admin:emoji:history',
+                }),
+              ],
+              [
+                ctx.emojiRegistry.buildKeyboardButton('back', 'Barcha kategoriyalar', {
+                  callback_data: 'admin:emoji:home:0',
+                }),
+                ctx.emojiRegistry.buildKeyboardButton('admin', dict.buttons.adminPanel, {
+                  callback_data: 'admin:home',
+                }),
+              ],
+            ],
+          },
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:emoji:history') {
+      const logs = await ctx.repository.listEmojiAuditLogs(15);
+      const lines =
+        logs.length === 0
+          ? ['Hozircha emoji oʻzgarishlari tarixi mavjud emas.']
+          : logs.map(
+              (l, i) =>
+                `${i + 1}. [${l.createdAt.slice(0, 16).replace('T', ' ')}] ${l.action} -> ${l.targetId || '-'} (admin: ${l.actorTelegramId})`
+            );
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:calendar}} Premium Emoji Oʻzgarishlar Tarixi (oxirgi ${logs.length} ta)\n\n` +
+          lines.join('\n')
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                ctx.emojiRegistry.buildKeyboardButton('back', 'Barcha kategoriyalar', {
+                  callback_data: 'admin:emoji:home:0',
+                }),
+                ctx.emojiRegistry.buildKeyboardButton('admin', dict.buttons.adminPanel, {
+                  callback_data: 'admin:home',
+                }),
+              ],
+            ],
+          },
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:slot:')) {
+      const slotKey = data.slice('admin:emoji:slot:'.length);
+      const entry = ctx.emojiRegistry.getEntry(slotKey);
+      if (!entry) {
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: 'Kategoriya topilmadi.',
+          show_alert: true,
+        });
+        return { handled: true, action: data };
+      }
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:${entry.key}}} Emoji Sloti: ${entry.key}\n` +
+          `• Kategoriya: ${entry.category}${entry.isCustomAdminSlot ? ' (Custom Admin Slot)' : ' (Standart)'}\n` +
+          `• Maqsad: ${entry.semanticPurpose || entry.description}\n` +
+          `• Custom Emoji ID: ${entry.customEmojiId || 'Bogʻlanmagan (toza matn)'}\n` +
+          `• Tasdiqlangan: ${entry.verified ? 'HA' : 'YOʻQ'} | Holat: ${entry.enabled === false ? 'OFF' : 'ON'}\n` +
+          `• Ishlatiladigan joylar: ${(entry.usedIn || []).join(', ') || 'Belgilanmagan'}\n` +
+          `• Oxirgi yangilanish: ${entry.updatedAt || '-'}`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminEmojiSlotDetailKeyboard(user.language, entry, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:preview:')) {
+      const slotKey = data.slice('admin:emoji:preview:'.length);
+      const res = await ctx.emojiRegistry.sendSingleEmojiPreview(ctx.apiClient, chatId, slotKey);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: res.ok
+          ? res.isPremiumActive
+            ? `Preview yuborildi (Premium ID faol).`
+            : `Preview yuborildi (Premium ID bogʻlanmagan — toza matn).`
+          : (res.error || 'Preview yuborilmadi').slice(0, 180),
+        show_alert: !res.ok,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:usage:')) {
+      const slotKey = data.slice('admin:emoji:usage:'.length);
+      const entry = ctx.emojiRegistry.getEntry(slotKey);
+      if (!entry) {
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: 'Kategoriya topilmadi.',
+          show_alert: true,
+        });
+        return { handled: true, action: data };
+      }
+      const places = (entry.usedIn || []).length
+        ? (entry.usedIn || []).map((p, i) => `${i + 1}. ${p}`).join('\n')
+        : 'Hozircha maxsus boʻlim biriktirilmagan.';
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:${entry.key}}} Ishlatilish xaritasi — ${entry.key}\n\n` +
+          `• Maqsad: ${entry.semanticPurpose || entry.description}\n` +
+          `• Custom Emoji ID: ${entry.customEmojiId || 'Bogʻlanmagan'}\n` +
+          `• Boʻlimlar:\n${places}`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminEmojiSlotDetailKeyboard(user.language, entry, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:capture:')) {
+      const slotKey = data.slice('admin:emoji:capture:'.length);
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'admin_emoji_capture',
+        key: slotKey,
+      });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:brand}} «${slotKey}» kategoriyasi uchun endi Telegram Premium tanlagichidan tayyor Premium emoji yuboring.\n(Oddiy Unicode emoji qabul qilinmaydi — faqat haqiqiy custom_emoji_id tekshiriladi.)`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:bind:')) {
+      const slotKey = data.slice('admin:emoji:bind:'.length);
+      const pending =
+        user.activeFlow?.type === 'admin_emoji_pending_category' ? user.activeFlow : null;
+      if (!pending) {
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: 'Avval Premium emoji yuboring.',
+          show_alert: true,
+        });
+        return { handled: true, action: 'admin:emoji:bind:no_pending' };
+      }
+      const savedEntry = ctx.emojiRegistry.registerCustomEmojiId(slotKey, pending.customEmojiId, {
+        verified: true,
+        stickerSetName: pending.stickerSetName,
+        updatedBy: user.telegramId,
+        enabled: true,
+      });
+      await ctx.repository.saveCustomEmoji(savedEntry);
+      ctx.emojiRegistry.setPremiumEnabled(true);
+      ctx.emojiRegistry.setKeyboardIconsEnabled(true);
+      const updatedSettings = await ctx.repository.saveSettings(
+        {
+          premiumEmojiEnabled: true,
+          premiumKeyboardIconsEnabled: true,
+          premiumEmojiEligibilityVerified: true,
+          premiumEmojiEligibilityCheckedAt: new Date().toISOString(),
+        },
+        user.telegramId
+      );
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'idle' });
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_custom_emoji_bound',
+        targetType: 'emoji',
+        targetId: slotKey,
+        metadata: { customEmojiId: pending.customEmojiId },
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `${slotKey} ga saqlandi!`,
+      });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:success}} Premium Custom Emoji Firestore ga saqlandi!\n` +
+          `• Kategoriya: ${slotKey}\n` +
+          `• Custom Emoji ID: ${savedEntry.customEmojiId}\n` +
+          `• Barcha bot boʻlimlarida darhol faollashdi.`
+      );
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminEmojiCategoriesKeyboard(
+            user.language,
+            0,
+            ctx.emojiRegistry,
+            updatedSettings
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:toggle:')) {
+      const slotKey = data.slice('admin:emoji:toggle:'.length);
+      const current = ctx.emojiRegistry.getEntry(slotKey);
+      if (current) {
+        const updated = ctx.emojiRegistry.setEntryEnabled(
+          slotKey,
+          current.enabled === false,
+          user.telegramId
+        );
+        await ctx.repository.saveCustomEmoji(updated);
+        await ctx.repository.appendAuditLog({
+          actorTelegramId: user.telegramId,
+          actorRole: role,
+          action: updated.enabled === false ? 'admin_custom_emoji_disabled' : 'admin_custom_emoji_enabled',
+          targetType: 'emoji',
+          targetId: slotKey,
+        });
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: updated.enabled === false ? 'Vaqtincha oʻchirildi' : 'Yoqildi',
+        });
+        const formatted = ctx.emojiRegistry.formatMessage(
+          `{{emoji:${updated.key}}} ${updated.key}: ${updated.enabled === false ? 'OFF (emoji yashiriladi, oddiy emoji chiqmaydi)' : 'ON (Premium faol)'}`
+        );
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: formatted.text,
+            entities: formatted.entities,
+            reply_markup: buildAdminEmojiSlotDetailKeyboard(user.language, updated, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+      }
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:emoji:delete:') || data.startsWith('admin:emoji:reset:')) {
+      const slotKey = data.startsWith('admin:emoji:delete:')
+        ? data.slice('admin:emoji:delete:'.length)
+        : data.slice('admin:emoji:reset:'.length);
+      const outcome = ctx.emojiRegistry.deleteSlot(slotKey, user.telegramId);
+      if (outcome.permanentlyRemoved) {
+        await ctx.repository.deleteCustomEmoji(slotKey);
+      } else if (outcome.entry) {
+        await ctx.repository.saveCustomEmoji(outcome.entry);
+      }
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: outcome.permanentlyRemoved ? 'admin_custom_emoji_deleted' : 'admin_custom_emoji_cleared',
+        targetType: 'emoji',
+        targetId: slotKey,
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: outcome.permanentlyRemoved ? 'Custom slot oʻchirildi.' : 'Premium Emoji ID tozalandi.',
+      });
+      if (outcome.permanentlyRemoved || !outcome.entry) {
+        const formatted = ctx.emojiRegistry.formatMessage(
+          `{{emoji:success}} «${slotKey}» custom sloti butunlay oʻchirildi.`
+        );
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: formatted.text,
+            entities: formatted.entities,
+            reply_markup: buildAdminEmojiCategoriesKeyboard(
+              user.language,
+              0,
+              ctx.emojiRegistry,
+              settings
+            ),
+          },
+          ctx.styleManager
+        );
+      } else {
+        const formatted = ctx.emojiRegistry.formatMessage(
+          `{{emoji:warning}} «${outcome.entry.key}» dan Premium Emoji ID olib tashlandi (oddiy Unicode emoji koʻrsatilmaydi — toza matn rejimi).`
+        );
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: formatted.text,
+            entities: formatted.entities,
+            reply_markup: buildAdminEmojiSlotDetailKeyboard(
+              user.language,
+              outcome.entry,
+              ctx.emojiRegistry
+            ),
+          },
+          ctx.styleManager
+        );
+      }
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:emoji:toggle_global') {
+      const nextVal = !settings.premiumEmojiEnabled;
+      const updated = await ctx.repository.saveSettings(
+        { premiumEmojiEnabled: nextVal },
+        user.telegramId
+      );
+      ctx.emojiRegistry.setPremiumEnabled(
+        Boolean(updated.premiumEmojiEnabled && updated.premiumEmojiEligibilityVerified)
+      );
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_emoji_toggle_global',
+        targetType: 'emoji',
+        targetId: 'global',
+        metadata: { enabled: nextVal },
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `Premium Emoji: ${nextVal ? 'ON' : 'OFF'}`,
+      });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:brand}} Premium Emoji Rendering: ${nextVal ? 'ON' : 'OFF (toza matn rejimi)'}`
+      );
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminEmojiCategoriesKeyboard(
+            user.language,
+            0,
+            ctx.emojiRegistry,
+            updated
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:emoji:toggle_kb') {
+      const nextVal = !settings.premiumKeyboardIconsEnabled;
+      const updated = await ctx.repository.saveSettings(
+        { premiumKeyboardIconsEnabled: nextVal },
+        user.telegramId
+      );
+      ctx.emojiRegistry.setKeyboardIconsEnabled(nextVal);
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_emoji_toggle_kb_icons',
+        targetType: 'emoji',
+        targetId: 'keyboard_icons',
+        metadata: { enabled: nextVal },
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `Keyboard Icons: ${nextVal ? 'ON' : 'OFF'}`,
+      });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:settings}} Keyboard Custom Icons (icon_custom_emoji_id): ${nextVal ? 'ON' : 'OFF'}`
+      );
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminEmojiCategoriesKeyboard(
+            user.language,
+            0,
+            ctx.emojiRegistry,
+            updated
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
     }
 
     if (data === 'admin:emojis:verify') {
       const ver = await ctx.emojiRegistry.verifyAllWithTelegramApi(ctx.apiClient);
+      for (const entry of ctx.emojiRegistry.listAll()) {
+        if (entry.customEmojiId) await ctx.repository.saveCustomEmoji(entry);
+      }
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_emoji_verify_all',
+        targetType: 'emoji',
+        targetId: 'all',
+        metadata: { verified: ver.verifiedKeys.length, rejected: ver.rejectedKeys.length },
+      });
       await ctx.apiClient.answerCallbackQuery({
         callback_query_id: callback.id,
         text: `API: ${ver.apiAvailable ? 'OK' : 'OFF'} | Verified: ${ver.verifiedKeys.length} | Rejected: ${ver.rejectedKeys.length}`,
@@ -1593,16 +4030,475 @@ export async function handleCallbackQuery(
       return { handled: true, action: 'admin:emojis:verify' };
     }
 
-    if (data === 'admin:emojis:test') {
+    if (data === 'admin:emojis:test' || data === 'admin:emoji:test') {
       const testRes = await ctx.emojiRegistry.sendLiveEmojiTestMessage(ctx.apiClient, chatId);
       await ctx.apiClient.answerCallbackQuery({
         callback_query_id: callback.id,
         text: testRes.ok
-          ? `Test yuborildi (Custom: ${testRes.usedCustomEmojiCount}, Fallback: ${testRes.usedFallbackCount})`
+          ? `Test yuborildi (Premium: ${testRes.usedCustomEmojiCount}, Yetishmaydi: ${testRes.usedFallbackCount})`
           : (testRes.error || 'Yuborilmadi').slice(0, 180),
         show_alert: true,
       });
-      return { handled: true, action: 'admin:emojis:test' };
+      return { handled: true, action: data };
+    }
+
+    // ---- Admin Central Style & Rich Message Panel (Bot API 9.4–10.4) ----
+    if (data === 'admin:style:home') {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:settings}} ASAKA ZIYO — Markaziy Style & Rich Message Boshqaruvi (Bot API 9.4–10.4)\n\n` +
+          `• Button Styles (primary/success/danger): ${settings.buttonStylesEnabled ?? true ? 'ON' : 'OFF'}\n` +
+          `• Rich Messages (10.1–10.3): ${settings.richMessagesEnabled ? 'ON' : 'OFF'}\n` +
+          `• HTML Widgets (10.4, faqat private chat): ${settings.htmlWidgetsEnabled ? 'ON' : 'OFF'}\n` +
+          `• AI Streaming Drafts: ${settings.aiStreamingDraftsEnabled ? 'ON' : 'OFF'}`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildAdminStyleHomeKeyboard(user.language, settings, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'admin:style:home' };
+    }
+
+    if (
+      data === 'admin:style:toggle_buttons' ||
+      data === 'admin:style:toggle_rich' ||
+      data === 'admin:style:toggle_widgets' ||
+      data === 'admin:style:toggle_ai_drafts'
+    ) {
+      const patch =
+        data === 'admin:style:toggle_buttons'
+          ? { buttonStylesEnabled: !(settings.buttonStylesEnabled ?? true) }
+          : data === 'admin:style:toggle_rich'
+            ? { richMessagesEnabled: !settings.richMessagesEnabled }
+            : data === 'admin:style:toggle_widgets'
+              ? { htmlWidgetsEnabled: !settings.htmlWidgetsEnabled }
+              : { aiStreamingDraftsEnabled: !settings.aiStreamingDraftsEnabled };
+      const updated = await ctx.repository.saveSettings(patch, user.telegramId);
+      ctx.styleManager?.syncFromSettings(updated);
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: dict.settingUpdatedToast,
+      });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text:
+            `{{emoji:settings}} Style Manager yangilandi!\n` +
+            `• Button Styles: ${updated.buttonStylesEnabled ?? true ? 'ON' : 'OFF'}\n` +
+            `• Rich Messages: ${updated.richMessagesEnabled ? 'ON' : 'OFF'}\n` +
+            `• HTML Widgets (private only): ${updated.htmlWidgetsEnabled ? 'ON' : 'OFF'}\n` +
+            `• AI Drafts: ${updated.aiStreamingDraftsEnabled ? 'ON' : 'OFF'}`,
+          reply_markup: buildAdminStyleHomeKeyboard(user.language, updated, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:style:templates') {
+      const lines = Object.keys(DEFAULT_RICH_MESSAGE_TEMPLATES).map(
+        (k) => `• ${k}: ${ctx.styleManager?.getTemplate(k) || DEFAULT_RICH_MESSAGE_TEMPLATES[k]}`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: `{{emoji:quran}} Rich Message Shablonlari\n\n${lines.join('\n')}\n\nTahrirlash uchun shablonni tanlang:`,
+          reply_markup: buildAdminRichTemplatesKeyboard(user.language, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'admin:style:templates' };
+    }
+
+    if (data.startsWith('admin:style:template_edit:')) {
+      const templateKey = data.slice('admin:style:template_edit:'.length);
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'admin_style_edit_template',
+        templateKey,
+      });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: `{{emoji:settings}} «${templateKey}» shabloni uchun yangi matnni yuboring:\nHozirgi: ${ctx.styleManager?.getTemplate(templateKey) || ''}`,
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:style:test_rich' && ctx.styleManager) {
+      const rep = ctx.emojiRegistry.validateCompatibility();
+      const res = await ctx.styleManager.sendRichMessageTest(ctx.apiClient, chatId, {
+        verifiedEmojis: rep.verifiedCustomCount,
+        totalEmojis: rep.totalRegisteredKeys,
+        recitersCount: ctx.quranMp3Service?.listReciters().length || 10,
+        usersCount: ctx.repository.listUsers().length,
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: res.ok
+          ? res.usedFallback
+            ? 'Test yuborildi (avtomatik oddiy fallback)'
+ : '[ON] Rich Message (API 10.1+) yuborildi!'
+          : (res.description || 'Xatolik').slice(0, 180),
+        show_alert: true,
+      });
+      return { handled: true, action: 'admin:style:test_rich' };
+    }
+
+    if (data === 'admin:style:test_widget' && ctx.styleManager) {
+      const chatType = callback.message?.chat.type || 'private';
+      const res = await ctx.styleManager.sendWidgetTest(
+        ctx.apiClient,
+        chatId,
+        chatType,
+        ctx.prayerAdapter
+      );
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: res.ok
+          ? res.usedFallback
+            ? 'Widget test (avtomatik fallback)'
+ : `[ON] HTML Widget yuborildi (${res.validation?.zlibBytes || 0}B zlib)`
+          : (res.description || 'Xatolik').slice(0, 180),
+        show_alert: true,
+      });
+      return { handled: true, action: 'admin:style:test_widget' };
+    }
+
+    // ---- Admin Quran Audio Manager ----
+    if (data.startsWith('admin:audio:') && ctx.quranMp3Service) {
+      const mp3 = ctx.quranMp3Service;
+
+      if (data === 'admin:audio:home') {
+        const reciters = mp3.listReciters({ includeInactive: true });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: `{{emoji:quran_mp3}} Admin — Qurʼon Audio Boshqaruvi (${reciters.length} ta qori)\n\nQorini tanlang yoki toʻliq audit oʻtkazing:`,
+            reply_markup: buildAdminAudioHomeKeyboard(user.language, reciters, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: 'admin:audio:home' };
+      }
+
+      if (data === 'admin:audio:audit') {
+        const audit = mp3.auditFullLibrary();
+        const lines = audit.reciters.map(
+          (r) =>
+            `• ${r.nameUz}: ${r.availableSurahCount}/114${r.missingSurahs.length > 0 ? ` (yetishmaydi: ${r.missingSurahs.length})` : ' {{emoji:success}}'}`
+        );
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text:
+              `{{emoji:brand}} 114 Sura Toʻliq Auditi\n` +
+              `• Jami qorilar: ${audit.totalReciters} | Tayyor treklar: ${audit.totalAvailableTracks}\n` +
+              `• Yetishmayotgan: ${audit.totalMissingTracks} | Buzilgan lokal fayl: ${audit.totalBrokenLocalFiles}\n\n` +
+              lines.join('\n'),
+            reply_markup: buildAdminAudioHomeKeyboard(
+              user.language,
+              mp3.listReciters({ includeInactive: true }),
+              ctx.emojiRegistry
+            ),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: 'admin:audio:audit' };
+      }
+
+      if (data === 'admin:audio:history') {
+        const logs = mp3.listImportLogs(10);
+        const body =
+          logs.length === 0
+            ? 'Hozircha audio import loglari mavjud emas.'
+            : logs
+                .map(
+                  (l) =>
+                    `• [${l.createdAt.slice(0, 16)}] ${l.reciterId} (${l.mode}) — OK: ${l.matchedCount}, Unmatched: ${l.unmatchedCount}`
+                )
+                .join('\n');
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: ` Audio Import Tarixi\n\n${body}`,
+            reply_markup: buildAdminAudioHomeKeyboard(
+              user.language,
+              mp3.listReciters({ includeInactive: true }),
+              ctx.emojiRegistry
+            ),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: 'admin:audio:history' };
+      }
+
+      if (data === 'admin:audio:add_reciter') {
+        await ctx.userService.setActiveFlow(user.telegramId, { type: 'admin_audio_add_reciter' });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: '+ Yangi qori maʼlumotini "Nomi | Uslub | BaseURL (ixtiyoriy)" formatida yuboring:\nMasalan: Abdulloh qori | Murattal | https://server8.mp3quran.net/afs',
+            reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: 'admin:audio:add_reciter' };
+      }
+
+      if (data.startsWith('admin:audio:reciter:')) {
+        const recId = data.slice('admin:audio:reciter:'.length);
+        const rec = mp3.getReciterById(recId);
+        if (!rec) {
+          await ctx.apiClient.answerCallbackQuery({
+            callback_query_id: callback.id,
+            text: 'Qori topilmadi.',
+            show_alert: true,
+          });
+          return { handled: true, action: data };
+        }
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text:
+              `{{emoji:quran_mp3}} ${rec.nameUz} (${rec.id})\n` +
+              `• Holat: ${rec.isActive === false ? 'Oʻchirilgan' : 'Faol'}\n` +
+              `• Mavjud suralar: ${rec.availableSurahCount}/114\n` +
+              `• Yetishmayotgan: ${rec.missingSurahs.length} ta`,
+            reply_markup: buildAdminAudioReciterKeyboard(user.language, rec, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:missing:')) {
+        const recId = data.slice('admin:audio:missing:'.length);
+        const rec = mp3.getReciterById(recId);
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        if (rec) {
+          const miss = rec.missingSurahs;
+          await renderScreenUpdate(
+            ctx.apiClient,
+            callback,
+            {
+              text:
+                miss.length === 0
+                  ? `{{emoji:success}} ${rec.nameUz} uchun barcha 114 ta sura toʻliq mavjud!`
+                  : `{{emoji:warning}} ${rec.nameUz} — yetishmayotgan suralar (${miss.length} ta):\n${miss.slice(0, 60).join(', ')}${miss.length > 60 ? '...' : ''}`,
+              reply_markup: buildAdminAudioReciterKeyboard(user.language, rec, ctx.emojiRegistry),
+            },
+            ctx.styleManager
+          );
+        }
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:health:')) {
+        const parts = data.split(':');
+        const recId = parts[3];
+        const surahNum = Number(parts[4]) || 1;
+        const probe1 = await mp3.probeTrackHealth(recId, surahNum);
+        const probe114 = await mp3.probeTrackHealth(recId, 114);
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: `#${surahNum}: ${probe1.ok ? 'OK' : probe1.status} | #114: ${probe114.ok ? 'OK' : probe114.status}`,
+          show_alert: true,
+        });
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:toggle:')) {
+        const recId = data.slice('admin:audio:toggle:'.length);
+        const rec = mp3.getReciterById(recId);
+        if (rec) {
+          await mp3.upsertReciter(
+            {
+              id: rec.id,
+              nameUz: rec.nameUz,
+              nameAr: rec.nameAr,
+              styleUz: rec.styleUz,
+              serverUrl: rec.serverUrl,
+              isActive: rec.isActive === false,
+            },
+            user.telegramId
+          );
+          const refreshed = mp3.getReciterById(recId) || rec;
+          await ctx.apiClient.answerCallbackQuery({
+            callback_query_id: callback.id,
+ text: refreshed.isActive === false ? '[OFF] Qori oʻchirildi': 'Qori faollashtirildi',
+          });
+          await renderScreenUpdate(
+            ctx.apiClient,
+            callback,
+            {
+              text: `{{emoji:quran_mp3}} ${refreshed.nameUz}: ${refreshed.isActive === false ? 'Oʻchirilgan' : 'Faol'}`,
+              reply_markup: buildAdminAudioReciterKeyboard(user.language, refreshed, ctx.emojiRegistry),
+            },
+            ctx.styleManager
+          );
+        }
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:upload:')) {
+        const parts = data.split(':');
+        const recId = parts[3];
+        const surahNum = Number(parts[4]) || 1;
+        await ctx.userService.setActiveFlow(user.telegramId, {
+          type: 'admin_audio_upload_track',
+          reciterId: recId,
+          surahNumber: surahNum,
+        });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: `{{emoji:brand}} «${recId}» uchun MP3 fayl yuboring (captionga sura raqamini yozing, masalan: 36 — aks holda ${surahNum}-sura sifatida saqlanadi).`,
+            reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:bulk:')) {
+        const recId = data.slice('admin:audio:bulk:'.length);
+        await ctx.userService.setActiveFlow(user.telegramId, {
+          type: 'admin_audio_bulk_manifest',
+          reciterId: recId,
+        });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text:
+              `{{emoji:brand}} «${recId}» uchun ommaviy import manifestini har qatorda bittadan HTTPS MP3 URL yoki "001.mp3 | https://..." koʻrinishida yuboring.\n` +
+              `Avval moslik preview koʻrsatiladi va tasdiqlashingiz soʻraladi (aniqlanmagan fayllar avtomatik yozilmaydi).`,
+            reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:bulk_confirm:')) {
+        const planId = data.slice('admin:audio:bulk_confirm:'.length);
+        const res = await mp3.commitBulkImportPlan(planId, user.telegramId);
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+ text: res.ok ? `[ON] ${res.appliedCount} ta sura saqlandi!`: (res.error || 'Xato').slice(0, 180),
+          show_alert: true,
+        });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: res.ok
+              ? `{{emoji:success}} Bulk Import yakunlandi!\n• Saqlangan: ${res.appliedCount} | Xatolik: ${res.failedCount}`
+              : `{{emoji:error}} Bulk Import amalga oshmadi: ${res.error}`,
+            reply_markup: buildAdminAudioHomeKeyboard(
+              user.language,
+              mp3.listReciters({ includeInactive: true }),
+              ctx.emojiRegistry
+            ),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('admin:audio:bulk_cancel:')) {
+        const planId = data.slice('admin:audio:bulk_cancel:'.length);
+        mp3.cancelBulkImportPlan(planId);
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+ text: 'Bulk Import bekor qilindi.',
+        });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: '{{emoji:error}} Bulk Import bekor qilindi. Hech qanday audio oʻzgartirilmadi.',
+            reply_markup: buildAdminAudioHomeKeyboard(
+              user.language,
+              mp3.listReciters({ includeInactive: true }),
+              ctx.emojiRegistry
+            ),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: data };
+      }
+    }
+
+    if (data === 'admin:hifz:home') {
+      const profiles = ctx.repository.listHifzProfiles();
+      const totalMem = profiles.reduce(
+        (acc, p) => acc + (ctx.hifzService ? ctx.hifzService.getStats(p).memorizedAyahsCount : 0),
+        0
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text:
+            `{{emoji:hifz}} Admin — HIFZ & Murojaa Nazorati\n\n` +
+            `• Faol HIFZ profillari: ${profiles.length} ta\n` +
+            `• Jami belgilangan oyatlar: ${totalMem} ta`,
+          reply_markup: buildAdminHomeKeyboard(user.language, settings, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'admin:hifz:home' };
+    }
+
+    if (data === 'admin:tech:home') {
+      const fsSync = ctx.repository.getFirestoreSyncStatus();
+      const notifLogs = (settings.notificationDispatchLog || []).slice(0, 5);
+      const cachedAudioCount = Object.keys(settings.quranAudioFileIdCache || {}).length;
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text:
+            `{{emoji:settings}} Texnik Holat & Loglar\n\n` +
+            `• Firestore Sync: ${fsSync.totalWritesSucceeded}/${fsSync.totalWritesAttempted} OK (xatolar: ${fsSync.totalWritesFailed})\n` +
+            `• Qurʼon Audio file_id keshi: ${cachedAudioCount} ta trek\n` +
+            `• Oxirgi bildirishnoma loglari: ${notifLogs.length} ta\n` +
+            `• Button Styles: ${settings.buttonStylesEnabled ?? true ? 'ON' : 'OFF'} | Rich Messages: ${settings.richMessagesEnabled ? 'ON' : 'OFF'} | Widgets: ${settings.htmlWidgetsEnabled ? 'ON' : 'OFF'}`,
+          reply_markup: buildAdminHomeKeyboard(user.language, settings, ctx.emojiRegistry),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: 'admin:tech:home' };
     }
 
     if (data === 'admin:diagnostics') {
@@ -1629,6 +4525,7 @@ export async function handleCallbackQuery(
   // 12. Standard Navigation & Content Views
   switch (data) {
     case 'nav:home':
+    case 'nav:main':
     case 'ai:exit': {
       await ctx.userService.setActiveFlow(user.telegramId, { type: 'idle' });
       const formatted = ctx.emojiRegistry.formatMessage(
@@ -1690,7 +4587,14 @@ export async function handleCallbackQuery(
       await renderScreenUpdate(ctx.apiClient, callback, {
         text: res.formatted.text,
         entities: res.formatted.entities,
-        reply_markup: buildHadithKeyboard(user.language, res.index, res.total, ctx.emojiRegistry),
+        reply_markup: buildHadithKeyboard(
+          user.language,
+          res.index,
+          res.total,
+          ctx.emojiRegistry,
+          'all',
+          res.hadithId
+        ),
       });
       return { handled: true, action: 'nav:hadith' };
     }
@@ -1768,12 +4672,17 @@ export async function handleCallbackQuery(
     }
 
     case 'nav:bookmarks': {
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
       const formatted = formatBookmarksMessageText(user, ctx.repository, ctx.emojiRegistry);
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
         text: formatted.text,
         entities: formatted.entities,
-        reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        reply_markup: buildInteractiveBookmarksKeyboard(
+          user.language,
+          eng.bookmarks,
+          ctx.emojiRegistry
+        ),
       });
       return { handled: true, action: 'nav:bookmarks' };
     }
@@ -1844,7 +4753,13 @@ export async function handleCallbackQuery(
     }
 
     case 'nav:profile': {
-      const formatted = formatProfileMessageText(user, role, ctx.emojiRegistry, ctx.repository);
+      const formatted = formatProfileMessageText(
+        user,
+        role,
+        ctx.emojiRegistry,
+        ctx.repository,
+        ctx.hifzService
+      );
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
         text: formatted.text,

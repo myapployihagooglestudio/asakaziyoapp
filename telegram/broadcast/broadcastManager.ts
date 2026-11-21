@@ -302,6 +302,7 @@ export class TelegramBroadcastManager {
       const alreadySent = new Set(bc.sentUserIds);
       const alreadyBlocked = new Set(bc.blockedUserIds);
       const pacingMs = options?.delayBetweenMessagesMs ?? 45;
+      let processedSinceCheckpoint = 0;
 
       for (const target of audience) {
         // Re-read status on every iteration so pause/cancel takes effect immediately
@@ -367,7 +368,11 @@ export class TelegramBroadcastManager {
 
         latest.statsByLocale[target.language] = langStat;
         latest.updatedAt = new Date().toISOString();
-        await this.repo.saveBroadcast(latest);
+        processedSinceCheckpoint++;
+        if (processedSinceCheckpoint >= 25) {
+          await this.repo.saveBroadcast(latest);
+          processedSinceCheckpoint = 0;
+        }
 
         if (pacingMs > 0) {
           await new Promise((r) => setTimeout(r, pacingMs));
@@ -375,23 +380,27 @@ export class TelegramBroadcastManager {
       }
 
       const finalState = this.repo.getBroadcast(campaignId);
-      if (finalState && finalState.status === 'running') {
-        finalState.status = 'completed';
-        finalState.completedAt = new Date().toISOString();
-        finalState.updatedAt = finalState.completedAt;
-        await this.repo.saveBroadcast(finalState);
-        await this.repo.appendAuditLog({
-          actorTelegramId: actorId,
-          actorRole: 'admin',
-          action: 'broadcast_completed',
-          targetType: 'broadcast',
-          targetId: campaignId,
-          metadata: {
-            sent: finalState.sentCount,
-            blocked: finalState.blockedCount,
-            failed: finalState.failedCount,
-          },
-        });
+      if (finalState) {
+        if (finalState.status === 'running') {
+          finalState.status = 'completed';
+          finalState.completedAt = new Date().toISOString();
+          finalState.updatedAt = finalState.completedAt;
+          await this.repo.saveBroadcast(finalState);
+          await this.repo.appendAuditLog({
+            actorTelegramId: actorId,
+            actorRole: 'admin',
+            action: 'broadcast_completed',
+            targetType: 'broadcast',
+            targetId: campaignId,
+            metadata: {
+              sent: finalState.sentCount,
+              blocked: finalState.blockedCount,
+              failed: finalState.failedCount,
+            },
+          });
+        } else if (processedSinceCheckpoint > 0) {
+          await this.repo.saveBroadcast(finalState);
+        }
       }
       return this.repo.getBroadcast(campaignId);
     } finally {

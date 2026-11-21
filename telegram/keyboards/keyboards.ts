@@ -7,6 +7,7 @@
  */
 
 import {
+  CustomEmojiEntry,
   TELEGRAM_SUPPORTED_LOCALES,
   TelegramBotSettingsRecord,
   TelegramBroadcastRecord,
@@ -15,15 +16,23 @@ import {
   TelegramInlineKeyboardButton,
   TelegramInlineKeyboardMarkup,
   TelegramLocale,
+  TelegramPersonalReminder,
+  TelegramPrayerNotificationKey,
   TelegramReplyKeyboardMarkup,
   TelegramSupportTicketRecord,
+  TelegramUserBookmark,
+  TelegramUserNotificationPreferences,
   TelegramUserRecord,
 } from '../types';
 import { TelegramPlatformConfig } from '../config';
-import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
+import { CustomEmojiRegistry, stripPlainUnicodeEmojis } from '../emoji/customEmojiRegistry';
 import { getTelegramLocaleBundle, TELEGRAM_LANGUAGE_NATIVE_NAMES } from '../locales';
 import { buildMiniAppEntryUrl } from '../miniapp/miniAppConfig';
 import { ResolvedAndroidReleaseView } from '../services/appReleaseService';
+import { ADHAN_TRACKS } from '../../src/data/adhanTracksData';
+import { QURAN_RECITERS } from '../../src/data/quranData';
+import type { ResolvedQuranReciter, ResolvedSurahAudioTrack } from '../services/quranMp3Service';
+import { DEFAULT_RICH_MESSAGE_TEMPLATES } from '../style/styleManager';
 
 export type ReplyKeyboardAction =
   | 'home'
@@ -68,23 +77,28 @@ function makeAppAction(
 /**
  * Complete 20-item phone-friendly 2-column Persistent ReplyKeyboardMarkup
  * working harmoniously alongside Inline keyboards across all 5 languages.
+ * Attaches official Bot API 9.4+ `icon_custom_emoji_id` when verified & enabled,
+ * while preserving exact localized button text for 100% reliable reply matching.
  */
 export function buildPersistentReplyKeyboard(
-  locale: TelegramLocale
+  locale: TelegramLocale,
+  emoji?: CustomEmojiRegistry
 ): TelegramReplyKeyboardMarkup {
   const rb = getTelegramLocaleBundle(locale).replyButtons;
+  const btn = (emojiKey: string, text: string) =>
+    emoji ? emoji.buildReplyKeyboardButton(emojiKey, text) : { text };
   return {
     keyboard: [
-      [{ text: rb.home }, { text: rb.ai }],
-      [{ text: rb.quran }, { text: rb.hadiths }],
-      [{ text: rb.prayer }, { text: rb.dhikrDua }],
-      [{ text: rb.articles }, { text: rb.announcements }],
-      [{ text: rb.news }, { text: rb.audioLibrary }],
-      [{ text: rb.videoLibrary }, { text: rb.education }],
-      [{ text: rb.quizzes }, { text: rb.androidApp }],
-      [{ text: rb.webApp }, { text: rb.favorites }],
-      [{ text: rb.notifications }, { text: rb.profile }],
-      [{ text: rb.contactAdmin }, { text: rb.settings }],
+      [btn('home', rb.home), btn('ai_assistant', rb.ai)],
+      [btn('quran', rb.quran), btn('hadith', rb.hadiths)],
+      [btn('prayer', rb.prayer), btn('dhikr', rb.dhikrDua)],
+      [btn('quran', rb.articles), btn('community', rb.announcements)],
+      [btn('community', rb.news), btn('quran_mp3', rb.audioLibrary)],
+      [btn('play', rb.videoLibrary), btn('hifz', rb.education)],
+      [btn('statistics', rb.quizzes), btn('nav.miniapp', rb.androidApp)],
+      [btn('nav.web', rb.webApp), btn('favorites', rb.favorites)],
+      [btn('notifications', rb.notifications), btn('profile', rb.profile)],
+      [btn('support', rb.contactAdmin), btn('settings', rb.settings)],
     ],
     resize_keyboard: true,
     is_persistent: true,
@@ -97,34 +111,35 @@ export function buildPersistentReplyKeyboard(
  * (supports all 20 Unified Ecosystem V4 items AND all 6 legacy labels).
  */
 export function matchReplyKeyboardAction(text: string | undefined): ReplyKeyboardAction | null {
-  const trimmed = (text || '').trim();
+  const norm = (val?: string) => stripPlainUnicodeEmojis(val || '').replace(/\s+/g, ' ').trim();
+  const trimmed = norm(text);
   if (!trimmed) return null;
   for (const loc of TELEGRAM_SUPPORTED_LOCALES) {
     const rb = getTelegramLocaleBundle(loc).replyButtons;
-    if (trimmed === rb.home) return 'home';
-    if (trimmed === rb.ai || trimmed === rb.aiAssistant) return 'ai';
-    if (trimmed === rb.quran) return 'quran';
-    if (trimmed === rb.hadiths) return 'hadiths';
-    if (trimmed === rb.prayer || trimmed === rb.prayerTimes) return 'prayer';
-    if (trimmed === rb.dhikrDua) return 'dhikr_dua';
-    if (trimmed === rb.articles) return 'articles';
-    if (trimmed === rb.announcements) return 'announcements';
-    if (trimmed === rb.news) return 'news';
-    if (trimmed === rb.audioLibrary) return 'audio_library';
-    if (trimmed === rb.videoLibrary) return 'video_library';
-    if (trimmed === rb.education) return 'education';
-    if (trimmed === rb.quizzes) return 'quizzes';
-    if (trimmed === rb.androidApp) return 'android_app';
-    if (trimmed === rb.webApp) return 'web_app';
-    if (trimmed === rb.favorites) return 'favorites';
-    if (trimmed === rb.notifications) return 'notifications';
-    if (trimmed === rb.profile) return 'profile';
-    if (trimmed === rb.contactAdmin || trimmed === rb.support) return 'contact_admin';
-    if (trimmed === rb.settings) return 'settings';
+    if (trimmed === norm(rb.home)) return 'home';
+    if (trimmed === norm(rb.ai) || trimmed === norm(rb.aiAssistant)) return 'ai';
+    if (trimmed === norm(rb.quran)) return 'quran';
+    if (trimmed === norm(rb.hadiths)) return 'hadiths';
+    if (trimmed === norm(rb.prayer) || trimmed === norm(rb.prayerTimes)) return 'prayer';
+    if (trimmed === norm(rb.dhikrDua)) return 'dhikr_dua';
+    if (trimmed === norm(rb.articles)) return 'articles';
+    if (trimmed === norm(rb.announcements)) return 'announcements';
+    if (trimmed === norm(rb.news)) return 'news';
+    if (trimmed === norm(rb.audioLibrary)) return 'audio_library';
+    if (trimmed === norm(rb.videoLibrary)) return 'video_library';
+    if (trimmed === norm(rb.education)) return 'education';
+    if (trimmed === norm(rb.quizzes)) return 'quizzes';
+    if (trimmed === norm(rb.androidApp)) return 'android_app';
+    if (trimmed === norm(rb.webApp)) return 'web_app';
+    if (trimmed === norm(rb.favorites)) return 'favorites';
+    if (trimmed === norm(rb.notifications)) return 'notifications';
+    if (trimmed === norm(rb.profile)) return 'profile';
+    if (trimmed === norm(rb.contactAdmin) || trimmed === norm(rb.support)) return 'contact_admin';
+    if (trimmed === norm(rb.settings)) return 'settings';
     // Legacy aliases
-    if (trimmed === rb.quranCenter) return 'quran_center';
-    if (trimmed === rb.academyQuiz) return 'academy_quiz';
-    if (trimmed === rb.menuMiniApp) return 'menu';
+    if (trimmed === norm(rb.quranCenter)) return 'quran_center';
+    if (trimmed === norm(rb.academyQuiz)) return 'academy_quiz';
+    if (trimmed === norm(rb.menuMiniApp)) return 'menu';
   }
   return null;
 }
@@ -161,32 +176,36 @@ export function buildMainMenuKeyboard(
   return {
     inline_keyboard: [
       [
-        emoji.buildKeyboardButton('nav.prayer', b.prayerTimes, { callback_data: 'nav:prayer' }),
-        emoji.buildKeyboardButton('nav.quran', b.quran, { callback_data: 'nav:quran' }),
+        emoji.buildKeyboardButton('quran_mp3', b.audioLibrary, { callback_data: 'qmp3:home' }),
+        emoji.buildKeyboardButton('hifz', b.hifzCenter, { callback_data: 'hifz:home' }),
       ],
       [
-        emoji.buildKeyboardButton('nav.hadith', b.hadith, { callback_data: 'nav:hadith' }),
-        emoji.buildKeyboardButton('nav.dhikr', b.dhikr, { callback_data: 'nav:dhikr' }),
+        emoji.buildKeyboardButton('prayer', b.prayerTimes, { callback_data: 'nav:prayer' }),
+        emoji.buildKeyboardButton('quran', b.quran, { callback_data: 'nav:quran' }),
+      ],
+      [
+        emoji.buildKeyboardButton('hadith', b.hadith, { callback_data: 'nav:hadith' }),
+        emoji.buildKeyboardButton('dhikr', b.dhikr, { callback_data: 'nav:dhikr' }),
+      ],
+      [
+        emoji.buildKeyboardButton('brand.crescent', b.dailyAssistant, { callback_data: 'daily:today' }),
+        emoji.buildKeyboardButton('ai_assistant', b.aiAssistant, { callback_data: 'nav:ai' }),
       ],
       [
         emoji.buildKeyboardButton('brand.book', b.academyLessons, { callback_data: 'nav:academy' }),
-        emoji.buildKeyboardButton('brand.star', b.dailyQuiz, { callback_data: 'quiz:start' }),
+        emoji.buildKeyboardButton('statistics', b.dailyQuiz, { callback_data: 'quiz:start' }),
       ],
       [
-        emoji.buildKeyboardButton('brand.book', b.mediaLibrary, { callback_data: 'library:view:articles:0' }),
-        emoji.buildKeyboardButton('nav.ai', b.aiAssistant, { callback_data: 'nav:ai' }),
+        emoji.buildKeyboardButton('community', b.mediaLibrary, { callback_data: 'library:view:articles:0' }),
+        emoji.buildKeyboardButton('support', b.supportCenter, { callback_data: 'nav:support' }),
       ],
       [
-        emoji.buildKeyboardButton('admin.shield', b.supportCenter, { callback_data: 'nav:support' }),
-        emoji.buildKeyboardButton('brand.star', b.globalSearch, { callback_data: 'nav:search' }),
-      ],
-      [
-        emoji.buildKeyboardButton('nav.profile', b.profile, { callback_data: 'nav:profile' }),
-        emoji.buildKeyboardButton('nav.settings', b.settings, { callback_data: 'nav:settings' }),
+        emoji.buildKeyboardButton('profile', b.profile, { callback_data: 'nav:profile' }),
+        emoji.buildKeyboardButton('notifications', b.settings, { callback_data: 'notif:center' }),
       ],
       [
         emoji.buildKeyboardButton('nav.language', b.language, { callback_data: 'nav:language' }),
-        emoji.buildKeyboardButton('nav.channels', b.channels, { callback_data: 'nav:channels' }),
+        emoji.buildKeyboardButton('community', b.channels, { callback_data: 'nav:channels' }),
       ],
       [
         emoji.buildKeyboardButton(
@@ -194,13 +213,16 @@ export function buildMainMenuKeyboard(
           useMiniApp ? b.miniApp : b.webApp,
           makeAppAction(config, locale, 'home', useMiniApp)
         ),
-        emoji.buildKeyboardButton('brand.star', `📱 ${b.androidApp}`, { callback_data: 'nav:android_app' }),
+        emoji.buildKeyboardButton('brand.star', b.androidApp, { callback_data: 'nav:android_app' }),
       ],
       [
-        emoji.buildKeyboardButton('brand.mosque', b.mosqueInfo, { callback_data: 'nav:mosque' }),
-        emoji.buildKeyboardButton('brand.star', b.myBookmarks, { callback_data: 'nav:bookmarks' }),
+        emoji.buildKeyboardButton('prayer', b.qiblaFinder, { callback_data: 'qibla:home' }),
+        emoji.buildKeyboardButton('favorites', b.myBookmarks, { callback_data: 'nav:bookmarks' }),
       ],
-      bottomRow,
+      [
+        emoji.buildKeyboardButton('brand.star', b.globalSearch, { callback_data: 'nav:search' }),
+        ...bottomRow,
+      ],
     ],
   };
 }
@@ -265,6 +287,22 @@ export function buildSettingsKeyboard(
           `${b.toggleAnnouncements}: ${stateTag(user.announcementsEnabled)}`,
           { callback_data: 'settings:toggle:announcementsEnabled' }
         ),
+      ],
+      [
+        emoji.buildKeyboardButton('nav.prayer', b.prayerAlertPrefs, {
+          callback_data: 'settings:prayers',
+        }),
+        emoji.buildKeyboardButton('nav.prayer', b.adhanAudioPrefs, {
+          callback_data: 'settings:adhan',
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('settings.gear', b.quietHoursPrefs, {
+          callback_data: 'settings:quiet',
+        }),
+        emoji.buildKeyboardButton('brand.star', b.hifzCenter, {
+          callback_data: 'hifz:reminders',
+        }),
       ],
       [
         emoji.buildKeyboardButton('nav.language', b.changeLanguage, {
@@ -472,12 +510,14 @@ export function buildHadithKeyboard(
   currentIndex: number,
   total: number,
   emoji: CustomEmojiRegistry,
-  collection: 'all' | 'bukhari' | 'muslim' | 'nawawi' = 'all'
+  collection: 'all' | 'bukhari' | 'muslim' | 'nawawi' = 'all',
+  hadithId?: string
 ): TelegramInlineKeyboardMarkup {
   const dict = getTelegramLocaleBundle(locale);
   const b = dict.buttons;
   const prevIdx = (currentIndex - 1 + total) % total;
   const nextIdx = (currentIndex + 1) % total;
+  const bookmarkTarget = hadithId || String(currentIndex);
 
   return {
     inline_keyboard: [
@@ -502,7 +542,7 @@ export function buildHadithKeyboard(
       ],
       [
         emoji.buildKeyboardButton('brand.star', b.bookmarkToggle, {
-          callback_data: `bookmark:hadith:${currentIndex}`,
+          callback_data: `bookmark:hadith:${bookmarkTarget}`,
         }),
         emoji.buildKeyboardButton('brand.book', b.hadithSearch, { callback_data: 'hadith:search' }),
       ],
@@ -734,13 +774,18 @@ export function buildAndroidAppKeyboard(
         ? info.remoteApkUrl
         : `${publicBase}/api/apk/download`;
     rows.push([
-      emoji.buildKeyboardButton('status.ok', `⬇️ ${b.androidDownload} (${info.fileSizeDisplay})`, {
+      emoji.buildKeyboardButton('status.ok', `${b.androidSendApkDirect} (${info.fileSizeDisplay})`, {
+        callback_data: 'android:send_apk',
+      }),
+    ]);
+    rows.push([
+ emoji.buildKeyboardButton('nav.web', `${b.androidDownload}`, {
         url: dlUrl,
       }),
     ]);
   } else {
     rows.push([
-      emoji.buildKeyboardButton('nav.settings', `🔄 ${b.androidCheckUpdates}`, {
+ emoji.buildKeyboardButton('nav.settings', `${b.androidCheckUpdates}`, {
         callback_data: 'android:check',
       }),
     ]);
@@ -813,8 +858,22 @@ export function buildProfileKeyboard(
   return {
     inline_keyboard: [
       [
-        emoji.buildKeyboardButton('brand.star', b.myBookmarks, { callback_data: 'nav:bookmarks' }),
+        emoji.buildKeyboardButton('profile.user', b.editProfileName, {
+          callback_data: 'profile:edit_name',
+        }),
+        emoji.buildKeyboardButton('settings.bell_on', b.notifHistory, {
+          callback_data: 'profile:notif_history',
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('brand.star', b.hifzCenter, { callback_data: 'hifz:home' }),
         emoji.buildKeyboardButton('brand.book', b.khatmPlanner, { callback_data: 'quran:khatm' }),
+      ],
+      [
+        emoji.buildKeyboardButton('brand.star', b.myBookmarks, { callback_data: 'nav:bookmarks' }),
+        emoji.buildKeyboardButton('admin.shield', b.supportMyTickets, {
+          callback_data: 'support:my_tickets',
+        }),
       ],
       [
         emoji.buildKeyboardButton('nav.language', b.changeLanguage, {
@@ -868,23 +927,31 @@ export function buildAdminHomeKeyboard(
   return {
     inline_keyboard: [
       [
-        emoji.buildKeyboardButton('nav.prayer', '🕌 Namoz Jadvali (Asaka)', {
+ emoji.buildKeyboardButton('quran_mp3', 'Qurʼon Audio Boshqaruvi', {
+          callback_data: 'admin:audio:home',
+        }),
+ emoji.buildKeyboardButton('hifz', 'Hifz Nazorati', {
+          callback_data: 'admin:hifz:home',
+        }),
+      ],
+      [
+ emoji.buildKeyboardButton('prayer', 'Namoz Jadvali (Asaka)', {
           callback_data: 'admin:prayer',
         }),
-        emoji.buildKeyboardButton('brand.book', '📝 Markaziy CMS (Firestore)', {
+ emoji.buildKeyboardButton('brand.book', 'Markaziy CMS (Firestore)', {
           callback_data: 'admin:cms',
         }),
       ],
       [
-        emoji.buildKeyboardButton('channel.broadcast', b.adminBroadcasts, {
+        emoji.buildKeyboardButton('community', b.adminBroadcasts, {
           callback_data: 'admin:broadcasts',
         }),
-        emoji.buildKeyboardButton('admin.shield', b.adminSupport, {
+        emoji.buildKeyboardButton('support', b.adminSupport, {
           callback_data: 'admin:support',
         }),
       ],
       [
-        emoji.buildKeyboardButton('nav.channels', b.adminChannels, {
+        emoji.buildKeyboardButton('community', b.adminChannels, {
           callback_data: 'admin:channels',
         }),
         emoji.buildKeyboardButton('brand.book', b.adminContent, {
@@ -892,36 +959,44 @@ export function buildAdminHomeKeyboard(
         }),
       ],
       [
-        emoji.buildKeyboardButton('nav.ai', b.adminAiControl, {
+        emoji.buildKeyboardButton('ai_assistant', b.adminAiControl, {
           callback_data: 'admin:ai',
         }),
-        emoji.buildKeyboardButton('profile.user', b.adminUsers, {
+        emoji.buildKeyboardButton('profile', b.adminUsers, {
           callback_data: 'admin:users',
         }),
       ],
       [
-        emoji.buildKeyboardButton('brand.star', b.adminEmojis, {
-          callback_data: 'admin:emojis',
+ emoji.buildKeyboardButton('brand.star', `${b.adminEmojis} (/emoji_setup)`, {
+          callback_data: 'admin:emoji:home:0',
         }),
-        emoji.buildKeyboardButton('brand.star', b.adminAnalytics, {
-          callback_data: 'admin:analytics',
+ emoji.buildKeyboardButton('settings', 'Style & Rich (API 10.4)', {
+          callback_data: 'admin:style:home',
         }),
       ],
       [
-        emoji.buildKeyboardButton('nav.ai', `${b.adminToggleAi}: ${tag(settings.aiAssistantEnabled)}`, {
+        emoji.buildKeyboardButton('statistics', b.adminAnalytics, {
+          callback_data: 'admin:analytics',
+        }),
+        emoji.buildKeyboardButton('ai_assistant', `${b.adminToggleAi}: ${tag(settings.aiAssistantEnabled)}`, {
           callback_data: 'admin:ai:toggle',
         }),
+      ],
+      [
         emoji.buildKeyboardButton(
           'status.lock',
           `${b.adminToggleMaintenance}: ${tag(settings.maintenanceMode)}`,
           { callback_data: 'admin:maintenance:toggle' }
         ),
+ emoji.buildKeyboardButton('admin', 'Texnik Holat & Loglar', {
+          callback_data: 'admin:tech:home',
+        }),
       ],
       [
-        emoji.buildKeyboardButton('admin.shield', b.adminDiagnostics, {
+        emoji.buildKeyboardButton('admin', b.adminDiagnostics, {
           callback_data: 'admin:diagnostics',
         }),
-        emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+        emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
       ],
     ],
   };
@@ -935,20 +1010,20 @@ export function buildAdminPrayerKeyboard(
   return {
     inline_keyboard: [
       [
-        { text: '🌙 Tahajjud', callback_data: 'admin:prayer:edit:tahajjud' },
-        { text: '✨ Subh', callback_data: 'admin:prayer:edit:subh' },
+ { text: 'Tahajjud', callback_data: 'admin:prayer:edit:tahajjud'},
+ { text: 'Subh', callback_data: 'admin:prayer:edit:subh'},
       ],
       [
-        { text: '🌅 Bomdod', callback_data: 'admin:prayer:edit:bomdod' },
-        { text: '☀️ Quyosh', callback_data: 'admin:prayer:edit:quyosh' },
+ { text: 'Bomdod', callback_data: 'admin:prayer:edit:bomdod'},
+ { text: 'Quyosh', callback_data: 'admin:prayer:edit:quyosh'},
       ],
       [
-        { text: '🕛 Peshin', callback_data: 'admin:prayer:edit:peshin' },
-        { text: '🌤 Asr', callback_data: 'admin:prayer:edit:asr' },
+ { text: 'Peshin', callback_data: 'admin:prayer:edit:peshin'},
+ { text: 'Asr', callback_data: 'admin:prayer:edit:asr'},
       ],
       [
-        { text: '🌇 Shom', callback_data: 'admin:prayer:edit:shom' },
-        { text: '🌃 Xufton', callback_data: 'admin:prayer:edit:xufton' },
+ { text: 'Shom', callback_data: 'admin:prayer:edit:shom'},
+ { text: 'Xufton', callback_data: 'admin:prayer:edit:xufton'},
       ],
       [
         emoji.buildKeyboardButton('nav.admin', b.adminPanel, { callback_data: 'admin:home' }),
@@ -966,19 +1041,19 @@ export function buildAdminCmsKeyboard(
   const b = getTelegramLocaleBundle(locale).buttons;
   const rows: TelegramInlineKeyboardButton[][] = [
     [
-      { text: '➕ Yangi Maqola', callback_data: 'admin:cms:new:article' },
-      { text: '➕ Yangi Yangilik', callback_data: 'admin:cms:new:news' },
+ { text: '+ Yangi Maqola', callback_data: 'admin:cms:new:article'},
+ { text: '+ Yangi Yangilik', callback_data: 'admin:cms:new:news'},
     ],
     [
-      { text: '➕ Yangi Eʼlon', callback_data: 'admin:cms:new:announcement' },
-      { text: '➕ Yangi Hadis', callback_data: 'admin:cms:new:hadith' },
+ { text: '+ Yangi Eʼlon', callback_data: 'admin:cms:new:announcement'},
+ { text: '+ Yangi Hadis', callback_data: 'admin:cms:new:hadith'},
     ],
   ];
 
   for (const item of recentItems.slice(0, 4)) {
     rows.push([
       {
-        text: `🗑 Oʻchirish: [${item.type}] ${item.title.slice(0, 22)}`,
+ text: `Del Oʻchirish: [${item.type}] ${item.title.slice(0, 22)}`,
         callback_data: `admin:cms:del_confirm:${item.type}:${item.id.slice(0, 28)}`,
       },
     ]);
@@ -1044,11 +1119,11 @@ export function buildAdminSupportKeyboard(
   for (const t of tickets.slice(0, 5)) {
     rows.push([
       {
-        text: `💬 ${t.id} (${t.status}) — ${t.userName.slice(0, 22)}`,
+ text: `${t.id} (${t.status}) — ${t.userName.slice(0, 22)}`,
         callback_data: `admin:support:reply:${t.id}`,
       },
       {
-        text: '✅ Close',
+ text: '[ON] Close',
         callback_data: `admin:support:close:${t.id}`,
       },
     ]);
@@ -1080,22 +1155,22 @@ export function buildAdminBroadcastsKeyboard(
     const actionRow: TelegramInlineKeyboardButton[] = [];
     if (c.status === 'draft' || c.status === 'paused') {
       actionRow.push({
-        text: `▶️ Start ${c.title.slice(0, 14)}`,
+ text: `Start ${c.title.slice(0, 14)}`,
         callback_data: `admin:broadcast:start:${c.id}`,
       });
     } else if (c.status === 'running') {
       actionRow.push({
-        text: `⏸ Pause ${c.title.slice(0, 14)}`,
+ text: `[OFF] Pause ${c.title.slice(0, 14)}`,
         callback_data: `admin:broadcast:pause:${c.id}`,
       });
     }
     if (c.status !== 'completed' && c.status !== 'cancelled') {
       actionRow.push({
-        text: '🧪 Preview',
+ text: 'Preview',
         callback_data: `admin:broadcast:test:${c.id}`,
       });
       actionRow.push({
-        text: '⛔ Cancel',
+ text: '[OFF] Cancel',
         callback_data: `admin:broadcast:cancel:${c.id}`,
       });
     }
@@ -1122,7 +1197,7 @@ export function buildAdminContentKeyboard(
     if (d.status !== 'published') {
       rows.push([
         {
-          text: `📢 Publish: ${d.title.slice(0, 26)}`,
+ text: `Publish: ${d.title.slice(0, 26)}`,
           callback_data: `admin:content:publish:${d.id}`,
         },
       ]);
@@ -1145,7 +1220,7 @@ export function buildAdminUsersKeyboard(
   return {
     inline_keyboard: [
       [
-        emoji.buildKeyboardButton('profile.user', '🔍 Search User (ID / @username)', {
+ emoji.buildKeyboardButton('profile.user', 'Search User (ID / @username)', {
           callback_data: 'admin:users:search',
         }),
       ],
@@ -1166,7 +1241,7 @@ export function buildAdminChannelsKeyboard(
   const b = dict.buttons;
   const rows: TelegramInlineKeyboardButton[][] = [
     [
-      emoji.buildKeyboardButton('channel.broadcast', '➕ Kanal yoki Guruh ulash', {
+ emoji.buildKeyboardButton('channel.broadcast', '+ Kanal yoki Guruh ulash', {
         callback_data: 'admin:channel:connect',
       }),
     ],
@@ -1190,7 +1265,7 @@ export function buildAdminChannelsKeyboard(
     if (!ch.isPrimary) {
       rows.push([
         {
-          text: `🗑 Uzish: ${ch.username}`,
+ text: `Del Uzish: ${ch.username}`,
           callback_data: `admin:channel:remove_confirm:${ch.id}`,
         },
       ]);
@@ -1274,4 +1349,988 @@ export function buildBackOnlyKeyboard(
       ],
     ],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Bot 2.0: Registration, Per-Prayer/Adhan/Quiet Hours, Bookmarks, Qibla,
+// Surah Reader/Reciters, Support User Reply
+// ---------------------------------------------------------------------------
+
+export function buildRegistrationCancelKeyboard(
+  locale: TelegramLocale
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  return {
+    inline_keyboard: [[{ text: dict.registerBtnCancel, callback_data: 'register:cancel' }]],
+  };
+}
+
+export function buildRegistrationConfirmKeyboard(
+  locale: TelegramLocale
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  return {
+    inline_keyboard: [
+      [
+        { text: dict.registerBtnConfirm, callback_data: 'register:confirm' },
+        { text: dict.registerBtnRetry, callback_data: 'register:retry' },
+      ],
+      [{ text: dict.registerBtnCancel, callback_data: 'register:cancel' }],
+    ],
+  };
+}
+
+export function buildPerPrayerSettingsKeyboard(
+  locale: TelegramLocale,
+  prefs: TelegramUserNotificationPreferences,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  const pn = dict.prayerNames;
+ const mark = (on: boolean) => (on ? '[ON]': '[OFF]');
+  const keys: TelegramPrayerNotificationKey[] = [
+    'tahajjud',
+    'subh',
+    'bomdod',
+    'peshin',
+    'asr',
+    'shom',
+    'xufton',
+    'juma',
+  ];
+
+  const rows: TelegramInlineKeyboardButton[][] = [];
+  for (let i = 0; i < keys.length; i += 2) {
+    rows.push(
+      keys.slice(i, i + 2).map((k) => ({
+        text: `${mark(Boolean(prefs.prayers[k]))} ${pn[k]}`,
+        callback_data: `settings:prayer:${k}`,
+      }))
+    );
+  }
+
+  rows.push([
+    {
+      text: `${mark(prefs.dailyBriefEnabled)} ${dict.dailyBtn}`,
+      callback_data: 'settings:notif:dailyBriefEnabled',
+    },
+    {
+      text: `${mark(prefs.appUpdatesEnabled)} Android APK`,
+      callback_data: 'settings:notif:appUpdatesEnabled',
+    },
+  ]);
+
+  rows.push([
+    emoji.buildKeyboardButton('notifications', dict.buttons.settings, {
+      callback_data: 'notif:center',
+    }),
+    emoji.buildKeyboardButton('back', dict.buttons.backToMenu, {
+      callback_data: 'nav:home',
+    }),
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+export function buildAdhanAudioKeyboard(
+  locale: TelegramLocale,
+  currentTrackId: string | null | undefined,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  const isNone = !currentTrackId || currentTrackId === 'none';
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+      {
+ text: `${isNone ? '[ON]': '[OFF]'} Text only (No Adhan Audio)`,
+        callback_data: 'settings:adhan:off',
+      },
+    ],
+  ];
+
+  for (const track of ADHAN_TRACKS.slice(0, 6)) {
+    const active = currentTrackId === track.id;
+    rows.push([
+      {
+ text: `${active ? '[ON]': ''} ${track.titleUz.slice(0, 36)}`,
+        callback_data: `settings:adhan:${track.id}`,
+      },
+    ]);
+  }
+
+  rows.push([
+    emoji.buildKeyboardButton('nav.settings', dict.buttons.settings, {
+      callback_data: 'nav:settings',
+    }),
+    emoji.buildKeyboardButton('nav.back', dict.buttons.backToMenu, {
+      callback_data: 'nav:home',
+    }),
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+export function buildQuietHoursKeyboard(
+  locale: TelegramLocale,
+  prefs: TelegramUserNotificationPreferences,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  const activeTag = (start: string, end: string) =>
+    prefs.quietHoursEnabled && prefs.quietHoursStart === start && prefs.quietHoursEnd === end
+ ? '[ON] '
+      : '';
+
+  return {
+    inline_keyboard: [
+      [
+        {
+ text: `${!prefs.quietHoursEnabled ? '[ON] ': ''} Off (24/7 alerts)`,
+          callback_data: 'settings:quiet:off',
+        },
+      ],
+      [
+        {
+ text: `${activeTag('22:00', '05:00')} 22:00 – 05:00`,
+          callback_data: 'settings:quiet:2200-0500',
+        },
+        {
+ text: `${activeTag('23:00', '05:00')} 23:00 – 05:00`,
+          callback_data: 'settings:quiet:2300-0500',
+        },
+      ],
+      [
+        {
+ text: `${activeTag('22:30', '04:30')} 22:30 – 04:30`,
+          callback_data: 'settings:quiet:2230-0430',
+        },
+        {
+ text: `${activeTag('00:00', '05:30')} 00:00 – 05:30`,
+          callback_data: 'settings:quiet:0000-0530',
+        },
+      ],
+      [
+        emoji.buildKeyboardButton('nav.settings', dict.buttons.settings, {
+          callback_data: 'nav:settings',
+        }),
+        emoji.buildKeyboardButton('nav.back', dict.buttons.backToMenu, {
+          callback_data: 'nav:home',
+        }),
+      ],
+    ],
+  };
+}
+
+export function buildInteractiveBookmarksKeyboard(
+  locale: TelegramLocale,
+  bookmarks: TelegramUserBookmark[],
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = [];
+
+  for (const bm of bookmarks.slice(0, 8)) {
+    const shortId = bm.id.slice(0, 36);
+    rows.push([
+      {
+ text: `${bm.title.slice(0, 28)}`,
+        callback_data: `bookmark:open:${shortId}`,
+      },
+      {
+ text: 'Del',
+        callback_data: `bookmark:del:${shortId}`,
+      },
+    ]);
+  }
+
+  rows.push([
+    emoji.buildKeyboardButton('nav.profile', b.profile, { callback_data: 'nav:profile' }),
+    emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+export function buildQiblaReplyKeyboard(
+  locale: TelegramLocale
+): TelegramReplyKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  return {
+    keyboard: [
+      [{ text: dict.qiblaShareLocationBtn, request_location: true }],
+      [{ text: dict.replyButtons.home }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: true,
+  };
+}
+
+export function buildSurahDetailKeyboard(
+  locale: TelegramLocale,
+  surahNumber: number,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  return {
+    inline_keyboard: [
+      [
+        emoji.buildKeyboardButton('brand.book', b.quranReadSurah, {
+          callback_data: `quran:read:${surahNumber}:1`,
+        }),
+        emoji.buildKeyboardButton('nav.quran', b.quranListenAudio, {
+          callback_data: `quran:audio:${surahNumber}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('settings.gear', b.quranReciters, {
+          callback_data: `quran:reciters:${surahNumber}`,
+        }),
+        emoji.buildKeyboardButton('brand.star', b.hifzCenter, {
+          callback_data: `hifz:surah:${surahNumber}:0`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('brand.book', b.allSurahs, { callback_data: 'quran:surahs:0' }),
+        emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildSurahReaderKeyboard(
+  locale: TelegramLocale,
+  surahNumber: number,
+  ayahNumber: number,
+  totalAyahs: number,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const prevAyah = ayahNumber > 1 ? ayahNumber - 1 : totalAyahs;
+  const nextAyah = ayahNumber < totalAyahs ? ayahNumber + 1 : 1;
+
+  return {
+    inline_keyboard: [
+      [
+        emoji.buildKeyboardButton('nav.prev', `${b.prevItem} (${prevAyah})`, {
+          callback_data: `quran:read:${surahNumber}:${prevAyah}`,
+        }),
+        emoji.buildKeyboardButton('nav.next', `${b.nextItem} (${nextAyah})`, {
+          callback_data: `quran:read:${surahNumber}:${nextAyah}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('nav.quran', b.quranListenAudio, {
+          callback_data: `quran:audio:${surahNumber}`,
+        }),
+        emoji.buildKeyboardButton('settings.gear', b.quranReciters, {
+          callback_data: `quran:reciters:${surahNumber}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('brand.book', b.allSurahs, { callback_data: 'quran:surahs:0' }),
+        emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildQuranRecitersKeyboard(
+  locale: TelegramLocale,
+  surahNumber: number,
+  currentReciterId: string,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = QURAN_RECITERS.slice(0, 8).map((r) => [
+    {
+ text: `${r.id === currentReciterId ? '[ON]': ''} ${r.name}`,
+      callback_data: `quran:setreciter:${r.id}:${surahNumber}`,
+    },
+  ]);
+
+  rows.push([
+    emoji.buildKeyboardButton('brand.book', b.quranReadSurah, {
+      callback_data: `quran:read:${surahNumber}:1`,
+    }),
+    emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+export function buildSupportTicketUserReplyKeyboard(
+  locale: TelegramLocale,
+  ticketId: string,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(locale);
+  return {
+    inline_keyboard: [
+      [
+        emoji.buildKeyboardButton('support', dict.supportReplyUserBtn, {
+          callback_data: `support:reply_user:${ticketId}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('back', dict.buttons.backToMenu, {
+          callback_data: 'nav:home',
+        }),
+      ],
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 2026 Ultimate Upgrade Keyboards: Quran MP3, Admin Emoji Setup, Admin Audio/Hifz/Tech,
+// Full Notification Center (11 types + multi-select lead times), Privacy Center & Reminders
+// ---------------------------------------------------------------------------
+
+export function buildQuranMp3HomeKeyboard(
+  locale: TelegramLocale,
+  emoji: CustomEmojiRegistry,
+  config: TelegramPlatformConfig,
+  hasResume: boolean,
+  miniAppEnabled = true
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+ emoji.buildKeyboardButton('quran_mp3', 'Qorilar roʻyxati (10 qori)', {
+        callback_data: 'qmp3:reciters:0',
+      }),
+    ],
+    ...(hasResume
+      ? [
+          [
+ emoji.buildKeyboardButton('play', 'Oxirgi tinglangandan davom etish', {
+              callback_data: 'qmp3:resume',
+            }),
+          ],
+        ]
+      : []),
+    [
+ emoji.buildKeyboardButton('favorites', 'Sevimlilarim', { callback_data: 'qmp3:favorites'}),
+ emoji.buildKeyboardButton('calendar', 'Oxirgi tinglanganlar', { callback_data: 'qmp3:history'}),
+    ],
+    [
+ emoji.buildKeyboardButton('quran', 'Sura / Qori qidirish', { callback_data: 'qmp3:search'}),
+ emoji.buildKeyboardButton('statistics', 'Tinglash statistikasi', { callback_data: 'qmp3:stats'}),
+    ],
+    [
+      emoji.buildKeyboardButton(
+        miniAppEnabled ? 'nav.miniapp' : 'nav.web',
+ 'Web Audio Pleyer',
+        makeAppAction(config, locale, 'quran', miniAppEnabled)
+      ),
+      emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+    ],
+  ];
+  return { inline_keyboard: rows };
+}
+
+export function buildQuranMp3RecitersKeyboard(
+  locale: TelegramLocale,
+  reciters: ResolvedQuranReciter[],
+  favoriteReciterIds: string[],
+  page: number,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(reciters.length / pageSize));
+  const safePage = Math.max(0, Math.min(totalPages - 1, page));
+  const slice = reciters.slice(safePage * pageSize, (safePage + 1) * pageSize);
+
+  const rows: TelegramInlineKeyboardButton[][] = slice.map((r) => {
+    const isFav = favoriteReciterIds.includes(r.id);
+    const badge = r.availableSurahCount === 114 ? '114/114' : `${r.availableSurahCount}/114`;
+    return [
+      emoji.buildKeyboardButton(
+        'quran_mp3',
+ `${isFav ? '': ''}${r.nameUz} (${badge})`,
+        { callback_data: `qmp3:reciter:${r.id}:0` }
+      ),
+    ];
+  });
+
+  if (totalPages > 1) {
+    const nav: TelegramInlineKeyboardButton[] = [];
+    if (safePage > 0) {
+      nav.push(emoji.buildKeyboardButton('previous', b.prevItem, { callback_data: `qmp3:reciters:${safePage - 1}` }));
+    }
+    if (safePage < totalPages - 1) {
+      nav.push(emoji.buildKeyboardButton('next', b.nextItem, { callback_data: `qmp3:reciters:${safePage + 1}` }));
+    }
+    if (nav.length > 0) rows.push(nav);
+  }
+
+  rows.push([
+ emoji.buildKeyboardButton('quran_mp3', 'Qurʼon MP3', { callback_data: 'qmp3:home'}),
+    emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+  return { inline_keyboard: rows };
+}
+
+export function buildQuranMp3SurahsKeyboard(
+  locale: TelegramLocale,
+  reciter: ResolvedQuranReciter,
+  tracks: ResolvedSurahAudioTrack[],
+  page: number,
+  isFavReciter: boolean,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const pageSize = 12;
+  const totalPages = Math.max(1, Math.ceil(tracks.length / pageSize));
+  const safePage = Math.max(0, Math.min(totalPages - 1, page));
+  const slice = tracks.slice(safePage * pageSize, (safePage + 1) * pageSize);
+
+  const rows: TelegramInlineKeyboardButton[][] = [];
+  for (let i = 0; i < slice.length; i += 2) {
+    rows.push(
+      slice.slice(i, i + 2).map((t) => {
+ const icon = t.available ? '': '[!]';
+        return {
+          text: `${icon} ${t.surahNumber}. ${t.surahNameUz}`,
+          callback_data: `qmp3:play:${reciter.id}:${t.surahNumber}`,
+        };
+      })
+    );
+  }
+
+  const navRow: TelegramInlineKeyboardButton[] = [];
+  if (safePage > 0) {
+    navRow.push(
+      emoji.buildKeyboardButton('previous', `${safePage}/${totalPages}`, {
+        callback_data: `qmp3:reciter:${reciter.id}:${safePage - 1}`,
+      })
+    );
+  }
+  navRow.push(
+    emoji.buildKeyboardButton('favorites', isFavReciter ? '★ Sevimli qori' : '☆ Sevimli qori', {
+      callback_data: `qmp3:fav_reciter:${reciter.id}`,
+    })
+  );
+  if (safePage < totalPages - 1) {
+    navRow.push(
+      emoji.buildKeyboardButton('next', `${safePage + 2}/${totalPages}`, {
+        callback_data: `qmp3:reciter:${reciter.id}:${safePage + 1}`,
+      })
+    );
+  }
+  rows.push(navRow);
+
+  rows.push([
+ emoji.buildKeyboardButton('quran_mp3', 'Qorini almashtirish', { callback_data: 'qmp3:reciters:0'}),
+    emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+  return { inline_keyboard: rows };
+}
+
+/**
+ * Real Telegram Audio Player companion controls attached to `sendAudio`.
+ * Uses Telegram's native audio player for play/pause/seek (NO fake play/pause buttons!).
+ */
+export function buildQuranMp3TrackControlsKeyboard(
+  locale: TelegramLocale,
+  reciterId: string,
+  surahNumber: number,
+  isFavSurah: boolean,
+  isFavReciter: boolean,
+  emoji: CustomEmojiRegistry,
+  config: TelegramPlatformConfig,
+  miniAppEnabled = true
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const prevSurah = surahNumber > 1 ? surahNumber - 1 : 114;
+  const nextSurah = surahNumber < 114 ? surahNumber + 1 : 1;
+
+  return {
+    inline_keyboard: [
+      [
+        emoji.buildKeyboardButton('previous', `Oldingi (${prevSurah})`, {
+          callback_data: `qmp3:play:${reciterId}:${prevSurah}`,
+        }),
+        emoji.buildKeyboardButton('next', `Keyingi (${nextSurah})`, {
+          callback_data: `qmp3:play:${reciterId}:${nextSurah}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('favorites', isFavSurah ? '★ Sura sevimlida' : '☆ Surani saqlash', {
+          callback_data: `qmp3:fav_surah:${reciterId}:${surahNumber}`,
+        }),
+        emoji.buildKeyboardButton('favorites', isFavReciter ? '★ Qori sevimlida' : '☆ Qorini saqlash', {
+          callback_data: `qmp3:fav_reciter:${reciterId}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('quran_mp3', '114 Sura', {
+          callback_data: `qmp3:reciter:${reciterId}:${Math.floor((surahNumber - 1) / 12)}`,
+        }),
+        emoji.buildKeyboardButton('hifz', 'Hifz murojaa', {
+          callback_data: `hifz:surah:${surahNumber}:0`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton(
+          miniAppEnabled ? 'nav.miniapp' : 'nav.web',
+          'Web Pleyer',
+          makeAppAction(config, locale, 'quran', miniAppEnabled)
+        ),
+        emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildAdminEmojiCategoriesKeyboard(
+  locale: TelegramLocale,
+  page: number,
+  emoji: CustomEmojiRegistry,
+  settings: TelegramBotSettingsRecord,
+  pendingAssignCustomId?: string
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const slots = emoji.listManagedSlots();
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(slots.length / pageSize));
+  const safePage = Math.max(0, Math.min(totalPages - 1, page));
+  const slice = slots.slice(safePage * pageSize, (safePage + 1) * pageSize);
+
+  const rows: TelegramInlineKeyboardButton[][] = [];
+  for (let i = 0; i < slice.length; i += 2) {
+    rows.push(
+      slice.slice(i, i + 2).map((slot) => {
+        const badge =
+          slot.verified && slot.customEmojiId
+            ? slot.enabled === false
+              ? '[OFF]'
+              : '[OK]'
+            : '[--]';
+        return emoji.buildKeyboardButton(slot.key, `${badge} ${slot.key}`, {
+          callback_data: pendingAssignCustomId
+            ? `admin:emoji:bind:${slot.key}`
+            : `admin:emoji:slot:${slot.key}`,
+        });
+      })
+    );
+  }
+
+  const pager: TelegramInlineKeyboardButton[] = [];
+  if (safePage > 0) {
+    pager.push(
+      emoji.buildKeyboardButton('previous', `${safePage}/${totalPages}`, {
+        callback_data: pendingAssignCustomId
+          ? `admin:emoji:assignpage:${safePage - 1}`
+          : `admin:emoji:home:${safePage - 1}`,
+      })
+    );
+  }
+  if (safePage < totalPages - 1) {
+    pager.push(
+      emoji.buildKeyboardButton('next', `${safePage + 2}/${totalPages}`, {
+        callback_data: pendingAssignCustomId
+          ? `admin:emoji:assignpage:${safePage + 1}`
+          : `admin:emoji:home:${safePage + 1}`,
+      })
+    );
+  }
+  if (pager.length > 0) rows.push(pager);
+
+  if (!pendingAssignCustomId) {
+    rows.push([
+      emoji.buildKeyboardButton('brand', 'Yangi custom slot', {
+        callback_data: 'admin:emoji:new_custom',
+      }),
+      emoji.buildKeyboardButton('warning', 'Yetishmayotganlar', {
+        callback_data: 'admin:emoji:missing',
+      }),
+    ]);
+    rows.push([
+      emoji.buildKeyboardButton('statistics', 'Audit va Test Paneli', {
+        callback_data: 'admin:emoji:audit',
+      }),
+      emoji.buildKeyboardButton('calendar', 'Oʻzgarishlar tarixi', {
+        callback_data: 'admin:emoji:history',
+      }),
+    ]);
+    rows.push([
+      emoji.buildKeyboardButton(
+        'success',
+        `Premium: ${settings.premiumEmojiEnabled ? 'ON' : 'OFF'}`,
+        { callback_data: 'admin:emoji:toggle_global' }
+      ),
+      emoji.buildKeyboardButton(
+        'settings',
+        `KB Icons: ${settings.premiumKeyboardIconsEnabled ? 'ON' : 'OFF'}`,
+        { callback_data: 'admin:emoji:toggle_kb' }
+      ),
+    ]);
+    rows.push([
+      emoji.buildKeyboardButton('success', b.adminVerifyEmojis, { callback_data: 'admin:emojis:verify' }),
+      emoji.buildKeyboardButton('brand.star', b.adminTestEmojiSend, { callback_data: 'admin:emoji:test' }),
+    ]);
+  } else {
+    rows.push([
+      emoji.buildKeyboardButton('error', 'Bekor qilish', { callback_data: 'admin:emoji:home:0' }),
+    ]);
+  }
+
+  rows.push([
+    emoji.buildKeyboardButton('admin', b.adminPanel, { callback_data: 'admin:home' }),
+    emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+
+  return { inline_keyboard: rows };
+}
+
+export function buildAdminEmojiSlotDetailKeyboard(
+  locale: TelegramLocale,
+  entry: CustomEmojiEntry,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  return {
+    inline_keyboard: [
+      [
+        emoji.buildKeyboardButton('brand.star', 'Premium Emoji bogʻlash / almashtirish', {
+          callback_data: `admin:emoji:capture:${entry.key}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('play', 'Preview yuborish', {
+          callback_data: `admin:emoji:preview:${entry.key}`,
+        }),
+        emoji.buildKeyboardButton('statistics', 'Qayerda ishlatiladi', {
+          callback_data: `admin:emoji:usage:${entry.key}`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton(
+          entry.enabled === false ? 'success' : 'pause',
+          entry.enabled === false ? 'Yoqish (Enable)' : 'Vaqtincha oʻchirish (Disable)',
+          { callback_data: `admin:emoji:toggle:${entry.key}` }
+        ),
+        emoji.buildKeyboardButton(
+          'error',
+          entry.isCustomAdminSlot ? 'Butunlay oʻchirish' : 'ID ni tozalash (Remove)',
+          { callback_data: `admin:emoji:delete:${entry.key}` }
+        ),
+      ],
+      [
+        emoji.buildKeyboardButton('back', 'Barcha kategoriyalar', {
+          callback_data: 'admin:emoji:home:0',
+        }),
+        emoji.buildKeyboardButton('admin', b.adminPanel, { callback_data: 'admin:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildAdminAudioHomeKeyboard(
+  locale: TelegramLocale,
+  reciters: ResolvedQuranReciter[],
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+ emoji.buildKeyboardButton('success', '+ Yangi Qori qoʻshish', {
+        callback_data: 'admin:audio:add_reciter',
+      }),
+ emoji.buildKeyboardButton('statistics', '114 Sura Toʻliq Auditi', {
+        callback_data: 'admin:audio:audit',
+      }),
+    ],
+    [
+ emoji.buildKeyboardButton('calendar', 'Import tarixi va loglar', {
+        callback_data: 'admin:audio:history',
+      }),
+    ],
+  ];
+
+  for (const r of reciters.slice(0, 12)) {
+ const statusIcon = r.isActive === false ? '[OFF]': r.availableSurahCount === 114 ? '[ON]': '[!]';
+    rows.push([
+      {
+        text: `${statusIcon} ${r.nameUz} (${r.availableSurahCount}/114)`,
+        callback_data: `admin:audio:reciter:${r.id}`,
+      },
+    ]);
+  }
+
+  rows.push([
+    emoji.buildKeyboardButton('admin', b.adminPanel, { callback_data: 'admin:home' }),
+    emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+  return { inline_keyboard: rows };
+}
+
+export function buildAdminAudioReciterKeyboard(
+  locale: TelegramLocale,
+  reciter: ResolvedQuranReciter,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  return {
+    inline_keyboard: [
+      [
+ emoji.buildKeyboardButton('play', '1 ta Sura MP3 yuklash', {
+          callback_data: `admin:audio:upload:${reciter.id}:1`,
+        }),
+ emoji.buildKeyboardButton('quran_mp3', 'Ommaviy Import (Bulk)', {
+          callback_data: `admin:audio:bulk:${reciter.id}`,
+        }),
+      ],
+      [
+ emoji.buildKeyboardButton('warning', '[!] Yetishmayotgan suralar', {
+          callback_data: `admin:audio:missing:${reciter.id}`,
+        }),
+ emoji.buildKeyboardButton('success', 'Sura #1 & #114 tekshirish', {
+          callback_data: `admin:audio:health:${reciter.id}:1`,
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton(
+          reciter.isActive === false ? 'success' : 'pause',
+ reciter.isActive === false ? 'Qorini faollashtirish': '[OFF] Qorini vaqtincha oʻchirish',
+          { callback_data: `admin:audio:toggle:${reciter.id}` }
+        ),
+      ],
+      [
+ emoji.buildKeyboardButton('back', 'Barcha qorilar', { callback_data: 'admin:audio:home'}),
+        emoji.buildKeyboardButton('admin', b.adminPanel, { callback_data: 'admin:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildAdminAudioBulkConfirmKeyboard(
+  planId: string,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [
+ emoji.buildKeyboardButton('success', '[ON] Tasdiqlash va Saqlash', {
+          callback_data: `admin:audio:bulk_confirm:${planId}`,
+        }),
+ emoji.buildKeyboardButton('error', 'Bekor qilish', {
+          callback_data: `admin:audio:bulk_cancel:${planId}`,
+        }),
+      ],
+    ],
+  };
+}
+
+export function buildNotificationCenterKeyboard(
+  user: TelegramUserRecord,
+  prefs: TelegramUserNotificationPreferences,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const dict = getTelegramLocaleBundle(user.language);
+  const b = dict.buttons;
+ const mark = (v?: boolean) => (v ? '[ON]': '[OFF]');
+  const leads = new Set(prefs.leadMinutes || [0]);
+  const leadBtn = (m: number, label: string) => ({
+ text: `${leads.has(m) ? '[ON]': '[OFF]'} ${label}`,
+    callback_data: `notif:lead:${m}`,
+  });
+
+  return {
+    inline_keyboard: [
+      [
+        leadBtn(30, '30m'),
+        leadBtn(15, '15m'),
+        leadBtn(10, '10m'),
+        leadBtn(5, '5m'),
+        leadBtn(0, '0m'),
+      ],
+      [
+        {
+ text: `Maxsus vaqt: ${prefs.customLeadMinutes ? `${prefs.customLeadMinutes} daq`: 'Oʻrnatish'}`,
+          callback_data: 'notif:lead:custom',
+        },
+      ],
+      [
+        emoji.buildKeyboardButton('prayer', b.prayerAlertPrefs, { callback_data: 'settings:prayers' }),
+        emoji.buildKeyboardButton('quran_mp3', b.adhanAudioPrefs, { callback_data: 'settings:adhan' }),
+      ],
+      [
+        { text: `${mark(prefs.dailyBriefEnabled)} Kunlik xulosa`, callback_data: 'notif:type:dailyBriefEnabled' },
+        { text: `${mark(prefs.verseOfDayEnabled)} Kun oyati`, callback_data: 'notif:type:verseOfDayEnabled' },
+      ],
+      [
+        { text: `${mark(prefs.hadithOfDayEnabled)} Kun hadisi`, callback_data: 'notif:type:hadithOfDayEnabled' },
+        { text: `${mark(prefs.dhikrReminderEnabled)} Zikr eslatmasi`, callback_data: 'notif:type:dhikrReminderEnabled' },
+      ],
+      [
+        { text: `${mark(prefs.hifzMurojaaEnabled)} Hifz murojaa`, callback_data: 'notif:type:hifzMurojaaEnabled' },
+        { text: `${mark(prefs.hifzNewEnabled)} Yangi yodlash`, callback_data: 'notif:type:hifzNewEnabled' },
+      ],
+      [
+        { text: `${mark(prefs.newContentEnabled)} Masjid eʼlon`, callback_data: 'notif:type:newContentEnabled' },
+        { text: `${mark(prefs.quranAudioUpdatesEnabled)} Yangi audio`, callback_data: 'notif:type:quranAudioUpdatesEnabled' },
+      ],
+      [
+        { text: `${mark(prefs.appUpdatesEnabled)} Android APK`, callback_data: 'notif:type:appUpdatesEnabled' },
+        { text: `${mark(prefs.botUpdatesEnabled)} Bot yangilik`, callback_data: 'notif:type:botUpdatesEnabled' },
+      ],
+      [
+        { text: `${mark(prefs.adminRepliesEnabled)} Admin javoblari`, callback_data: 'notif:type:adminRepliesEnabled' },
+        emoji.buildKeyboardButton('settings', b.quietHoursPrefs, { callback_data: 'settings:quiet' }),
+      ],
+      [
+ emoji.buildKeyboardButton('calendar', 'Shaxsiy eslatmalarim', { callback_data: 'reminder:list'}),
+        emoji.buildKeyboardButton('notifications', b.notifHistory, { callback_data: 'profile:notif_history' }),
+      ],
+      [
+        emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildPrivacyCenterKeyboard(
+  locale: TelegramLocale,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  return {
+    inline_keyboard: [
+      [
+ emoji.buildKeyboardButton('profile', 'Maʼlumotlarimni eksport (JSON)', {
+          callback_data: 'privacy:export',
+        }),
+      ],
+      [
+ emoji.buildKeyboardButton('warning', 'Kontent xatosini xabar qilish', {
+          callback_data: 'privacy:report_error',
+        }),
+ emoji.buildKeyboardButton('support', 'Ustoz bilan bogʻlanish', {
+          callback_data: 'privacy:contact_ustoz',
+        }),
+      ],
+      [
+ emoji.buildKeyboardButton('error', 'Del Profilimni butunlay oʻchirish', {
+          callback_data: 'privacy:delete:ask',
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('profile', b.profile, { callback_data: 'nav:profile' }),
+        emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildPersonalRemindersKeyboard(
+  locale: TelegramLocale,
+  reminders: TelegramPersonalReminder[],
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+ emoji.buildKeyboardButton('success', '+ Yangi shaxsiy eslatma qoʻshish', {
+        callback_data: 'reminder:add',
+      }),
+    ],
+  ];
+  for (const rem of (reminders || []).slice(0, 8)) {
+    rows.push([
+      {
+ text: `${rem.enabled ? '[ON]': '[OFF]'} ${rem.timeHHMM} — ${rem.label.slice(0, 26)}`,
+        callback_data: `reminder:toggle:${rem.id}`,
+      },
+      {
+ text: 'Del',
+        callback_data: `reminder:del:${rem.id}`,
+      },
+    ]);
+  }
+  rows.push([
+    emoji.buildKeyboardButton('notifications', b.settings, { callback_data: 'notif:center' }),
+    emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+  return { inline_keyboard: rows };
+}
+
+export function buildAdminStyleHomeKeyboard(
+  locale: TelegramLocale,
+  settings: TelegramBotSettingsRecord,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const onOff = (v?: boolean) => (v ? 'ON' : 'OFF');
+  return {
+    inline_keyboard: [
+      [
+        emoji.buildKeyboardButton(
+          'brand',
+ `Button Styles (9.4): ${onOff(settings.buttonStylesEnabled ?? true)}`,
+          { callback_data: 'admin:style:toggle_buttons' }
+        ),
+      ],
+      [
+        emoji.buildKeyboardButton(
+          'quran',
+ `Rich Messages (10.1+): ${onOff(settings.richMessagesEnabled)}`,
+          { callback_data: 'admin:style:toggle_rich' }
+        ),
+      ],
+      [
+        emoji.buildKeyboardButton(
+          'statistics',
+ `HTML Widgets (10.4, private): ${onOff(settings.htmlWidgetsEnabled)}`,
+          { callback_data: 'admin:style:toggle_widgets' }
+        ),
+      ],
+      [
+        emoji.buildKeyboardButton(
+          'ai_assistant',
+ `AI Draft Stream: ${onOff(settings.aiStreamingDraftsEnabled)}`,
+          { callback_data: 'admin:style:toggle_ai_drafts' }
+        ),
+      ],
+      [
+ emoji.buildKeyboardButton('brand.book', 'Rich Shablonlar (Templates)', {
+          callback_data: 'admin:style:templates',
+        }),
+ emoji.buildKeyboardButton('brand.star', 'Emoji Setup', {
+          callback_data: 'admin:emoji:home:0',
+        }),
+      ],
+      [
+ emoji.buildKeyboardButton('success', 'Test Rich Message', {
+          callback_data: 'admin:style:test_rich',
+        }),
+ emoji.buildKeyboardButton('play', 'Test HTML Widget', {
+          callback_data: 'admin:style:test_widget',
+        }),
+      ],
+      [
+        emoji.buildKeyboardButton('admin', b.adminPanel, { callback_data: 'admin:home' }),
+        emoji.buildKeyboardButton('back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildAdminRichTemplatesKeyboard(
+  locale: TelegramLocale,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const keys = Object.keys(DEFAULT_RICH_MESSAGE_TEMPLATES);
+  const rows: TelegramInlineKeyboardButton[][] = keys.map((k) => [
+ emoji.buildKeyboardButton('brand.book', `${k}`, {
+      callback_data: `admin:style:template_edit:${k}`,
+    }),
+  ]);
+  rows.push([
+ emoji.buildKeyboardButton('settings', 'Style Manager', { callback_data: 'admin:style:home'}),
+    emoji.buildKeyboardButton('admin', b.adminPanel, { callback_data: 'admin:home' }),
+  ]);
+  return { inline_keyboard: rows };
 }

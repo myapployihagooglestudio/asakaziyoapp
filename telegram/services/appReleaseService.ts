@@ -4,7 +4,7 @@
  * Single source of truth for Android APK/AAB release metadata across:
  * 1. Web App (/api/apk/info, /api/apk/download, /Asaka-Ziyo-v4.0.0.apk)
  * 2. Android App (update check & changelog)
- * 3. Telegram Bot (`📱 Rasmiy Android ilova` menu + automatic release notifications)
+ * 3. Telegram Bot (` Rasmiy Android ilova` menu + automatic release notifications)
  *
  * Resolution hierarchy (strictly honest, NEVER fakes binaries or confuses v3.0.0 with v4.0.0):
  *   1. Central Firestore `app_releases` collection (latest admin-published verified release)
@@ -122,6 +122,7 @@ export interface AppReleaseServiceOptions {
 interface LocalReleaseStore {
   releases: Record<string, AppReleaseRecord>;
   totalDownloads: number;
+  telegramFileIdCache?: Record<string, { fileId: string; version: string; uploadedAt: string }>;
   updatedAt: string;
 }
 
@@ -184,13 +185,14 @@ export class AppReleaseService {
         return {
           releases: parsed.releases || {},
           totalDownloads: Number(parsed.totalDownloads || 0),
+          telegramFileIdCache: parsed.telegramFileIdCache || {},
           updatedAt: parsed.updatedAt || new Date().toISOString(),
         };
       }
     } catch {
       // fall through
     }
-    return { releases: {}, totalDownloads: 0, updatedAt: new Date().toISOString() };
+    return { releases: {}, totalDownloads: 0, telegramFileIdCache: {}, updatedAt: new Date().toISOString() };
   }
 
   private persistStore(): void {
@@ -297,6 +299,174 @@ export class AppReleaseService {
     this.store.updatedAt = new Date().toISOString();
     this.persistStore();
     return this.store.totalDownloads;
+  }
+
+  getCachedTelegramFileId(sha256: string): string | null {
+    const key = (sha256 || '').trim().toLowerCase();
+    if (!key) return null;
+    return this.store.telegramFileIdCache?.[key]?.fileId || null;
+  }
+
+  setCachedTelegramFileId(sha256: string, fileId: string, version: string): void {
+    const key = (sha256 || '').trim().toLowerCase();
+    if (!key || !fileId) return;
+    if (!this.store.telegramFileIdCache) this.store.telegramFileIdCache = {};
+    this.store.telegramFileIdCache[key] = {
+      fileId,
+      version,
+      uploadedAt: new Date().toISOString(),
+    };
+    this.store.updatedAt = new Date().toISOString();
+    this.persistStore();
+  }
+
+  /**
+   * Loads the verified Android APK binary (from local signed file or verified remote HTTPS URL),
+   * strictly enforcing ZIP/APK magic bytes (`PK\x03\x04`), non-HTML guard, minimum size,
+   * and SHA-256 verification before Telegram sendDocument delivery.
+   */
+  async getVerifiedApkBuffer(options?: { checkGitHub?: boolean }): Promise<{
+    ok: boolean;
+    buffer?: Buffer;
+    filename: string;
+    sizeBytes: number;
+    sha256: string;
+    version: string;
+    buildCode: number;
+    cachedFileId?: string | null;
+    error?: string;
+  }> {
+    const info = await this.getResolvedReleaseInfo({ checkGitHub: options?.checkGitHub ?? true });
+    if (!info.apkAvailable) {
+      return {
+        ok: false,
+        filename: info.apkFilename,
+        sizeBytes: 0,
+        sha256: '',
+        version: info.version,
+        buildCode: info.buildCode,
+        error: info.statusMessageUz,
+      };
+    }
+
+    const cachedFileId = this.getCachedTelegramFileId(info.sha256Checksum);
+
+    const validateBuffer = (buf: Buffer): { ok: boolean; sha256: string; error?: string } => {
+      if (buf.length < 100_000) {
+        return { ok: false, sha256: '', error: 'APK binary smaller than minimum threshold.' };
+      }
+      const headAscii = buf.subarray(0, 64).toString('utf-8').trimStart().toLowerCase();
+      if (headAscii.startsWith('<!doctype') || headAscii.startsWith('<html') || headAscii.startsWith('<?xml')) {
+        return { ok: false, sha256: '', error: 'Rejected HTML/XML payload masquerading as APK.' };
+      }
+      const isPkZip = buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04;
+      if (!isPkZip) {
+        return { ok: false, sha256: '', error: 'Invalid APK signature bytes (expected PK\\x03\\x04).' };
+      }
+      const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+      if (info.sha256Checksum && actualSha.toLowerCase() !== info.sha256Checksum.toLowerCase()) {
+        return { ok: false, sha256: actualSha, error: 'APK SHA-256 checksum mismatch.' };
+      }
+      return { ok: true, sha256: actualSha };
+    };
+
+    if (info.localFilePath && fs.existsSync(info.localFilePath)) {
+      const buf = fs.readFileSync(info.localFilePath);
+      const check = validateBuffer(buf);
+      if (!check.ok) {
+        return {
+          ok: false,
+          filename: info.apkFilename,
+          sizeBytes: buf.length,
+          sha256: check.sha256,
+          version: info.version,
+          buildCode: info.buildCode,
+          error: check.error,
+        };
+      }
+      return {
+        ok: true,
+        buffer: buf,
+        filename: info.apkFilename,
+        sizeBytes: buf.length,
+        sha256: check.sha256,
+        version: info.version,
+        buildCode: info.buildCode,
+        cachedFileId,
+      };
+    }
+
+    if (cachedFileId) {
+      return {
+        ok: true,
+        filename: info.apkFilename,
+        sizeBytes: info.sizeBytes,
+        sha256: info.sha256Checksum,
+        version: info.version,
+        buildCode: info.buildCode,
+        cachedFileId,
+      };
+    }
+
+    if (info.remoteApkUrl && isSafeHttpsUrl(info.remoteApkUrl) && this.fetchImpl) {
+      try {
+        const resp = await this.fetchImpl(info.remoteApkUrl);
+        if (!resp.ok) {
+          return {
+            ok: false,
+            filename: info.apkFilename,
+            sizeBytes: 0,
+            sha256: info.sha256Checksum,
+            version: info.version,
+            buildCode: info.buildCode,
+            error: `Remote APK download failed (HTTP ${resp.status}).`,
+          };
+        }
+        const buf = Buffer.from(await resp.arrayBuffer());
+        const check = validateBuffer(buf);
+        if (!check.ok) {
+          return {
+            ok: false,
+            filename: info.apkFilename,
+            sizeBytes: buf.length,
+            sha256: check.sha256,
+            version: info.version,
+            buildCode: info.buildCode,
+            error: check.error,
+          };
+        }
+        return {
+          ok: true,
+          buffer: buf,
+          filename: info.apkFilename,
+          sizeBytes: buf.length,
+          sha256: check.sha256,
+          version: info.version,
+          buildCode: info.buildCode,
+          cachedFileId: null,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          filename: info.apkFilename,
+          sizeBytes: 0,
+          sha256: info.sha256Checksum,
+          version: info.version,
+          buildCode: info.buildCode,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      filename: info.apkFilename,
+      sizeBytes: 0,
+      sha256: info.sha256Checksum,
+      version: info.version,
+      buildCode: info.buildCode,
+      error: 'No verified APK binary available on server.',
+    };
   }
 
   private readLocalMetadataFile(): Record<string, any> {
@@ -753,7 +923,7 @@ export class AppReleaseService {
   }
 
   /**
-   * Formats the dedicated `📱 Rasmiy Android ilova` Telegram card in all 5 official languages.
+ * Formats the dedicated ` Rasmiy Android ilova` Telegram card in all 5 official languages.
    */
   formatTelegramAndroidAppCard(
     info: ResolvedAndroidReleaseView,
@@ -767,29 +937,29 @@ export class AppReleaseService {
     if (mode === 'install_guide') {
       const guides: Record<TelegramLocale, string> = {
         'uz-Latn':
-          `📱 ASAKA ZIYO v${info.version} — Android oʻrnatish qoʻllanmasi\n\n` +
-          `1️⃣ «APK yuklab olish» tugmasi orqali rasmiy ${info.apkFilename} faylini yuklab oling.\n` +
-          `2️⃣ Faylni oching. Agar Android «Nomaʼlum manbalardan oʻrnatish» soʻrovini chiqarsa, Sozlamalar → Ushbu manbaga ruxsat berish tugmasini yoqing.\n` +
-          `3️⃣ «Oʻrnatish» (Install / Update) tugmasini bosing.\n` +
-          `4️⃣ Eski v3.0.0 ilova oʻrnatilgan boʻlsa, maʼlumotlaringiz oʻchmasdan yangilanadi (Package ID: ${info.packageId}).\n\n` +
-          `🛡 Xavfsizlik: Faqat rasmiy ASAKA ZIYO Web App va ushbu bot orqali yuklab oling.`,
+          `{{emoji:brand}} ASAKA ZIYO v${info.version} — Android oʻrnatish qoʻllanmasi\n\n` +
+          `1. «APK yuklab olish» tugmasi orqali rasmiy ${info.apkFilename} faylini yuklab oling.\n` +
+          `2. Faylni oching. Agar Android «Nomaʼlum manbalardan oʻrnatish» soʻrovini chiqarsa, Sozlamalar → Ushbu manbaga ruxsat berish tugmasini yoqing.\n` +
+          `3. «Oʻrnatish» (Install / Update) tugmasini bosing.\n` +
+          `4. Eski v3.0.0 ilova oʻrnatilgan boʻlsa, maʼlumotlaringiz oʻchmasdan yangilanadi (Package ID: ${info.packageId}).\n\n` +
+          `{{emoji:admin}} Xavfsizlik: Faqat rasmiy ASAKA ZIYO Web App va ushbu bot orqali yuklab oling.`,
         'uz-Cyrl':
-          `📱 ASAKA ZIYO v${info.version} — Android ўрнатиш қўлланмаси\n\n` +
-          `1️⃣ «APK юклаб олиш» тугмаси орқали расмий ${info.apkFilename} файлини юклаб олинг.\n` +
-          `2️⃣ Файлни очинг. Агар Android «Номаълум манбалардан ўрнатиш» сўровини чиқарса, Созламалар → Ушбу манбага рухсат бериш тугмасини ёқинг.\n` +
-          `3️⃣ «Ўрнатиш» (Install / Update) тугмасини босинг.\n` +
-          `4️⃣ Эски v3.0.0 илова ўрнатилган бўлса, маълумотларингиз ўчмасдан янгиланади (${info.packageId}).`,
+          `{{emoji:brand}} ASAKA ZIYO v${info.version} — Android ўрнатиш қўлланмаси\n\n` +
+          `1. «APK юклаб олиш» тугмаси орқали расмий ${info.apkFilename} файлини юклаб олинг.\n` +
+          `2. Файлни очинг. Агар Android «Номаълум манбалардан ўрнатиш» сўровини чиқарса, Созламалар → Ушбу манбага рухсат бериш тугмасини ёқинг.\n` +
+          `3. «Ўрнатиш» (Install / Update) тугмасини босинг.\n` +
+          `4. Эски v3.0.0 илова ўрнатилган бўлса, маълумотларингиз ўчмасдан янгиланади (${info.packageId}).`,
         'uz-Latn-new': '',
         ru:
-          `📱 ASAKA ZIYO v${info.version} — Инструкция по установке на Android\n\n` +
-          `1️⃣ Скачайте официальный файл ${info.apkFilename} по кнопке «Скачать APK».\n` +
-          `2️⃣ Откройте файл. Если Android запросит разрешение на установку из неизвестных источников — включите разрешение для браузера/Telegram.\n` +
-          `3️⃣ Нажмите «Установить» (или «Обновить»). Данные из v3.0.0 сохранятся (${info.packageId}).`,
+          `{{emoji:brand}} ASAKA ZIYO v${info.version} — Инструкция по установке на Android\n\n` +
+          `1. Скачайте официальный файл ${info.apkFilename} по кнопке «Скачать APK».\n` +
+          `2. Откройте файл. Если Android запросит разрешение на установку из неизвестных источников — включите разрешение для браузера/Telegram.\n` +
+          `3. Нажмите «Установить» (или «Обновить»). Данные из v3.0.0 сохранятся (${info.packageId}).`,
         en:
-          `📱 ASAKA ZIYO v${info.version} — Android Installation Guide\n\n` +
-          `1️⃣ Download the official ${info.apkFilename} package using the Download button.\n` +
-          `2️⃣ Tap the APK file. If Android prompts for Unknown Sources, enable "Allow from this source".\n` +
-          `3️⃣ Tap Install / Update. Existing v3.0.0 users upgrade seamlessly (${info.packageId}).`,
+          `{{emoji:brand}} ASAKA ZIYO v${info.version} — Android Installation Guide\n\n` +
+          `1. Download the official ${info.apkFilename} package using the Download button.\n` +
+          `2. Tap the APK file. If Android prompts for Unknown Sources, enable "Allow from this source".\n` +
+          `3. Tap Install / Update. Existing v3.0.0 users upgrade seamlessly (${info.packageId}).`,
       };
       guides['uz-Latn-new'] = adapt(guides['uz-Latn']);
       return emojiRegistry.formatMessage(guides[locale] || guides['uz-Latn']);
@@ -804,73 +974,73 @@ export class AppReleaseService {
             );
       const header =
         locale === 'ru'
-          ? '📜 ASAKA ZIYO — История версий Android'
+          ? '{{emoji:hadith}} ASAKA ZIYO — История версий Android'
           : locale === 'en'
-            ? '📜 ASAKA ZIYO — Android Release History'
+            ? '{{emoji:hadith}} ASAKA ZIYO — Android Release History'
             : locale === 'uz-Cyrl'
-              ? '📜 ASAKA ZIYO — Android янгиланишлар тарихи'
-              : adapt('📜 ASAKA ZIYO — Android yangilanishlar tarixi');
+              ? '{{emoji:hadith}} ASAKA ZIYO — Android янгиланишлар тарихи'
+              : adapt('{{emoji:hadith}} ASAKA ZIYO — Android yangilanishlar tarixi');
       return emojiRegistry.formatMessage(`${header}\n\n${histLines.join('\n\n')}`);
     }
 
     const statusLine = info.apkAvailable
       ? locale === 'ru'
-        ? `✅ Доступно для скачивания (${info.fileSizeDisplay})`
+        ? `{{emoji:success}} Доступно для скачивания (${info.fileSizeDisplay})`
         : locale === 'en'
-          ? `✅ Verified & Ready to Download (${info.fileSizeDisplay})`
+          ? `{{emoji:success}} Verified & Ready to Download (${info.fileSizeDisplay})`
           : locale === 'uz-Cyrl'
-            ? `✅ Тасдиқланган ва юклаб олишга тайёр (${info.fileSizeDisplay})`
-            : adapt(`✅ Tasdiqlangan va yuklab olishga tayyor (${info.fileSizeDisplay})`)
+            ? `{{emoji:success}} Тасдиқланган ва юклаб олишга тайёр (${info.fileSizeDisplay})`
+            : adapt(`{{emoji:success}} Tasdiqlangan va yuklab olishga tayyor (${info.fileSizeDisplay})`)
       : locale === 'ru'
-        ? '⏳ Подписанный APK v4.0.0 готовится к публикации на сервере'
+        ? '{{emoji:notifications}} Подписанный APK v4.0.0 готовится к публикации на сервере'
         : locale === 'en'
-          ? '⏳ Signed APK v4.0.0 is being prepared on the server'
+          ? '{{emoji:notifications}} Signed APK v4.0.0 is being prepared on the server'
           : locale === 'uz-Cyrl'
-            ? '⏳ Имзоланган APK v4.0.0 серверда тайёрланмоқда'
-            : adapt('⏳ Imzolangan APK v4.0.0 serverda tayyorlanmoqda');
+            ? '{{emoji:notifications}} Имзоланган APK v4.0.0 серверда тайёрланмоқда'
+            : adapt('{{emoji:notifications}} Imzolangan APK v4.0.0 serverda tayyorlanmoqda');
 
     const shaLine = info.sha256Checksum
-      ? `\n🔐 SHA-256: ${info.sha256Checksum.slice(0, 24)}…`
+      ? `\n{{emoji:admin}} SHA-256: ${info.sha256Checksum.slice(0, 24)}…`
       : '';
 
     const templates: Record<TelegramLocale, string> = {
       'uz-Latn':
-        `{{emoji:brand.mosque}} 📱 ASAKA ZIYO — Rasmiy Android Ilovasi\n\n` +
+        `{{emoji:brand.mosque}} ASAKA ZIYO — Rasmiy Android Ilovasi\n\n` +
         `• Versiya: v${info.version} (Build ${info.buildCode})\n` +
         `• Paket ID: ${info.packageId}\n` +
         `• Moslik: ${info.minAndroid}\n` +
         `• Reliz sanasi: ${info.releaseDate}\n` +
         `• Holati: ${statusLine}${shaLine}\n` +
         `• Jami yuklab olishlar: ${info.downloadCount}\n\n` +
-        `📝 Yangiliklar:\n${info.releaseNotesUz}`,
+        `{{emoji:quran}} Yangiliklar:\n${info.releaseNotesUz}`,
       'uz-Cyrl':
-        `{{emoji:brand.mosque}} 📱 ASAKA ZIYO — Расмий Android Иловаси\n\n` +
+        `{{emoji:brand.mosque}} ASAKA ZIYO — Расмий Android Иловаси\n\n` +
         `• Версия: v${info.version} (Build ${info.buildCode})\n` +
         `• Пакет ID: ${info.packageId}\n` +
         `• Мослик: ${info.minAndroid}\n` +
         `• Релиз санаси: ${info.releaseDate}\n` +
         `• Ҳолати: ${statusLine}${shaLine}\n` +
         `• Жами юклаб олишлар: ${info.downloadCount}\n\n` +
-        `📝 Янгиликлар:\n${info.releaseNotesUz}`,
+        `{{emoji:quran}} Янгиликлар:\n${info.releaseNotesUz}`,
       'uz-Latn-new': '',
       ru:
-        `{{emoji:brand.mosque}} 📱 ASAKA ZIYO — Официальное приложение Android\n\n` +
+        `{{emoji:brand.mosque}} ASAKA ZIYO — Официальное приложение Android\n\n` +
         `• Версия: v${info.version} (Build ${info.buildCode})\n` +
         `• Пакет: ${info.packageId}\n` +
         `• Совместимость: ${info.minAndroid}\n` +
         `• Дата релиза: ${info.releaseDate}\n` +
         `• Статус: ${statusLine}${shaLine}\n` +
         `• Скачиваний: ${info.downloadCount}\n\n` +
-        `📝 Что нового:\n${info.releaseNotesUz}`,
+        `{{emoji:quran}} Что нового:\n${info.releaseNotesUz}`,
       en:
-        `{{emoji:brand.mosque}} 📱 ASAKA ZIYO — Official Android App\n\n` +
+        `{{emoji:brand.mosque}} ASAKA ZIYO — Official Android App\n\n` +
         `• Version: v${info.version} (Build ${info.buildCode})\n` +
         `• Package ID: ${info.packageId}\n` +
         `• Compatibility: ${info.minAndroid}\n` +
         `• Release Date: ${info.releaseDate}\n` +
         `• Status: ${statusLine}${shaLine}\n` +
         `• Total Downloads: ${info.downloadCount}\n\n` +
-        `📝 Release Notes:\n${info.releaseNotesUz}`,
+        `{{emoji:quran}} Release Notes:\n${info.releaseNotesUz}`,
     };
     templates['uz-Latn-new'] = adapt(templates['uz-Latn']);
 

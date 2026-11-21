@@ -14,6 +14,7 @@ import {
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { getActiveAdminToken } from '../../../utils/firebaseClient';
+import { PremiumEmojiManagerPanel } from './PremiumEmojiManagerPanel';
 
 interface PlatformHealth {
   status?: string;
@@ -162,6 +163,7 @@ export const TelegramManagementCenter: React.FC = () => {
   };
 
   return (
+    <div className="space-y-6">
     <Card elevated className="p-6 space-y-6 border border-[#c5a869]/30">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
@@ -314,5 +316,7 @@ export const TelegramManagementCenter: React.FC = () => {
         )}
       </div>
     </Card>
+    <PremiumEmojiManagerPanel />
+    </div>
   );
 };

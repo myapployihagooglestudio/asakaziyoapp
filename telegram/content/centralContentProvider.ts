@@ -12,7 +12,7 @@
  * - Live edits in Admin Panel reflect immediately in Telegram Bot without restart
  */
 
-import { Article, NewsItem, AnnouncementItem, MediaPost, HadithItem, DhikrItem, PrayerSchedule } from '../../src/types';
+import { Article, NewsItem, AnnouncementItem, MediaPost, HadithItem, DhikrItem, PrayerSchedule, QuranReciter } from '../../src/types';
 import { EDITORIAL_ARTICLES } from '../../src/data/articlesData';
 import {
   COMMUNITY_NEWS,
@@ -21,6 +21,7 @@ import {
 import { AUTHENTIC_HADITHS } from '../../src/data/hadithData';
 import { AUTHENTIC_DHIKRS } from '../../src/data/dhikrData';
 import { ADHAN_TRACKS } from '../../src/data/adhanTracksData';
+import { QURAN_RECITERS } from '../../src/data/quranData';
 
 export type UnifiedContentStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
@@ -95,6 +96,18 @@ export interface CentralDatabaseSnapshot {
     isArchived?: boolean;
     status?: UnifiedContentStatus;
   }>;
+  mosqueEvents?: Array<{
+    id: string;
+    title: string;
+    date?: string;
+    time?: string;
+    location?: string;
+    description?: string;
+    isArchived?: boolean;
+    status?: UnifiedContentStatus;
+  }>;
+  quranReciters?: QuranReciter[];
+  quranAudioOverrides?: Record<string, any>;
   updatedAt?: string;
 }
 
@@ -314,6 +327,15 @@ export class CentralContentProvider {
     return this.getSnapshot().prayerSchedule || null;
   }
 
+  getPublishedMosqueEvents() {
+    const snap = this.getSnapshot();
+    return (snap.mosqueEvents || []).filter((ev) => ev && ev.id && isRecordVisibleToEndUsers(ev));
+  }
+
+  getActiveQuranReciters(): QuranReciter[] {
+    return [...QURAN_RECITERS];
+  }
+
   getSummaryCounts() {
     return {
       articles: this.getPublishedArticles().length,
@@ -323,6 +345,7 @@ export class CentralContentProvider {
       dhikrs: this.getPublishedDhikrs().length,
       audio: this.getPublishedAudioItems().length,
       video: this.getPublishedVideoItems().length,
+      mosqueEvents: this.getPublishedMosqueEvents().length,
       hasPrayerSchedule: Boolean(this.getPrayerSchedule()),
     };
   }

@@ -21,6 +21,7 @@ import { TelegramRepository } from '../database/telegramRepository';
 import { TelegramApiClient } from '../api/telegramApiClient';
 import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
 import { getTelegramLocaleBundle } from '../locales';
+import { buildSupportTicketUserReplyKeyboard } from '../keyboards/keyboards';
 
 export class TelegramSupportService {
   private readonly repo: TelegramRepository;
@@ -96,9 +97,9 @@ export class TelegramSupportService {
     // Notify designated admins/moderators if Telegram API is active
     if (params.notifyAdmins && params.notifyAdmins.length > 0 && this.apiClient.isConfigured) {
       const notice = this.emojiRegistry.formatMessage(
-        `🎫 Yangi murojaat [${ticket.id}]\n` +
-          `👤 ${ticket.userName} (ID: ${ticket.userId})\n` +
-          `📂 Kategoriya: ${ticket.category} | Ustuvorlik: ${ticket.priority}\n\n` +
+        `{{emoji:support}} Yangi murojaat [${ticket.id}]\n` +
+          `{{emoji:profile}} ${ticket.userName} (ID: ${ticket.userId})\n` +
+          `{{emoji:support}} Kategoriya: ${ticket.category} | Ustuvorlik: ${ticket.priority}\n\n` +
           `${params.text.slice(0, 600)}\n\n` +
           `Javob berish uchun /admin -> Murojaatlar boʻlimiga kiring.`
       );
@@ -197,6 +198,7 @@ export class TelegramSupportService {
       chat_id: ticket.userId,
       text: formatted.text,
       ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+      reply_markup: buildSupportTicketUserReplyKeyboard(userLocale, ticket.id, this.emojiRegistry),
     });
 
     return {

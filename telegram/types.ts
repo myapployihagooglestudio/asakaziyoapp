@@ -80,6 +80,7 @@ export interface TelegramApiAudio {
   duration: number;
   performer?: string;
   title?: string;
+  file_name?: string;
   mime_type?: string;
   file_size?: number;
 }
@@ -122,6 +123,10 @@ export interface TelegramApiMessage {
   photo?: TelegramApiPhotoSize[];
   document?: TelegramApiDocument;
   video?: TelegramApiVideo;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface TelegramApiCallbackQuery {
@@ -139,12 +144,15 @@ export interface TelegramApiUpdate {
   callback_query?: TelegramApiCallbackQuery;
 }
 
+export type TelegramButtonStyle = 'primary' | 'success' | 'danger' | 'link';
+
 export interface TelegramInlineKeyboardButton {
   text: string;
   callback_data?: string;
   url?: string;
   web_app?: { url: string };
   icon_custom_emoji_id?: string;
+  style?: TelegramButtonStyle;
 }
 
 export interface TelegramInlineKeyboardMarkup {
@@ -154,6 +162,9 @@ export interface TelegramInlineKeyboardMarkup {
 export interface TelegramKeyboardButton {
   text: string;
   web_app?: { url: string };
+  request_location?: boolean;
+  icon_custom_emoji_id?: string;
+  style?: TelegramButtonStyle;
 }
 
 export interface TelegramReplyKeyboardMarkup {
@@ -162,6 +173,135 @@ export interface TelegramReplyKeyboardMarkup {
   is_persistent?: boolean;
   one_time_keyboard?: boolean;
   input_field_placeholder?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Telegram Bot API 10.1–10.4 Types (Rich Messages, Streaming Drafts, Widgets)
+// ---------------------------------------------------------------------------
+
+export interface RichTextCustomEmoji {
+  type: 'custom_emoji';
+  custom_emoji_id: string;
+  alternative_text: string;
+}
+
+export interface RichTextPlain {
+  type: 'plain';
+  text: string;
+}
+
+export interface RichTextBold {
+  type: 'bold';
+  text: InputRichText;
+}
+
+export interface RichTextItalic {
+  type: 'italic';
+  text: InputRichText;
+}
+
+export interface RichTextCode {
+  type: 'code';
+  text: string;
+}
+
+export interface RichTextLink {
+  type: 'link';
+  text: InputRichText;
+  url: string;
+}
+
+export interface RichTextConcatenation {
+  type: 'concatenation';
+  texts: InputRichText[];
+}
+
+export type InputRichText =
+  | string
+  | RichTextPlain
+  | RichTextBold
+  | RichTextItalic
+  | RichTextCode
+  | RichTextLink
+  | RichTextCustomEmoji
+  | RichTextConcatenation;
+
+export interface RichMessageButton {
+  text: string;
+  callback_data?: string;
+  url?: string;
+  web_app?: { url: string };
+  icon_custom_emoji_id?: string;
+  style?: TelegramButtonStyle;
+}
+
+export type InputRichBlock =
+  | { type: 'section_heading'; text: InputRichText }
+  | { type: 'paragraph'; text: InputRichText }
+  | { type: 'divider' }
+  | {
+      type: 'list';
+      items: Array<{ text: InputRichText }>;
+      is_ordered?: boolean;
+    }
+  | {
+      type: 'table';
+      header?: InputRichText[];
+      rows: InputRichText[][];
+      is_compact?: boolean;
+    }
+  | {
+      type: 'expandable_blockquote';
+      title?: InputRichText;
+      blocks: InputRichBlock[];
+    }
+  | {
+      type: 'buttons';
+      buttons: RichMessageButton[][];
+    }
+  | {
+      type: 'photo';
+      photo: string;
+      caption?: InputRichText;
+    }
+  | {
+      type: 'audio';
+      audio: string;
+      title?: string;
+      performer?: string;
+      caption?: InputRichText;
+    }
+  | {
+      type: 'video';
+      video: string;
+      caption?: InputRichText;
+    };
+
+export interface SendRichMessageParams {
+  chat_id: number | string;
+  blocks: InputRichBlock[];
+  reply_markup?: TelegramReplyMarkup;
+  disable_notification?: boolean;
+  protect_content?: boolean;
+}
+
+export interface SendMessageDraftParams {
+  chat_id: number | string;
+  draft_id: number;
+  text: string;
+  parse_mode?: 'HTML' | 'MarkdownV2';
+  entities?: TelegramMessageEntity[];
+  can_stop?: boolean;
+  keep_on_stop?: boolean;
+}
+
+export interface SendWidgetParams {
+  chat_id: number | string;
+  html: string;
+  is_shared?: boolean;
+  disable_notification?: boolean;
+  protect_content?: boolean;
+  reply_markup?: TelegramReplyMarkup;
 }
 
 export interface TelegramReplyKeyboardRemove {
@@ -254,7 +394,37 @@ export type TelegramUserFlowState =
   | { type: 'admin_prayer_edit'; prayerKey: string }
   | { type: 'admin_cms_create_title'; entityType: 'article' | 'news' | 'announcement' | 'hadith' }
   | { type: 'admin_cms_create_body'; entityType: 'article' | 'news' | 'announcement' | 'hadith'; title: string }
-  | { type: 'admin_channel_connect' };
+  | { type: 'admin_channel_connect' }
+  | { type: 'register_first_name'; mode?: 'register' | 'edit' }
+  | { type: 'register_last_name'; firstName: string; mode?: 'register' | 'edit' }
+  | { type: 'register_confirm'; firstName: string; lastName: string; mode?: 'register' | 'edit' }
+  | { type: 'profile_edit_first_name' }
+  | { type: 'profile_edit_last_name'; firstName: string }
+  | { type: 'hifz_mark_range'; surahNumber: number }
+  | { type: 'hifz_set_goal_ayahs' }
+  | { type: 'hifz_set_goal_minutes' }
+  | { type: 'hifz_new_goal_ayahs' }
+  | { type: 'hifz_new_goal_minutes' }
+  | { type: 'hifz_coach_ask' }
+  | { type: 'hifz_audio_check'; surahNumber: number; startAyah: number; endAyah: number }
+  | { type: 'hifz_log_difficult'; surahNumber: number }
+  | { type: 'hifz_group_create' }
+  | { type: 'admin_emoji_capture'; key: string }
+  | {
+      type: 'admin_emoji_pending_category';
+      customEmojiId: string;
+      fallbackUnicode: string;
+      stickerSetName?: string;
+    }
+  | { type: 'admin_style_edit_template'; templateKey: string }
+  | { type: 'quran_mp3_search'; reciterId?: string }
+  | { type: 'admin_audio_add_reciter' }
+  | { type: 'admin_audio_upload_track'; reciterId: string; surahNumber: number }
+  | { type: 'admin_audio_bulk_manifest'; reciterId: string }
+  | { type: 'personal_reminder_add' }
+  | { type: 'notif_custom_lead_minutes' }
+  | { type: 'privacy_delete_confirm' }
+  | { type: 'admin_emoji_create_custom' };
 
 export interface TelegramCentralAdminWriter {
   updatePrayerTime: (input: {
@@ -273,6 +443,69 @@ export interface TelegramCentralAdminWriter {
     id: string;
     actorTelegramId: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  saveReciter?: (input: {
+    reciter: Record<string, unknown>;
+    actorTelegramId: string;
+  }) => Promise<{ ok: boolean; id?: string; error?: string }>;
+  saveSurahAudioOverride?: (input: {
+    reciterId: string;
+    surahNumber: number;
+    override: Record<string, unknown>;
+    actorTelegramId: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  uploadSurahAudioBuffer?: (input: {
+    reciterId: string;
+    surahNumber: number;
+    fileName: string;
+    buffer: Buffer;
+    mimeType: string;
+    durationSeconds?: number;
+    actorTelegramId: string;
+  }) => Promise<{ ok: boolean; record?: Record<string, unknown>; error?: string }>;
+}
+
+export type TelegramPrayerNotificationKey =
+  | 'tahajjud'
+  | 'subh'
+  | 'bomdod'
+  | 'peshin'
+  | 'asr'
+  | 'shom'
+  | 'xufton'
+  | 'juma';
+
+export interface TelegramUserNotificationPreferences {
+  prayers: Record<TelegramPrayerNotificationKey, boolean>;
+  /** Multi-select pre-prayer lead times in minutes (e.g. [15, 5, 0]) */
+  leadMinutes?: number[];
+  /** Optional custom lead time in minutes (1..120) */
+  customLeadMinutes?: number | null;
+  /** Timezone identifier (defaults to Asia/Tashkent) */
+  timezone?: string;
+  adhanAudioTrackId: 'none' | 'makkah' | 'madinah' | 'asaka';
+  quietHoursEnabled?: boolean;
+  quietHoursStart: string | null; // "HH:MM" Asia/Tashkent, e.g. "23:00"
+  quietHoursEnd: string | null;   // "HH:MM" Asia/Tashkent, e.g. "04:30"
+  dailyBriefEnabled: boolean;
+  verseOfDayEnabled: boolean;
+  hadithOfDayEnabled?: boolean;
+  dhikrReminderEnabled?: boolean;
+  hifzMurojaaEnabled?: boolean;
+  hifzNewEnabled?: boolean;
+  quranAudioUpdatesEnabled?: boolean;
+  newContentEnabled: boolean;
+  appUpdatesEnabled: boolean;
+  botUpdatesEnabled?: boolean;
+  adminRepliesEnabled: boolean;
+}
+
+export interface TelegramNotificationHistoryEntry {
+  id: string;
+  kind: 'prayer' | 'daily_brief' | 'hifz' | 'announcement' | 'support_reply' | 'app_update' | 'reminder';
+  category?: string;
+  title: string;
+  sentAt: string;
+  dateKey: string;
 }
 
 export interface TelegramUserRecord {
@@ -280,11 +513,23 @@ export interface TelegramUserRecord {
   username?: string;
   firstName: string;
   lastName?: string;
+  /** User-confirmed registered names (never overwritten by Telegram sync) */
+  registeredFirstName?: string;
+  registeredLastName?: string;
+  /** Raw Telegram profile metadata captured automatically */
+  telegramFirstName?: string;
+  telegramLastName?: string;
+  profileCompleted?: boolean;
+  profileRegisteredAt?: string;
+  profileUpdatedAt?: string;
   language: TelegramLocale;
   languageSelectedManually: boolean;
   prayerNotificationsEnabled: boolean;
   dailyWisdomEnabled: boolean;
   announcementsEnabled: boolean;
+  notificationPreferences?: TelegramUserNotificationPreferences;
+  notificationHistory?: TelegramNotificationHistoryEntry[];
+  personalReminders?: TelegramPersonalReminder[];
   isBlocked: boolean;
   onboardingCompleted?: boolean;
   stoppedByUser?: boolean;
@@ -307,6 +552,18 @@ export interface TelegramBotSettingsRecord {
   premiumEmojiEligibilityVerified: boolean;
   premiumEmojiEligibilityCheckedAt?: string;
   premiumEmojiEligibilityReason?: string;
+  /** Bot API 9.4+ button styles (primary / success / danger) */
+  buttonStylesEnabled?: boolean;
+  /** Bot API 10.1-10.3 Rich Messages with automatic plain-text fallback */
+  richMessagesEnabled?: boolean;
+  /** Bot API 10.4 Private-chat HTML Widgets (strictly private chats only) */
+  htmlWidgetsEnabled?: boolean;
+  /** Bot API 9.5+/10.4 AI streaming draft previews in private chats */
+  aiStreamingDraftsEnabled?: boolean;
+  /** Admin-configurable semantic button style overrides */
+  buttonStyleOverrides?: Record<string, TelegramButtonStyle>;
+  /** Admin-configurable Rich Message header/footer templates */
+  richMessageTemplates?: Record<string, string>;
   miniAppEnabled: boolean;
   aiAssistantEnabled: boolean;
   aiPrimaryModel?: string;
@@ -317,8 +574,52 @@ export interface TelegramBotSettingsRecord {
   aiMaxRequestsPerUserPerDay?: number;
   aiSystemPromptOverride?: string;
   miniAppUrl?: string;
+  schedulerDispatchLedger?: Record<string, string>;
+  lastNotifiedApkVersion?: string;
+  cachedApkTelegramFileId?: {
+    sha256: string;
+    fileId: string;
+    version: string;
+    uploadedAt: string;
+  };
+  /** Cached Telegram file_ids for Quran MP3 tracks keyed by `${reciterId}_${surahNumber}` */
+  quranAudioFileIdCache?: Record<
+    string,
+    {
+      fileId: string;
+      sourceUrlOrPath: string;
+      checksum?: string;
+      cachedAt: string;
+    }
+  >;
+  /** Audit trail of Admin Quran Audio bulk imports */
+  quranAudioImportLogs?: Array<{
+    id: string;
+    reciterId: string;
+    actorId: string;
+    mode: 'single' | 'bulk_manifest' | 'zip_archive';
+    matchedCount: number;
+    unmatchedCount: number;
+    failedCount: number;
+    summary: string;
+    createdAt: string;
+  }>;
+  /** Persistent idempotent notification delivery log (bounded latest 500) */
+  notificationDispatchLog?: TelegramNotificationDispatchRecord[];
   updatedAt: string;
   updatedBy: string;
+}
+
+export interface TelegramNotificationDispatchRecord {
+  notificationId: string;
+  userId: string;
+  kind: string;
+  timezone: string;
+  scheduledTime: string;
+  sentStatus: 'sent' | 'failed' | 'retrying';
+  retryCount: number;
+  sentAt?: string;
+  error?: string;
 }
 
 export interface TelegramChannelRecord {
@@ -391,6 +692,8 @@ export interface TelegramAuditLogRecord {
     | 'emoji'
     | 'webhook'
     | 'ai'
+    | 'hifz'
+    | 'apk'
     | 'system';
   targetId?: string;
   metadata?: Record<string, string | number | boolean>;
@@ -409,19 +712,82 @@ export type CustomEmojiCategory =
   | 'settings'
   | 'status'
   | 'channel'
-  | 'calendar';
+  | 'calendar'
+  | 'home'
+  | 'quran'
+  | 'quran_mp3'
+  | 'hifz'
+  | 'hadith'
+  | 'dhikr'
+  | 'dua'
+  | 'ai_assistant'
+  | 'community'
+  | 'favorites'
+  | 'notifications'
+  | 'back'
+  | 'next'
+  | 'previous'
+  | 'play'
+  | 'pause'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'loading'
+  | 'statistics'
+  | 'support'
+  | 'custom'
+  | 'seasonal'
+  | 'announcement'
+  | (string & {});
 
 export interface CustomEmojiEntry {
   key: string;
   category: CustomEmojiCategory;
+  /**
+   * Internal 1-grapheme technical anchor required ONLY when Telegram renders a
+   * genuine `custom_emoji` MessageEntity or `<tg-emoji>` tag.
+   * NEVER emitted to users as a visible plain Unicode emoji fallback.
+   */
   unicodeFallback: string;
   customEmojiId: string | null;
+  semanticPurpose?: string;
+  usedIn?: string[];
+  isCustomAdminSlot?: boolean;
+  enabled?: boolean;
   verified: boolean;
   verifiedAt?: string;
   stickerSetName?: string;
   supportsKeyboardIcon: boolean;
   description: string;
+  createdAt?: string;
+  updatedBy?: string;
   updatedAt: string;
+}
+
+export interface TelegramEmojiAuditReport {
+  generatedAt: string;
+  strictZeroPlainEmojiMode: boolean;
+  premiumEnabled: boolean;
+  keyboardIconsEnabled: boolean;
+  totalRegistered: number;
+  canonicalTotal: number;
+  canonicalConfigured: number;
+  customAdminSlotsCount: number;
+  workingVerifiedCount: number;
+  disabledCount: number;
+  invalidOrUnverifiedKeys: string[];
+  unusedRegisteredKeys: string[];
+  missingCanonicalKeys: string[];
+  missingCategoryHits: Record<string, number>;
+  codebasePlainEmojiMatches: Array<{ file: string; count: number; samples: string[] }>;
+  outgoingPayloadAudit: {
+    auditedCount: number;
+    cleanCount: number;
+    violationCount: number;
+    passed: boolean;
+  };
+  keyboardIconWarnings: string[];
+  deliveryFailures: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +875,8 @@ export type TelegramSupportTicketCategory =
   | 'technical'
   | 'suggestion'
   | 'prayer_issue'
+  | 'content_error'
+  | 'hifz_teacher'
   | 'other';
 
 export type TelegramSupportPriority = 'normal' | 'high' | 'urgent';
@@ -630,19 +998,46 @@ export interface TelegramPersonalReminder {
 export interface TelegramUserEngagementRecord {
   telegramId: string;
   bookmarks: TelegramUserBookmark[];
-  resumeQuran?: { surahNumber: number; ayahIndex: number; updatedAt: string };
+  resumeQuran?: {
+    surahNumber: number;
+    ayahIndex?: number;
+    ayahNumber?: number;
+    surahNameUz?: string;
+    updatedAt: string;
+  };
   khatmPlan?: TelegramKhatmPlan;
   dhikr: TelegramDhikrProgress;
   completedLessonIds: string[];
   readArticleIds?: string[];
   watchedVideoIds?: string[];
-  audioResume?: { audioId: string; title: string; updatedAt: string };
+  audioResume?: { audioId: string; title: string; reciterId?: string; surahNumber?: number; updatedAt: string };
+  favoriteReciterIds?: string[];
+  favoriteSurahTracks?: Array<{ reciterId: string; surahNumber: number; title: string; addedAt: string }>;
+  audioListeningHistory?: Array<{ reciterId: string; surahNumber: number; title: string; playedAt: string }>;
+  audioListeningStats?: {
+    totalPlays: number;
+    totalEstimatedMinutes: number;
+    lastReciterId?: string;
+    lastSurahNumber?: number;
+    lastPlayedAt?: string;
+  };
   personalReminders?: TelegramPersonalReminder[];
   quizTotalAttempts: number;
   quizBestScore: number;
   quizTotalPoints: number;
   quizStreak: number;
   aiHistory: TelegramAiChatTurn[];
+  aiModeActive?: boolean;
+  preferredReciterId?: string;
+  activeQuizState?: {
+    questionIds: string[];
+    index?: number;
+    currentIndex?: number;
+    score?: number;
+    answers: number[];
+    category?: string;
+    startedAt: string;
+  } | null;
   updatedAt: string;
 }
 

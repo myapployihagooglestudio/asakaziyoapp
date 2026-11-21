@@ -143,6 +143,40 @@ export interface TelegramLocaleDictionary {
   maintenanceNotice: string;
   unknownCommand: string;
   genericError: string;
+  // Bot 2.0: Registration, Profile Edit, Notifications, Daily Assistant, Qibla, Direct APK & HIFZ
+  registerWelcomeIntro: string;
+  registerAskFirstName: string;
+  registerAskLastName: string;
+  registerConfirmPrompt: string;
+  registerInvalidName: string;
+  registerCancelled: string;
+  registerComplete: string;
+  registerBtnConfirm: string;
+  registerBtnRetry: string;
+  registerBtnCancel: string;
+  profileEditNameBtn: string;
+  profileEditNameDone: string;
+  profileRegisteredBadge: string;
+  profileNotRegisteredBadge: string;
+  profileNotifHistoryBtn: string;
+  profileNotifHistoryTitle: string;
+  profileNotifHistoryEmpty: string;
+  dailyDigestTitle: string;
+  dailyBtn: string;
+  qiblaTitle: string;
+  qiblaPromptLocation: string;
+  qiblaCompassNotice: string;
+  qiblaShareLocationBtn: string;
+  prayerSettingsTitle: string;
+  prayerSettingsBtn: string;
+  adhanAudioTitle: string;
+  adhanAudioBtn: string;
+  quietHoursTitle: string;
+  quietHoursBtn: string;
+  androidSendDirectBtn: string;
+  androidSendingToast: string;
+  hifzMenuBtn: string;
+  supportReplyUserBtn: string;
   replyButtons: {
     // Legacy 6 keys kept for full backward compatibility
     prayerTimes: string;
@@ -263,6 +297,18 @@ export interface TelegramLocaleDictionary {
     androidReleaseHistory: string;
     audioLibrary: string;
     videoLibrary: string;
+    hifzCenter: string;
+    dailyAssistant: string;
+    qiblaFinder: string;
+    prayerAlertPrefs: string;
+    adhanAudioPrefs: string;
+    quietHoursPrefs: string;
+    editProfileName: string;
+    notifHistory: string;
+    androidSendApkDirect: string;
+    quranReadSurah: string;
+    quranReciters: string;
+    quranListenAudio: string;
   };
   prayerNames: {
     tahajjud: string;
@@ -303,6 +349,10 @@ export interface TelegramLocaleDictionary {
     stop: string;
     admin: string;
     help: string;
+    hifz: string;
+    daily: string;
+    qibla: string;
+    android: string;
   };
 }
 
@@ -437,7 +487,7 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   aiThinkingToast: 'Javob tayyorlanmoqda...',
   aiExitedToast: 'AI rejimidan chiqildi',
   aiClearHistoryToast: 'AI suhbat tarixi tozalandi',
-  aiVoiceNotice: '🎙 Ovozli xabar qabul qilindi, tahlil qilinmoqda...',
+  aiVoiceNotice: '{{emoji:quran_mp3}} Ovozli xabar qabul qilindi, tahlil qilinmoqda...',
   aiErrorNotice: '{{emoji:status.warn}} AI javob olishda xatolik yuz berdi.',
   adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Super Admin Boshqaruv Markazi',
   adminAccessDenied: 'Ruxsat yoʻq: bu boʻlim faqat Telegram administratorlari uchun.',
@@ -458,33 +508,75 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Texnik yangilanish ishlari olib borilmoqda. Tez orada qaytamiz.',
   unknownCommand: '{{emoji:status.warn}} Nomaʼlum buyruq. Quyidagi menyudan foydalaning:',
   genericError: '{{emoji:status.warn}} Kutilmagan xatolik yuz berdi. Qayta urinib koʻring.',
+  registerWelcomeIntro:
+    '{{emoji:brand.mosque}} Assalomu alaykum! ASAKA ZIYO shaxsiy profilingizni yaratish uchun qisqa roʻyxatdan oʻtamiz.',
+  registerAskFirstName:
+    '{{emoji:profile.user}} 1/2-qadam: Iltimos, ismingizni yozib yuboring (masalan: Abdulloh):',
+  registerAskLastName:
+    '{{emoji:profile.user}} 2/2-qadam: Endi familiyangizni yozib yuboring (masalan: Karimov):',
+  registerConfirmPrompt:
+    '{{emoji:status.ok}} Maʼlumotlaringizni tekshiring:\n\n• Ism: {firstName}\n• Familiya: {lastName}\n\nTasdiqlaysizmi?',
+  registerInvalidName:
+    '{{emoji:status.warn}} Iltimos, toʻgʻri ism yoki familiya kiriting (2–40 ta harf, raqam va maxsus belgilar ishlatmang).',
+  registerCancelled:
+    '{{emoji:status.warn}} Roʻyxatdan oʻtish bekor qilindi. Istagan vaqtda /start yoki /profile orqali davom ettirishingiz mumkin.',
+  registerComplete:
+    '{{emoji:status.ok}} Xush kelibsiz, {fullName}! Shaxsiy profilingiz muvaffaqiyatli yaratildi va doimiy saqlandi.',
+  registerBtnConfirm: '{{emoji:success}} Tasdiqlash',
+  registerBtnRetry: '{{emoji:settings}} Qayta kiritish',
+  registerBtnCancel: '{{emoji:error}} Bekor qilish',
+  profileEditNameBtn: '{{emoji:settings}} Ism-familiyani tahrirlash',
+  profileEditNameDone: '{{emoji:status.ok}} Ism va familiyangiz muvaffaqiyatli yangilandi: {fullName}.',
+  profileRegisteredBadge: '{{emoji:success}} Tasdiqlangan profil',
+  profileNotRegisteredBadge: '{{emoji:quran}} Roʻyxatdan oʻtish yakunlanmagan',
+  profileNotifHistoryBtn: '{{emoji:notifications}} Bildirishnomalar tarixi',
+  profileNotifHistoryTitle: '{{emoji:settings.bell_on}} Oxirgi bildirishnomalar tarixi',
+  profileNotifHistoryEmpty: 'Hozircha sizga yuborilgan bildirishnomalar tarixi boʻsh.',
+  dailyDigestTitle: '{{emoji:brand.star}} ASAKA ZIYO — Bugungi Aqlli Kunlik Xulosa',
+  dailyBtn: '{{emoji:prayer}} Kunlik yordamchi',
+  qiblaTitle: '{{emoji:brand.mosque}} Qibla Yoʻnalishi Aniqlagich',
+  qiblaPromptLocation:
+    'Aniq Qibla burchagini bilish uchun pastdagi tugma orqali GPS joylashuvingizni yuboring (Asaka uchun standart burchak: 241° Janubi-Gʻarb).',
+  qiblaCompassNotice:
+    '{{emoji:warning}} Eslatma: Telegram bot ichida telefonning jonli magnitometr kompasi ishlamaydi. Aniq burchak (daraja) GPS orqali hisoblanadi; jonli kompas uchun Web / Android ilovamizdan foydalaning.',
+  qiblaShareLocationBtn: '{{emoji:prayer}} Joylashuvni yuborish (Qibla)',
+  prayerSettingsTitle: '{{emoji:settings.bell_on}} Har bir namoz uchun alohida bildirishnoma',
+  prayerSettingsBtn: '{{emoji:prayer}} Namoz eslatmalari (alohida)',
+  adhanAudioTitle: '{{emoji:nav.prayer}} Azon audio tanlash (eslatma bilan)',
+  adhanAudioBtn: '{{emoji:quran_mp3}} Azon audio tanlash',
+  quietHoursTitle: '{{emoji:settings.gear}} Tinch soatlar (Asia/Tashkent)',
+  quietHoursBtn: '{{emoji:brand}} Tinch soatlar',
+  androidSendDirectBtn: '{{emoji:brand}} APK faylni shu yerda olish',
+  androidSendingToast: 'APK fayl Telegram orqali yuborilmoqda...',
+  hifzMenuBtn: '{{emoji:hifz}} HIFZ (Qurʼon yodlash)',
+  supportReplyUserBtn: '{{emoji:support}} Javob yozish',
   replyButtons: {
-    prayerTimes: '🕰️ Namoz vaqtlari',
-    quranCenter: '📗 Qurʼon & Hadis',
-    aiAssistant: '💠 AI Yordamchi',
-    academyQuiz: '🎓 Akademiya & Test',
-    support: '🎫 Murojaat / Imom',
-    menuMiniApp: '🏛️ Menyu & Sozlama',
-    home: '🏠 Bosh sahifa',
-    ai: '🤖 ASAKA ZIYO AI',
-    quran: '📖 Qur’on',
-    hadiths: '📚 Hadislar',
-    prayer: '🕌 Namoz vaqtlari',
-    dhikrDua: '📿 Zikrlar va duolar',
-    articles: '📰 Maqolalar',
-    announcements: '📢 E’lonlar',
-    news: '🌍 Yangiliklar',
-    audioLibrary: '🎧 Audio kutubxonasi',
-    videoLibrary: '🎬 Video kutubxonasi',
-    education: '🎓 Ta’lim markazi',
-    quizzes: '🧠 Viktorinalar',
-    androidApp: '📱 Rasmiy Android ilova',
-    webApp: '🌐 Web App',
-    favorites: '⭐ Sevimlilar',
-    notifications: '🔔 Bildirishnomalar',
-    profile: '👤 Shaxsiy kabinet',
-    contactAdmin: '💬 Administrator bilan aloqa',
-    settings: '⚙️ Sozlamalar',
+ prayerTimes: 'Namoz vaqtlari',
+ quranCenter: 'Qurʼon & Hadis',
+ aiAssistant: 'AI Yordamchi',
+ academyQuiz: 'Akademiya & Test',
+ support: 'Murojaat / Imom',
+ menuMiniApp: 'Menyu & Sozlama',
+ home: 'Bosh sahifa',
+ ai: 'ASAKA ZIYO AI',
+ quran: 'Qur’on',
+ hadiths: 'Hadislar',
+ prayer: 'Namoz vaqtlari',
+ dhikrDua: 'Zikrlar va duolar',
+ articles: 'Maqolalar',
+ announcements: 'E’lonlar',
+ news: 'Yangiliklar',
+ audioLibrary: 'Audio kutubxonasi',
+ videoLibrary: 'Video kutubxonasi',
+ education: 'Ta’lim markazi',
+ quizzes: 'Viktorinalar',
+ androidApp: 'Rasmiy Android ilova',
+ webApp: 'Web App',
+ favorites: 'Sevimlilar',
+ notifications: 'Bildirishnomalar',
+ profile: 'Shaxsiy kabinet',
+ contactAdmin: 'Administrator bilan aloqa',
+ settings: 'Sozlamalar',
   },
   buttons: {
     prayerTimes: 'Namoz vaqtlari',
@@ -576,6 +668,18 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     androidReleaseHistory: 'Versiyalar tarixi',
     audioLibrary: 'Audio kutubxonasi',
     videoLibrary: 'Video kutubxonasi',
+ hifzCenter: 'HIFZ (Qurʼon yodlash)',
+ dailyAssistant: 'Kunlik yordamchi',
+ qiblaFinder: 'Qibla yoʻnalishi',
+ prayerAlertPrefs: 'Namozlar boʻyicha sozlash',
+ adhanAudioPrefs: 'Azon audio tanlash',
+ quietHoursPrefs: 'Tinch soatlar',
+ editProfileName: 'Ism-familiyani tahrirlash',
+ notifHistory: 'Bildirishnomalar tarixi',
+ androidSendApkDirect: 'APK faylni Telegramda olish',
+ quranReadSurah: 'Oyatlarini oʻqish',
+ quranReciters: 'Qorini tanlash',
+ quranListenAudio: 'Audio tilovatni tinglash',
   },
   prayerNames: {
     tahajjud: 'Tahajjud',
@@ -616,6 +720,10 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     stop: 'Barcha xabarlarni toʻxtatish',
     admin: 'Super Admin boshqaruv markazi',
     help: 'Yordam va komandalar',
+    hifz: 'Qurʼon yodlash va Murojaa (HIFZ)',
+    daily: 'Bugungi aqlli kunlik xulosa',
+    qibla: 'Qibla yoʻnalishi (GPS)',
+    android: 'Rasmiy Android APK v4.0.0',
   },
 };
 
@@ -750,7 +858,7 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   aiThinkingToast: 'Жавоб тайёрланмоқда...',
   aiExitedToast: 'AI режимидан чиқилди',
   aiClearHistoryToast: 'AI суҳбат тарихи тозаланди',
-  aiVoiceNotice: '🎙 Овозли хабар қабул қилинди, таҳлил қилинмоқда...',
+  aiVoiceNotice: '{{emoji:quran_mp3}} Овозли хабар қабул қилинди, таҳлил қилинмоқда...',
   aiErrorNotice: '{{emoji:status.warn}} AI жавоб олишда хатолик юз берди.',
   adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Супер Админ Бошқарув Маркази',
   adminAccessDenied: 'Рухсат йўқ: бу бўлим фақат Telegram администраторлари учун.',
@@ -771,33 +879,75 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Техник янгиланиш ишлари олиб борилмоқда.',
   unknownCommand: '{{emoji:status.warn}} Номаълум буйруқ. Қуйидаги менюдан фойдаланинг:',
   genericError: '{{emoji:status.warn}} Кутилмаган хатолик юз берди. Қайта уриниб кўринг.',
+  registerWelcomeIntro:
+    '{{emoji:brand.mosque}} Ассалому алайкум! ASAKA ZIYO шахсий профилингизни яратиш учун қисқа рўйхатдан ўтамиз.',
+  registerAskFirstName:
+    '{{emoji:profile.user}} 1/2-қадам: Илтимос, исмингизни ёзиб юборинг (масалан: Абдуллоҳ):',
+  registerAskLastName:
+    '{{emoji:profile.user}} 2/2-қадам: Энди фамилиянгизни ёзиб юборинг (масалан: Каримов):',
+  registerConfirmPrompt:
+    '{{emoji:status.ok}} Маълумотларингизни текширинг:\n\n• Исм: {firstName}\n• Фамилия: {lastName}\n\nТасдиқлайсизми?',
+  registerInvalidName:
+    '{{emoji:status.warn}} Илтимос, тўғри исм ёки фамилия киритинг (2–40 та ҳарф, рақам ва махсус белгилар ишлатманг).',
+  registerCancelled:
+    '{{emoji:status.warn}} Рўйхатдан ўтиш бекор қилинди. Истаган вақтда /start ёки /profile орқали давом эттиришингиз мумкин.',
+  registerComplete:
+    '{{emoji:status.ok}} Хуш келибсиз, {fullName}! Шахсий профилингиз муваффақиятли яратилди ва доимий сақланди.',
+  registerBtnConfirm: '{{emoji:success}} Тасдиқлаш',
+  registerBtnRetry: '{{emoji:settings}} Қайта киритиш',
+  registerBtnCancel: '{{emoji:error}} Бекор қилиш',
+  profileEditNameBtn: '{{emoji:settings}} Исм-фамилияни таҳрирлаш',
+  profileEditNameDone: '{{emoji:status.ok}} Исм ва фамилиянгиз муваффақиятли янгиланди: {fullName}.',
+  profileRegisteredBadge: '{{emoji:success}} Тасдиқланган профил',
+  profileNotRegisteredBadge: '{{emoji:quran}} Рўйхатдан ўтиш якунланмаган',
+  profileNotifHistoryBtn: '{{emoji:notifications}} Билдиришномалар тарихи',
+  profileNotifHistoryTitle: '{{emoji:settings.bell_on}} Охирги билдиришномалар тарихи',
+  profileNotifHistoryEmpty: 'Ҳозирча сизга юборилган билдиришномалар тарихи бўш.',
+  dailyDigestTitle: '{{emoji:brand.star}} ASAKA ZIYO — Бугунги Ақлли Кунлик Хулоса',
+  dailyBtn: '{{emoji:prayer}} Кунлик ёрдамчи',
+  qiblaTitle: '{{emoji:brand.mosque}} Қибла Йўналиши Аниқлагич',
+  qiblaPromptLocation:
+    'Аниқ Қибла бурчагини билиш учун пастдаги тугма орқали GPS жойлашувингизни юборинг (Асака учун стандарт бурчак: 241° Жануби-Ғарб).',
+  qiblaCompassNotice:
+    '{{emoji:warning}} Эслатма: Telegram бот ичида телефоннинг жонли магнитометр компаси ишламайди. Аниқ бурчак (даража) GPS орқали ҳисобланади; жонли компас учун Web / Android иловамиздан фойдаланинг.',
+  qiblaShareLocationBtn: '{{emoji:prayer}} Жойлашувни юбориш (Қибла)',
+  prayerSettingsTitle: '{{emoji:settings.bell_on}} Ҳар бир намоз учун алоҳида билдиришнома',
+  prayerSettingsBtn: '{{emoji:prayer}} Намоз эслатмалари (алоҳида)',
+  adhanAudioTitle: '{{emoji:nav.prayer}} Азон аудио танлаш (эслатма билан)',
+  adhanAudioBtn: '{{emoji:quran_mp3}} Азон аудио танлаш',
+  quietHoursTitle: '{{emoji:settings.gear}} Тинч соатлар (Asia/Tashkent)',
+  quietHoursBtn: '{{emoji:brand}} Тинч соатлар',
+  androidSendDirectBtn: '{{emoji:brand}} APK файлни шу ерда олиш',
+  androidSendingToast: 'APK файл Telegram орқали юборилмоқда...',
+  hifzMenuBtn: '{{emoji:hifz}} ҲИФЗ (Қуръон ёдлаш)',
+  supportReplyUserBtn: '{{emoji:support}} Жавоб ёзиш',
   replyButtons: {
-    prayerTimes: '🕰️ Намоз вақтлари',
-    quranCenter: '📗 Қуръон & Ҳадис',
-    aiAssistant: '💠 AI Ёрдамчи',
-    academyQuiz: '🎓 Академия & Тест',
-    support: '🎫 Мурожаат / Имом',
-    menuMiniApp: '🏛️ Меню & Созлама',
-    home: '🏠 Бош саҳифа',
-    ai: '🤖 ASAKA ZIYO AI',
-    quran: '📖 Қуръон',
-    hadiths: '📚 Ҳадислар',
-    prayer: '🕌 Намоз вақтлари',
-    dhikrDua: '📿 Зикрлар ва дуолар',
-    articles: '📰 Мақолалар',
-    announcements: '📢 Эълонлар',
-    news: '🌍 Янгиликлар',
-    audioLibrary: '🎧 Аудио кутубхонаси',
-    videoLibrary: '🎬 Видео кутубхонаси',
-    education: '🎓 Таълим маркази',
-    quizzes: '🧠 Викториналар',
-    androidApp: '📱 Расмий Android илова',
-    webApp: '🌐 Web App',
-    favorites: '⭐ Севимлилар',
-    notifications: '🔔 Билдиришномалар',
-    profile: '👤 Шахсий кабинет',
-    contactAdmin: '💬 Администратор билан алоқа',
-    settings: '⚙️ Созламалар',
+ prayerTimes: 'Намоз вақтлари',
+ quranCenter: 'Қуръон & Ҳадис',
+ aiAssistant: 'AI Ёрдамчи',
+ academyQuiz: 'Академия & Тест',
+ support: 'Мурожаат / Имом',
+ menuMiniApp: 'Меню & Созлама',
+ home: 'Бош саҳифа',
+ ai: 'ASAKA ZIYO AI',
+ quran: 'Қуръон',
+ hadiths: 'Ҳадислар',
+ prayer: 'Намоз вақтлари',
+ dhikrDua: 'Зикрлар ва дуолар',
+ articles: 'Мақолалар',
+ announcements: 'Эълонлар',
+ news: 'Янгиликлар',
+ audioLibrary: 'Аудио кутубхонаси',
+ videoLibrary: 'Видео кутубхонаси',
+ education: 'Таълим маркази',
+ quizzes: 'Викториналар',
+ androidApp: 'Расмий Android илова',
+ webApp: 'Web App',
+ favorites: 'Севимлилар',
+ notifications: 'Билдиришномалар',
+ profile: 'Шахсий кабинет',
+ contactAdmin: 'Администратор билан алоқа',
+ settings: 'Созламалар',
   },
   buttons: {
     prayerTimes: 'Намоз вақтлари',
@@ -889,6 +1039,18 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     androidReleaseHistory: 'Версиялар тарихи',
     audioLibrary: 'Аудио кутубхонаси',
     videoLibrary: 'Видео кутубхонаси',
+ hifzCenter: 'ҲИФЗ (Қуръон ёдлаш)',
+ dailyAssistant: 'Кунлик ёрдамчи',
+ qiblaFinder: 'Қибла йўналиши',
+ prayerAlertPrefs: 'Намозлар бўйича созлаш',
+ adhanAudioPrefs: 'Азон аудио танлаш',
+ quietHoursPrefs: 'Тинч соатлар',
+ editProfileName: 'Исм-фамилияни таҳрирлаш',
+ notifHistory: 'Билдиришномалар тарихи',
+ androidSendApkDirect: 'APK файлни Telegramда олиш',
+ quranReadSurah: 'Оятларини ўқиш',
+ quranReciters: 'Қорини танлаш',
+ quranListenAudio: 'Аудио тиловатни тинглаш',
   },
   prayerNames: {
     tahajjud: 'Таҳажжуд',
@@ -929,6 +1091,10 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     stop: 'Барча хабарларни тўхтатиш',
     admin: 'Супер Админ бошқарув маркази',
     help: 'Ёрдам ва командалар',
+    hifz: 'Қуръон ёдлаш ва Мурожаа (ҲИФЗ)',
+    daily: 'Бугунги ақлли кунлик хулоса',
+    qibla: 'Қибла йўналиши (GPS)',
+    android: 'Расмий Android APK v4.0.0',
   },
 };
 
@@ -1059,7 +1225,7 @@ const RU_DICT: TelegramLocaleDictionary = {
   aiThinkingToast: 'Подготавливаю ответ...',
   aiExitedToast: 'Выход из режима AI',
   aiClearHistoryToast: 'История диалога с AI очищена',
-  aiVoiceNotice: '🎙 Голосовое сообщение получено, обрабатываю...',
+  aiVoiceNotice: '{{emoji:quran_mp3}} Голосовое сообщение получено, обрабатываю...',
   aiErrorNotice: '{{emoji:status.warn}} Ошибка при обращении к AI.',
   adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Супер-Админ панель',
   adminAccessDenied: 'Доступ запрещён: раздел только для администраторов Telegram.',
@@ -1080,33 +1246,75 @@ const RU_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Ведутся технические работы. Скоро вернёмся.',
   unknownCommand: '{{emoji:status.warn}} Неизвестная команда. Воспользуйтесь меню ниже:',
   genericError: '{{emoji:status.warn}} Произошла ошибка. Попробуйте снова.',
+  registerWelcomeIntro:
+    '{{emoji:brand.mosque}} Ассаляму алейкум! Пройдём короткую регистрацию, чтобы создать ваш личный профиль ASAKA ZIYO.',
+  registerAskFirstName:
+    '{{emoji:profile.user}} Шаг 1/2: Пожалуйста, введите ваше имя (например: Абдулла):',
+  registerAskLastName:
+    '{{emoji:profile.user}} Шаг 2/2: Теперь введите вашу фамилию (например: Каримов):',
+  registerConfirmPrompt:
+    '{{emoji:status.ok}} Проверьте ваши данные:\n\n• Имя: {firstName}\n• Фамилия: {lastName}\n\nПодтвердить?',
+  registerInvalidName:
+    '{{emoji:status.warn}} Пожалуйста, введите корректное имя или фамилию (2–40 букв, без цифр и спецсимволов).',
+  registerCancelled:
+    '{{emoji:status.warn}} Регистрация отменена. Вы можете завершить её в любое время через /start или /profile.',
+  registerComplete:
+    '{{emoji:status.ok}} Добро пожаловать, {fullName}! Ваш личный профиль создан и надёжно сохранён.',
+  registerBtnConfirm: '{{emoji:success}} Подтвердить',
+  registerBtnRetry: '{{emoji:settings}} Ввести заново',
+  registerBtnCancel: '{{emoji:error}} Отмена',
+  profileEditNameBtn: '{{emoji:settings}} Изменить имя и фамилию',
+  profileEditNameDone: '{{emoji:status.ok}} Имя и фамилия успешно обновлены: {fullName}.',
+  profileRegisteredBadge: '{{emoji:success}} Подтверждённый профиль',
+  profileNotRegisteredBadge: '{{emoji:quran}} Регистрация не завершена',
+  profileNotifHistoryBtn: '{{emoji:notifications}} История уведомлений',
+  profileNotifHistoryTitle: '{{emoji:settings.bell_on}} Последние уведомления',
+  profileNotifHistoryEmpty: 'История уведомлений пока пуста.',
+  dailyDigestTitle: '{{emoji:brand.star}} ASAKA ZIYO — Умная сводка дня',
+  dailyBtn: '{{emoji:prayer}} Сводка дня',
+  qiblaTitle: '{{emoji:brand.mosque}} Определение направления Киблы',
+  qiblaPromptLocation:
+    'Отправьте вашу геопозицию GPS кнопкой ниже для точного расчёта азимута Киблы (для Асаки по умолчанию: 241° ЮЗ).',
+  qiblaCompassNotice:
+    '{{emoji:warning}} Примечание: в Telegram-боте нет доступа к живому магнитометру телефона. Точный угол в градусах вычисляется по GPS; для живого компаса откройте Web / Android приложение.',
+  qiblaShareLocationBtn: '{{emoji:prayer}} Отправить геолокацию (Кибла)',
+  prayerSettingsTitle: '{{emoji:settings.bell_on}} Уведомления по каждому намазу',
+  prayerSettingsBtn: '{{emoji:prayer}} Настройка по намазам',
+  adhanAudioTitle: '{{emoji:nav.prayer}} Выбор аудио азана',
+  adhanAudioBtn: '{{emoji:quran_mp3}} Аудио азана',
+  quietHoursTitle: '{{emoji:settings.gear}} Тихие часы (Asia/Tashkent)',
+  quietHoursBtn: '{{emoji:brand}} Тихие часы',
+  androidSendDirectBtn: '{{emoji:brand}} Получить APK прямо здесь',
+  androidSendingToast: 'Отправляю APK-файл в Telegram...',
+  hifzMenuBtn: '{{emoji:hifz}} ХИФЗ (Заучивание Корана)',
+  supportReplyUserBtn: '{{emoji:support}} Написать ответ',
   replyButtons: {
-    prayerTimes: '🕰️ Время намаза',
-    quranCenter: '📗 Коран и Хадис',
-    aiAssistant: '💠 AI-помощник',
-    academyQuiz: '🎓 Академия и Тест',
-    support: '🎫 Вопрос имаму',
-    menuMiniApp: '🏛️ Меню и Настройки',
-    home: '🏠 Главная',
-    ai: '🤖 ASAKA ZIYO AI',
-    quran: '📖 Коран',
-    hadiths: '📚 Хадисы',
-    prayer: '🕌 Время намаза',
-    dhikrDua: '📿 Зикры и дуа',
-    articles: '📰 Статьи',
-    announcements: '📢 Объявления',
-    news: '🌍 Новости',
-    audioLibrary: '🎧 Аудиотека',
-    videoLibrary: '🎬 Видеотека',
-    education: '🎓 Центр обучения',
-    quizzes: '🧠 Викторины',
-    androidApp: '📱 Приложение Android',
-    webApp: '🌐 Web App',
-    favorites: '⭐ Избранное',
-    notifications: '🔔 Уведомления',
-    profile: '👤 Личный кабинет',
-    contactAdmin: '💬 Связь с админом',
-    settings: '⚙️ Настройки',
+ prayerTimes: 'Время намаза',
+ quranCenter: 'Коран и Хадис',
+ aiAssistant: 'AI-помощник',
+ academyQuiz: 'Академия и Тест',
+ support: 'Вопрос имаму',
+ menuMiniApp: 'Меню и Настройки',
+ home: 'Главная',
+ ai: 'ASAKA ZIYO AI',
+ quran: 'Коран',
+ hadiths: 'Хадисы',
+ prayer: 'Время намаза',
+ dhikrDua: 'Зикры и дуа',
+ articles: 'Статьи',
+ announcements: 'Объявления',
+ news: 'Новости',
+ audioLibrary: 'Аудиотека',
+ videoLibrary: 'Видеотека',
+ education: 'Центр обучения',
+ quizzes: 'Викторины',
+ androidApp: 'Приложение Android',
+ webApp: 'Web App',
+ favorites: 'Избранное',
+ notifications: 'Уведомления',
+ profile: 'Личный кабинет',
+ contactAdmin: 'Связь с админом',
+ settings: 'Настройки',
   },
   buttons: {
     prayerTimes: 'Время намаза',
@@ -1198,6 +1406,18 @@ const RU_DICT: TelegramLocaleDictionary = {
     androidReleaseHistory: 'История версий',
     audioLibrary: 'Аудиотека',
     videoLibrary: 'Видеотека',
+ hifzCenter: 'ХИФЗ (Заучивание Корана)',
+ dailyAssistant: 'Сводка дня',
+ qiblaFinder: 'Направление Киблы',
+ prayerAlertPrefs: 'Настройка по намазам',
+ adhanAudioPrefs: 'Аудио азана',
+ quietHoursPrefs: 'Тихие часы',
+ editProfileName: 'Изменить имя/фамилию',
+ notifHistory: 'История уведомлений',
+ androidSendApkDirect: 'Получить APK в Telegram',
+ quranReadSurah: 'Читать аяты',
+ quranReciters: 'Выбрать чтеца',
+ quranListenAudio: 'Слушать чтение',
   },
   prayerNames: {
     tahajjud: 'Тахаджуд',
@@ -1238,6 +1458,10 @@ const RU_DICT: TelegramLocaleDictionary = {
     stop: 'Отключить все рассылки',
     admin: 'Панель администратора',
     help: 'Помощь и команды',
+    hifz: 'Заучивание Корана и Мураджаа (ХИФЗ)',
+    daily: 'Ежедневная умная сводка',
+    qibla: 'Направление Киблы (GPS)',
+    android: 'Официальный Android APK v4.0.0',
   },
 };
 
@@ -1368,7 +1592,7 @@ const EN_DICT: TelegramLocaleDictionary = {
   aiThinkingToast: 'Preparing answer...',
   aiExitedToast: 'Exited AI mode',
   aiClearHistoryToast: 'AI conversation memory cleared',
-  aiVoiceNotice: '🎙 Voice message received, processing...',
+  aiVoiceNotice: '{{emoji:quran_mp3}} Voice message received, processing...',
   aiErrorNotice: '{{emoji:status.warn}} Error querying AI service.',
   adminTitle: '{{emoji:admin.shield}} ASAKA ZIYO — Super Admin Control Center',
   adminAccessDenied: 'Access denied: restricted to authorized Telegram administrators.',
@@ -1389,33 +1613,75 @@ const EN_DICT: TelegramLocaleDictionary = {
   maintenanceNotice: '{{emoji:status.lock}} Scheduled maintenance in progress. We will be right back.',
   unknownCommand: '{{emoji:status.warn}} Unknown command. Please use the menu below:',
   genericError: '{{emoji:status.warn}} An unexpected error occurred. Please try again.',
+  registerWelcomeIntro:
+    '{{emoji:brand.mosque}} Assalamu Alaikum! Let us complete a quick 2-step registration to set up your personal ASAKA ZIYO profile.',
+  registerAskFirstName:
+    '{{emoji:profile.user}} Step 1/2: Please type your first name (e.g., Abdullah):',
+  registerAskLastName:
+    '{{emoji:profile.user}} Step 2/2: Now please type your last name (e.g., Karimov):',
+  registerConfirmPrompt:
+    '{{emoji:status.ok}} Please confirm your details:\n\n• First Name: {firstName}\n• Last Name: {lastName}\n\nSave this profile?',
+  registerInvalidName:
+    '{{emoji:status.warn}} Please enter a valid name (2–40 letters, no digits or special symbols).',
+  registerCancelled:
+    '{{emoji:status.warn}} Registration cancelled. You can complete it anytime via /start or /profile.',
+  registerComplete:
+    '{{emoji:status.ok}} Welcome, {fullName}! Your personal profile has been created and saved.',
+  registerBtnConfirm: '{{emoji:success}} Confirm',
+  registerBtnRetry: '{{emoji:settings}} Re-enter',
+  registerBtnCancel: '{{emoji:error}} Cancel',
+  profileEditNameBtn: '{{emoji:settings}} Edit Name',
+  profileEditNameDone: '{{emoji:status.ok}} Your name has been updated: {fullName}.',
+  profileRegisteredBadge: '{{emoji:success}} Verified Profile',
+  profileNotRegisteredBadge: '{{emoji:quran}} Registration Pending',
+  profileNotifHistoryBtn: '{{emoji:notifications}} Notification History',
+  profileNotifHistoryTitle: '{{emoji:settings.bell_on}} Recent Notification History',
+  profileNotifHistoryEmpty: 'Your notification history is currently empty.',
+  dailyDigestTitle: '{{emoji:brand.star}} ASAKA ZIYO — Daily Smart Briefing',
+  dailyBtn: '{{emoji:prayer}} Daily Briefing',
+  qiblaTitle: '{{emoji:brand.mosque}} Qibla Direction Finder',
+  qiblaPromptLocation:
+    'Tap the button below to share your GPS location for an exact Qibla bearing (default for Asaka: 241° WSW).',
+  qiblaCompassNotice:
+    '{{emoji:warning}} Note: Telegram bots do not have access to your phone magnetometer sensor. Exact Qibla degrees are calculated from GPS; use our Web / Android app for a live rotating compass.',
+  qiblaShareLocationBtn: '{{emoji:prayer}} Share GPS Location (Qibla)',
+  prayerSettingsTitle: '{{emoji:settings.bell_on}} Per-Prayer Alert Preferences',
+  prayerSettingsBtn: '{{emoji:prayer}} Per-Prayer Alerts',
+  adhanAudioTitle: '{{emoji:nav.prayer}} Select Adhan Audio Track',
+  adhanAudioBtn: '{{emoji:quran_mp3}} Adhan Audio',
+  quietHoursTitle: '{{emoji:settings.gear}} Quiet Hours (Asia/Tashkent)',
+  quietHoursBtn: '{{emoji:brand}} Quiet Hours',
+  androidSendDirectBtn: '{{emoji:brand}} Get APK Directly Here',
+  androidSendingToast: 'Sending verified APK file in Telegram...',
+  hifzMenuBtn: '{{emoji:hifz}} HIFZ (Quran Memorization)',
+  supportReplyUserBtn: '{{emoji:support}} Send Follow-up Reply',
   replyButtons: {
-    prayerTimes: '🕰️ Prayer Times',
-    quranCenter: '📗 Quran & Hadith',
-    aiAssistant: '💠 AI Assistant',
-    academyQuiz: '🎓 Academy & Quiz',
-    support: '🎫 Imam / Support',
-    menuMiniApp: '🏛️ Menu & Settings',
-    home: '🏠 Home',
-    ai: '🤖 ASAKA ZIYO AI',
-    quran: '📖 Quran',
-    hadiths: '📚 Hadiths',
-    prayer: '🕌 Prayer Times',
-    dhikrDua: '📿 Dhikr & Duas',
-    articles: '📰 Articles',
-    announcements: '📢 Announcements',
-    news: '🌍 News',
-    audioLibrary: '🎧 Audio Library',
-    videoLibrary: '🎬 Video Library',
-    education: '🎓 Education Center',
-    quizzes: '🧠 Quizzes',
-    androidApp: '📱 Official Android App',
-    webApp: '🌐 Web App',
-    favorites: '⭐ Favorites',
-    notifications: '🔔 Notifications',
-    profile: '👤 Personal Cabinet',
-    contactAdmin: '💬 Contact Admin',
-    settings: '⚙️ Settings',
+ prayerTimes: 'Prayer Times',
+ quranCenter: 'Quran & Hadith',
+ aiAssistant: 'AI Assistant',
+ academyQuiz: 'Academy & Quiz',
+ support: 'Imam / Support',
+ menuMiniApp: 'Menu & Settings',
+ home: 'Home',
+ ai: 'ASAKA ZIYO AI',
+ quran: 'Quran',
+ hadiths: 'Hadiths',
+ prayer: 'Prayer Times',
+ dhikrDua: 'Dhikr & Duas',
+ articles: 'Articles',
+ announcements: 'Announcements',
+ news: 'News',
+ audioLibrary: 'Audio Library',
+ videoLibrary: 'Video Library',
+ education: 'Education Center',
+ quizzes: 'Quizzes',
+ androidApp: 'Official Android App',
+ webApp: 'Web App',
+ favorites: 'Favorites',
+ notifications: 'Notifications',
+ profile: 'Personal Cabinet',
+ contactAdmin: 'Contact Admin',
+ settings: 'Settings',
   },
   buttons: {
     prayerTimes: 'Prayer Times',
@@ -1507,6 +1773,18 @@ const EN_DICT: TelegramLocaleDictionary = {
     androidReleaseHistory: 'Release History',
     audioLibrary: 'Audio Library',
     videoLibrary: 'Video Library',
+ hifzCenter: 'HIFZ (Quran Memorization)',
+ dailyAssistant: 'Daily Briefing',
+ qiblaFinder: 'Qibla Direction',
+ prayerAlertPrefs: 'Per-Prayer Alerts',
+ adhanAudioPrefs: 'Adhan Audio',
+ quietHoursPrefs: 'Quiet Hours',
+ editProfileName: 'Edit Name',
+ notifHistory: 'Notification History',
+ androidSendApkDirect: 'Get APK Directly in Telegram',
+ quranReadSurah: 'Read Ayahs',
+ quranReciters: 'Choose Reciter',
+ quranListenAudio: 'Listen Recitation',
   },
   prayerNames: {
     tahajjud: 'Tahajjud',
@@ -1547,6 +1825,10 @@ const EN_DICT: TelegramLocaleDictionary = {
     stop: 'Stop all notifications',
     admin: 'Super Admin control center',
     help: 'Help & commands',
+    hifz: 'Quran Memorization & Murojaa (HIFZ)',
+    daily: 'Today smart Islamic briefing',
+    qibla: 'Qibla direction (GPS)',
+    android: 'Official Android APK v4.0.0',
   },
 };
 

@@ -2,7 +2,7 @@
  * ASAKA ZIYO — Telegram Super Platform AI Intelligence Engine (@google/genai)
  *
  * Capabilities:
- * - Default Primary Model: `gemini-3.5-flash-lite` (configurable in telegramSettings; Admin switchable)
+ * - Default Primary Model: `gemini-3.1-flash-lite` (configurable in telegramSettings; Admin switchable)
  * - Live Model Availability Probe (`probeModelAvailability`) — NEVER fakes success or silently swaps models
  * - Multi-turn conversation memory persisted in `telegramUserEngagement`
  * - Daily global token budget & per-user daily request caps + latency & error telemetry (`telegramAiLogs`)
@@ -168,10 +168,12 @@ function buildSystemInstruction(
 
   const base =
     customOverride?.trim() ||
-    'You are the respectful, scholarly ASAKA ZIYO Islamic Educational Assistant for MuhammadSolih Hoji Mosque (Asaka, Andijan, Uzbekistan — Hanafi fiqh / Muslim Board of Uzbekistan standards). ' +
+    'You are the respectful, scholarly ASAKA ZIYO Islamic Educational Assistant for MuhammadSolih Hoji Mosque (Asaka, Andijan, Uzbekistan — primarily Hanafi fiqh / Muslim Board of Uzbekistan standards). ' +
       `Reply clearly, warmly, and concisely (under 1400 characters) strictly in ${langLabel[locale]}. ` +
-      'Cite authentic Quran Surah/Ayah or Hadith collection/number ONLY when accurate. Never invent religious rulings or Hadith numbers. ' +
-      'For sensitive personal fiqh/fatwa questions (marriage/talaq, inheritance, disputes), politely advise consulting a qualified local Imam or opening a Support Ticket via /support. ' +
+      'Cite authentic Quran Surah/Ayah or Hadith collection/number ONLY when accurate. Never invent Quran verses, religious rulings, or Hadith numbers. ' +
+      'Where recognized Sunni madhhabs differ on a matter, mention the Hanafi view first and respectfully note that other scholarly opinions exist. ' +
+      'Do NOT issue binding personal fatwas; for sensitive personal fiqh/fatwa questions (marriage/talaq, inheritance, disputes), politely advise consulting a qualified local Imam or opening a Support Ticket via /support. ' +
+      'STRICT FORMATTING RULE: NEVER output any plain Unicode emojis, pictographs, or icon characters, and NEVER invent or emit <tg-emoji> tags or Telegram custom_emoji_id numbers. Use clean text, headings, and simple bullet points (•) only. ' +
       'Do not emit broken Markdown or unescaped HTML.';
 
   if (groundingSnippet) {
@@ -184,10 +186,10 @@ export function detectIntentRoute(
   text: string
 ): TelegramAiAnswerResult['routedIntent'] {
   const q = text.toLowerCase();
-  if (/(bomdod|peshin|asr|shom|xufton|namoz vaqt|time.*pray|время намаза|намаз|помощ|azon|iqomat)/i.test(q)) {
+  if (/(bomdod|peshin|asr|shom|xufton|namoz vaqt|time.*pray|время намаза|намаз|azon|iqomat)/i.test(q)) {
     return 'prayer';
   }
-  if (/(surah|sura|oyat|ayah|qur'?on|коран|сура|tafsir|xatm|khatm)/i.test(q)) {
+  if (/(surah|sura|oyat|ayah|qur'?on|коран|сура|tafsir|xatm|khatm|hifz|yodlash)/i.test(q)) {
     return 'quran';
   }
   if (/(hadis|hadith|buxoriy|bukhari|muslim|хадис)/i.test(q)) {
@@ -202,7 +204,7 @@ export function detectIntentRoute(
   if (/(dars|akadem|lesson|academy|tahorat|академия|урок)/i.test(q)) {
     return 'academy';
   }
-  if (/(imom|imam|murojaat|shikoyat|yordam|support|поддержк|имам)/i.test(q)) {
+  if (/(imom|imam|murojaat|shikoyat|yordam|support|поддержк|помощ|имам)/i.test(q)) {
     return 'support';
   }
   if (/(masjid|qibla|manzil|adres|location|мечеть|кибла)/i.test(q)) {
@@ -303,15 +305,75 @@ export class TelegramAiEngine {
   }
 
   isUserInAiMode(telegramId: string): boolean {
-    return this.activeSessions.has(telegramId);
+    if (this.activeSessions.has(telegramId)) return true;
+    const eng = this.repo.getUserEngagement(telegramId);
+    if (eng.aiModeActive) {
+      this.activeSessions.add(telegramId);
+      return true;
+    }
+    return false;
   }
 
   enterAiMode(telegramId: string): void {
     this.activeSessions.add(telegramId);
+    const eng = this.repo.getUserEngagement(telegramId);
+    if (!eng.aiModeActive) {
+      eng.aiModeActive = true;
+      this.repo.saveUserEngagement(eng).catch(() => {});
+    }
   }
 
   exitAiMode(telegramId: string): void {
     this.activeSessions.delete(telegramId);
+    const eng = this.repo.getUserEngagement(telegramId);
+    if (eng.aiModeActive) {
+      eng.aiModeActive = false;
+      this.repo.saveUserEngagement(eng).catch(() => {});
+    }
+  }
+
+  private assertAiAccessAllowed(
+    telegramId: string,
+    locale: TelegramLocale,
+    bypassLimits = false
+  ): {
+    allowed: boolean;
+    errorCode?: TelegramAiAnswerResult['errorCode'];
+    answerText?: string;
+    reason?: string;
+  } {
+    const dict = getTelegramLocaleBundle(locale);
+    const settings = this.repo.getSettings();
+    if (!settings.aiAssistantEnabled && !bypassLimits) {
+      return {
+        allowed: false,
+        errorCode: 'AI_DISABLED',
+        answerText: dict.aiDisabledNotice,
+        reason: 'AI Assistant disabled in telegramSettings.',
+      };
+    }
+    const usage = this.getDailyUsageStats(telegramId);
+    const budget = settings.aiDailyBudgetTokens || 500_000;
+    const maxPerUser = settings.aiMaxRequestsPerUserPerDay || 40;
+    if (!bypassLimits) {
+      if (usage.totalTokensToday >= budget) {
+        return {
+          allowed: false,
+          errorCode: 'BUDGET_EXCEEDED',
+          answerText: dict.aiBudgetExceededNotice,
+          reason: 'Daily AI token budget reached.',
+        };
+      }
+      if (usage.userRequestsToday >= maxPerUser) {
+        return {
+          allowed: false,
+          errorCode: 'USER_CAP_EXCEEDED',
+          answerText: dict.aiUserCapNotice,
+          reason: `User daily request cap (${maxPerUser}) reached.`,
+        };
+      }
+    }
+    return { allowed: true };
   }
 
   async clearConversationHistory(telegramId: string): Promise<void> {
@@ -496,14 +558,15 @@ export class TelegramAiEngine {
       };
     }
 
-    if (!settings.aiAssistantEnabled && !options?.bypassLimits) {
+    const access = this.assertAiAccessAllowed(telegramId, locale, Boolean(options?.bypassLimits));
+    if (!access.allowed) {
       return {
         handled: true,
         ok: false,
         modelRequested: primaryModel,
-        errorCode: 'AI_DISABLED',
-        answerText: dict.aiDisabledNotice,
-        reason: 'AI Assistant disabled in telegramSettings.',
+        errorCode: access.errorCode,
+        answerText: access.answerText,
+        reason: access.reason,
       };
     }
 
@@ -516,32 +579,6 @@ export class TelegramAiEngine {
         answerText: dict.aiMissingKeyNotice,
         reason: 'GEMINI_API_KEY missing in server environment.',
       };
-    }
-
-    const usage = this.getDailyUsageStats(telegramId);
-    const budget = settings.aiDailyBudgetTokens || 500_000;
-    const maxPerUser = settings.aiMaxRequestsPerUserPerDay || 40;
-    if (!options?.bypassLimits) {
-      if (usage.totalTokensToday >= budget) {
-        return {
-          handled: true,
-          ok: false,
-          modelRequested: primaryModel,
-          errorCode: 'BUDGET_EXCEEDED',
-          answerText: dict.aiBudgetExceededNotice,
-          reason: 'Daily AI token budget reached.',
-        };
-      }
-      if (usage.userRequestsToday >= maxPerUser) {
-        return {
-          handled: true,
-          ok: false,
-          modelRequested: primaryModel,
-          errorCode: 'USER_CAP_EXCEEDED',
-          answerText: dict.aiUserCapNotice,
-          reason: `User daily request cap (${maxPerUser}) reached.`,
-        };
-      }
     }
 
     const routedIntent = detectIntentRoute(prompt);
@@ -601,7 +638,7 @@ export class TelegramAiEngine {
             ok: false,
             modelRequested: primaryModel,
             errorCode: 'MODEL_UNAVAILABLE',
-            answerText: `${dict.aiErrorNotice}\n(${primaryModel}: ${primaryMsg.slice(0, 120)})`,
+            answerText: dict.aiErrorNotice,
             reason: log.errorDetail,
             logId: log.id,
           };
@@ -626,7 +663,7 @@ export class TelegramAiEngine {
           ok: false,
           modelRequested: primaryModel,
           errorCode: isNotFound ? 'MODEL_UNAVAILABLE' : 'UPSTREAM_ERROR',
-          answerText: `${dict.aiErrorNotice}\n[Model: ${primaryModel}]`,
+          answerText: dict.aiErrorNotice,
           reason: primaryMsg,
           logId: log.id,
         };
@@ -707,6 +744,16 @@ export class TelegramAiEngine {
     mimeType?: string;
     synthesizeReply?: boolean;
   }): Promise<TelegramAiVoiceResult> {
+    const access = this.assertAiAccessAllowed(params.telegramId, params.locale, false);
+    if (!access.allowed) {
+      return {
+        ok: false,
+        errorCode: access.errorCode,
+        answerText: access.answerText,
+        reason: access.reason,
+      };
+    }
+
     const apiKey = this.getApiKey();
     const mimeType = params.mimeType || 'audio/ogg';
 
@@ -840,6 +887,17 @@ export class TelegramAiEngine {
   }): Promise<TelegramAiAnswerResult> {
     const dict = getTelegramLocaleBundle(params.locale);
     const { primaryModel } = this.getActiveModels();
+    const access = this.assertAiAccessAllowed(params.telegramId, params.locale, false);
+    if (!access.allowed) {
+      return {
+        handled: true,
+        ok: false,
+        modelRequested: primaryModel,
+        errorCode: access.errorCode,
+        answerText: access.answerText,
+        reason: access.reason,
+      };
+    }
     const apiKey = this.getApiKey();
 
     if (!this.customGenerator && apiKey.length <= 5) {
@@ -913,8 +971,141 @@ export class TelegramAiEngine {
         ok: false,
         modelRequested: primaryModel,
         errorCode: 'UPSTREAM_ERROR',
-        answerText: `${dict.aiErrorNotice}\n[Model: ${primaryModel}]`,
+        answerText: dict.aiErrorNotice,
         reason: msg,
+      };
+    }
+  }
+
+  /**
+   * Transcribes an Arabic Quran recitation voice note using `gemini-3.5-transcribe`
+   * for ASAKA ZIYO HIFZ audio word-comparison assistance.
+   */
+  async transcribeArabicRecitation(params: {
+    telegramId: string;
+    locale: TelegramLocale;
+    audioBuffer: Buffer;
+    mimeType?: string;
+  }): Promise<{ ok: boolean; transcript?: string; errorCode?: string; reason?: string }> {
+    const access = this.assertAiAccessAllowed(params.telegramId, params.locale, false);
+    if (!access.allowed) {
+      return { ok: false, errorCode: access.errorCode, reason: access.reason };
+    }
+    const apiKey = this.getApiKey();
+    const mimeType = params.mimeType || 'audio/ogg';
+    if (!this.customTranscriber && apiKey.length <= 5) {
+      return { ok: false, errorCode: 'API_KEY_MISSING', reason: 'GEMINI_API_KEY missing.' };
+    }
+    const start = Date.now();
+    try {
+      let transcript = '';
+      if (this.customTranscriber) {
+        transcript = (await this.customTranscriber(params.audioBuffer, mimeType)).trim();
+      } else {
+        const ai = createGeminiClient(apiKey);
+        const resp = await ai.models.generateContent({
+          model: TELEGRAM_AI_TRANSCRIBE_MODEL,
+          contents: [
+            {
+              inlineData: {
+                mimeType,
+                data: params.audioBuffer.toString('base64'),
+              },
+            },
+            'Transcribe this Arabic Quran recitation faithfully in standard Arabic script without adding commentary or correcting words that were not spoken.',
+          ],
+        });
+        transcript = (resp.text || '').trim();
+      }
+      await this.repo.appendAiLog({
+        telegramId: params.telegramId,
+        mode: 'voice',
+        modelRequested: TELEGRAM_AI_TRANSCRIBE_MODEL,
+        modelUsed: TELEGRAM_AI_TRANSCRIBE_MODEL,
+        inputType: 'voice',
+        locale: params.locale,
+        latencyMs: Date.now() - start,
+        promptTokensEst: 160,
+        responseTokensEst: estimateTokens(transcript),
+        ok: Boolean(transcript),
+      });
+      return transcript
+        ? { ok: true, transcript }
+        : { ok: false, errorCode: 'EMPTY_TRANSCRIPT', reason: 'No Arabic speech recognized.' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, errorCode: 'TRANSCRIBE_ERROR', reason: msg };
+    }
+  }
+
+  /**
+   * AI Hifz Coach — produces a personalized memorization/murojaa coaching tip grounded
+   * strictly in the user's own Hifz progress, weak surahs, and difficult ayahs.
+   */
+  async askHifzCoach(params: {
+    telegramId: string;
+    locale: TelegramLocale;
+    hifzContextSummary: string;
+    userQuestion?: string;
+  }): Promise<{ ok: boolean; advice?: string; errorCode?: string; reason?: string }> {
+    const access = this.assertAiAccessAllowed(params.telegramId, params.locale, false);
+    if (!access.allowed) {
+      return { ok: false, errorCode: access.errorCode, reason: access.reason };
+    }
+    const { primaryModel } = this.getActiveModels();
+    if (!this.customGenerator && this.getApiKey().length <= 5) {
+      return { ok: false, errorCode: 'API_KEY_MISSING', reason: 'GEMINI_API_KEY missing.' };
+    }
+
+    const langLabel: Record<TelegramLocale, string> = {
+      'uz-Latn': 'Uzbek (Latin script)',
+      'uz-Cyrl': 'Uzbek (Cyrillic script)',
+      'uz-Latn-new': 'Uzbek (Latin script)',
+      ru: 'Russian',
+      en: 'English',
+    };
+
+    const sys =
+      'You are the respectful ASAKA ZIYO HIFZ Memorization Coach. ' +
+      `Respond warmly, practically, and concisely (under 1100 characters) strictly in ${langLabel[params.locale]}. ` +
+      'Give concrete memorization/murojaa tactics (chunking, linking ayah endings, active recall before looking at Mushaf, reviewing weak surahs before new ayahs, managing fatigue). ' +
+      'NEVER generate Quran Arabic verses from memory. ' +
+      'STRICT FORMATTING RULE: NEVER output any plain Unicode emojis, pictographs, or <tg-emoji> tags. Use clean text and simple bullets (•) only. ' +
+      'ALWAYS remind the learner briefly that AI coaching supports planning & motivation, and does NOT replace a qualified Qurʼan teacher (ustoz / Qori) for tajwid and makhraj verification.';
+
+    const prompt = [
+      'Student Hifz snapshot:',
+      params.hifzContextSummary,
+      params.userQuestion
+        ? `Student question: ${params.userQuestion.trim().slice(0, 500)}`
+        : 'Give a tailored daily memorization & murojaa coaching plan based on their current progress and weak areas.',
+    ].join('\n\n');
+
+    const start = Date.now();
+    try {
+      const text = await this.invokeModel(primaryModel, prompt, sys);
+      if (!text) {
+        return { ok: false, errorCode: 'UPSTREAM_ERROR', reason: 'Empty Hifz coach response.' };
+      }
+      const localized = localizeOutput(text, params.locale);
+      await this.repo.appendAiLog({
+        telegramId: params.telegramId,
+        mode: 'chat',
+        modelRequested: primaryModel,
+        modelUsed: primaryModel,
+        inputType: 'text',
+        locale: params.locale,
+        latencyMs: Date.now() - start,
+        promptTokensEst: estimateTokens(prompt),
+        responseTokensEst: estimateTokens(localized),
+        ok: true,
+      });
+      return { ok: true, advice: localized.slice(0, 2000) };
+    } catch (err) {
+      return {
+        ok: false,
+        errorCode: 'UPSTREAM_ERROR',
+        reason: err instanceof Error ? err.message : String(err),
       };
     }
   }

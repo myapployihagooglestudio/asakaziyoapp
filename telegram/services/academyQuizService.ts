@@ -189,13 +189,13 @@ export class TelegramAcademyQuizService {
     const lines = [
       `${dict.academyTitle} (${safeIdx + 1}/${total})`,
       `{{emoji:brand.book}} ${lesson.title[locale] || lesson.title['uz-Latn']}`,
-      `• Holat: ${completed ? '✅ Yakunlangan' : '📖 Oʻqilmoqda'}`,
+      `• Holat: ${completed ? '{{emoji:success}} Yakunlangan' : '{{emoji:quran}} Oʻqilmoqda'}`,
       '',
       lesson.summary[locale] || lesson.summary['uz-Latn'],
       '',
       ...points.map((p) => `• ${p}`),
       '',
-      `📚 Manba: ${lesson.source}`,
+      `{{emoji:quran}} Manba: ${lesson.source}`,
     ];
 
     return {
@@ -242,6 +242,9 @@ export class TelegramAcademyQuizService {
       startedAt: new Date().toISOString(),
     };
     this.activeQuizzes.set(telegramId, session);
+    const eng = this.repo.getUserEngagement(telegramId);
+    eng.activeQuizState = { ...session };
+    this.repo.saveUserEngagement(eng).catch(() => {});
     return { session, currentQuestion: questions[0] || null, total: questions.length };
   }
 
@@ -250,7 +253,19 @@ export class TelegramAcademyQuizService {
     index: number;
     total: number;
   } | null {
-    const session = this.activeQuizzes.get(telegramId);
+    let session = this.activeQuizzes.get(telegramId);
+    if (!session) {
+      const persisted = this.repo.getUserEngagement(telegramId).activeQuizState;
+      if (persisted && Array.isArray(persisted.questionIds) && persisted.questionIds.length > 0) {
+        session = {
+          questionIds: [...persisted.questionIds],
+          answers: [...(persisted.answers || [])],
+          currentIndex: persisted.currentIndex || 0,
+          startedAt: persisted.startedAt || new Date().toISOString(),
+        };
+        this.activeQuizzes.set(telegramId, session);
+      }
+    }
     if (!session) return null;
     const qId = session.questionIds[session.currentIndex];
     const q = VERIFIED_QUIZ_BANK.find((item) => item.id === qId);
@@ -271,11 +286,30 @@ export class TelegramAcademyQuizService {
     total: number;
     pointsEarned: number;
   }> {
-    const session = this.activeQuizzes.get(telegramId);
+    let session = this.activeQuizzes.get(telegramId);
     if (!session) {
+      const persisted = this.repo.getUserEngagement(telegramId).activeQuizState;
+      if (persisted && Array.isArray(persisted.questionIds) && persisted.questionIds.length > 0) {
+        session = {
+          questionIds: [...persisted.questionIds],
+          answers: [...(persisted.answers || [])],
+          currentIndex: persisted.currentIndex || 0,
+          startedAt: persisted.startedAt || new Date().toISOString(),
+        };
+        this.activeQuizzes.set(telegramId, session);
+      }
+    }
+    if (!session) {
+      const notFoundMsg: Record<TelegramLocale, string> = {
+        'uz-Latn': 'Viktorina sessiyasi topilmadi. /quiz buyrugʻi bilan yangi test boshlang.',
+        'uz-Cyrl': 'Викторина сессияси топилмади. /quiz буйруғи билан янги тест бошланг.',
+        'uz-Latn-new': 'Viktorina sessiyasi topilmadi. /quiz buyruği bilan yangi test boşlang.',
+        ru: 'Сессия викторины не найдена. Начните новую через /quiz.',
+        en: 'Quiz session not found. Start a new one with /quiz.',
+      };
       return {
         isCorrect: false,
-        explanation: 'Viktorina sessiyasi topilmadi.',
+        explanation: notFoundMsg[locale] || notFoundMsg['uz-Latn'],
         finished: true,
         score: 0,
         total: 0,
@@ -319,6 +353,7 @@ export class TelegramAcademyQuizService {
       eng.quizTotalPoints += pointsEarned;
       eng.quizBestScore = Math.max(eng.quizBestScore, score);
       eng.quizStreak = score >= Math.ceil(total / 2) ? eng.quizStreak + 1 : 0;
+      eng.activeQuizState = null;
       await this.repo.saveUserEngagement(eng);
       this.activeQuizzes.delete(telegramId);
 
@@ -331,6 +366,10 @@ export class TelegramAcademyQuizService {
         pointsEarned,
       };
     }
+
+    const eng = this.repo.getUserEngagement(telegramId);
+    eng.activeQuizState = { ...session };
+    await this.repo.saveUserEngagement(eng);
 
     return {
       isCorrect,
@@ -379,7 +418,7 @@ export class TelegramAcademyQuizService {
     if (board.length === 0) {
       return emojiRegistry.formatMessage(`${dict.leaderboardTitle}\n\nHozircha natijalar yoʻq. Birinchi boʻlib /quiz yeching!`);
     }
-    const medals = ['🥇', '🥈', '🥉'];
+    const medals = ['#1', '#2', '#3'];
     const lines = [
       dict.leaderboardTitle,
       '',

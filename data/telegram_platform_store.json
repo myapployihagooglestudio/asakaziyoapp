@@ -1,5 +1,28 @@
 {
   "users": {
+    "777001": {
+      "telegramId": "777001",
+      "chatId": "777001",
+      "username": "asaka_owner",
+      "firstName": "Asaka",
+      "lastName": "Admin",
+      "language": "uz-Latn",
+      "role": "owner",
+      "isRegistered": true,
+      "registrationStep": "completed",
+      "registeredAt": "2026-11-21T17:11:10.484Z",
+      "optedOut": false,
+      "onboardingCompleted": true,
+      "createdAt": "2026-11-21T17:11:10.484Z",
+      "updatedAt": "2026-11-21T17:11:10.743Z",
+      "telegramFirstName": "Asaka",
+      "lastActiveAt": "2026-11-21T17:11:10.743Z",
+      "interactionCount": 28,
+      "activeFlow": {
+        "type": "admin_emoji_capture",
+        "key": "__ANY__"
+      }
+    },
     "5558148561": {
       "telegramId": "5558148561",
       "username": "muhammadzohid_11",
@@ -60,6 +83,116 @@
       "updatedAt": "2026-11-20T12:55:31.254Z",
       "lastActiveAt": "2026-11-20T12:55:31.254Z",
       "interactionCount": 1
+    },
+    "8125729903": {
+      "telegramId": "8125729903",
+      "username": "Abduqahhorov_Abduqodir",
+      "firstName": "Abduqodir",
+      "telegramFirstName": "Abduqodir",
+      "profileCompleted": false,
+      "language": "uz-Latn",
+      "languageSelectedManually": true,
+      "prayerNotificationsEnabled": true,
+      "dailyWisdomEnabled": true,
+      "announcementsEnabled": true,
+      "notificationPreferences": {
+        "prayers": {
+          "tahajjud": false,
+          "subh": false,
+          "bomdod": true,
+          "peshin": true,
+          "asr": true,
+          "shom": true,
+          "xufton": true,
+          "juma": true
+        },
+        "leadMinutes": [
+          0
+        ],
+        "customLeadMinutes": null,
+        "timezone": "Asia/Tashkent",
+        "adhanAudioTrackId": "none",
+        "quietHoursEnabled": false,
+        "quietHoursStart": null,
+        "quietHoursEnd": null,
+        "dailyBriefEnabled": true,
+        "verseOfDayEnabled": true,
+        "hadithOfDayEnabled": true,
+        "dhikrReminderEnabled": true,
+        "hifzMurojaaEnabled": true,
+        "hifzNewEnabled": true,
+        "newContentEnabled": true,
+        "quranAudioUpdatesEnabled": true,
+        "appUpdatesEnabled": true,
+        "botUpdatesEnabled": true,
+        "adminRepliesEnabled": true
+      },
+      "notificationHistory": [],
+      "isBlocked": false,
+      "onboardingCompleted": true,
+      "stoppedByUser": false,
+      "activeFlow": {
+        "type": "idle"
+      },
+      "createdAt": "2026-11-21T16:27:07.533Z",
+      "updatedAt": "2026-11-21T16:28:57.069Z",
+      "lastActiveAt": "2026-11-21T16:28:56.985Z",
+      "interactionCount": 7
+    },
+    "8016487043": {
+      "telegramId": "8016487043",
+      "username": "Ulugbek_mirzayev_uz",
+      "firstName": "𝓤",
+      "telegramFirstName": "𝓤",
+      "profileCompleted": false,
+      "language": "uz-Latn-new",
+      "languageSelectedManually": true,
+      "prayerNotificationsEnabled": true,
+      "dailyWisdomEnabled": true,
+      "announcementsEnabled": true,
+      "notificationPreferences": {
+        "prayers": {
+          "tahajjud": false,
+          "subh": false,
+          "bomdod": true,
+          "peshin": true,
+          "asr": true,
+          "shom": true,
+          "xufton": true,
+          "juma": true
+        },
+        "leadMinutes": [
+          0
+        ],
+        "customLeadMinutes": null,
+        "timezone": "Asia/Tashkent",
+        "adhanAudioTrackId": "none",
+        "quietHoursEnabled": false,
+        "quietHoursStart": null,
+        "quietHoursEnd": null,
+        "dailyBriefEnabled": true,
+        "verseOfDayEnabled": true,
+        "hadithOfDayEnabled": true,
+        "dhikrReminderEnabled": true,
+        "hifzMurojaaEnabled": true,
+        "hifzNewEnabled": true,
+        "newContentEnabled": true,
+        "quranAudioUpdatesEnabled": true,
+        "appUpdatesEnabled": true,
+        "botUpdatesEnabled": true,
+        "adminRepliesEnabled": true
+      },
+      "notificationHistory": [],
+      "isBlocked": false,
+      "onboardingCompleted": true,
+      "stoppedByUser": false,
+      "activeFlow": {
+        "type": "idle"
+      },
+      "createdAt": "2026-11-21T16:36:51.695Z",
+      "updatedAt": "2026-11-21T16:39:26.794Z",
+      "lastActiveAt": "2026-11-21T16:39:26.794Z",
+      "interactionCount": 9
     }
   },
   "settings": {
@@ -77,8 +210,9 @@
     "aiDailyBudgetTokens": 500000,
     "aiMaxRequestsPerUserPerDay": 40,
     "miniAppUrl": "https://asakaziyo.ai.studio",
-    "updatedAt": "2026-11-20T12:30:47.481Z",
-    "updatedBy": "system"
+    "updatedAt": "2026-11-21T16:20:48.994Z",
+    "updatedBy": "scheduler",
+    "lastNotifiedApkVersion": "4.0.0+400"
   },
   "channels": {
     "asaka-ziyo-main": {
@@ -111,6 +245,54 @@
   "admins": {},
   "publications": [],
   "auditLogs": [
+    {
+      "actorTelegramId": "8016487043",
+      "actorRole": "user",
+      "action": "language_updated",
+      "targetType": "user",
+      "targetId": "8016487043",
+      "metadata": {
+        "language": "uz-Latn-new"
+      },
+      "id": "tg_log_mwqmrvwj_3071cb",
+      "createdAt": "2026-11-21T16:36:58.051Z"
+    },
+    {
+      "actorTelegramId": "8016487043",
+      "actorRole": "user",
+      "action": "user_registered",
+      "targetType": "user",
+      "targetId": "8016487043",
+      "metadata": {
+        "initialLanguage": "uz-Latn"
+      },
+      "id": "tg_log_mwqmrrd2_022677",
+      "createdAt": "2026-11-21T16:36:52.166Z"
+    },
+    {
+      "actorTelegramId": "8125729903",
+      "actorRole": "user",
+      "action": "language_updated",
+      "targetType": "user",
+      "targetId": "8125729903",
+      "metadata": {
+        "language": "uz-Latn"
+      },
+      "id": "tg_log_mwqmfbim_488c67",
+      "createdAt": "2026-11-21T16:27:11.758Z"
+    },
+    {
+      "actorTelegramId": "8125729903",
+      "actorRole": "user",
+      "action": "user_registered",
+      "targetType": "user",
+      "targetId": "8125729903",
+      "metadata": {
+        "initialLanguage": "uz-Latn"
+      },
+      "id": "tg_log_mwqmf8lq_90034b",
+      "createdAt": "2026-11-21T16:27:07.982Z"
+    },
     {
       "actorTelegramId": "5144985210",
       "actorRole": "user",
@@ -148,7 +330,204 @@
       "createdAt": "2026-11-20T12:37:32.460Z"
     }
   ],
-  "customEmojis": {},
+  "customEmojis": {
+    "home": {
+      "key": "home",
+      "category": "home",
+      "unicodeFallback": "🏠",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Asosiy menyu / Home",
+      "semanticPurpose": "Bosh menyu sarlavhasi, Reply/Inline asosiy tugmalar va kirish kartalari",
+      "usedIn": [
+        "main_menu",
+        "reply_keyboard",
+        "start_welcome",
+        "help"
+      ],
+      "customEmojiId": "5368324170671202286",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.481Z",
+      "verifiedAt": "2026-11-21T17:11:10.481Z",
+      "updatedBy": "777001"
+    },
+    "favorites": {
+      "key": "favorites",
+      "category": "favorites",
+      "unicodeFallback": "⭐",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Sevimlilar va xatchoʻplar",
+      "semanticPurpose": "Saqlangan oyat, hadis, sura va sevimli qorilar",
+      "usedIn": [
+        "bookmarks",
+        "quran_mp3_favorites",
+        "reply_keyboard"
+      ],
+      "customEmojiId": "5368324170671202286",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.482Z",
+      "verifiedAt": "2026-11-21T17:11:10.482Z",
+      "updatedBy": "777001"
+    },
+    "prayer": {
+      "key": "prayer",
+      "category": "prayer",
+      "unicodeFallback": "🕌",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Namoz vaqtlari va masjid",
+      "semanticPurpose": "Asaka namoz jadvali, Qibla, Ramazon va masjid maʼlumotlari",
+      "usedIn": [
+        "prayer_card",
+        "prayer_alerts",
+        "qibla_finder",
+        "ramadan_card",
+        "channel_prayer_post"
+      ],
+      "customEmojiId": "5368324170671202287",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.482Z",
+      "verifiedAt": "2026-11-21T17:11:10.482Z",
+      "updatedBy": "777001"
+    },
+    "quran": {
+      "key": "quran",
+      "category": "quran",
+      "unicodeFallback": "📖",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Qurʼoni Karim / Quran",
+      "semanticPurpose": "Qurʼon boʻlimi, suralar roʻyxati, tafsir, xatm va maqolalar",
+      "usedIn": [
+        "quran_section",
+        "tafsir_hilol",
+        "khatm_planner",
+        "reply_keyboard",
+        "inline_menus"
+      ],
+      "customEmojiId": "5368324170671202299",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.786Z",
+      "verifiedAt": "2026-11-21T17:11:10.786Z",
+      "updatedBy": "777001"
+    },
+    "quran_mp3": {
+      "key": "quran_mp3",
+      "category": "quran_mp3",
+      "unicodeFallback": "🎧",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Qurʼon MP3 audio kutubxonasi",
+      "semanticPurpose": "10 qori, 114 sura MP3 pleyer, audio captionlar va qori tanlash",
+      "usedIn": [
+        "quran_mp3_home",
+        "reciters_list",
+        "audio_captions",
+        "reply_keyboard"
+      ],
+      "customEmojiId": "5368324170671202289",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.483Z",
+      "verifiedAt": "2026-11-21T17:11:10.483Z",
+      "updatedBy": "777001"
+    },
+    "hifz": {
+      "key": "hifz",
+      "category": "hifz",
+      "unicodeFallback": "🧠",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "ASAKA ZIYO Hifz va murojaa",
+      "semanticPurpose": "Hifz rejasi, murojaa eslatmalari, AI murabbiy va yodlash statistikasi",
+      "usedIn": [
+        "hifz_home",
+        "hifz_daily_plan",
+        "hifz_reminders",
+        "hifz_coach"
+      ],
+      "customEmojiId": "5368324170671202290",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.483Z",
+      "verifiedAt": "2026-11-21T17:11:10.483Z",
+      "updatedBy": "777001"
+    },
+    "success": {
+      "key": "success",
+      "category": "success",
+      "unicodeFallback": "✅",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Muvaffaqiyatli holat",
+      "semanticPurpose": "Saqlandi, tasdiqlandi, faol holat va bajarildi bildirishnomalari",
+      "usedIn": [
+        "success_messages",
+        "confirm_buttons",
+        "active_toggles",
+        "verification"
+      ],
+      "customEmojiId": "5368324170671202291",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.483Z",
+      "verifiedAt": "2026-11-21T17:11:10.483Z",
+      "updatedBy": "777001"
+    },
+    "error": {
+      "key": "error",
+      "category": "error",
+      "unicodeFallback": "❌",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "description": "Xatolik holati",
+      "semanticPurpose": "Xatolik, rad etish, bekor qilish va oʻchirish tugmalari",
+      "usedIn": [
+        "error_messages",
+        "cancel_buttons",
+        "delete_actions"
+      ],
+      "customEmojiId": "5368324170671202292",
+      "verified": true,
+      "isCustomAdminSlot": false,
+      "createdAt": "2026-11-21T17:03:52.621Z",
+      "updatedAt": "2026-11-21T17:11:10.483Z",
+      "verifiedAt": "2026-11-21T17:11:10.483Z",
+      "updatedBy": "777001"
+    },
+    "ramadan_banner": {
+      "key": "ramadan_banner",
+      "category": "seasonal",
+      "unicodeFallback": "⭐",
+      "customEmojiId": "5368324170671202299",
+      "supportsKeyboardIcon": true,
+      "enabled": true,
+      "verified": true,
+      "verifiedAt": "2026-11-21T17:11:10.785Z",
+      "description": "Ramazon banneri",
+      "semanticPurpose": "Ramazon oyi maxsus sarlavhalari",
+      "usedIn": [
+        "Broadcasts",
+        "Seasonal"
+      ],
+      "isCustomAdminSlot": true,
+      "updatedBy": "777001",
+      "createdAt": "2026-11-21T17:06:03.805Z",
+      "updatedAt": "2026-11-21T17:11:10.785Z"
+    }
+  },
   "broadcasts": {},
   "supportTickets": {},
   "contentDrafts": {},
@@ -198,6 +577,20 @@
     }
   },
   "aiLogs": [
+    {
+      "telegramId": "system_probe",
+      "mode": "probe",
+      "modelRequested": "gemini-3.5-flash-lite",
+      "modelUsed": "gemini-3.5-flash-lite",
+      "inputType": "text",
+      "locale": "en",
+      "latencyMs": 939,
+      "promptTokensEst": 10,
+      "responseTokensEst": 1,
+      "ok": true,
+      "id": "tg_ai_mwqm5tb8_a303d7",
+      "createdAt": "2026-11-21T16:19:48.260Z"
+    },
     {
       "telegramId": "system_probe",
       "mode": "probe",
@@ -255,5 +648,71 @@
       "createdAt": "2026-11-20T12:31:16.357Z"
     }
   ],
-  "quizAttempts": []
+  "quizAttempts": [],
+  "hifzProfiles": {
+    "777001": {
+      "id": "hifz_777001",
+      "telegramId": "777001",
+      "startSurahNumber": 114,
+      "startDirection": "juz_amma_first",
+      "dailyNewAyahsGoal": 5,
+      "dailyReviewMinutesGoal": 25,
+      "preferredReciterId": "mishary",
+      "surahs": {},
+      "difficultAyahs": [],
+      "reviewHistory": [],
+      "currentDailyPlan": {
+        "dateKey": "2026-11-21",
+        "generatedAt": "2026-11-21T17:05:49.515Z",
+        "isLifelongMode": false,
+        "totalEstimatedMinutes": 15,
+        "completedTaskCount": 0,
+        "tasks": [
+          {
+            "id": "new_2026-11-21_s114_1",
+            "taskType": "new_memorization",
+            "surahNumber": 114,
+            "juzNumber": 30,
+            "startAyah": 1,
+            "endAyah": 5,
+            "pageStart": 604,
+            "pageEnd": 604,
+            "estimatedMinutes": 15,
+            "priority": 5,
+            "reasonKey": "daily_new_memorization",
+            "completed": false
+          }
+        ],
+        "carriedOverCount": 0
+      },
+      "reminders": {
+        "morningEnabled": true,
+        "morningTime": "06:30",
+        "middayEnabled": false,
+        "middayTime": "13:30",
+        "eveningEnabled": true,
+        "eveningTime": "20:30",
+        "newMemorizationReminderEnabled": true,
+        "dueReviewAlertEnabled": true,
+        "quietHoursStart": "22:30",
+        "quietHoursEnd": "05:00",
+        "lastDispatchedSlots": {}
+      },
+      "lifelong": {
+        "active": false,
+        "dailyJuzTarget": 1,
+        "currentJuzCursor": 1,
+        "juzLastReviewedDate": {},
+        "juzStrength": {},
+        "completedFullCycles": 0
+      },
+      "streakDays": 0,
+      "longestStreakDays": 0,
+      "weeklyGoalAyahs": 35,
+      "achievements": [],
+      "groupPlan": null,
+      "createdAt": "2026-11-21T17:05:49.512Z",
+      "updatedAt": "2026-11-21T17:05:49.515Z"
+    }
+  }
 }

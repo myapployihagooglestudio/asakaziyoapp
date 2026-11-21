@@ -653,7 +653,18 @@ service cloud.firestore {
         isValidTelegramLocale(data.language) &&
         data.prayerNotificationsEnabled is bool &&
         data.dailyWisdomEnabled is bool &&
-        data.isBlocked is bool;
+        data.isBlocked is bool &&
+        (!('registeredFirstName' in data) || (data.registeredFirstName is string && data.registeredFirstName.size() <= 80)) &&
+        (!('registeredLastName' in data) || (data.registeredLastName is string && data.registeredLastName.size() <= 80)) &&
+        (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 165)) &&
+        (!('registrationStatus' in data) || data.registrationStatus in ['pending', 'registered']) &&
+        (!('profileCompleted' in data) || data.profileCompleted is bool);
+    }
+
+    function isValidTelegramHifzProfile(data) {
+      return data.telegramId is string && data.telegramId.size() >= 1 && data.telegramId.size() <= 64 &&
+        data.dailyNewAyahsGoal is number && data.dailyNewAyahsGoal >= 1 && data.dailyNewAyahsGoal <= 100 &&
+        data.startDirection in ['juz_amma_first', 'beginning_first', 'custom'];
     }
 
     function isValidTelegramSettings(data) {
@@ -695,10 +706,24 @@ service cloud.firestore {
 
     function isValidTelegramCustomEmoji(data) {
       return data.key is string && data.key.size() >= 1 && data.key.size() <= 128 &&
-        data.category in ['brand', 'navigation', 'prayer', 'content', 'ai', 'profile', 'admin', 'language', 'settings', 'status', 'channel', 'calendar'] &&
+        data.category in [
+          'brand', 'navigation', 'prayer', 'content', 'ai', 'profile', 'admin', 'language',
+          'settings', 'status', 'channel', 'calendar', 'home', 'quran', 'quran_mp3', 'hifz',
+          'hadith', 'dhikr', 'dua', 'ai_assistant', 'community', 'favorites', 'notifications',
+          'back', 'next', 'previous', 'play', 'pause', 'success', 'warning', 'error',
+          'loading', 'statistics', 'support'
+        ] &&
         data.unicodeFallback is string && data.unicodeFallback.size() >= 1 && data.unicodeFallback.size() <= 16 &&
         data.verified is bool &&
-        data.supportsKeyboardIcon is bool;
+        data.supportsKeyboardIcon is bool &&
+        (!('enabled' in data) || data.enabled is bool) &&
+        (!('isCustomAdminSlot' in data) || data.isCustomAdminSlot is bool) &&
+        (!('customEmojiId' in data) || data.customEmojiId == null || (data.customEmojiId is string && data.customEmojiId.size() <= 64)) &&
+        (!('semanticPurpose' in data) || (data.semanticPurpose is string && data.semanticPurpose.size() <= 240)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 240)) &&
+        (!('usedIn' in data) || (data.usedIn is list && data.usedIn.size() <= 30 && (data.usedIn.size() == 0 || data.usedIn[0] is string))) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
+        (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 128));
     }
 
     function isValidTelegramBroadcast(data) {
@@ -900,6 +925,17 @@ service cloud.firestore {
         (isSuperAdmin() || isVerifiedServerWrite('telegramQuizAttempts', attemptId));
       allow delete: if isValidId(attemptId) &&
         (isSuperAdmin() || isVerifiedServerWrite('telegramQuizAttempts', attemptId));
+    }
+
+    // 38N. ASAKA ZIYO HIFZ — Isolated User Memorization & Murojaa Profiles (Zero public access — Admin/server-only)
+    match /telegramHifzProfiles/{hifzId} {
+      allow get: if isValidId(hifzId) && isAnyAdmin();
+      allow list: if isAnyAdmin();
+      allow create, update: if isValidId(hifzId) &&
+        isValidTelegramHifzProfile(incoming()) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramHifzProfiles', hifzId));
+      allow delete: if isValidId(hifzId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('telegramHifzProfiles', hifzId));
     }
 
     // 39. Central Official App Releases (Public read for published releases; Admin/server-only write)

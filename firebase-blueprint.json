@@ -452,11 +452,23 @@
         "username": { "type": "string", "maxLength": 128 },
         "firstName": { "type": "string", "maxLength": 128 },
         "lastName": { "type": "string", "maxLength": 128 },
+        "telegramFirstName": { "type": "string", "maxLength": 128 },
+        "telegramLastName": { "type": "string", "maxLength": 128 },
+        "registeredFirstName": { "type": "string", "maxLength": 80 },
+        "registeredLastName": { "type": "string", "maxLength": 80 },
+        "fullName": { "type": "string", "maxLength": 165 },
+        "registrationStatus": { "type": "string", "enum": ["pending", "registered"] },
+        "profileCompleted": { "type": "boolean" },
+        "profileRegisteredAt": { "type": "string", "maxLength": 64 },
+        "profileUpdatedAt": { "type": "string", "maxLength": 64 },
         "language": { "type": "string", "enum": ["uz-Latn", "uz-Cyrl", "uz-Latn-new", "ru", "en"] },
         "languageSelectedManually": { "type": "boolean" },
         "prayerNotificationsEnabled": { "type": "boolean" },
         "dailyWisdomEnabled": { "type": "boolean" },
         "announcementsEnabled": { "type": "boolean" },
+        "notificationPreferences": { "type": "object" },
+        "notificationHistory": { "type": "array" },
+        "lastNotifiedApkVersion": { "type": "string", "maxLength": 32 },
         "isBlocked": { "type": "boolean" },
         "onboardingCompleted": { "type": "boolean" },
         "stoppedByUser": { "type": "boolean" },
@@ -466,6 +478,33 @@
         "interactionCount": { "type": "number" }
       },
       "required": ["telegramId", "language", "prayerNotificationsEnabled", "dailyWisdomEnabled", "isBlocked", "createdAt", "updatedAt"]
+    },
+    "TelegramHifzProfile": {
+      "title": "TelegramHifzProfile",
+      "description": "Isolated ASAKA ZIYO HIFZ Quran memorization, spaced-repetition review, and lifelong 30-juz maintenance profile per Telegram user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 80 },
+        "telegramId": { "type": "string", "maxLength": 64 },
+        "startSurahNumber": { "type": "number" },
+        "startDirection": { "type": "string", "enum": ["juz_amma_first", "beginning_first", "custom"] },
+        "dailyNewAyahsGoal": { "type": "number" },
+        "dailyReviewMinutesGoal": { "type": "number" },
+        "preferredReciterId": { "type": "string", "maxLength": 64 },
+        "surahs": { "type": "object" },
+        "difficultAyahs": { "type": "array" },
+        "reviewHistory": { "type": "array" },
+        "currentDailyPlan": { "type": "object" },
+        "reminders": { "type": "object" },
+        "lifelong": { "type": "object" },
+        "streakDays": { "type": "number" },
+        "longestStreakDays": { "type": "number" },
+        "weeklyGoalAyahs": { "type": "number" },
+        "achievements": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["telegramId", "dailyNewAyahsGoal", "startDirection", "createdAt", "updatedAt"]
     },
     "TelegramBotSettings": {
       "title": "TelegramBotSettings",
@@ -478,6 +517,15 @@
         "premiumEmojiEnabled": { "type": "boolean" },
         "premiumKeyboardIconsEnabled": { "type": "boolean" },
         "premiumEmojiEligibilityVerified": { "type": "boolean" },
+        "buttonStylesEnabled": { "type": "boolean" },
+        "richMessagesEnabled": { "type": "boolean" },
+        "htmlWidgetsEnabled": { "type": "boolean" },
+        "aiStreamingDraftsEnabled": { "type": "boolean" },
+        "buttonStyleOverrides": { "type": "object" },
+        "richMessageTemplates": { "type": "object" },
+        "quranAudioFileIdCache": { "type": "object" },
+        "quranAudioImportLogs": { "type": "array" },
+        "notificationDispatchLog": { "type": "array" },
         "miniAppEnabled": { "type": "boolean" },
         "aiAssistantEnabled": { "type": "boolean" },
         "aiPrimaryModel": { "type": "string", "maxLength": 128 },
@@ -564,18 +612,33 @@
     },
     "TelegramCustomEmoji": {
       "title": "TelegramCustomEmoji",
-      "description": "Centralized Telegram Premium Custom Emoji Registry entry with verified numeric ID and Unicode fallback",
+      "description": "Centralized ASAKA ZIYO 100% Premium Custom Emoji Registry entry with verified numeric ID, semantic purpose, usage map, and audit metadata",
       "type": "object",
       "properties": {
         "key": { "type": "string", "maxLength": 128 },
-        "category": { "type": "string", "enum": ["brand", "navigation", "prayer", "content", "ai", "profile", "admin", "language", "settings", "status", "channel", "calendar"] },
+        "category": {
+          "type": "string",
+          "enum": [
+            "brand", "navigation", "prayer", "content", "ai", "profile", "admin", "language",
+            "settings", "status", "channel", "calendar", "home", "quran", "quran_mp3", "hifz",
+            "hadith", "dhikr", "dua", "ai_assistant", "community", "favorites", "notifications",
+            "back", "next", "previous", "play", "pause", "success", "warning", "error",
+            "loading", "statistics", "support"
+          ]
+        },
         "unicodeFallback": { "type": "string", "maxLength": 16 },
-        "customEmojiId": { "type": "string", "maxLength": 32 },
+        "customEmojiId": { "type": "string", "maxLength": 64 },
+        "semanticPurpose": { "type": "string", "maxLength": 240 },
+        "usedIn": { "type": "array" },
+        "isCustomAdminSlot": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
         "verified": { "type": "boolean" },
         "verifiedAt": { "type": "string", "maxLength": 64 },
         "stickerSetName": { "type": "string", "maxLength": 128 },
         "supportsKeyboardIcon": { "type": "boolean" },
         "description": { "type": "string", "maxLength": 240 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 128 },
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["key", "category", "unicodeFallback", "verified", "supportsKeyboardIcon", "updatedAt"]
@@ -906,6 +969,10 @@
     "/telegramQuizAttempts/{attemptId}": {
       "schema": "TelegramQuizAttempt",
       "description": "Isolated Telegram Islamic quiz attempt records and leaderboard stats"
+    },
+    "/telegramHifzProfiles/{hifzId}": {
+      "schema": "TelegramHifzProfile",
+      "description": "Isolated ASAKA ZIYO HIFZ Quran memorization, spaced repetition, and lifelong 30-juz maintenance profiles (admin/server-only)"
     },
     "/app_releases/{releaseId}": {
       "schema": "AppRelease",
