@@ -31,6 +31,7 @@ import { verifyTelegramMiniAppInitData } from '../miniapp/miniAppConfig';
 import {
   TelegramBroadcastMediaType,
   TelegramBroadcastSegment,
+  TelegramCentralAdminWriter,
   TelegramContentStatus,
   TelegramContentType,
   TelegramSupportStatus,
@@ -51,6 +52,7 @@ export interface TelegramPlatformRouterDeps {
   serverReadFirestoreCollection?: (collectionName: string) => Promise<any[]>;
   readOnlyPrayerProvider?: ReadOnlyPrayerScheduleProvider;
   centralContentReader?: CentralDatabaseReader;
+  centralAdminWriter?: TelegramCentralAdminWriter;
   appReleaseService?: AppReleaseService;
   config?: TelegramPlatformConfig;
   storePath?: string;
@@ -72,6 +74,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     storePath: deps.storePath,
     readOnlyPrayerProvider: deps.readOnlyPrayerProvider,
     centralContentReader: deps.centralContentReader,
+    centralAdminWriter: deps.centralAdminWriter,
     appReleaseService: deps.appReleaseService,
     serverWriteFirestoreDoc: deps.serverWriteFirestoreDoc,
     serverReadFirestoreCollection: deps.serverReadFirestoreCollection,

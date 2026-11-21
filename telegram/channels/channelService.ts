@@ -39,14 +39,16 @@ export class TelegramChannelService {
       isActive?: boolean;
       autoPublishPrayerTimes?: boolean;
       autoPublishAnnouncements?: boolean;
+      autoPublishWisdom?: boolean;
       language?: TelegramLocale;
     }
   ): Promise<TelegramChannelRecord> {
     const nowIso = new Date().toISOString();
     const existing = this.repo.getChannel(input.id);
-    const normalizedUsername = input.username.startsWith('@')
-      ? input.username
-      : `@${input.username}`;
+    const normalizedUsername =
+      input.username.startsWith('@') || /^-?\d+$/.test(input.username)
+        ? input.username
+        : `@${input.username}`;
 
     const record: TelegramChannelRecord = {
       id: input.id,
@@ -59,6 +61,8 @@ export class TelegramChannelService {
         input.autoPublishPrayerTimes ?? existing?.autoPublishPrayerTimes ?? false,
       autoPublishAnnouncements:
         input.autoPublishAnnouncements ?? existing?.autoPublishAnnouncements ?? false,
+      autoPublishWisdom:
+        input.autoPublishWisdom ?? existing?.autoPublishWisdom ?? false,
       language: input.language ?? existing?.language ?? 'uz-Latn',
       createdAt: existing?.createdAt || nowIso,
       updatedAt: nowIso,
@@ -75,5 +79,21 @@ export class TelegramChannelService {
     });
 
     return record;
+  }
+
+  async removeChannel(actorTelegramId: string, channelId: string): Promise<boolean> {
+    const existing = this.repo.getChannel(channelId);
+    const deleted = await this.repo.deleteChannel(channelId);
+    if (deleted) {
+      await this.repo.appendAuditLog({
+        actorTelegramId,
+        actorRole: 'admin',
+        action: 'channel_removed',
+        targetType: 'channel',
+        targetId: channelId,
+        metadata: { username: existing?.username || channelId },
+      });
+    }
+    return deleted;
   }
 }

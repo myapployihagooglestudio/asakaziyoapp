@@ -499,8 +499,16 @@ export class UnifiedSyncEngine {
     const sevenDaysMs = 7 * 24 * 3600_000;
 
     return all.filter((u) => {
-      // Strict consent & block enforcement
-      if (u.isBlocked || u.stoppedByUser) return false;
+      // Strict consent & block enforcement (canonical + defensive legacy aliases)
+      const legacy = u as unknown as Record<string, unknown>;
+      if (
+        u.isBlocked ||
+        u.stoppedByUser ||
+        legacy.optedOut === true ||
+        legacy.notificationsEnabled === false
+      ) {
+        return false;
+      }
 
       // Respect category-specific opt-out toggles
       if (entityType === 'prayer_schedule' && !u.prayerNotificationsEnabled) return false;
@@ -511,7 +519,7 @@ export class UnifiedSyncEngine {
           entityType === 'audio' ||
           entityType === 'video' ||
           entityType === 'app_release') &&
-        !u.announcementsEnabled
+        (!u.announcementsEnabled || legacy.announcementAlertsEnabled === false)
       ) {
         return false;
       }
@@ -760,6 +768,10 @@ export class UnifiedSyncEngine {
       if (res.ok) succeeded++;
     }
     return { retried: candidates.length, succeeded };
+  }
+
+  listAuditLogs(limit = 50): SyncAuditLogEntry[] {
+    return this.store.auditLogs.slice(0, Math.max(1, limit));
   }
 
   getStatusSummary() {

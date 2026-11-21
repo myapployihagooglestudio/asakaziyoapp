@@ -97,7 +97,14 @@ export default defineConfig(({ command }) => {
           clientsClaim: true,
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          navigateFallbackDenylist: [/^\/api\//, /^\/privacy$/, /^\/delete-account$/],
+          navigateFallbackDenylist: [
+            /^\/api\//,
+            /^\/privacy$/,
+            /^\/delete-account$/,
+            /\.apk$/i,
+            /\.aab$/i,
+            /^\/downloads\//,
+          ],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}'],
           globIgnores: ['**/*.apk', '**/*.aab', '**/*.mp4', '**/*.mp3'],
           runtimeCaching: [

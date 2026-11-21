@@ -620,23 +620,46 @@ const TARGET_FIRESTORE_DATABASE_ID =
   firebaseConfig?.firestoreDatabaseId || 'ai-studio-asakaziyoapp-1ea697da-bde1-4c61-a495-c8b1e8c8ca94';
 
 /**
- * Deterministic 512-bit Server-Vault Secret derived exclusively from server-only private key material.
- * Never exposed to client code or public endpoints; stored in Firestore `/_server_vault/master_key` (`allow read: if false`).
+ * Restart-proof 512-bit Server-Vault Secret derived deterministically from persistent server-only
+ * environment secrets (never exposed to browser clients) so container hibernation/restarts NEVER
+ * cause secret drift against write-once Firestore `/_server_vault/master_key_v3` (`allow read: if false`).
  */
+const SERVER_VAULT_KEY_PATH = path.join(DATA_DIR, '.firestore_server_vault_key');
 const SERVER_FIRESTORE_MASTER_SECRET = (() => {
-  try {
-    const keyPath = path.join(DATA_DIR, '.android_signing_key.pem');
-    if (fs.existsSync(keyPath)) {
-      const signingKeyPem = fs.readFileSync(keyPath, 'utf-8');
-      return (
-        crypto.createHmac('sha256', signingKeyPem).update('asaka_ziyo_firestore_server_vault_v1').digest('hex') +
-        crypto.createHmac('sha256', signingKeyPem).update('asaka_ziyo_firestore_server_vault_v2').digest('hex')
-      );
-    }
-  } catch {
-    // Fallback to session secret if signing key not present
+  const fromEnv = process.env.SERVER_FIRESTORE_MASTER_SECRET?.trim();
+  if (fromEnv && fromEnv.length >= 64 && fromEnv.length <= 256) {
+    return fromEnv;
   }
-  return process.env.SERVER_FIRESTORE_MASTER_SECRET || ADMIN_SESSION_SECRET;
+  const persistentServerSeed =
+    process.env.TELEGRAM_BOT_TOKEN1?.trim() ||
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.ADMIN_SESSION_SECRET?.trim();
+  if (persistentServerSeed) {
+    const context = `asaka_ziyo_vault_v3|${TARGET_FIRESTORE_PROJECT_ID}|${TARGET_FIRESTORE_DATABASE_ID}`;
+    return (
+      crypto.createHmac('sha256', persistentServerSeed).update(`${context}|part_a`).digest('hex') +
+      crypto.createHmac('sha256', persistentServerSeed).update(`${context}|part_b`).digest('hex')
+    );
+  }
+  try {
+    if (fs.existsSync(SERVER_VAULT_KEY_PATH)) {
+      const existingKey = fs.readFileSync(SERVER_VAULT_KEY_PATH, 'utf-8').trim();
+      if (existingKey.length >= 64 && existingKey.length <= 256) {
+        return existingKey;
+      }
+    }
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const generated = crypto.randomBytes(64).toString('hex');
+    fs.writeFileSync(SERVER_VAULT_KEY_PATH, `${generated}\n`, { encoding: 'utf-8', mode: 0o600 });
+    return generated;
+  } catch {
+    return (
+      crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update('asaka_ziyo_vault_v3_a').digest('hex') +
+      crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update('asaka_ziyo_vault_v3_b').digest('hex')
+    );
+  }
 })();
 
 // Initialize Firebase Client SDK instance on server targeting the named Firestore database
@@ -756,14 +779,31 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
 
 async function ensureServerVaultInitialized(): Promise<void> {
   try {
-    // Only succeeds if /_server_vault/master_key does not exist yet (write-once rule)
-    await fsSetDoc(fsDoc(serverFirestoreDb, '_server_vault', 'master_key'), {
+    // Only succeeds if /_server_vault/master_key_v3 does not exist yet (write-once rule)
+    await fsSetDoc(fsDoc(serverFirestoreDb, '_server_vault', 'master_key_v3'), {
       secret: SERVER_FIRESTORE_MASTER_SECRET,
       createdAt: new Date().toISOString(),
     });
+    console.log('[Firestore Server Vault] Anchored write-once /_server_vault/master_key_v3.');
   } catch {
-    // Expected PERMISSION_DENIED once /_server_vault/master_key is already locked in Firestore
+    // Expected PERMISSION_DENIED once /_server_vault/master_key_v3 is already locked in Firestore
   }
+}
+
+function isTransientFirestoreError(err: any): boolean {
+  const code = String(err?.code || '').toLowerCase();
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    code.includes('unavailable') ||
+    code.includes('deadline-exceeded') ||
+    code.includes('aborted') ||
+    code.includes('resource-exhausted') ||
+    msg.includes('unavailable') ||
+    msg.includes('deadline') ||
+    msg.includes('network') ||
+    msg.includes('econnreset') ||
+    msg.includes('etimedout')
+  );
 }
 
 export async function serverWriteFirestoreDoc(
@@ -792,40 +832,51 @@ export async function serverWriteFirestoreDoc(
     _serverSyncedAt: new Date().toISOString(),
   });
 
-  try {
-    if (adminFirestoreInstance) {
-      await adminFirestoreInstance.collection(cleanCollection).doc(cleanDocId).set(sanitized, { merge: true });
-    } else {
-      const batch = fsWriteBatch(serverFirestoreDb);
-      const batchId = `${Date.now()}_${crypto.randomBytes(12).toString('hex')}`;
-      batch.set(fsDoc(serverFirestoreDb, '_server_gate', 'lock'), {
-        serverSecret: SERVER_FIRESTORE_MASTER_SECRET,
-        batchId,
-        targetCollection: cleanCollection,
-        targetDocId: cleanDocId,
-        updatedAt: new Date().toISOString(),
-        action: 'write',
-      });
-      batch.set(fsDoc(serverFirestoreDb, cleanCollection, cleanDocId), sanitized, { merge: true });
-      await batch.commit();
+  const maxAttempts = 3;
+  let lastErr: any = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (adminFirestoreInstance) {
+        await adminFirestoreInstance.collection(cleanCollection).doc(cleanDocId).set(sanitized, { merge: true });
+      } else {
+        const batch = fsWriteBatch(serverFirestoreDb);
+        const batchId = `${Date.now()}_${crypto.randomBytes(12).toString('hex')}`;
+        batch.set(fsDoc(serverFirestoreDb, '_server_gate', 'lock'), {
+          serverSecret: SERVER_FIRESTORE_MASTER_SECRET,
+          batchId,
+          targetCollection: cleanCollection,
+          targetDocId: cleanDocId,
+          updatedAt: new Date().toISOString(),
+          action: 'write',
+        });
+        batch.set(fsDoc(serverFirestoreDb, cleanCollection, cleanDocId), sanitized, { merge: true });
+        await batch.commit();
+      }
+      return {
+        success: true,
+        path: docPath,
+        projectId: TARGET_FIRESTORE_PROJECT_ID,
+        databaseId: TARGET_FIRESTORE_DATABASE_ID,
+      };
+    } catch (err: any) {
+      lastErr = err;
+      if (attempt < maxAttempts && isTransientFirestoreError(err)) {
+        await new Promise((r) => setTimeout(r, 250 * Math.pow(2, attempt - 1)));
+        continue;
+      }
+      break;
     }
-    return {
-      success: true,
-      path: docPath,
-      projectId: TARGET_FIRESTORE_PROJECT_ID,
-      databaseId: TARGET_FIRESTORE_DATABASE_ID,
-    };
-  } catch (err: any) {
-    console.error(`[Firestore Server Write Error] (${docPath}):`, err?.code || err?.message || err);
-    return {
-      success: false,
-      error: err?.message || 'Firestore write failed',
-      code: err?.code || 'unknown',
-      path: docPath,
-      projectId: TARGET_FIRESTORE_PROJECT_ID,
-      databaseId: TARGET_FIRESTORE_DATABASE_ID,
-    };
   }
+
+  console.error(`[Firestore Server Write Error] (${docPath}):`, lastErr?.code || lastErr?.message || lastErr);
+  return {
+    success: false,
+    error: lastErr?.message || 'Firestore write failed',
+    code: lastErr?.code || 'unknown',
+    path: docPath,
+    projectId: TARGET_FIRESTORE_PROJECT_ID,
+    databaseId: TARGET_FIRESTORE_DATABASE_ID,
+  };
 }
 
 export async function serverDeleteFirestoreDoc(
@@ -5525,9 +5576,19 @@ async function streamVerifiedApkResponse(req: Request, res: Response) {
   }
 
   if (release.localFilePath && fs.existsSync(release.localFilePath)) {
+    const binaryCheck = isValidZipBinaryHeader(release.localFilePath);
+    if (!binaryCheck.valid) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return res.status(500).json({
+        success: false,
+        apkAvailable: false,
+        error: 'Serverdagi APK fayli haqiqiy Android paketi emas (PK\\x03\\x04 tasdiqlanmadi).',
+      });
+    }
+    const fileSize = binaryCheck.sizeBytes;
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
     res.setHeader('Content-Disposition', `attachment; filename="${release.apkFilename}"`);
-    res.setHeader('Content-Length', String(release.sizeBytes));
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -5539,9 +5600,35 @@ async function streamVerifiedApkResponse(req: Request, res: Response) {
     }
 
     if (req.method === 'HEAD') {
+      res.setHeader('Content-Length', String(fileSize));
       return res.status(200).end();
     }
 
+    // Support HTTP Range requests for reliable Android Chrome downloads & resume
+    const rangeHeader = req.headers.range;
+    if (rangeHeader && /^bytes=\d*-\d*$/.test(rangeHeader)) {
+      const [startStr, endStr] = rangeHeader.replace(/^bytes=/, '').split('-');
+      const start = startStr ? parseInt(startStr, 10) : 0;
+      const end = endStr ? Math.min(parseInt(endStr, 10), fileSize - 1) : fileSize - 1;
+      if (Number.isNaN(start) || Number.isNaN(end) || start > end || start >= fileSize) {
+        res.setHeader('Content-Range', `bytes */${fileSize}`);
+        return res.status(416).end();
+      }
+      const chunkSize = end - start + 1;
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader('Content-Length', String(chunkSize));
+      const rangeStream = fs.createReadStream(release.localFilePath, { start, end });
+      rangeStream.on('error', (err) => {
+        console.error('[APK Range Stream Error]:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, error: 'APK faylini uzatishda server xatosi yuz berdi.' });
+        }
+      });
+      return rangeStream.pipe(res);
+    }
+
+    res.setHeader('Content-Length', String(fileSize));
     void appReleaseService.incrementDownloadCount().catch(() => {});
     const stream = fs.createReadStream(release.localFilePath);
     stream.on('error', (err) => {
@@ -5571,6 +5658,12 @@ app.get('/api/apk/download', streamVerifiedApkResponse);
 app.head('/api/apk/download', streamVerifiedApkResponse);
 app.get(`/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
 app.head(`/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
+app.get('/app-release.apk', streamVerifiedApkResponse);
+app.head('/app-release.apk', streamVerifiedApkResponse);
+app.get(`/downloads/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
+app.head(`/downloads/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
+app.get('/downloads/app-release.apk', streamVerifiedApkResponse);
+app.head('/downloads/app-release.apk', streamVerifiedApkResponse);
 
 // ---------------------------------------------------------------------------
 // 5.9. GOOGLE PLAY COMPLIANCE: UGC REPORT, ACCOUNT DELETION & PUBLIC LEGAL PAGES
@@ -5850,6 +5943,177 @@ const telegramPlatform = createTelegramPlatformRouter({
   readOnlyPrayerProvider: () => readDatabase().prayerSchedule || null,
   centralContentReader: () => readDatabase() as any,
   appReleaseService,
+  centralAdminWriter: {
+    updatePrayerTime: async ({ prayerKey, newTime, actorTelegramId }) => {
+      const db = readDatabase();
+      if (!db.prayerSchedule || !Array.isArray(db.prayerSchedule.times)) {
+        return { ok: false, error: 'Asaka namoz jadvali topilmadi.' };
+      }
+      const target = db.prayerSchedule.times.find(
+        (t: any) =>
+          String(t.id || '').toLowerCase() === prayerKey.toLowerCase() ||
+          String(t.nameUz || '').toLowerCase() === prayerKey.toLowerCase()
+      );
+      if (!target) {
+        return { ok: false, error: `Namoz maydoni topilmadi: ${prayerKey}` };
+      }
+      const nowIso = new Date().toISOString();
+      target.time = newTime;
+      db.prayerSchedule.isAdministratorPublished = true;
+      db.prayerSchedule.updatedAt = nowIso;
+      db.prayerSchedule.updatedBy = `telegram_admin:${actorTelegramId}`;
+      const fsRes = await serverWriteFirestoreDoc('schedules', 'asaka-main', db.prayerSchedule);
+      if (!fsRes.success) {
+        return { ok: false, error: fsRes.error || 'Firestore ga saqlashda xatolik.' };
+      }
+      writeDatabase(db);
+      triggerEcosystemSync(
+        'prayer_schedule',
+        'asaka-main',
+        'updated',
+        { title: `Asaka Namoz Vaqtlari (${target.nameUz}: ${newTime})`, summary: `${target.nameUz} vaqti ${newTime} etib yangilandi.` },
+        `telegram_admin:${actorTelegramId}`
+      );
+      return { ok: true, updatedLabel: target.nameUz || prayerKey };
+    },
+    createContentItem: async ({ entityType, title, body, actorTelegramId }) => {
+      const db = readDatabase();
+      const nowIso = new Date().toISOString();
+      const today = nowIso.slice(0, 10);
+      const id = `tg_${entityType}_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`;
+      const actor = `telegram_admin:${actorTelegramId}`;
+
+      if (entityType === 'article') {
+        const record: any = {
+          id,
+          title,
+          subtitle: title,
+          category: 'Ilm-maʼrifat',
+          author: 'Asaka Ziyo Tahririyati',
+          authorRole: 'Telegram Admin',
+          publishedDate: today,
+          readTimeMinutes: Math.max(1, Math.ceil(body.length / 600)),
+          featuredImage: '/images/asaka-ziyo-logo-seal.jpg',
+          excerpt: body.slice(0, 220),
+          bodyParagraphs: body.split(/\n+/).filter(Boolean),
+          likesCount: 0,
+          rating: 5,
+          ratingsCount: 1,
+          comments: [],
+          publishMode: 'published',
+          isArchived: false,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          createdBy: actor,
+        };
+        const fsRes = await serverWriteFirestoreDoc('articles', id, record);
+        if (!fsRes.success) return { ok: false, error: fsRes.error };
+        db.articles = [record, ...(db.articles || [])];
+        writeDatabase(db);
+        triggerEcosystemSync('article', id, 'published', record, actor);
+        return { ok: true, id };
+      }
+
+      if (entityType === 'news') {
+        const record: any = {
+          id,
+          title,
+          publishedDate: today,
+          category: 'Masjid yangiliklari',
+          summary: body.slice(0, 220),
+          content: body,
+          source: 'ASAKA ZIYO',
+          isImportant: false,
+          publishMode: 'published',
+          isArchived: false,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          createdBy: actor,
+        };
+        const fsRes = await serverWriteFirestoreDoc('news', id, record);
+        if (!fsRes.success) return { ok: false, error: fsRes.error };
+        db.news = [record, ...(db.news || [])];
+        writeDatabase(db);
+        triggerEcosystemSync('news', id, 'published', record, actor);
+        return { ok: true, id };
+      }
+
+      if (entityType === 'announcement') {
+        const record: any = {
+          id,
+          title,
+          type: 'elon',
+          typeLabelUz: 'Rasmiy eʼlon',
+          date: today,
+          location: 'Asaka tumani',
+          description: body,
+          isPinned: true,
+          publishMode: 'published',
+          isArchived: false,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          createdBy: actor,
+        };
+        const fsRes = await serverWriteFirestoreDoc('announcements', id, record);
+        if (!fsRes.success) return { ok: false, error: fsRes.error };
+        db.announcements = [record, ...(db.announcements || [])];
+        writeDatabase(db);
+        triggerEcosystemSync('announcement', id, 'published', record, actor);
+        return { ok: true, id };
+      }
+
+      // hadith
+      const record: any = {
+        id,
+        collection: 'Sahih',
+        number: String((db.hadiths?.length || 0) + 1),
+        chapterUz: title,
+        narratorUz: 'Asaka Ziyo Tahririyati',
+        textAr: '',
+        translationUz: body,
+        grade: 'Sahih',
+        reference: title,
+        publishMode: 'published',
+        isArchived: false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        createdBy: actor,
+      };
+      const fsRes = await serverWriteFirestoreDoc('hadiths', id, record);
+      if (!fsRes.success) return { ok: false, error: fsRes.error };
+      db.hadiths = [record, ...(db.hadiths || [])];
+      writeDatabase(db);
+      triggerEcosystemSync('hadith', id, 'published', record, actor);
+      return { ok: true, id };
+    },
+    deleteContentItem: async ({ entityType, id, actorTelegramId }) => {
+      const db = readDatabase();
+      const map: Record<string, { col: string; key: keyof typeof db }> = {
+        article: { col: 'articles', key: 'articles' },
+        news: { col: 'news', key: 'news' },
+        announcement: { col: 'announcements', key: 'announcements' },
+        hadith: { col: 'hadiths', key: 'hadiths' },
+      };
+      const spec = map[entityType];
+      if (!spec) return { ok: false, error: 'Notoʻgʻri kontent turi.' };
+      const list = Array.isArray((db as any)[spec.key]) ? (db as any)[spec.key] : [];
+      const idx = list.findIndex((item: any) => String(item.id) === id);
+      if (idx === -1) return { ok: false, error: 'Kontent topilmadi.' };
+      const updated = {
+        ...list[idx],
+        isArchived: true,
+        publishMode: 'archived',
+        updatedAt: new Date().toISOString(),
+        updatedBy: `telegram_admin:${actorTelegramId}`,
+      };
+      const fsRes = await serverWriteFirestoreDoc(spec.col, id, updated);
+      if (!fsRes.success) return { ok: false, error: fsRes.error };
+      list[idx] = updated;
+      writeDatabase(db);
+      triggerEcosystemSync(entityType, id, 'archived', updated, `telegram_admin:${actorTelegramId}`);
+      return { ok: true };
+    },
+  },
 });
 app.use('/api/telegram/platform', telegramPlatform.router);
 
@@ -5898,6 +6162,26 @@ app.all('/api/*', (req: Request, res: Response) => {
   });
 });
 
+// Explicit APK & downloads guard — NEVER serve index.html for any .apk or /downloads/* URL
+app.all(/^\/.*\.apk$/i, (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.status(404).json({
+    success: false,
+    code: 'APK_NOT_FOUND',
+    error: `Soʻralgan APK fayli topilmadi: ${req.originalUrl}`,
+  });
+});
+app.all('/downloads/*', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.status(404).json({
+    success: false,
+    code: 'DOWNLOAD_NOT_FOUND',
+    error: `Yuklab olish fayli topilmadi: ${req.originalUrl}`,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 6. DEVELOPMENT & PRODUCTION VITE MOUNTING
 // ---------------------------------------------------------------------------
@@ -5927,6 +6211,18 @@ async function startServer() {
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[ASAKA ZIYO] Secure Full-Stack Server running on http://0.0.0.0:${PORT}`);
   });
+
+  const gracefulShutdown = () => {
+    try {
+      telegramPlatform?.engine?.stopRuntime?.();
+    } catch {
+      // ignore
+    }
+    httpServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 2000).unref();
+  };
+  process.once('SIGTERM', gracefulShutdown);
+  process.once('SIGINT', gracefulShutdown);
 }
 
 startServer().catch((err) => {

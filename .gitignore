@@ -13,12 +13,12 @@ android/keystore.properties
 *.keystore
 data/.android-signing/
 data/.android_signing_key.pem
+data/.firestore_server_vault_key
 data/*.pem
 android/app/google-services.json
 android/app/build/
 android/.gradle/
 android/app/src/main/assets/public/
-data/release/*.apk
 data/release/*.aab
 public/*.apk
 public/*.aab

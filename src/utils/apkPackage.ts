@@ -46,9 +46,9 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
   signed: false,
   status: 'awaiting_ci_artifact',
   statusMessageUz:
-    'ASAKA ZIYO v4.0.0 (Build 400) Android manba kodi va CI/CD tizimi tayyor. Imzolangan APK serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi.',
+    'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi.',
   sizeBytes: 0,
-  fileSizeDisplay: 'CI/CD orqali yigʻilmoqda',
+  fileSizeDisplay: 'Tayyorlanmoqda',
   sha256Checksum: '',
   targetAndroid: 'Android 16 (API 36)',
   minAndroid: 'Android 7.0+ (API 24)',
@@ -132,6 +132,63 @@ export async function downloadVerifiedApkWithProgress(
   filename = 'Asaka-Ziyo-v4.0.0.apk'
 ): Promise<{ success: boolean; sizeBytes: number; error?: string }> {
   try {
+    // On Android mobile browsers (Chrome, Samsung Internet, Telegram WebView),
+    // Blob URL downloads often fail or strip .apk MIME handling.
+    // First probe bytes 0-3 of /api/apk/download (which ALWAYS bypasses Workbox SW via /^\/api\//)
+    // to prove the server returns a real binary APK (PK\x03\x04) and NEVER HTML,
+    // then hand /api/apk/download directly to Android Download Manager.
+    const isAndroidBrowser =
+      typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+    if (isAndroidBrowser) {
+      const probeRes = await fetch('/api/apk/download', {
+        method: 'GET',
+        headers: { Range: 'bytes=0-3' },
+        cache: 'no-store',
+      });
+      const probeType = (probeRes.headers.get('content-type') || '').toLowerCase();
+      if (
+        !probeRes.ok ||
+        probeType.includes('text/html') ||
+        !probeType.includes('application/vnd.android.package-archive')
+      ) {
+        throw new Error(
+          `Server haqiqiy APK oʻrniga notoʻgʻri javob qaytardi (HTTP ${probeRes.status}, ${probeType || 'unknown'}). Yuklab olish toʻxtatildi.`
+        );
+      }
+
+      const probeBytes = new Uint8Array(await probeRes.arrayBuffer());
+      if (
+        probeBytes.byteLength < 4 ||
+        probeBytes[0] !== 0x50 ||
+        probeBytes[1] !== 0x4b ||
+        probeBytes[2] !== 0x03 ||
+        probeBytes[3] !== 0x04
+      ) {
+        throw new Error(
+          'Yuklab olish manzili haqiqiy Android APK binar sarlavhasini (PK\\x03\\x04) qaytarmadi — HTML/buzilgan fayl bloklandi.'
+        );
+      }
+
+      const contentRange = probeRes.headers.get('content-range') || '';
+      const rangeTotalMatch = contentRange.match(/\/(\d+)$/);
+      const totalSize = rangeTotalMatch
+        ? Number(rangeTotalMatch[1])
+        : Number(probeRes.headers.get('content-length') || 0);
+      if (totalSize > 0 && totalSize < 65536) {
+        throw new Error('APK fayl hajmi juda kichik — yuklab olish xavfsizlik sababli toʻxtatildi.');
+      }
+
+      onProgress?.(100, totalSize, totalSize);
+      const directLink = document.createElement('a');
+      directLink.href = '/api/apk/download';
+      directLink.download = filename;
+      directLink.rel = 'noopener';
+      document.body.appendChild(directLink);
+      directLink.click();
+      document.body.removeChild(directLink);
+      return { success: true, sizeBytes: totalSize };
+    }
+
     const response = await fetch('/api/apk/download', { cache: 'no-store' });
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
 
@@ -146,8 +203,14 @@ export async function downloadVerifiedApkWithProgress(
       throw new Error(`Server xatosi: HTTP ${response.status}`);
     }
 
-    if (contentType.includes('text/html') || contentType.includes('application/json')) {
-      throw new Error('Server haqiqiy APK fayl oʻrniga matn/HTML qaytardi — yuklab olish toʻxtatildi.');
+    if (
+      contentType.includes('text/html') ||
+      contentType.includes('application/json') ||
+      !contentType.includes('application/vnd.android.package-archive')
+    ) {
+      throw new Error(
+        `Server haqiqiy APK (application/vnd.android.package-archive) oʻrniga "${contentType || 'unknown'}" qaytardi — yuklab olish toʻxtatildi.`
+      );
     }
 
     const totalBytes = Number(response.headers.get('content-length') || 0);

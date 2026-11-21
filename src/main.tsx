@@ -249,6 +249,9 @@ if (
   try {
     const updateSW = registerSW({
       immediate: true,
+      onRegisteredSW(_swUrl, registration) {
+        registration?.update().catch(() => {});
+      },
       onOfflineReady() {
         console.log('[PWA] ASAKA ZIYO offline cache ready');
       },

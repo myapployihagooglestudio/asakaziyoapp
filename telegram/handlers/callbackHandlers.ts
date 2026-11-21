@@ -33,9 +33,11 @@ import {
   buildAdminAiControlKeyboard,
   buildAdminBroadcastsKeyboard,
   buildAdminChannelsKeyboard,
+  buildAdminCmsKeyboard,
   buildAdminContentKeyboard,
   buildAdminEmojisKeyboard,
   buildAdminHomeKeyboard,
+  buildAdminPrayerKeyboard,
   buildAdminSupportKeyboard,
   buildAdminUsersKeyboard,
   buildAiModeKeyboard,
@@ -84,6 +86,7 @@ export interface CallbackHandlerContext {
   publishingService: TelegramPublishingService;
   repository: TelegramRepository;
   appReleaseService: AppReleaseService;
+  centralAdminWriter?: import('../types').TelegramCentralAdminWriter;
   runDiagnostics: () => Promise<{
     readyToAnswerStart: boolean;
     mode: string;
@@ -114,7 +117,12 @@ async function renderScreenUpdate(
       reply_markup: payload.reply_markup,
       disable_web_page_preview: true,
     });
-    if (edited.ok) return;
+    if (
+      edited.ok ||
+      String(edited.description || '').toLowerCase().includes('message is not modified')
+    ) {
+      return;
+    }
   }
 
   await apiClient.sendMessage({
@@ -1372,6 +1380,188 @@ export async function handleCallbackQuery(
         reply_markup: buildAdminChannelsKeyboard(user.language, channels, ctx.emojiRegistry),
       });
       return { handled: true, action: `admin:channel:toggle_auto:${chId}` };
+    }
+
+    if (data === 'admin:prayer') {
+      const sched = ctx.prayerAdapter.getCurrentSchedule();
+      const lines = sched.times.map((t) => `• ${t.nameUz}: ${t.time}`).join('\n');
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `${dict.adminTitle} — Asaka Namoz Jadvali (Qoʻlda boshqaruv)\n\n` +
+          `📅 Sana: ${sched.formattedDateUz || sched.date}\n` +
+          `🌙 Hijriy: ${sched.hijriDate}\n\n${lines}\n\n` +
+          `Oʻzgartirmoqchi boʻlgan namoz vaqtini tanlang (avtomatik hisoblanmaydi, toʻgʻridan-toʻgʻri Firestore ga saqlanadi):`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildAdminPrayerKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'admin:prayer' };
+    }
+
+    if (data.startsWith('admin:prayer:edit:')) {
+      const prayerKey = data.slice('admin:prayer:edit:'.length);
+      await ctx.userService.setActiveFlow(user.telegramId, {
+        type: 'admin_prayer_edit',
+        prayerKey,
+      });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `🕌 «${prayerKey.toUpperCase()}» uchun yangi vaqtni HH:MM formatida yuboring (masalan: 05:15):`,
+        reply_markup: buildAdminPrayerKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:cms') {
+      const counts = ctx.contentAdapter.centralContent.getSummaryCounts();
+      const recentItems: Array<{ type: 'article' | 'news' | 'announcement' | 'hadith'; id: string; title: string }> = [
+        ...ctx.contentAdapter.centralContent.getPublishedArticles().slice(0, 2).map((a) => ({
+          type: 'article' as const,
+          id: a.id,
+          title: a.title,
+        })),
+        ...ctx.contentAdapter.centralContent.getPublishedAnnouncements().slice(0, 1).map((a) => ({
+          type: 'announcement' as const,
+          id: a.id,
+          title: a.title,
+        })),
+        ...ctx.contentAdapter.centralContent.getPublishedNews().slice(0, 1).map((n) => ({
+          type: 'news' as const,
+          id: n.id,
+          title: n.title,
+        })),
+      ];
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `${dict.adminTitle} — Markaziy Firestore CMS\n\n` +
+          `• Maqolalar: ${counts.articles}\n` +
+          `• Yangiliklar: ${counts.news}\n` +
+          `• Eʼlonlar: ${counts.announcements}\n` +
+          `• Hadislar: ${counts.hadiths}\n` +
+          `• Zikrlar: ${counts.dhikrs}\n` +
+          `• Audio/Video: ${counts.audio}/${counts.video}\n\n` +
+          `Bu yerda yaratilgan kontent Web App, Android ilova va Telegram botga bir vaqtda saqlanadi.`
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildAdminCmsKeyboard(user.language, recentItems, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'admin:cms' };
+    }
+
+    if (data.startsWith('admin:cms:new:')) {
+      const entityType = data.slice('admin:cms:new:'.length) as 'article' | 'news' | 'announcement' | 'hadith';
+      if (['article', 'news', 'announcement', 'hadith'].includes(entityType)) {
+        await ctx.userService.setActiveFlow(user.telegramId, {
+          type: 'admin_cms_create_title',
+          entityType,
+        });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: `📝 Yangi [${entityType}] uchun sarlavhani yuboring:`,
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        });
+      }
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:cms:del_confirm:')) {
+      const rest = data.slice('admin:cms:del_confirm:'.length);
+      const sep = rest.indexOf(':');
+      const entityType = rest.slice(0, sep);
+      const itemId = rest.slice(sep + 1);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `⚠️ Tasdiqlang: [${entityType}] (ID: ${itemId}) yozuvini arxivlash/oʻchirishni xohlaysizmi?`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Ha, oʻchirish', callback_data: `admin:cms:del:${entityType}:${itemId}` },
+              { text: '❌ Bekor qilish', callback_data: 'admin:cms' },
+            ],
+          ],
+        },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:cms:del:')) {
+      const rest = data.slice('admin:cms:del:'.length);
+      const sep = rest.indexOf(':');
+      const entityType = rest.slice(0, sep) as 'article' | 'news' | 'announcement' | 'hadith';
+      const itemId = rest.slice(sep + 1);
+      if (!ctx.centralAdminWriter) {
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: 'Markaziy CMS yozish ulanmagan.',
+          show_alert: true,
+        });
+        return { handled: true, action: data };
+      }
+      const res = await ctx.centralAdminWriter.deleteContentItem({
+        entityType,
+        id: itemId,
+        actorTelegramId: user.telegramId,
+      });
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: `cms_delete_${entityType}`,
+        targetType: 'content',
+        targetId: itemId,
+        metadata: { entityType, ok: res.ok, error: res.error || '' },
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: res.ok ? '✅ Yozuv Firestore dan oʻchirildi/arxivlandi.' : (res.error || 'Xatolik').slice(0, 180),
+        show_alert: true,
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:channel:connect') {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'admin_channel_connect' });
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: '📡 Ulash uchun kanal yoki guruh @username (masalan: @Asaka_Ziyo) yoki Chat ID (-100...) ni yuboring. Bot haqiqiy admin huquqlarini Telegram API orqali tekshiradi:',
+        reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'admin:channel:connect' };
+    }
+
+    if (data.startsWith('admin:channel:remove_confirm:')) {
+      const chId = data.slice('admin:channel:remove_confirm:'.length);
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `⚠️ Kanal/guruh integratsiyasini (${chId}) uzishni tasdiqlaysizmi?`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Ha, uzish', callback_data: `admin:channel:remove:${chId}` },
+              { text: '❌ Bekor qilish', callback_data: 'admin:channels' },
+            ],
+          ],
+        },
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data.startsWith('admin:channel:remove:')) {
+      const chId = data.slice('admin:channel:remove:'.length);
+      await ctx.channelService.removeChannel(user.telegramId, chId);
+      const channels = ctx.channelService.listChannels();
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: 'Kanal/guruh uzildi.',
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: `${dict.adminChannelsTitle}\n\nUlangan kanallar: ${channels.length}`,
+        reply_markup: buildAdminChannelsKeyboard(user.language, channels, ctx.emojiRegistry),
+      });
+      return { handled: true, action: data };
     }
 
     if (data === 'admin:emojis') {

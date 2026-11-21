@@ -1,0 +1,259 @@
+{
+  "users": {
+    "5558148561": {
+      "telegramId": "5558148561",
+      "username": "muhammadzohid_11",
+      "firstName": "Muhammadzohid",
+      "lastName": "Latifjonov",
+      "language": "ru",
+      "languageSelectedManually": false,
+      "prayerNotificationsEnabled": true,
+      "dailyWisdomEnabled": true,
+      "announcementsEnabled": true,
+      "isBlocked": false,
+      "onboardingCompleted": false,
+      "stoppedByUser": false,
+      "activeFlow": {
+        "type": "idle"
+      },
+      "createdAt": "2026-11-20T12:37:32.016Z",
+      "updatedAt": "2026-11-20T12:37:46.435Z",
+      "lastActiveAt": "2026-11-20T12:37:46.249Z",
+      "interactionCount": 2
+    },
+    "8306220545": {
+      "telegramId": "8306220545",
+      "username": "H_079_836",
+      "firstName": "𝗛𝗢𝗝𝗜𝗠𝗨𝗛𝗔𝗠𝗠𝗔𝗗",
+      "language": "uz-Latn",
+      "languageSelectedManually": false,
+      "prayerNotificationsEnabled": true,
+      "dailyWisdomEnabled": true,
+      "announcementsEnabled": true,
+      "isBlocked": false,
+      "onboardingCompleted": false,
+      "stoppedByUser": false,
+      "activeFlow": {
+        "type": "idle"
+      },
+      "createdAt": "2026-11-20T12:54:36.545Z",
+      "updatedAt": "2026-11-20T12:55:20.089Z",
+      "lastActiveAt": "2026-11-20T12:55:20.089Z",
+      "interactionCount": 5
+    },
+    "5144985210": {
+      "telegramId": "5144985210",
+      "username": "hurshidbek_2907",
+      "firstName": "Hurshidbek 🌍",
+      "language": "ru",
+      "languageSelectedManually": false,
+      "prayerNotificationsEnabled": true,
+      "dailyWisdomEnabled": true,
+      "announcementsEnabled": true,
+      "isBlocked": false,
+      "onboardingCompleted": false,
+      "stoppedByUser": false,
+      "activeFlow": {
+        "type": "idle"
+      },
+      "createdAt": "2026-11-20T12:55:31.254Z",
+      "updatedAt": "2026-11-20T12:55:31.254Z",
+      "lastActiveAt": "2026-11-20T12:55:31.254Z",
+      "interactionCount": 1
+    }
+  },
+  "settings": {
+    "id": "default",
+    "defaultLanguage": "uz-Latn",
+    "maintenanceMode": false,
+    "premiumEmojiEnabled": false,
+    "premiumEmojiEligibilityVerified": false,
+    "miniAppEnabled": true,
+    "aiAssistantEnabled": true,
+    "aiPrimaryModel": "gemini-3.5-flash-lite",
+    "aiFallbackModel": null,
+    "aiAutoFallbackEnabled": false,
+    "aiVoiceReplyEnabled": true,
+    "aiDailyBudgetTokens": 500000,
+    "aiMaxRequestsPerUserPerDay": 40,
+    "miniAppUrl": "https://asakaziyo.ai.studio",
+    "updatedAt": "2026-11-20T12:30:47.481Z",
+    "updatedBy": "system"
+  },
+  "channels": {
+    "asaka-ziyo-main": {
+      "id": "asaka-ziyo-main",
+      "username": "@Asaka_Ziyo",
+      "title": "ASAKA ZIYO — Rasmiy Kanal",
+      "isPrimary": true,
+      "isActive": true,
+      "autoPublishPrayerTimes": false,
+      "autoPublishAnnouncements": false,
+      "autoPublishWisdom": false,
+      "language": "uz-Latn",
+      "createdAt": "2026-11-20T12:30:47.481Z",
+      "updatedAt": "2026-11-20T12:30:47.481Z"
+    },
+    "muhiddinsahhofuz": {
+      "id": "muhiddinsahhofuz",
+      "username": "@muhiddinsahhofuz",
+      "title": "Muhiddin Sahhof — Ilmiy-Maʼrifiy Kanal",
+      "isPrimary": false,
+      "isActive": true,
+      "autoPublishPrayerTimes": false,
+      "autoPublishAnnouncements": false,
+      "autoPublishWisdom": false,
+      "language": "uz-Latn",
+      "createdAt": "2026-11-20T12:30:47.481Z",
+      "updatedAt": "2026-11-20T12:30:47.481Z"
+    }
+  },
+  "admins": {},
+  "publications": [],
+  "auditLogs": [
+    {
+      "actorTelegramId": "5144985210",
+      "actorRole": "user",
+      "action": "user_registered",
+      "targetType": "user",
+      "targetId": "5144985210",
+      "metadata": {
+        "initialLanguage": "ru"
+      },
+      "id": "tg_log_mwozfhbm_9608f2",
+      "createdAt": "2026-11-20T12:55:41.938Z"
+    },
+    {
+      "actorTelegramId": "8306220545",
+      "actorRole": "user",
+      "action": "user_registered",
+      "targetType": "user",
+      "targetId": "8306220545",
+      "metadata": {
+        "initialLanguage": "uz-Latn"
+      },
+      "id": "tg_log_mwoze376_a977d0",
+      "createdAt": "2026-11-20T12:54:36.978Z"
+    },
+    {
+      "actorTelegramId": "5558148561",
+      "actorRole": "user",
+      "action": "user_registered",
+      "targetType": "user",
+      "targetId": "5558148561",
+      "metadata": {
+        "initialLanguage": "ru"
+      },
+      "id": "tg_log_mwoys4oc_5cd14e",
+      "createdAt": "2026-11-20T12:37:32.460Z"
+    }
+  ],
+  "customEmojis": {},
+  "broadcasts": {},
+  "supportTickets": {},
+  "contentDrafts": {},
+  "userEngagement": {
+    "5558148561": {
+      "telegramId": "5558148561",
+      "bookmarks": [],
+      "dhikr": {
+        "countsByDhikrId": {},
+        "dailyGoals": {},
+        "todayDateKey": "2026-11-20",
+        "todayCount": 0,
+        "totalAllTimeCount": 0,
+        "reminderEnabled": false
+      },
+      "completedLessonIds": [],
+      "quizTotalAttempts": 0,
+      "quizBestScore": 0,
+      "quizTotalPoints": 0,
+      "quizStreak": 0,
+      "aiHistory": [],
+      "updatedAt": "2026-11-20T12:37:32.668Z"
+    },
+    "8306220545": {
+      "telegramId": "8306220545",
+      "bookmarks": [],
+      "dhikr": {
+        "countsByDhikrId": {},
+        "dailyGoals": {},
+        "todayDateKey": "2026-11-20",
+        "todayCount": 0,
+        "totalAllTimeCount": 0,
+        "reminderEnabled": false
+      },
+      "completedLessonIds": [],
+      "quizTotalAttempts": 0,
+      "quizBestScore": 0,
+      "quizTotalPoints": 0,
+      "quizStreak": 0,
+      "aiHistory": [],
+      "updatedAt": "2026-11-20T12:55:05.052Z",
+      "audioResume": {
+        "audioId": "mishary-alafasy-standard",
+        "title": "Mishari Roshid Al-Afosiy — Mumtoz Azon",
+        "updatedAt": "2026-11-20T12:55:05.052Z"
+      }
+    }
+  },
+  "aiLogs": [
+    {
+      "telegramId": "system_probe",
+      "mode": "probe",
+      "modelRequested": "gemini-3.5-flash-lite",
+      "modelUsed": "gemini-3.5-flash-lite",
+      "inputType": "text",
+      "locale": "en",
+      "latencyMs": 8675,
+      "promptTokensEst": 10,
+      "responseTokensEst": 1,
+      "ok": true,
+      "id": "tg_ai_mwp0slnc_7a0a79",
+      "createdAt": "2026-11-20T13:33:53.688Z"
+    },
+    {
+      "telegramId": "system_probe",
+      "mode": "probe",
+      "modelRequested": "gemini-3.5-flash-lite",
+      "modelUsed": "gemini-3.5-flash-lite",
+      "inputType": "text",
+      "locale": "en",
+      "latencyMs": 873,
+      "promptTokensEst": 10,
+      "responseTokensEst": 1,
+      "ok": true,
+      "id": "tg_ai_mwoyyaal_8a5fa7",
+      "createdAt": "2026-11-20T12:42:19.677Z"
+    },
+    {
+      "telegramId": "system_probe",
+      "mode": "probe",
+      "modelRequested": "gemini-3.5-flash-lite",
+      "modelUsed": "gemini-3.5-flash-lite",
+      "inputType": "text",
+      "locale": "en",
+      "latencyMs": 864,
+      "promptTokensEst": 10,
+      "responseTokensEst": 1,
+      "ok": true,
+      "id": "tg_ai_mwoyxlkl_55f4ed",
+      "createdAt": "2026-11-20T12:41:47.637Z"
+    },
+    {
+      "telegramId": "system_probe",
+      "mode": "probe",
+      "modelRequested": "gemini-3.5-flash-lite",
+      "modelUsed": "gemini-3.5-flash-lite",
+      "inputType": "text",
+      "locale": "en",
+      "latencyMs": 6034,
+      "promptTokensEst": 10,
+      "responseTokensEst": 1,
+      "ok": true,
+      "id": "tg_ai_mwoyk2h1_14c687",
+      "createdAt": "2026-11-20T12:31:16.357Z"
+    }
+  ],
+  "quizAttempts": []
+}

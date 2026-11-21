@@ -154,7 +154,7 @@ async function run() {
           category: 'Azon',
           likesCount: 0,
           commentsCount: 0,
-          sharesCount: 0,
+          isPublished: true,
           isArchived: false,
         },
         {
@@ -168,7 +168,7 @@ async function run() {
           category: 'Suhbat',
           likesCount: 0,
           commentsCount: 0,
-          sharesCount: 0,
+          isPublished: true,
           isArchived: false,
         },
       ],
@@ -226,9 +226,9 @@ async function run() {
     await engine.repository.saveUser({
       ...u1,
       language: 'uz-Latn',
-      notificationsEnabled: true,
-      announcementAlertsEnabled: true,
-      optedOut: false,
+      prayerNotificationsEnabled: true,
+      announcementsEnabled: true,
+      stoppedByUser: false,
     });
 
     const { user: u2 } = await engine.userService.registerOrTouchUser({
@@ -239,9 +239,9 @@ async function run() {
     await engine.repository.saveUser({
       ...u2,
       language: 'uz-Latn-new',
-      notificationsEnabled: true,
-      announcementAlertsEnabled: true,
-      optedOut: false,
+      prayerNotificationsEnabled: true,
+      announcementsEnabled: true,
+      stoppedByUser: false,
     });
 
     const { user: u3 } = await engine.userService.registerOrTouchUser({
@@ -252,9 +252,10 @@ async function run() {
     await engine.repository.saveUser({
       ...u3,
       language: 'ru',
-      notificationsEnabled: false,
-      announcementAlertsEnabled: false,
-      optedOut: true,
+      stoppedByUser: true,
+      prayerNotificationsEnabled: false,
+      dailyWisdomEnabled: false,
+      announcementsEnabled: false,
     });
 
     // TEST 3: SyncEngine article create + idempotency deduplication

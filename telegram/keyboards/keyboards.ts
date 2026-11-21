@@ -740,7 +740,7 @@ export function buildAndroidAppKeyboard(
     ]);
   } else {
     rows.push([
-      emoji.buildKeyboardButton('status.info', `🔄 ${b.androidCheckUpdates}`, {
+      emoji.buildKeyboardButton('nav.settings', `🔄 ${b.androidCheckUpdates}`, {
         callback_data: 'android:check',
       }),
     ]);
@@ -756,7 +756,7 @@ export function buildAndroidAppKeyboard(
   ]);
 
   rows.push([
-    emoji.buildKeyboardButton('status.info', b.androidCheckUpdates, {
+    emoji.buildKeyboardButton('nav.settings', b.androidCheckUpdates, {
       callback_data: 'android:check',
     }),
     emoji.buildKeyboardButton(
@@ -868,6 +868,14 @@ export function buildAdminHomeKeyboard(
   return {
     inline_keyboard: [
       [
+        emoji.buildKeyboardButton('nav.prayer', '🕌 Namoz Jadvali (Asaka)', {
+          callback_data: 'admin:prayer',
+        }),
+        emoji.buildKeyboardButton('brand.book', '📝 Markaziy CMS (Firestore)', {
+          callback_data: 'admin:cms',
+        }),
+      ],
+      [
         emoji.buildKeyboardButton('channel.broadcast', b.adminBroadcasts, {
           callback_data: 'admin:broadcasts',
         }),
@@ -917,6 +925,71 @@ export function buildAdminHomeKeyboard(
       ],
     ],
   };
+}
+
+export function buildAdminPrayerKeyboard(
+  locale: TelegramLocale,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  return {
+    inline_keyboard: [
+      [
+        { text: '🌙 Tahajjud', callback_data: 'admin:prayer:edit:tahajjud' },
+        { text: '✨ Subh', callback_data: 'admin:prayer:edit:subh' },
+      ],
+      [
+        { text: '🌅 Bomdod', callback_data: 'admin:prayer:edit:bomdod' },
+        { text: '☀️ Quyosh', callback_data: 'admin:prayer:edit:quyosh' },
+      ],
+      [
+        { text: '🕛 Peshin', callback_data: 'admin:prayer:edit:peshin' },
+        { text: '🌤 Asr', callback_data: 'admin:prayer:edit:asr' },
+      ],
+      [
+        { text: '🌇 Shom', callback_data: 'admin:prayer:edit:shom' },
+        { text: '🌃 Xufton', callback_data: 'admin:prayer:edit:xufton' },
+      ],
+      [
+        emoji.buildKeyboardButton('nav.admin', b.adminPanel, { callback_data: 'admin:home' }),
+        emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+      ],
+    ],
+  };
+}
+
+export function buildAdminCmsKeyboard(
+  locale: TelegramLocale,
+  recentItems: Array<{ type: 'article' | 'news' | 'announcement' | 'hadith'; id: string; title: string }>,
+  emoji: CustomEmojiRegistry
+): TelegramInlineKeyboardMarkup {
+  const b = getTelegramLocaleBundle(locale).buttons;
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+      { text: '➕ Yangi Maqola', callback_data: 'admin:cms:new:article' },
+      { text: '➕ Yangi Yangilik', callback_data: 'admin:cms:new:news' },
+    ],
+    [
+      { text: '➕ Yangi Eʼlon', callback_data: 'admin:cms:new:announcement' },
+      { text: '➕ Yangi Hadis', callback_data: 'admin:cms:new:hadith' },
+    ],
+  ];
+
+  for (const item of recentItems.slice(0, 4)) {
+    rows.push([
+      {
+        text: `🗑 Oʻchirish: [${item.type}] ${item.title.slice(0, 22)}`,
+        callback_data: `admin:cms:del_confirm:${item.type}:${item.id.slice(0, 28)}`,
+      },
+    ]);
+  }
+
+  rows.push([
+    emoji.buildKeyboardButton('nav.admin', b.adminPanel, { callback_data: 'admin:home' }),
+    emoji.buildKeyboardButton('nav.back', b.backToMenu, { callback_data: 'nav:home' }),
+  ]);
+
+  return { inline_keyboard: rows };
 }
 
 export function buildAdminAiControlKeyboard(
@@ -1091,7 +1164,13 @@ export function buildAdminChannelsKeyboard(
 ): TelegramInlineKeyboardMarkup {
   const dict = getTelegramLocaleBundle(locale);
   const b = dict.buttons;
-  const rows: TelegramInlineKeyboardButton[][] = [];
+  const rows: TelegramInlineKeyboardButton[][] = [
+    [
+      emoji.buildKeyboardButton('channel.broadcast', '➕ Kanal yoki Guruh ulash', {
+        callback_data: 'admin:channel:connect',
+      }),
+    ],
+  ];
 
   for (const ch of channels.slice(0, 5)) {
     const autoTag = ch.autoPublishPrayerTimes ? dict.statusEnabled : dict.statusDisabled;
@@ -1108,6 +1187,14 @@ export function buildAdminChannelsKeyboard(
         callback_data: `admin:channel:toggle_auto:${ch.id}`,
       }),
     ]);
+    if (!ch.isPrimary) {
+      rows.push([
+        {
+          text: `🗑 Uzish: ${ch.username}`,
+          callback_data: `admin:channel:remove_confirm:${ch.id}`,
+        },
+      ]);
+    }
   }
 
   rows.push([

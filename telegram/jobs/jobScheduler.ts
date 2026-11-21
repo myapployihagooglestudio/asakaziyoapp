@@ -84,6 +84,7 @@ export class TelegramJobScheduler {
   private dailyWisdomDispatched = 0;
   private scheduleChangePostsDispatched = 0;
   private consecutiveErrors = 0;
+  private conflictYieldCount = 0;
   private lastError: string | null = null;
   private lastErrorCode: number | null = null;
   private lastErrorAt: string | null = null;
@@ -377,6 +378,7 @@ export class TelegramJobScheduler {
     if (res.ok && Array.isArray(res.result)) {
       this.lastSuccessfulPollAt = new Date().toISOString();
       this.consecutiveErrors = 0;
+      this.conflictYieldCount = 0;
       this.lastError = null;
       this.lastErrorCode = null;
 
@@ -387,6 +389,17 @@ export class TelegramJobScheduler {
         await this.onUpdate(update);
       }
       this.scheduleNextPoll(250);
+      return;
+    }
+
+    if (res.error_code === 409) {
+      // Another instance (e.g. dev vs shared preview container) or a transient restart overlap
+      // currently holds Telegram's single getUpdates poll slot. Yield quietly with jittered backoff
+      // without polluting runtime logs or health error counters.
+      this.conflictYieldCount++;
+      const jitterMs = Math.floor(Math.random() * 5_000);
+      const conflictBackoffMs = Math.min(60_000, 15_000 * Math.min(this.conflictYieldCount, 4)) + jitterMs;
+      this.scheduleNextPoll(conflictBackoffMs);
       return;
     }
 
@@ -404,12 +417,7 @@ export class TelegramJobScheduler {
       return;
     }
 
-    if (res.error_code === 409) {
-      this.logger.error(
-        'Telegram polling 409 Conflict: another bot instance is polling or a webhook is active for this token.',
-        { errorCode: 409, description: this.lastError }
-      );
-    } else if (this.consecutiveErrors <= 3 || this.consecutiveErrors % 10 === 0) {
+    if (this.consecutiveErrors <= 3 || this.consecutiveErrors % 10 === 0) {
       this.logger.error('Telegram getUpdates failed', {
         errorCode: this.lastErrorCode,
         description: this.lastError,

@@ -48,7 +48,7 @@ service cloud.firestore {
     // without exposing any secret to clients or opening public write access.
     function isVerifiedServerWrite(colName, docId) {
       let lockPath = /databases/$(database)/documents/_server_gate/lock;
-      let vaultPath = /databases/$(database)/documents/_server_vault/master_key;
+      let vaultPath = /databases/$(database)/documents/_server_vault/master_key_v3;
       let afterLock = getAfter(lockPath).data;
       return exists(vaultPath) &&
         existsAfter(lockPath) &&
@@ -90,8 +90,8 @@ service cloud.firestore {
     // 0A. Unreadable Server Master Key Vault (Strictly unreadable by any client)
     match /_server_vault/{vaultId} {
       allow read: if false;
-      allow create: if vaultId == 'master_key' &&
-        !exists(/databases/$(database)/documents/_server_vault/master_key) &&
+      allow create: if (vaultId == 'master_key' || vaultId == 'master_key_v2' || vaultId == 'master_key_v3') &&
+        !exists(/databases/$(database)/documents/_server_vault/$(vaultId)) &&
         incoming().keys().hasAll(['secret', 'createdAt']) &&
         incoming().keys().hasOnly(['secret', 'createdAt']) &&
         incoming().secret is string &&
@@ -99,7 +99,7 @@ service cloud.firestore {
         incoming().secret.size() <= 256 &&
         incoming().createdAt is string &&
         incoming().createdAt.size() <= 64;
-      allow update: if vaultId == 'master_key' && (
+      allow update: if (vaultId == 'master_key' || vaultId == 'master_key_v2' || vaultId == 'master_key_v3') && (
         isSuperAdmin() ||
         (incoming().previousSecret is string &&
          incoming().previousSecret == existing().secret &&
@@ -114,13 +114,13 @@ service cloud.firestore {
     match /_server_gate/{gateId} {
       allow read: if false;
       allow create, update: if gateId == 'lock' &&
-        exists(/databases/$(database)/documents/_server_vault/master_key) &&
+        exists(/databases/$(database)/documents/_server_vault/master_key_v3) &&
         incoming().keys().hasAll(['serverSecret', 'batchId', 'targetCollection', 'targetDocId', 'updatedAt']) &&
         incoming().keys().hasOnly(['serverSecret', 'batchId', 'targetCollection', 'targetDocId', 'updatedAt', 'action']) &&
         incoming().serverSecret is string &&
         incoming().serverSecret.size() >= 64 &&
         incoming().serverSecret.size() <= 256 &&
-        incoming().serverSecret == get(/databases/$(database)/documents/_server_vault/master_key).data.secret &&
+        incoming().serverSecret == get(/databases/$(database)/documents/_server_vault/master_key_v3).data.secret &&
         incoming().batchId is string &&
         incoming().batchId.size() >= 16 &&
         incoming().batchId.size() <= 128 &&

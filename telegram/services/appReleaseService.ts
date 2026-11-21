@@ -676,14 +676,15 @@ export class AppReleaseService {
       apksignerVerified: false,
       signingCertSha256: '',
       sizeBytes: 0,
-      fileSizeDisplay: 'CI/CD orqali yigʻilmoqda',
+      fileSizeDisplay: localMeta.fileSizeDisplay || 'Imzolash kutilmoqda',
       sha256Checksum: '',
-      aabSizeBytes: 0,
-      aabSha256Checksum: '',
-      signatureScheme: 'APK Signature Scheme v1 + v2 + v3 (RSA-2048 SHA-256)',
-      axmlVerified: false,
-      dexVerified: false,
-      resourcesArscVerified: false,
+      aabSizeBytes: Number(localMeta.unsignedReleaseAabSizeBytes || 0),
+      aabSha256Checksum: String(localMeta.unsignedReleaseAabSha256 || ''),
+      signatureScheme:
+        localMeta.signatureScheme || 'APK Signature Scheme v1 + v2 + v3 (Production Release Keystore required)',
+      axmlVerified: Boolean(localMeta.axmlVerified),
+      dexVerified: Boolean(localMeta.dexVerified),
+      resourcesArscVerified: Boolean(localMeta.resourcesArscVerified),
       pkcs7Signed: false,
       downloadUrl: '/api/apk/download',
       directUrl: `/${CANONICAL_APK_FILENAME}`,
@@ -691,7 +692,7 @@ export class AppReleaseService {
       remoteAabUrl: '',
       githubReleaseUrl: `https://github.com/${GITHUB_REPO_SLUG}/releases`,
       githubTag: 'v4.0.0',
-      releaseDate: localMeta.releaseDate || '2026-11-19',
+      releaseDate: localMeta.releaseDate || '2026-11-20',
       releaseNotesUz:
         'ASAKA ZIYO v4.0.0 (Build 400): rasmiy masjid muhr logosi, Android 16 (API 36) mosligi, Web+Android+Telegram yagona sinxronizatsiyasi.',
       downloadCount: this.store.totalDownloads,
@@ -699,10 +700,38 @@ export class AppReleaseService {
       status: 'awaiting_ci_artifact',
       statusMessageUz:
         localMeta.statusMessageUz ||
-        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli hali GitHub Releases yoki serverga yuklanmagan. GitHub Actions (android-release.yml) muvaffaqiyatli yakunlangach, yuklab olish tugmasi avtomatik faollashadi.',
+        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan rasmiy APK uchun production keystore (ANDROID_KEYSTORE_PATH / keystore.properties) talab qilinadi.',
       localFilePath: null,
       releaseHistory: mergedHistory,
-    };
+      ...(localMeta.unsignedReleaseApkAvailable
+        ? {
+            unsignedReleaseApkAvailable: true,
+            unsignedReleaseApkFilename: localMeta.unsignedReleaseApkFilename,
+            unsignedReleaseApkSizeBytes: localMeta.unsignedReleaseApkSizeBytes,
+            unsignedReleaseApkSha256: localMeta.unsignedReleaseApkSha256,
+            unsignedDownloadUrl: '/api/apk/download?variant=unsigned',
+          }
+        : {}),
+      ...(localMeta.unsignedReleaseAabAvailable
+        ? {
+            unsignedReleaseAabAvailable: true,
+            unsignedReleaseAabFilename: localMeta.unsignedReleaseAabFilename,
+            unsignedReleaseAabSizeBytes: localMeta.unsignedReleaseAabSizeBytes,
+            unsignedReleaseAabSha256: localMeta.unsignedReleaseAabSha256,
+            unsignedAabDownloadUrl: '/api/apk/download?variant=unsigned-aab',
+          }
+        : {}),
+      ...(localMeta.debugApkAvailable
+        ? {
+            debugApkAvailable: true,
+            debugApkFilename: localMeta.debugApkFilename,
+            debugApkPackageId: localMeta.debugApkPackageId,
+            debugApkSizeBytes: localMeta.debugApkSizeBytes,
+            debugApkSha256: localMeta.debugApkSha256,
+            debugDownloadUrl: '/api/apk/download?variant=debug',
+          }
+        : {}),
+    } as ResolvedAndroidReleaseView;
   }
 
   /**
@@ -775,12 +804,12 @@ export class AppReleaseService {
             ? `✅ Тасдиқланган ва юклаб олишга тайёр (${info.fileSizeDisplay})`
             : adapt(`✅ Tasdiqlangan va yuklab olishga tayyor (${info.fileSizeDisplay})`)
       : locale === 'ru'
-        ? '⏳ Подписанный APK v4.0.0 ожидает публикации из GitHub Actions'
+        ? '⏳ Подписанный APK v4.0.0 готовится к публикации на сервере'
         : locale === 'en'
-          ? '⏳ Signed APK v4.0.0 is awaiting GitHub Actions release publication'
+          ? '⏳ Signed APK v4.0.0 is being prepared on the server'
           : locale === 'uz-Cyrl'
-            ? '⏳ Имзоланган APK v4.0.0 GitHub Actions релизини кутмоқда'
-            : adapt('⏳ Imzolangan APK v4.0.0 GitHub Actions relizini kutmoqda');
+            ? '⏳ Имзоланган APK v4.0.0 серверда тайёрланмоқда'
+            : adapt('⏳ Imzolangan APK v4.0.0 serverda tayyorlanmoqda');
 
     const shaLine = info.sha256Checksum
       ? `\n🔐 SHA-256: ${info.sha256Checksum.slice(0, 24)}…`

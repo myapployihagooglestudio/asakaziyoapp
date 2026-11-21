@@ -250,7 +250,30 @@ export type TelegramUserFlowState =
   | { type: 'admin_broadcast_title' }
   | { type: 'admin_broadcast_body'; title: string; segment: TelegramBroadcastSegment }
   | { type: 'admin_ai_set_model'; which: 'primary' | 'fallback' }
-  | { type: 'admin_channel_post_draft'; channelId: string };
+  | { type: 'admin_channel_post_draft'; channelId: string }
+  | { type: 'admin_prayer_edit'; prayerKey: string }
+  | { type: 'admin_cms_create_title'; entityType: 'article' | 'news' | 'announcement' | 'hadith' }
+  | { type: 'admin_cms_create_body'; entityType: 'article' | 'news' | 'announcement' | 'hadith'; title: string }
+  | { type: 'admin_channel_connect' };
+
+export interface TelegramCentralAdminWriter {
+  updatePrayerTime: (input: {
+    prayerKey: string;
+    newTime: string;
+    actorTelegramId: string;
+  }) => Promise<{ ok: boolean; error?: string; updatedLabel?: string }>;
+  createContentItem: (input: {
+    entityType: 'article' | 'news' | 'announcement' | 'hadith';
+    title: string;
+    body: string;
+    actorTelegramId: string;
+  }) => Promise<{ ok: boolean; id?: string; error?: string }>;
+  deleteContentItem: (input: {
+    entityType: 'article' | 'news' | 'announcement' | 'hadith';
+    id: string;
+    actorTelegramId: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+}
 
 export interface TelegramUserRecord {
   telegramId: string;

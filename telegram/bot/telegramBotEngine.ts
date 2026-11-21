@@ -17,7 +17,12 @@
  *     and photo/document inlineData analysis
  */
 
-import { TelegramApiMessage, TelegramApiUpdate, TelegramUserRecord } from '../types';
+import {
+  TelegramApiMessage,
+  TelegramApiUpdate,
+  TelegramCentralAdminWriter,
+  TelegramUserRecord,
+} from '../types';
 import {
   TelegramPlatformConfig,
   getSafeTelegramConfigSummary,
@@ -50,6 +55,8 @@ import {
   ReplyKeyboardAction,
   buildAdminAiControlKeyboard,
   buildAdminBroadcastsKeyboard,
+  buildAdminChannelsKeyboard,
+  buildAdminPrayerKeyboard,
   buildAdminSupportKeyboard,
   buildAiModeKeyboard,
   buildBackOnlyKeyboard,
@@ -68,6 +75,7 @@ export interface TelegramBotEngineOptions {
   outboxPath?: string;
   readOnlyPrayerProvider?: ReadOnlyPrayerScheduleProvider;
   centralContentReader?: CentralDatabaseReader;
+  centralAdminWriter?: TelegramCentralAdminWriter;
   appReleaseService?: AppReleaseService;
   serverWriteFirestoreDoc?: (
     collectionName: string,
@@ -224,9 +232,11 @@ export class TelegramBotEngine {
   private startupRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private startupRetryCount = 0;
   private readonly hasCustomAiGenerator: boolean;
+  private readonly centralAdminWriter?: TelegramCentralAdminWriter;
 
   constructor(options: TelegramBotEngineOptions = {}) {
     this.hasCustomAiGenerator = Boolean(options.aiGenerator);
+    this.centralAdminWriter = options.centralAdminWriter;
     this.config = options.config || loadTelegramPlatformConfig();
     this.logger = createTelegramLogger('TelegramPlatform', Boolean(options.silentLogger));
     this.apiClient = new TelegramApiClient(this.config, this.logger, options.fetchImpl);
@@ -1044,6 +1054,142 @@ export class TelegramBotEngine {
         });
         return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_channel_post_draft' };
       }
+
+      if (flow.type === 'admin_prayer_edit') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const cleanTime = text.trim();
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(cleanTime)) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: `❌ Notoʻgʻri vaqt formati: "${cleanTime}". Iltimos HH:MM formatida kiriting (masalan: 05:18).`,
+            reply_markup: buildAdminPrayerKeyboard(locale, this.emojiRegistry),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_prayer_edit_invalid' };
+        }
+        if (!this.centralAdminWriter) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: '❌ Markaziy namoz jadvali yozish ulanmagan.',
+            reply_markup: buildAdminPrayerKeyboard(locale, this.emojiRegistry),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_prayer_edit_unavailable' };
+        }
+        const res = await this.centralAdminWriter.updatePrayerTime({
+          prayerKey: flow.prayerKey,
+          newTime: cleanTime,
+          actorTelegramId: actorId,
+        });
+        await this.repository.appendAuditLog({
+          actorTelegramId: actorId,
+          actorRole: role,
+          action: 'admin_prayer_time_updated',
+          targetType: 'content',
+          targetId: flow.prayerKey,
+          metadata: { newTime: cleanTime, ok: res.ok, error: res.error || '' },
+        });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: res.ok
+            ? `✅ Asaka namoz jadvali Firestore ga saqlandi!\n• ${res.updatedLabel || flow.prayerKey}: ${cleanTime}\nWeb App, Android ilova va Telegram bot yangilandi.`
+            : `❌ Saqlashda xatolik: ${res.error || 'Nomaʼlum xato'}`,
+          reply_markup: buildAdminPrayerKeyboard(locale, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_prayer_edit:${flow.prayerKey}` };
+      }
+
+      if (flow.type === 'admin_cms_create_title') {
+        const title = text.trim().slice(0, 180);
+        if (!title) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: '❌ Sarlavha boʻsh boʻlishi mumkin emas. Qayta yuboring:',
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_cms_title_empty' };
+        }
+        await this.userService.setActiveFlow(actorId, {
+          type: 'admin_cms_create_body',
+          entityType: flow.entityType,
+          title,
+        });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `📝 Sarlavha saqlandi: "${title}"\n\nEndi [${flow.entityType}] toʻliq matnini yuboring:`,
+          reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_cms_create_title' };
+      }
+
+      if (flow.type === 'admin_cms_create_body') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const body = text.trim();
+        if (!this.centralAdminWriter) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: '❌ Markaziy CMS yozish ulanmagan.',
+            reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_cms_unavailable' };
+        }
+        const res = await this.centralAdminWriter.createContentItem({
+          entityType: flow.entityType,
+          title: flow.title,
+          body: body || flow.title,
+          actorTelegramId: actorId,
+        });
+        await this.repository.appendAuditLog({
+          actorTelegramId: actorId,
+          actorRole: role,
+          action: `cms_create_${flow.entityType}`,
+          targetType: 'content',
+          targetId: res.id || 'unknown',
+          metadata: { entityType: flow.entityType, title: flow.title, ok: res.ok, error: res.error || '' },
+        });
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text: res.ok
+            ? `✅ [${flow.entityType}] muvaffaqiyatli Firestore ga saqlandi va nashr qilindi!\n• ID: ${res.id}\n• Sarlavha: ${flow.title}\nWeb App, Android ilova va Telegram botga sinxronizatsiya qilindi.`
+            : `❌ Saqlashda xatolik: ${res.error || 'Nomaʼlum xato'}`,
+          reply_markup: buildMainMenuKeyboard(locale, this.emojiRegistry, this.config, {
+            isAdmin: true,
+            miniAppEnabled: Boolean(settings.miniAppEnabled),
+          }),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_cms_created:${flow.entityType}` };
+      }
+
+      if (flow.type === 'admin_channel_connect') {
+        await this.userService.setActiveFlow(actorId, { type: 'idle' });
+        const rawTarget = text.trim();
+        if (!rawTarget || (!rawTarget.startsWith('@') && !/^-100\d{6,}$/.test(rawTarget))) {
+          await this.apiClient.sendMessage({
+            chat_id: chatId,
+            text: '❌ Notoʻgʻri format. Kanal/guruh @username (masalan: @Asaka_Ziyo) yoki Chat ID (-100...) yuboring.',
+            reply_markup: buildAdminChannelsKeyboard(locale, this.channelService.listChannels(), this.emojiRegistry),
+          });
+          return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_channel_connect_invalid' };
+        }
+        const chId = rawTarget.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+        await this.channelService.upsertChannel(actorId, {
+          id: chId,
+          username: rawTarget,
+          title: rawTarget,
+          isActive: true,
+          autoPublishPrayerTimes: false,
+          autoPublishAnnouncements: false,
+          autoPublishWisdom: false,
+          language: locale,
+        });
+        const perm = await this.publishingService.verifyChannelPermissions(chId);
+        await this.apiClient.sendMessage({
+          chat_id: chatId,
+          text:
+            `📡 Kanal/Guruh roʻyxatga olindi: ${rawTarget}\n` +
+            `🔐 Telegram API huquq tekshiruvi: ${perm.canPostMessages ? '✅ ADMIN / NASHR RUXSATI BOR' : '⚠️ RUXSAT TASDIQLANMADI'}\n` +
+            `📋 Tafsilot: ${perm.reason}`,
+          reply_markup: buildAdminChannelsKeyboard(locale, this.channelService.listChannels(), this.emojiRegistry),
+        });
+        return { ok: true, updateId: 0, kind: 'flow_input', detail: `admin_channel_connected:${chId}` };
+      }
     }
 
     return null;
@@ -1132,6 +1278,7 @@ export class TelegramBotEngine {
           publishingService: this.publishingService,
           repository: this.repository,
           appReleaseService: this.appReleaseService,
+          centralAdminWriter: this.centralAdminWriter,
           runDiagnostics: () => this.runLiveDiagnostics(),
         });
         return {

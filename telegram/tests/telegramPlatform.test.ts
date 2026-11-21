@@ -633,7 +633,7 @@ async function runTests(): Promise<void> {
   });
 
   // 5. Persistent ReplyKeyboardMarkup matching across all 5 languages
-  await test('5. Persistent ReplyKeyboardMarkup matches all 6 actions across all 5 languages', async () => {
+  await test('5. Persistent ReplyKeyboardMarkup matches all 20 actions across all 5 languages', async () => {
     const calls: RecordedApiCall[] = [];
     const engine = new TelegramBotEngine({
       config: createTestConfig(),
@@ -645,7 +645,7 @@ async function runTests(): Promise<void> {
 
     for (const loc of TELEGRAM_SUPPORTED_LOCALES) {
       const kb = buildPersistentReplyKeyboard(loc);
-      assert.equal(kb.keyboard.length, 3);
+      assert.equal(kb.keyboard.length, 10);
       for (const row of kb.keyboard) {
         for (const btn of row) {
           assert.ok(matchReplyKeyboardAction(btn.text) !== null, `Unmatched reply button "${btn.text}" in ${loc}`);
@@ -1627,7 +1627,7 @@ async function runTests(): Promise<void> {
   });
 
   // 25. Startup Bootstrap & Live Diagnostics
-  await test('25. Startup bootstrap hydrates Firestore, syncs 20 commands, sets Mini App menu button & diagnostics', async () => {
+  await test('25. Startup bootstrap hydrates Firestore, syncs 27 commands, sets Mini App menu button & diagnostics', async () => {
     const pollingCalls: RecordedApiCall[] = [];
     const pollingEngine = new TelegramBotEngine({
       config: createTestConfig({ mode: 'polling', webhookUrl: '', webhookSecret: '' }),
@@ -1644,12 +1644,12 @@ async function runTests(): Promise<void> {
     pollingEngine.stopRuntime();
 
     const setCmdCall = pollingCalls.find((c) => c.method === 'setMyCommands');
-    assert.equal(setCmdCall?.body.commands.length, 20);
+    assert.equal(setCmdCall?.body.commands.length, 27);
     assert.ok(pollingCalls.some((c) => c.method === 'setChatMenuButton'));
     assert.ok(pollingCalls.some((c) => c.method === 'deleteWebhook'));
 
     const health = pollingEngine.getPlatformHealth();
-    assert.equal(health.phase, 'super_platform');
+    assert.equal(health.phase, 'unified_ecosystem_v4');
     assert.equal(health.miniAppUrl, 'https://asakaziyo.ai.studio');
   });
 

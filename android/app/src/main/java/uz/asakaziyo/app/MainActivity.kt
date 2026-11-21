@@ -436,13 +436,11 @@ class MainActivity : AppCompatActivity() {
         val hIdx = cleanUrl.indexOf('#')
         if (hIdx != -1) cleanUrl = cleanUrl.substring(0, hIdx)
 
-        var assetRelPath: String? = null
-        if (cleanUrl.startsWith("https://appassets.androidplatform.net")) {
-            assetRelPath = cleanUrl.removePrefix("https://appassets.androidplatform.net")
+        if (!cleanUrl.startsWith("https://appassets.androidplatform.net")) {
+            return null
         }
 
-        if (assetRelPath == null) return null
-
+        var assetRelPath: String = cleanUrl.removePrefix("https://appassets.androidplatform.net")
         while (assetRelPath.startsWith("/")) {
             assetRelPath = assetRelPath.substring(1)
         }

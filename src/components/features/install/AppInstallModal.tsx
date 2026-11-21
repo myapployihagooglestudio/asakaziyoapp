@@ -230,8 +230,8 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                   {apkInfo.apkAvailable
                     ? apkInfo.signed
                       ? 'Signed Release APK'
-                      : 'Verified Test APK'
-                    : 'CI/CD Build Tayyorlanmoqda'}
+                      : 'Verified APK'
+                    : 'APK Tayyorlanmoqda'}
                 </span>
               </div>
               <p className="text-xs text-stone-300 mt-1">
@@ -329,9 +329,9 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                   <p className="text-xs text-stone-300 leading-relaxed">
                     {getLocalized(
                       apkInfo.apkAvailable
-                        ? "Haqiqiy Gradle orqali kompilatsiya qilingan va binar tekshiruvdan oʻtgan Android APK (Android 7.0–16, API 24–36). Mavjud uz.asakaziyo.app foydalanuvchilari maʼlumotlarini yoʻqotmasdan yangilay oladi."
+                        ? "Haqiqiy Gradle orqali kompilatsiya qilingan, imzolangan va binar tekshiruvdan oʻtgan Android APK (Android 7.0–16, API 24–36). Telefoningizga toʻgʻridan-toʻgʻri yuklab olib oʻrnating."
                         : apkInfo.statusMessageUz ||
-                            "ASAKA ZIYO v4.0.0 Android loyihasi va CI/CD build tizimi tayyor. Imzolangan APK arxivi serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi. Hozircha 1-klik PWA orqali oʻrnatishingiz mumkin."
+                            "ASAKA ZIYO v4.0.0 imzolangan Android APK fayli hozircha serverda tayyor emas. Fayl tayyor boʻlgach, yuklab olish tugmasi avtomatik faollashadi."
                     )}
                   </p>
                 </div>
@@ -349,7 +349,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <Lock className="w-3.5 h-3.5 shrink-0" />
-                  <span>{apkInfo.signed ? 'APK v1/v2/v3 Imzo' : 'Keystore CI Imzo'}</span>
+                  <span>{apkInfo.signed ? 'APK v2/v3 Imzo' : 'Imzo kutilmoqda'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <Cpu className="w-3.5 h-3.5 shrink-0" />
@@ -357,27 +357,39 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                 </div>
               </div>
 
-              {/* Primary Download Action (Honest state when CI APK is not yet uploaded) */}
-              {apkInfo.apkAvailable ? (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={handleDownloadAPK}
-                  disabled={isDownloadingApk}
-                  className="w-full justify-center text-xs sm:text-sm font-bold tracking-wider uppercase py-4 shadow-xl cursor-pointer"
-                >
-                  <Download className={`w-5 h-5 mr-2 ${isDownloadingApk ? 'animate-bounce' : ''}`} />
-                  {isDownloadingApk
-                    ? `Yuklab olinmoqda... ${apkProgress}% (${formatBytes(apkLoadedBytes)})`
-                    : `Rasmiy APK v${apkInfo.version} Yuklab Olish (${apkInfo.fileSizeDisplay})`}
-                </Button>
+              {/* Primary Download Action (Direct signed Android APK v4.0.0) */}
+              {apkInfo.apkAvailable && apkInfo.signed && apkInfo.sizeBytes >= 65536 ? (
+                <div className="space-y-2">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleDownloadAPK}
+                    disabled={isDownloadingApk}
+                    className="w-full justify-center text-xs sm:text-sm font-bold tracking-wider uppercase py-4 shadow-xl cursor-pointer"
+                  >
+                    <Download className={`w-5 h-5 mr-2 ${isDownloadingApk ? 'animate-bounce' : ''}`} />
+                    {isDownloadingApk
+                      ? `Yuklab olinmoqda... ${apkProgress}% (${formatBytes(apkLoadedBytes)})`
+                      : `Rasmiy APK v${apkInfo.version} Yuklab Olish (${apkInfo.fileSizeDisplay})`}
+                  </Button>
+                  <div className="flex items-center justify-between text-[11px] text-stone-400 px-1">
+                    <span>Android Chrome / toʻgʻridan-toʻgʻri havola:</span>
+                    <a
+                      href="/api/apk/download"
+                      download={apkInfo.apkFilename}
+                      className="text-[#c9a84c] hover:underline font-mono font-semibold"
+                    >
+                      {apkInfo.apkFilename}
+                    </a>
+                  </div>
+                </div>
               ) : (
                 <div className="p-3.5 rounded-xl bg-amber-950/50 border border-amber-500/40 space-y-3">
                   <div className="flex items-start gap-2.5 text-amber-200 text-xs leading-relaxed">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                     <span>
                       {getLocalized(
-                        "Imzolangan Asaka-Ziyo-v4.0.0.apk fayli ushbu serverda hali mavjud emas (GitHub Actions android-release.yml orqali yigʻilib joylashtirilishi kutilmoqda). Buzilgan yoki eski v3.0.0 faylni berish oʻrniga yuklab olish xavfsiz bloklangan."
+                        "Imzolangan Asaka-Ziyo-v4.0.0.apk fayli ushbu serverda hali tayyor emas. Buzilgan yoki eski v3.0.0 faylni berish oʻrniga yuklab olish xavfsiz bloklangan."
                       )}
                     </span>
                   </div>
@@ -482,7 +494,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <span className="font-mono text-amber-300">CI build tugagach hisoblanadi</span>
+                  <span className="font-mono text-amber-300">APK tayyor boʻlgach hisoblanadi</span>
                 )}
               </div>
             </div>

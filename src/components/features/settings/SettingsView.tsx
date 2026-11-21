@@ -33,7 +33,7 @@ import {
   Send,
 } from 'lucide-react';
 import { usePWAInstall } from '../../../hooks/usePWAInstall';
-import { triggerApkDownload, ASAKA_ZIYO_APK_RELEASE } from '../../../utils/apkPackage';
+import { triggerApkDownload, fetchVerifiedApkInfo, ASAKA_ZIYO_APK_RELEASE, APKReleaseInfo } from '../../../utils/apkPackage';
 import {
   AppPermissionKey,
   AppPermissionItem,
@@ -100,6 +100,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [alertSettings, setAlertSettings] = useState<PrayerAlertSettings>(() => getPrayerAlertSettings());
   const [prayerSchedule, setPrayerSchedule] = useState<PrayerSchedule>(() => getStoredPrayerSchedule());
+  const [apkInfo, setApkInfo] = useState<APKReleaseInfo>(ASAKA_ZIYO_APK_RELEASE);
+
+  useEffect(() => {
+    void fetchVerifiedApkInfo().then((info) => setApkInfo(info));
+  }, []);
 
   useEffect(() => {
     const unsubDb = subscribeToDatabase((event) => {
@@ -857,13 +862,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex justify-between">
               <span className="text-stone-500">{getLocalizedText('Fayl nomi va holati:')}</span>
               <span className="font-mono text-stone-800 dark:text-stone-200">
-                {ASAKA_ZIYO_APK_RELEASE.apkFilename} ({ASAKA_ZIYO_APK_RELEASE.fileSizeDisplay})
+                {apkInfo.apkFilename} ({apkInfo.fileSizeDisplay})
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-stone-500">{getLocalizedText('Paket nomi:')}</span>
               <span className="font-mono text-stone-800 dark:text-stone-200">
-                {ASAKA_ZIYO_APK_RELEASE.packageId}
+                {apkInfo.packageId}
               </span>
             </div>
             <div className="flex justify-between">

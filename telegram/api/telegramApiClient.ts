@@ -145,12 +145,26 @@ export class TelegramApiClient {
 
       const parsed = (await response.json().catch(() => ({}))) as TelegramApiResponse<T>;
       if (!response.ok || !parsed.ok) {
-        this.logger.warn(`Telegram API ${method} failed`, {
-          status: response.status,
-          errorCode: parsed.error_code,
-          description: parsed.description,
-          retryAfter: parsed.parameters?.retry_after,
-        });
+        const desc = String(parsed.description || '');
+        const isBenignNotModified =
+          method.startsWith('editMessage') &&
+          desc.toLowerCase().includes('message is not modified');
+        if (isBenignNotModified) {
+          return {
+            ok: true,
+            result: true as unknown as T,
+            description: desc,
+          };
+        }
+        const isPollingConflict = method === 'getUpdates' && (parsed.error_code === 409 || response.status === 409);
+        if (!isPollingConflict) {
+          this.logger.warn(`Telegram API ${method} failed`, {
+            status: response.status,
+            errorCode: parsed.error_code,
+            description: parsed.description,
+            retryAfter: parsed.parameters?.retry_after,
+          });
+        }
         return {
           ok: false,
           error_code: parsed.error_code || response.status,
