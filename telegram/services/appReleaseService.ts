@@ -329,21 +329,39 @@ export class AppReleaseService {
     if (!candidatePath) return null;
 
     const check = isValidZipFile(candidatePath);
-    if (!check.valid) return null;
+    if (!check.valid || check.sizeBytes < 100_000) return null;
+
+    const actualSha256 = crypto
+      .createHash('sha256')
+      .update(fs.readFileSync(candidatePath))
+      .digest('hex');
 
     const meta = this.readLocalMetadataFile();
-    const sha256 =
+    const metaMatchesBinary =
+      meta.packageId === CANONICAL_PACKAGE_ID &&
       meta.version === CANONICAL_TARGET_VERSION &&
-      meta.sha256Checksum &&
-      meta.sizeBytes === check.sizeBytes
-        ? String(meta.sha256Checksum)
-        : crypto.createHash('sha256').update(fs.readFileSync(candidatePath)).digest('hex');
+      Number(meta.buildCode) === CANONICAL_TARGET_BUILD_CODE &&
+      Boolean(meta.signed) &&
+      Boolean(meta.apksignerVerified) &&
+      Number(meta.sizeBytes) === check.sizeBytes &&
+      String(meta.sha256Checksum || '').toLowerCase() === actualSha256.toLowerCase();
+
+    if (!metaMatchesBinary) {
+      // Never claim apkAvailable=true if binary does not match verified signed metadata & SHA-256
+      return null;
+    }
 
     const aabCheck = isValidZipFile(
       path.resolve(this.rootDir, 'data', 'release', CANONICAL_AAB_FILENAME)
     );
 
-    return { filePath: candidatePath, sizeBytes: check.sizeBytes, sha256, aabAvailable: aabCheck.valid, meta };
+    return {
+      filePath: candidatePath,
+      sizeBytes: check.sizeBytes,
+      sha256: actualSha256,
+      aabAvailable: aabCheck.valid,
+      meta,
+    };
   }
 
   async probeGitHubLatestRelease(forceRefresh = false): Promise<{

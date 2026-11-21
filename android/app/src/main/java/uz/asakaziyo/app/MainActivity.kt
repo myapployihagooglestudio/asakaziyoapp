@@ -135,7 +135,21 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
                 val url = uri.toString()
+                val pathLower = (uri.path ?: "").lowercase()
                 val host = (uri.host ?: "").lowercase()
+
+                // Always route APK binary downloads to Android external browser / DownloadManager
+                if (pathLower.endsWith(".apk") || pathLower == "/api/apk/download") {
+                    val targetUri = if (host == "appassets.androidplatform.net") {
+                        Uri.parse("https://asakaziyo.ai.studio/api/apk/download")
+                    } else {
+                        uri
+                    }
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, targetUri))
+                        return true
+                    } catch (_: Exception) {}
+                }
 
                 // Keep virtual bundled app origin & Firebase auth flows inside WebView
                 if (
@@ -254,6 +268,23 @@ class MainActivity : AppCompatActivity() {
                     fileUploadCallback = null
                     false
                 }
+            }
+        }
+
+        webView.setDownloadListener { downloadUrl, _, _, mimeType, _ ->
+            if (downloadUrl.isNullOrBlank()) return@setDownloadListener
+            val normalized = if (downloadUrl.startsWith("https://appassets.androidplatform.net/api/apk/download")) {
+                "https://asakaziyo.ai.studio/api/apk/download"
+            } else {
+                downloadUrl
+            }
+            if (
+                normalized.startsWith("https://") ||
+                (mimeType ?: "").contains("android.package-archive", ignoreCase = true)
+            ) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(normalized)))
+                } catch (_: Exception) {}
             }
         }
 
@@ -538,6 +569,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class AsakaNativeBridge {
+        @JavascriptInterface
+        fun openExternalUrl(rawUrl: String) {
+            val trimmed = rawUrl.trim()
+            if (!trimmed.startsWith("https://")) return
+            runOnUiThread {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(trimmed)))
+                } catch (_: Exception) {}
+            }
+        }
+
         @JavascriptInterface
         fun shareText(title: String, text: String) {
             val sendIntent = Intent().apply {

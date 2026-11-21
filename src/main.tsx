@@ -174,6 +174,7 @@ if (typeof window !== 'undefined' && isRunningInNativeAndroidApk()) {
             remoteRes.ok &&
             !ct.includes('text/html') &&
             (ct.includes('application/json') ||
+              ct.includes('application/vnd.android.package-archive') ||
               ct.includes('video/mp4') ||
               ct.includes('video/') ||
               ct.includes('audio/') ||

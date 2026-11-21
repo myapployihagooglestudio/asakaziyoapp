@@ -377,6 +377,12 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                     <a
                       href="/api/apk/download"
                       download={apkInfo.apkFilename}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!isDownloadingApk) {
+                          void handleDownloadAPK();
+                        }
+                      }}
                       className="text-[#c9a84c] hover:underline font-mono font-semibold"
                     >
                       {apkInfo.apkFilename}

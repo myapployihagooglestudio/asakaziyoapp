@@ -23,6 +23,7 @@ export interface APKReleaseInfo {
   targetAndroid: string;
   minAndroid: string;
   downloadUrl: string;
+  remoteApkUrl?: string;
   axmlVerified: boolean;
   dexVerified: boolean;
   resourcesArscVerified: boolean;
@@ -132,64 +133,41 @@ export async function downloadVerifiedApkWithProgress(
   filename = 'Asaka-Ziyo-v4.0.0.apk'
 ): Promise<{ success: boolean; sizeBytes: number; error?: string }> {
   try {
-    // On Android mobile browsers (Chrome, Samsung Internet, Telegram WebView),
-    // Blob URL downloads often fail or strip .apk MIME handling.
-    // First probe bytes 0-3 of /api/apk/download (which ALWAYS bypasses Workbox SW via /^\/api\//)
-    // to prove the server returns a real binary APK (PK\x03\x04) and NEVER HTML,
-    // then hand /api/apk/download directly to Android Download Manager.
-    const isAndroidBrowser =
-      typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-    if (isAndroidBrowser) {
-      const probeRes = await fetch('/api/apk/download', {
-        method: 'GET',
-        headers: { Range: 'bytes=0-3' },
-        cache: 'no-store',
-      });
-      const probeType = (probeRes.headers.get('content-type') || '').toLowerCase();
-      if (
-        !probeRes.ok ||
-        probeType.includes('text/html') ||
-        !probeType.includes('application/vnd.android.package-archive')
-      ) {
+    // Inside the native Android WebView (appassets.androidplatform.net), delegate download
+    // to the native bridge / external browser only after verifying the real APK endpoint.
+    const nativeBridge =
+      typeof window !== 'undefined'
+        ? (window as unknown as {
+            AsakaAndroidBridge?: { openExternalUrl?: (url: string) => void };
+          }).AsakaAndroidBridge
+        : undefined;
+    if (nativeBridge && typeof nativeBridge.openExternalUrl === 'function') {
+      const info = await fetchVerifiedApkInfo();
+      const targetUrl =
+        info.remoteApkUrl &&
+        info.remoteApkUrl.startsWith('https://') &&
+        info.remoteApkUrl.toLowerCase().endsWith('.apk')
+          ? info.remoteApkUrl
+          : 'https://asakaziyo.ai.studio/api/apk/download';
+      if (!info.apkAvailable) {
         throw new Error(
-          `Server haqiqiy APK oʻrniga notoʻgʻri javob qaytardi (HTTP ${probeRes.status}, ${probeType || 'unknown'}). Yuklab olish toʻxtatildi.`
+          info.statusMessageUz || 'ASAKA ZIYO v4.0.0 APK fayli hozircha yuklab olishga tayyor emas.'
         );
       }
-
-      const probeBytes = new Uint8Array(await probeRes.arrayBuffer());
-      if (
-        probeBytes.byteLength < 4 ||
-        probeBytes[0] !== 0x50 ||
-        probeBytes[1] !== 0x4b ||
-        probeBytes[2] !== 0x03 ||
-        probeBytes[3] !== 0x04
-      ) {
-        throw new Error(
-          'Yuklab olish manzili haqiqiy Android APK binar sarlavhasini (PK\\x03\\x04) qaytarmadi — HTML/buzilgan fayl bloklandi.'
-        );
-      }
-
-      const contentRange = probeRes.headers.get('content-range') || '';
-      const rangeTotalMatch = contentRange.match(/\/(\d+)$/);
-      const totalSize = rangeTotalMatch
-        ? Number(rangeTotalMatch[1])
-        : Number(probeRes.headers.get('content-length') || 0);
-      if (totalSize > 0 && totalSize < 65536) {
-        throw new Error('APK fayl hajmi juda kichik — yuklab olish xavfsizlik sababli toʻxtatildi.');
-      }
-
-      onProgress?.(100, totalSize, totalSize);
-      const directLink = document.createElement('a');
-      directLink.href = '/api/apk/download';
-      directLink.download = filename;
-      directLink.rel = 'noopener';
-      document.body.appendChild(directLink);
-      directLink.click();
-      document.body.removeChild(directLink);
-      return { success: true, sizeBytes: totalSize };
+      onProgress?.(100, info.sizeBytes || 0, info.sizeBytes || 0);
+      nativeBridge.openExternalUrl(targetUrl);
+      return { success: true, sizeBytes: info.sizeBytes || 0 };
     }
 
-    const response = await fetch('/api/apk/download', { cache: 'no-store' });
+    // Unified verified binary fetch for Android Chrome, Desktop Chrome, Safari, and PWA:
+    // - Always uses /api/apk/download (denylisted by all old & new Service Workers via /^\/api\//)
+    // - Includes credentials so auth-gated preview proxies NEVER redirect to /__cookie_check.html
+    // - Verifies HTTP 200, Content-Type: application/vnd.android.package-archive, PK\x03\x04 magic
+    //   bytes, and SHA-256 checksum BEFORE saving the file to disk.
+    const response = await fetch('/api/apk/download', {
+      cache: 'no-store',
+      credentials: 'include',
+    });
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
 
     if (!response.ok) {
@@ -209,7 +187,7 @@ export async function downloadVerifiedApkWithProgress(
       !contentType.includes('application/vnd.android.package-archive')
     ) {
       throw new Error(
-        `Server haqiqiy APK (application/vnd.android.package-archive) oʻrniga "${contentType || 'unknown'}" qaytardi — yuklab olish toʻxtatildi.`
+        `Server haqiqiy APK (application/vnd.android.package-archive) oʻrniga "${contentType || 'unknown'}" qaytardi — HTML yuklab olish bloklandi.`
       );
     }
 

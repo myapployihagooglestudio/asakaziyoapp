@@ -5545,9 +5545,9 @@ const appReleaseService = new AppReleaseService({
 void appReleaseService.hydrateFromFirestore().catch(() => {});
 
 app.get('/api/apk/info', async (req: Request, res: Response) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Cache-Control', 'no-store');
   const forceRefresh = req.query.refresh === '1';
-  const checkGitHub = req.query.checkGitHub === '1';
+  const checkGitHub = req.query.checkGitHub !== '0';
   const release = await appReleaseService.getResolvedReleaseInfo({
     checkGitHub,
     forceRefresh,
@@ -5560,10 +5560,10 @@ app.get('/api/apk/info', async (req: Request, res: Response) => {
 });
 
 async function streamVerifiedApkResponse(req: Request, res: Response) {
-  const release = await appReleaseService.getResolvedReleaseInfo({ checkGitHub: false });
+  const release = await appReleaseService.getResolvedReleaseInfo({ checkGitHub: true });
 
   if (!release.apkAvailable) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     return res.status(404).json({
       success: false,
@@ -5578,7 +5578,7 @@ async function streamVerifiedApkResponse(req: Request, res: Response) {
   if (release.localFilePath && fs.existsSync(release.localFilePath)) {
     const binaryCheck = isValidZipBinaryHeader(release.localFilePath);
     if (!binaryCheck.valid) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       return res.status(500).json({
         success: false,
@@ -5590,7 +5590,7 @@ async function streamVerifiedApkResponse(req: Request, res: Response) {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
     res.setHeader('Content-Disposition', `attachment; filename="${release.apkFilename}"`);
     res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-APK-Package-Id', release.packageId);
     res.setHeader('X-APK-Version', release.version);
@@ -5640,17 +5640,67 @@ async function streamVerifiedApkResponse(req: Request, res: Response) {
     return stream.pipe(res);
   }
 
-  if (release.remoteApkUrl && release.remoteApkUrl.startsWith('https://')) {
-    if (req.method === 'GET') {
-      void appReleaseService.incrementDownloadCount().catch(() => {});
+  if (
+    release.remoteApkUrl &&
+    release.remoteApkUrl.startsWith('https://') &&
+    release.remoteApkUrl.toLowerCase().endsWith('.apk') &&
+    !release.remoteApkUrl.includes('/releases/tag/')
+  ) {
+    try {
+      const upstream = await fetch(release.remoteApkUrl, {
+        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+        redirect: 'follow',
+        headers: { 'User-Agent': 'ASAKA-ZIYO-Server/4.0.0' },
+      });
+      const ct = (upstream.headers.get('content-type') || '').toLowerCase();
+      const len = Number(upstream.headers.get('content-length') || 0);
+      if (upstream.ok && !ct.includes('text/html') && (len === 0 || len >= 100_000)) {
+        if (req.method === 'HEAD') {
+          res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+          res.setHeader('Content-Disposition', `attachment; filename="${release.apkFilename}"`);
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('X-APK-Package-Id', release.packageId);
+          res.setHeader('X-APK-Version', release.version);
+          res.setHeader('X-APK-Build-Code', String(release.buildCode));
+          if (release.sha256Checksum) res.setHeader('X-APK-SHA256', release.sha256Checksum);
+          if (len > 0) res.setHeader('Content-Length', String(len));
+          return res.status(200).end();
+        }
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        const isApkZip =
+          buf.length >= 100_000 &&
+          buf[0] === 0x50 &&
+          buf[1] === 0x4b &&
+          buf[2] === 0x03 &&
+          buf[3] === 0x04;
+        if (isApkZip) {
+          const sha256 = crypto.createHash('sha256').update(buf).digest('hex');
+          res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+          res.setHeader('Content-Disposition', `attachment; filename="${release.apkFilename}"`);
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('X-APK-Package-Id', release.packageId);
+          res.setHeader('X-APK-Version', release.version);
+          res.setHeader('X-APK-Build-Code', String(release.buildCode));
+          res.setHeader('X-APK-SHA256', sha256);
+          res.setHeader('Content-Length', String(buf.length));
+          void appReleaseService.incrementDownloadCount().catch(() => {});
+          return res.status(200).send(buf);
+        }
+      }
+    } catch (err) {
+      console.warn('[APK Remote Proxy Error]:', err instanceof Error ? err.message : String(err));
     }
-    return res.redirect(302, release.remoteApkUrl);
   }
 
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   return res.status(404).json({
     success: false,
     apkAvailable: false,
-    error: 'APK fayli topilmadi.',
+    error: 'Tasdiqlangan APK fayli topilmadi.',
   });
 }
 

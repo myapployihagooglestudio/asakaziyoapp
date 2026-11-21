@@ -1,6 +1,378 @@
 {
   "events": [
     {
+      "id": "sync_mwq7g69n_8259da55",
+      "eventType": "news.updated",
+      "entityType": "news",
+      "entityId": "fs-live-verify-1795253277127",
+      "action": "updated",
+      "version": 1,
+      "idempotencyKey": "news:fs-live-verify-1795253277127:updated:v1:91234fc5dd5e",
+      "contentHash": "91234fc5dd5e18e5b653fdec0e1f16383c7e2c20d11e37ce25d0b72c1a8d5ee2",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T09:27:57.371Z",
+      "payload": {
+        "title": "Firestore Live Persistence Test News",
+        "summary": "Live cloud persistence verification",
+        "category": "Rasmiy xabar"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:news:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T09:27:57.371Z",
+      "updatedAt": "2026-11-21T09:27:57.373Z",
+      "completedAt": "2026-11-21T09:27:57.373Z"
+    },
+    {
+      "id": "sync_mwq7fzkg_bed01bc6",
+      "eventType": "article.archived",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "archived",
+      "version": 5,
+      "idempotencyKey": "article:e2e-test-art-1795253267076:archived:v5:343a6756175a",
+      "contentHash": "343a6756175a66ee5bcd5d2e43b25596391c3d123a988ce573bb727d0784a8eb",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T09:27:48.688Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T09:27:48.688Z",
+      "updatedAt": "2026-11-21T09:27:48.690Z",
+      "completedAt": "2026-11-21T09:27:48.690Z"
+    },
+    {
+      "id": "sync_mwq7fzd8_8226b3dc",
+      "eventType": "article.restored",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "restored",
+      "version": 4,
+      "idempotencyKey": "article:e2e-test-art-1795253267076:restored:v4:94e2b9d66776",
+      "contentHash": "94e2b9d667769dd9f421c7df52bbbe8e5712db1bfc5289592d10c8d1c44a4462",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T09:27:48.428Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T09:27:48.428Z",
+      "updatedAt": "2026-11-21T09:27:48.431Z",
+      "completedAt": "2026-11-21T09:27:48.431Z"
+    },
+    {
+      "id": "sync_mwq7fz33_db900628",
+      "eventType": "article.archived",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "archived",
+      "version": 3,
+      "idempotencyKey": "article:e2e-test-art-1795253267076:archived:v3:343a6756175a",
+      "contentHash": "343a6756175a66ee5bcd5d2e43b25596391c3d123a988ce573bb727d0784a8eb",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T09:27:48.063Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T09:27:48.063Z",
+      "updatedAt": "2026-11-21T09:27:48.065Z",
+      "completedAt": "2026-11-21T09:27:48.065Z"
+    },
+    {
+      "id": "sync_mwq7fyv9_468ddf7b",
+      "eventType": "article.updated",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "updated",
+      "version": 2,
+      "idempotencyKey": "article:e2e-test-art-1795253267076:updated:v2:f7f3d653503c",
+      "contentHash": "f7f3d653503c7a4973a860712ac2654f38d7bfff3a2ac9a5b38de5a587bd190f",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T09:27:47.781Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T09:27:47.781Z",
+      "updatedAt": "2026-11-21T09:27:47.783Z",
+      "completedAt": "2026-11-21T09:27:47.783Z"
+    },
+    {
+      "id": "sync_mwq7fyjy_102a9b28",
+      "eventType": "article.created",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "created",
+      "version": 1,
+      "idempotencyKey": "article:e2e-test-art-1795253267076:created:v1:8f36b6b3ec9e",
+      "contentHash": "8f36b6b3ec9ea7ec54c876d07f5d30bd1f46ca5983b87494b32ff8dddfcea296",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T09:27:47.374Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati",
+        "summary": "Ushbu maqola avtomatlashtirilgan E2E sinovi doirasida yaratildi.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "publish_and_notify",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 4,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T09:27:47.374Z",
+      "updatedAt": "2026-11-21T09:27:50.203Z",
+      "completedAt": "2026-11-21T09:27:50.203Z"
+    },
+    {
+      "id": "sync_mwq3x2ak_2e387de8",
+      "eventType": "news.updated",
+      "entityType": "news",
+      "entityId": "fs-live-verify-1795247346673",
+      "action": "updated",
+      "version": 1,
+      "idempotencyKey": "news:fs-live-verify-1795247346673:updated:v1:91234fc5dd5e",
+      "contentHash": "91234fc5dd5e18e5b653fdec0e1f16383c7e2c20d11e37ce25d0b72c1a8d5ee2",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T07:49:06.908Z",
+      "payload": {
+        "title": "Firestore Live Persistence Test News",
+        "summary": "Live cloud persistence verification",
+        "category": "Rasmiy xabar"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:news:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T07:49:06.908Z",
+      "updatedAt": "2026-11-21T07:49:06.910Z",
+      "completedAt": "2026-11-21T07:49:06.910Z"
+    },
+    {
+      "id": "sync_mwq3wvoq_6a9fa193",
+      "eventType": "article.archived",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "archived",
+      "version": 5,
+      "idempotencyKey": "article:e2e-test-art-1795247336907:archived:v5:343a6756175a",
+      "contentHash": "343a6756175a66ee5bcd5d2e43b25596391c3d123a988ce573bb727d0784a8eb",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T07:48:58.346Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T07:48:58.346Z",
+      "updatedAt": "2026-11-21T07:48:58.349Z",
+      "completedAt": "2026-11-21T07:48:58.349Z"
+    },
+    {
+      "id": "sync_mwq3wvij_730d598f",
+      "eventType": "article.restored",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "restored",
+      "version": 4,
+      "idempotencyKey": "article:e2e-test-art-1795247336907:restored:v4:94e2b9d66776",
+      "contentHash": "94e2b9d667769dd9f421c7df52bbbe8e5712db1bfc5289592d10c8d1c44a4462",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T07:48:58.123Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T07:48:58.123Z",
+      "updatedAt": "2026-11-21T07:48:58.124Z",
+      "completedAt": "2026-11-21T07:48:58.124Z"
+    },
+    {
+      "id": "sync_mwq3wv8o_608fa0b0",
+      "eventType": "article.archived",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "archived",
+      "version": 3,
+      "idempotencyKey": "article:e2e-test-art-1795247336907:archived:v3:343a6756175a",
+      "contentHash": "343a6756175a66ee5bcd5d2e43b25596391c3d123a988ce573bb727d0784a8eb",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T07:48:57.768Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T07:48:57.768Z",
+      "updatedAt": "2026-11-21T07:48:57.771Z",
+      "completedAt": "2026-11-21T07:48:57.771Z"
+    },
+    {
+      "id": "sync_mwq3wv11_4d0fd064",
+      "eventType": "article.updated",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "updated",
+      "version": 2,
+      "idempotencyKey": "article:e2e-test-art-1795247336907:updated:v2:f7f3d653503c",
+      "contentHash": "f7f3d653503c7a4973a860712ac2654f38d7bfff3a2ac9a5b38de5a587bd190f",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T07:48:57.493Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati (Yangilangan)",
+        "summary": "Yangilangan matn.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "section_only",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 0,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T07:48:57.493Z",
+      "updatedAt": "2026-11-21T07:48:57.494Z",
+      "completedAt": "2026-11-21T07:48:57.494Z"
+    },
+    {
+      "id": "sync_mwq3wur4_027f3c78",
+      "eventType": "article.created",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "created",
+      "version": 1,
+      "idempotencyKey": "article:e2e-test-art-1795247336907:created:v1:8f36b6b3ec9e",
+      "contentHash": "8f36b6b3ec9ea7ec54c876d07f5d30bd1f46ca5983b87494b32ff8dddfcea296",
+      "status": "completed",
+      "attempts": 1,
+      "maxAttempts": 5,
+      "nextRetryAt": "2026-11-21T07:48:57.136Z",
+      "payload": {
+        "title": "E2E Sinov Maqolasi: Ilm Fazilati",
+        "summary": "Ushbu maqola avtomatlashtirilgan E2E sinovi doirasida yaratildi.",
+        "category": "Ilm-maʼrifat"
+      },
+      "notifyOptions": {
+        "mode": "publish_and_notify",
+        "segment": "all_opt_in",
+        "deepLinkCallback": "library:view:articles:0"
+      },
+      "recipientsNotified": 3,
+      "recipientsSkipped": 0,
+      "recipientsFailed": 0,
+      "createdBy": "asakaziyo0@gmail.com",
+      "createdAt": "2026-11-21T07:48:57.136Z",
+      "updatedAt": "2026-11-21T07:49:00.854Z",
+      "completedAt": "2026-11-21T07:49:00.854Z"
+    },
+    {
       "id": "sync_mwq2ij8p_ecdd9f03",
       "eventType": "news.updated",
       "entityType": "news",
@@ -777,6 +1149,160 @@
   ],
   "auditLogs": [
     {
+      "eventId": "sync_mwq7g69n_8259da55",
+      "entityType": "news",
+      "entityId": "fs-live-verify-1795253277127",
+      "action": "updated",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq7g69p_6dea50",
+      "timestamp": "2026-11-21T09:27:57.373Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwq7g1t8_8474ef",
+      "timestamp": "2026-11-21T09:27:51.596Z"
+    },
+    {
+      "eventId": "sync_mwq7fyjy_102a9b28",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "created",
+      "status": "completed",
+      "recipientsNotified": 4,
+      "deduplicated": false,
+      "id": "sync_log_mwq7g0qk_ce6235",
+      "timestamp": "2026-11-21T09:27:50.204Z"
+    },
+    {
+      "eventId": "sync_mwq7fzkg_bed01bc6",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "archived",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq7fzkj_c7e927",
+      "timestamp": "2026-11-21T09:27:48.691Z"
+    },
+    {
+      "eventId": "sync_mwq7fzd8_8226b3dc",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "restored",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq7fzdb_54faca",
+      "timestamp": "2026-11-21T09:27:48.431Z"
+    },
+    {
+      "eventId": "sync_mwq7fz33_db900628",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "archived",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq7fz36_9232f8",
+      "timestamp": "2026-11-21T09:27:48.066Z"
+    },
+    {
+      "eventId": "sync_mwq7fyv9_468ddf7b",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795253267076",
+      "action": "updated",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq7fyvc_d1386c",
+      "timestamp": "2026-11-21T09:27:47.784Z"
+    },
+    {
+      "eventId": "sync_mwq3x2ak_2e387de8",
+      "entityType": "news",
+      "entityId": "fs-live-verify-1795247346673",
+      "action": "updated",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq3x2am_73ab2d",
+      "timestamp": "2026-11-21T07:49:06.910Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwq3wxwb_ad749d",
+      "timestamp": "2026-11-21T07:49:01.212Z"
+    },
+    {
+      "eventId": "sync_mwq3wur4_027f3c78",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "created",
+      "status": "completed",
+      "recipientsNotified": 3,
+      "deduplicated": false,
+      "id": "sync_log_mwq3wxmf_c61dcd",
+      "timestamp": "2026-11-21T07:49:00.855Z"
+    },
+    {
+      "eventId": "sync_mwq3wvoq_6a9fa193",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "archived",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq3wvou_dbfb86",
+      "timestamp": "2026-11-21T07:48:58.350Z"
+    },
+    {
+      "eventId": "sync_mwq3wvij_730d598f",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "restored",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq3wvil_6f0b98",
+      "timestamp": "2026-11-21T07:48:58.125Z"
+    },
+    {
+      "eventId": "sync_mwq3wv8o_608fa0b0",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "archived",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq3wv8s_c40fc9",
+      "timestamp": "2026-11-21T07:48:57.772Z"
+    },
+    {
+      "eventId": "sync_mwq3wv11_4d0fd064",
+      "entityType": "article",
+      "entityId": "e2e-test-art-1795247336907",
+      "action": "updated",
+      "status": "completed",
+      "recipientsNotified": 0,
+      "deduplicated": false,
+      "id": "sync_log_mwq3wv13_480dfe",
+      "timestamp": "2026-11-21T07:48:57.495Z"
+    },
+    {
       "eventId": "sync_mwq2ij8p_ecdd9f03",
       "entityType": "news",
       "entityId": "fs-live-verify-1795244989192",
@@ -1121,6 +1647,22 @@
     "news:fs-live-verify-1795244989192": {
       "hash": "91234fc5dd5e18e5b653fdec0e1f16383c7e2c20d11e37ce25d0b72c1a8d5ee2",
       "version": 1
+    },
+    "article:e2e-test-art-1795247336907": {
+      "hash": "343a6756175a66ee5bcd5d2e43b25596391c3d123a988ce573bb727d0784a8eb",
+      "version": 5
+    },
+    "news:fs-live-verify-1795247346673": {
+      "hash": "91234fc5dd5e18e5b653fdec0e1f16383c7e2c20d11e37ce25d0b72c1a8d5ee2",
+      "version": 1
+    },
+    "article:e2e-test-art-1795253267076": {
+      "hash": "343a6756175a66ee5bcd5d2e43b25596391c3d123a988ce573bb727d0784a8eb",
+      "version": 5
+    },
+    "news:fs-live-verify-1795253277127": {
+      "hash": "91234fc5dd5e18e5b653fdec0e1f16383c7e2c20d11e37ce25d0b72c1a8d5ee2",
+      "version": 1
     }
   },
   "deliveredKeys": [
@@ -1148,7 +1690,19 @@
     "article:e2e-test-art-1795244979860:restored:v4:94e2b9d66776",
     "article:e2e-test-art-1795244979860:archived:v5:343a6756175a",
     "article:e2e-test-art-1795244979860:created:v1:8f36b6b3ec9e",
-    "news:fs-live-verify-1795244989192:updated:v1:91234fc5dd5e"
+    "news:fs-live-verify-1795244989192:updated:v1:91234fc5dd5e",
+    "article:e2e-test-art-1795247336907:updated:v2:f7f3d653503c",
+    "article:e2e-test-art-1795247336907:archived:v3:343a6756175a",
+    "article:e2e-test-art-1795247336907:restored:v4:94e2b9d66776",
+    "article:e2e-test-art-1795247336907:archived:v5:343a6756175a",
+    "article:e2e-test-art-1795247336907:created:v1:8f36b6b3ec9e",
+    "news:fs-live-verify-1795247346673:updated:v1:91234fc5dd5e",
+    "article:e2e-test-art-1795253267076:updated:v2:f7f3d653503c",
+    "article:e2e-test-art-1795253267076:archived:v3:343a6756175a",
+    "article:e2e-test-art-1795253267076:restored:v4:94e2b9d66776",
+    "article:e2e-test-art-1795253267076:archived:v5:343a6756175a",
+    "article:e2e-test-art-1795253267076:created:v1:8f36b6b3ec9e",
+    "news:fs-live-verify-1795253277127:updated:v1:91234fc5dd5e"
   ],
-  "updatedAt": "2026-11-21T07:09:49.419Z"
+  "updatedAt": "2026-11-21T09:27:57.373Z"
 }
