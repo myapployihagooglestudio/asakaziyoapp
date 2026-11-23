@@ -424,7 +424,9 @@ export type TelegramUserFlowState =
   | { type: 'personal_reminder_add' }
   | { type: 'notif_custom_lead_minutes' }
   | { type: 'privacy_delete_confirm' }
-  | { type: 'admin_emoji_create_custom' };
+  | { type: 'admin_emoji_create_custom' }
+  | { type: 'tools_verify_search' }
+  | { type: 'tools_cyber_check' };
 
 export interface TelegramCentralAdminWriter {
   updatePrayerTime: (input: {
@@ -606,6 +608,10 @@ export interface TelegramBotSettingsRecord {
   }>;
   /** Persistent idempotent notification delivery log (bounded latest 500) */
   notificationDispatchLog?: TelegramNotificationDispatchRecord[];
+  /** Admin-configurable Hijri moon-sighting offset in days (-2..+2). Default: 0 */
+  hijriDateOffsetDays?: number;
+  /** 'civil' switches Hijri date at 00:00 Asia/Tashkent; 'maghrib' switches at Asaka Shom time */
+  hijriBoundaryMode?: 'civil' | 'maghrib';
   /** Monotonic version counter preventing stale cache/container rollback */
   version?: number;
   /** Latest emoji registry version synchronized with appConfig/emojiRegistry */
@@ -1041,6 +1047,8 @@ export interface TelegramSupportTicketRecord {
   createdAt: string;
   updatedAt: string;
   closedAt?: string;
+  userRating?: number;
+  ratedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1129,6 +1137,16 @@ export interface TelegramPersonalReminder {
   createdAt: string;
 }
 
+export interface TelegramUserHabitState {
+  todayDateKey: string;
+  completedTodayIds: string[];
+  historyByDate: Record<string, string[]>;
+  currentStreakDays: number;
+  bestStreakDays: number;
+  reminderEnabled: boolean;
+  updatedAt: string;
+}
+
 export interface TelegramUserEngagementRecord {
   telegramId: string;
   bookmarks: TelegramUserBookmark[];
@@ -1141,6 +1159,7 @@ export interface TelegramUserEngagementRecord {
   };
   khatmPlan?: TelegramKhatmPlan;
   dhikr: TelegramDhikrProgress;
+  worshipHabits?: TelegramUserHabitState;
   completedLessonIds: string[];
   readArticleIds?: string[];
   watchedVideoIds?: string[];

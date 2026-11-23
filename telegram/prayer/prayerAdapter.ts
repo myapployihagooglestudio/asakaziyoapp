@@ -14,9 +14,15 @@ import { PrayerSchedule } from '../../src/types';
 import { TelegramLocale, TelegramPrayerNotificationKey } from '../types';
 import { getTelegramLocaleBundle } from '../locales';
 import { CustomEmojiRegistry, FormattedEmojiMessage } from '../emoji/customEmojiRegistry';
-import { getDynamicHijriDate } from '../services/qiblaHijriService';
+import {
+  DateResolutionOptions,
+  ResolvedAsakaDateContext,
+  getTashkentCalendarParts,
+  resolveAsakaDateContext,
+} from '../services/dateCalendarService';
 
 export type ReadOnlyPrayerScheduleProvider = () => PrayerSchedule | null;
+export type PrayerDateOptionsProvider = () => DateResolutionOptions;
 
 const CORE_PRAYER_KEYS = ['bomdod', 'quyosh', 'peshin', 'asr', 'shom', 'xufton'] as const;
 
@@ -98,21 +104,14 @@ export function getTashkentNowParts(now: Date = new Date()): {
   hhmm: string;
   totalMinutes: number;
 } {
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
-  const tashkent = new Date(utcMs + 5 * 3600_000);
-  const yyyy = tashkent.getFullYear();
-  const mm = String(tashkent.getMonth() + 1).padStart(2, '0');
-  const dd = String(tashkent.getDate()).padStart(2, '0');
-  const hour = tashkent.getHours();
-  const minute = tashkent.getMinutes();
-  const hhmm = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const parts = getTashkentCalendarParts(now);
   return {
-    dateKey: `${yyyy}-${mm}-${dd}`,
-    hour,
-    minute,
-    dayOfWeek: tashkent.getDay(),
-    hhmm,
-    totalMinutes: hour * 60 + minute,
+    dateKey: parts.dateKey,
+    hour: parts.hour,
+    minute: parts.minute,
+    dayOfWeek: parts.dayOfWeek,
+    hhmm: parts.hhmm,
+    totalMinutes: parts.totalMinutes,
   };
 }
 
@@ -125,12 +124,31 @@ function parseMinutes(timeStr: string | undefined): number | null {
 
 export class TelegramPrayerAdapter {
   private readonly getScheduleReadOnly: ReadOnlyPrayerScheduleProvider;
+  private readonly getDateOptions: PrayerDateOptionsProvider;
   private lastKnownScheduleSignature = '';
 
-  constructor(getScheduleReadOnly?: ReadOnlyPrayerScheduleProvider) {
+  constructor(
+    getScheduleReadOnly?: ReadOnlyPrayerScheduleProvider,
+    getDateOptions?: PrayerDateOptionsProvider
+  ) {
     this.getScheduleReadOnly =
       getScheduleReadOnly || (() => INITIAL_ASAKA_PRAYER_SCHEDULE);
+    this.getDateOptions =
+      getDateOptions || (() => ({ hijriOffsetDays: 0, hijriBoundaryMode: 'civil' }));
     this.lastKnownScheduleSignature = this.computeScheduleSignature(this.getCurrentSchedule());
+  }
+
+  getResolvedDateContext(
+    locale: TelegramLocale = 'uz-Latn',
+    now: Date = new Date()
+  ): ResolvedAsakaDateContext {
+    const schedule = this.getCurrentSchedule();
+    const shomTimeHHMM = schedule.times.find((t) => t.key === 'shom')?.time;
+    const opts = this.getDateOptions ? this.getDateOptions() : {};
+    return resolveAsakaDateContext(now, locale, {
+      ...opts,
+      shomTimeHHMM,
+    });
   }
 
   private computeScheduleSignature(schedule: PrayerSchedule): string {
@@ -229,11 +247,7 @@ export class TelegramPrayerAdapter {
   }
 
   getResolvedHijriLabel(locale: TelegramLocale, now: Date = new Date()): string {
-    const schedule = this.getCurrentSchedule();
-    if (schedule.hijriDate && schedule.hijriDate.trim() && schedule.hijriDate.trim() !== '—') {
-      return schedule.hijriDate.trim();
-    }
-    return getDynamicHijriDate(now, locale).formatted;
+    return this.getResolvedDateContext(locale, now).hijri.formatted;
   }
 
   formatAzanReminderMessage(
@@ -246,18 +260,18 @@ export class TelegramPrayerAdapter {
     const dict = getTelegramLocaleBundle(locale);
     const schedule = this.getCurrentSchedule();
     const prayerName = dict.prayerNames[prayerKey];
-    const hijri = this.getResolvedHijriLabel(locale, now);
+    const dateCtx = this.getResolvedDateContext(locale, now);
     const template =
       `${dict.azanReminderPrefix}: ${prayerName} (${time})\n` +
       `{{emoji:brand.crescent}} ${dict.prayerLocationLine}: ${schedule.location || 'Asaka, Andijon'}\n` +
-      `{{emoji:calendar.date}} ${hijri}`;
+      `{{emoji:calendar.date}} ${dateCtx.gregorian.formatted} | ${dateCtx.hijri.formatted}`;
     return emojiRegistry.formatMessage(template);
   }
 
   buildPrayerScheduleTemplate(locale: TelegramLocale, now: Date = new Date()): string {
     const dict = getTelegramLocaleBundle(locale);
     const schedule = this.getCurrentSchedule();
-    const tashkentNow = getTashkentNowParts(now);
+    const dateCtx = this.getResolvedDateContext(locale, now);
 
     const findEntry = (key: string) =>
       schedule.times.find((t) => t.key === key);
@@ -273,15 +287,14 @@ export class TelegramPrayerAdapter {
       ? `{{emoji:brand.star}} ${dict.prayerNextLabel}: ${next.name} (${next.time}) — ${Math.floor(next.remainingMinutes / 60)}h ${next.remainingMinutes % 60}m`
       : null;
 
-    const hijriLabel = this.getResolvedHijriLabel(locale, now);
     const tahajjudTime = findEntry('tahajjud')?.time;
     const subhTime = findEntry('subh')?.time;
 
     const lines: string[] = [
       dict.prayerTitle,
       '',
-      `{{emoji:calendar.date}} ${dict.prayerDateLine}: ${schedule.formattedDateUz || schedule.date}`,
-      `{{emoji:brand.crescent}} ${dict.prayerHijriLine}: ${hijriLabel}`,
+      `{{emoji:calendar.date}} ${dict.prayerDateLine}: ${dateCtx.gregorian.formatted}`,
+      `{{emoji:brand.crescent}} ${dict.prayerHijriLine}: ${dateCtx.hijri.formatted}`,
       `{{emoji:brand.mosque}} ${dict.prayerLocationLine}: ${schedule.location || 'Asaka, Andijon'} (Qibla: ${schedule.qiblaAngleDeg || 241}°)`,
       '',
       ...(tahajjudTime ? [`{{emoji:brand}} ${dict.prayerNames.tahajjud}: ${tahajjudTime}`] : []),
@@ -298,7 +311,7 @@ export class TelegramPrayerAdapter {
     if (jumaTime) {
       lines.push(`{{emoji:prayer.juma}} ${dict.prayerNames.juma}: ${jumaTime}`);
     }
-    if (tashkentNow.dayOfWeek === 5) {
+    if (dateCtx.isFriday) {
       lines.push(`{{emoji:brand.star}} ${dict.jumaSpecialNotice}`);
     }
     if (nextLine) {
@@ -319,10 +332,12 @@ export class TelegramPrayerAdapter {
 
   formatRamadanModeMessage(
     locale: TelegramLocale,
-    emojiRegistry: CustomEmojiRegistry
+    emojiRegistry: CustomEmojiRegistry,
+    now: Date = new Date()
   ): FormattedEmojiMessage {
     const dict = getTelegramLocaleBundle(locale);
     const schedule = this.getCurrentSchedule();
+    const dateCtx = this.getResolvedDateContext(locale, now);
     const subh = schedule.times.find((t) => t.key === 'subh')?.time || '--:--';
     const shom = schedule.times.find((t) => t.key === 'shom')?.time || '--:--';
 
@@ -330,7 +345,7 @@ export class TelegramPrayerAdapter {
       dict.ramadanTitle,
       '',
       `{{emoji:brand.crescent}} ${dict.prayerLocationLine}: ${schedule.location || 'Asaka, Andijon'}`,
-      `{{emoji:calendar.date}} ${schedule.hijriDate || schedule.date}`,
+      `{{emoji:calendar.date}} ${dateCtx.gregorian.formatted} | ${dateCtx.hijri.formatted}`,
       '',
       `• ${dict.saharlikLabel} (${dict.prayerNames.subh}): ${subh}`,
       `• ${dict.iftorlikLabel} (${dict.prayerNames.shom}): ${shom}`,
@@ -348,10 +363,11 @@ export class TelegramPrayerAdapter {
     now: Date = new Date()
   ): FormattedEmojiMessage {
     const dict = getTelegramLocaleBundle(locale);
-    const hijri = this.getResolvedHijriLabel(locale, now);
+    const dateCtx = this.getResolvedDateContext(locale, now);
     const lines = [
       dict.calendarTitle,
-      `{{emoji:brand.crescent}} ${dict.prayerHijriLine}: ${hijri}`,
+      `{{emoji:calendar.date}} ${dict.prayerDateLine}: ${dateCtx.gregorian.formatted}`,
+      `{{emoji:brand.crescent}} ${dict.prayerHijriLine}: ${dateCtx.hijri.formatted}`,
       '',
       ...RELIGIOUS_CALENDAR_MILESTONES.map(
         (ev, idx) => `${idx + 1}. [${ev.dateLabel}] ${ev.titles[locale] || ev.titles['uz-Latn']}`
@@ -377,8 +393,7 @@ export class TelegramPrayerAdapter {
     const now = params.now || new Date();
     const dict = getTelegramLocaleBundle(locale);
     const schedule = this.getCurrentSchedule();
-    const parts = getTashkentNowParts(now);
-    const hijri = this.getResolvedHijriLabel(locale, now);
+    const dateCtx = this.getResolvedDateContext(locale, now);
     const getT = (k: string) => schedule.times.find((t) => t.key === k)?.time || '--:--';
 
     const greeting = params.userDisplayName
@@ -388,10 +403,10 @@ export class TelegramPrayerAdapter {
     const lines = [
       dict.dailyDigestTitle,
       greeting,
-      `{{emoji:calendar.date}} ${parts.dateKey} | {{emoji:brand.crescent}} ${hijri}`,
+      `{{emoji:calendar.date}} ${dateCtx.gregorian.formatted} | {{emoji:brand.crescent}} ${dateCtx.hijri.formatted}`,
       '',
       `{{emoji:prayer}} ${dict.prayerNames.bomdod}: ${getT('bomdod')} • ${dict.prayerNames.peshin}: ${getT('peshin')} • ${dict.prayerNames.asr}: ${getT('asr')} • ${dict.prayerNames.shom}: ${getT('shom')} • ${dict.prayerNames.xufton}: ${getT('xufton')}`,
-      ...(parts.dayOfWeek === 5 ? [`{{emoji:brand.star}} ${dict.jumaSpecialNotice}`] : []),
+      ...(dateCtx.isFriday ? [`{{emoji:brand.star}} ${dict.jumaSpecialNotice}`] : []),
       '',
       `{{emoji:quran}} ${params.verseSummary}`,
       '',

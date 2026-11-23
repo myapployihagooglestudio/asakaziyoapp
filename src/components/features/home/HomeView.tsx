@@ -24,6 +24,12 @@ import {
   RubElHizbBadge,
   VolumetricGodRays,
 } from '../../ui/GeometricPattern';
+import {
+  AnimatedProgressRing,
+  StaggerGrid,
+  StaggerCard,
+} from '../../ui/MotionPrimitives';
+import { resolveAsakaDateContext } from '../../../../telegram/services/dateCalendarService';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
   getNextPrayerCalculation,
@@ -157,6 +163,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   // Daily Islamic Bundle (Ayah, Hadith, Dhikr) deterministic for Tashkent date
   const [dailyBundle, setDailyBundle] = useState<DailyIslamicBundle>(() => getActiveDailyBundle());
+  const [liveDateContext, setLiveDateContext] = useState(() =>
+    resolveAsakaDateContext(new Date(), currentLocale),
+  );
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
 
   // Live Next Prayer calculation
@@ -295,6 +304,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           setCurrentDateStr(tashkentDateKey);
           setDailyBundle(getDailyBundleForDate(tashkentDateKey));
         }
+        setLiveDateContext(resolveAsakaDateContext(now, currentLocale));
 
         const timeStr = now.toLocaleTimeString('uz-UZ', {
           hour: '2-digit',
@@ -323,7 +333,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     updateClockAndDate();
     const interval = setInterval(updateClockAndDate, 1000);
     return () => clearInterval(interval);
-  }, [currentDateStr, prayerSchedule.times]);
+  }, [currentDateStr, currentLocale, prayerSchedule.times]);
 
   // Circular countdown progress calculation
   let prayerRingPercent = 68;
@@ -342,10 +352,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     // fallback
   }
 
-  const ringRadius = 64;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringStrokeDashoffset =
-    ringCircumference - (prayerRingPercent / 100) * ringCircumference;
+  // Progress ring percentage passed directly to AnimatedProgressRing
 
   const handlePlayAudio = (url?: string) => {
     if (!url) return;
@@ -436,90 +443,88 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </motion.div>
       )}
 
-      {/* 2. LUXURY SACRED CINEMA HERO SECTION WITH ANIMATED CIRCULAR PRAYER COUNTDOWN */}
-      <section className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary text-[#FFF8E8] shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
+      {/* 2. 2026 ARCHITECTURAL SANCTUARY HERO WITH LIVE COUNTDOWN RING */}
+      <section className="relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#071410] text-[#F7F5F0] shadow-[0_28px_72px_-20px_rgba(3,10,8,0.6)]">
         <img
           src="/images/asaka_islamic_architecture_1793634657962.jpg"
           alt="Asaka Islamic Architecture"
           referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity scale-105 transition-transform duration-1000"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-[0.18] mix-blend-luminosity scale-[1.03]"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-br from-[#010906]/92 via-[#041D13]/88 to-[#063D32]/82" />
-        <VolumetricGodRays />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch className="absolute right-4 top-0 h-full w-auto opacity-30 hidden lg:block" />
-        <ArabesqueCornerOrnaments size={30} />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#060E0B]/95 via-[#091C16]/90 to-[#0C2920]/82" />
+        <GeometricPattern opacity={0.04} />
 
-        <div className="relative z-10 px-5 sm:px-10 lg:px-12 py-8 sm:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left 7 Columns: Calligraphic Basmalah, Greeting, Hijri/Gregorian Dates & Primary Actions */}
+        <div className="relative z-10 px-5 sm:px-9 lg:px-12 py-7 sm:py-10 lg:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+          {/* Left 7 Columns: Clean Editorial Metadata, Headline, Live Clock & Focal CTAs */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="inline-flex items-center gap-2.5 pr-3.5 pl-1.5 py-1 rounded-full bg-[#010906]/85 border border-[#DFBD69]/65 shadow-lg">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-4 border-b border-white/[0.08] text-xs text-[#9CAFA7]">
+              <div className="inline-flex items-center gap-2 text-[#F7F5F0] font-semibold">
                 <img
                   src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
                   alt="MuhammadSolih Hoji Jome Masjidi"
-                  className="w-7 h-7 rounded-full object-cover border border-[#DFBD69]"
+                  referrerPolicy="no-referrer"
+                  className="w-6 h-6 rounded-full object-cover ring-1 ring-white/20"
                 />
-                <span className="text-[11px] font-extrabold tracking-wider text-[#FFF6C8]">
-                  «MuhammadSolih Hoji» Jomeʼ Masjidi
-                </span>
+                <span>«MuhammadSolih Hoji» Jomeʼ Masjidi</span>
               </div>
-              <CalligraphyBasmalahBadge />
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#010906]/75 border border-[#DFBD69]/40 text-xs text-[#DFBD69] shadow-inner">
-                <Calendar className="w-3.5 h-3.5 text-[#DFBD69]" />
-                <span>{dailyBundle.formattedDateUz}</span>
-                <span className="text-[#DFBD69]/50">·</span>
-                <span className="font-mono-numbers text-[#FFF8E8] font-bold">
-                  {dailyBundle.hijriDateUz}
-                </span>
-              </div>
+              <span aria-hidden="true" className="text-white/25">·</span>
+              <span>{liveDateContext.gregorian.formatted}</span>
+              <span aria-hidden="true" className="text-white/25">·</span>
+              <span className="font-mono-numbers text-[#C8A85E] font-medium">
+                {liveDateContext.hijri.formatted}
+              </span>
             </div>
 
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-[#DFBD69] font-bold">
-                <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
-                <span>Assalomu alaykum wa rahmatullohi wa barakatuh · {t('common:location', 'Asaka')}</span>
-              </div>
+            <div className="space-y-3.5">
+              <p className="text-xs sm:text-sm font-medium text-[#10B981]">
+                Assalomu alaykum wa rahmatullohi wa barakatuh · {t('common:location', 'Asaka')}
+              </p>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8] leading-[1.12] text-balance drop-shadow-[0_10px_28px_rgba(0,0,0,0.45)]">
+              <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-display font-bold tracking-[-0.03em] text-[#F7F5F0] leading-[1.1] text-balance max-w-2xl">
                 {t('home:heroTitle')}
               </h1>
 
-              <p className="text-sm sm:text-base text-[#FFF8E8]/85 leading-relaxed max-w-2xl">
+              <p className="text-sm sm:text-[15px] text-[#C2D1CB] leading-relaxed max-w-xl">
                 {t('home:heroSubtitle')}
               </p>
             </div>
 
-            {/* Live Tashkent Time + Location Pill */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <div className="px-4 py-2.5 rounded-2xl bg-[#010906]/80 border border-[#DFBD69]/45 backdrop-blur-md flex items-center gap-3 shadow-lg">
-                <Clock className="w-4 h-4 text-[#DFBD69]" />
+            {/* Clean Architectural Telemetry Strip (No nested pill clutter) */}
+            <div className="flex flex-wrap items-center gap-6 pt-1">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[#10B981] shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-[#DFBD69] font-semibold block">
+                  <span className="text-[11px] text-[#8EA39B] block">
                     Toshkent / Asaka vaqti
                   </span>
-                  <div className="text-lg font-mono-numbers font-bold text-[#FFF8E8] tracking-wider">
-                    {clockHours}:{clockMinutes}:<span className="az-gold-foil-text">{clockSeconds}</span>
+                  <div className="text-lg font-mono-numbers font-bold text-[#F7F5F0] tabular-nums tracking-tight">
+                    {clockHours}:{clockMinutes}:<span className="text-[#C8A85E]">{clockSeconds}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="px-4 py-2.5 rounded-2xl bg-[#010906]/80 border border-[#DFBD69]/45 backdrop-blur-md flex items-center gap-3 shadow-lg">
-                <Compass className="w-4 h-4 text-[#DFBD69]" />
+              <div className="h-8 w-px bg-white/[0.08] hidden sm:block" aria-hidden="true" />
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[#C8A85E] shrink-0">
+                  <Compass className="w-4 h-4" />
+                </div>
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-[#DFBD69] font-semibold block">
+                  <span className="text-[11px] text-[#8EA39B] block">
                     Qibla yoʻnalishi
                   </span>
-                  <div className="text-sm font-mono-numbers font-bold text-[#FFF8E8]">
+                  <div className="text-sm font-mono-numbers font-semibold text-[#F7F5F0] tabular-nums">
                     {prayerSchedule.qiblaAngleDeg || 241}° Gʻarb-Janubi-Gʻarb
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Hero CTA Buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            {/* Focused Hero Actions: 1 Primary CTA + 1 Secondary + Quiet Utility Triggers */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
               <Button
                 variant="primary"
                 size="md"
@@ -530,137 +535,112 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span>{t('home:heroPrayerCta')}</span>
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="md"
                 onClick={() => onNavigate('quran')}
-                className="gap-2 bg-[#010906]/65 backdrop-blur-md border-[#DFBD69]/60 text-[#FFF8E8] hover:bg-[#DFBD69]/20"
+                className="gap-2 bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-[#F7F5F0]"
               >
-                <BookOpen className="w-4 h-4 text-[#DFBD69]" />
+                <BookOpen className="w-4 h-4 text-[#C8A85E]" />
                 <span>{t('home:heroQuranCta')}</span>
               </Button>
-              <Button
-                variant="outline"
-                size="md"
+              <button
+                type="button"
                 onClick={() => onNavigate('quran_quiz')}
-                className="gap-2 bg-[#010906]/65 backdrop-blur-md border-[#DFBD69]/60 text-[#DFBD69] hover:bg-[#DFBD69]/20"
+                className="min-h-[44px] px-3.5 rounded-xl text-xs font-medium text-[#C2D1CB] hover:text-[#F7F5F0] hover:bg-white/[0.06] transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <Film className="w-4 h-4 text-[#DFBD69]" />
-                <span>Qurʼon Viktorinasi (9:16)</span>
-              </Button>
+                <Film className="w-3.5 h-3.5 text-[#10B981]" />
+                <span>Qurʼon Viktorinasi</span>
+              </button>
               {onOpenTvMode && (
-                <Button
-                  variant="outline"
-                  size="md"
+                <button
+                  type="button"
                   onClick={onOpenTvMode}
-                  className="gap-2 bg-[#063D32]/85 backdrop-blur-md border-[#DFBD69]/75 text-[#FFF8E8] hover:bg-[#DFBD69] hover:text-[#010906]"
+                  className="min-h-[44px] px-3.5 rounded-xl text-xs font-medium text-[#C2D1CB] hover:text-[#F7F5F0] hover:bg-white/[0.06] transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
-                  <Tv className="w-4 h-4 text-[#DFBD69]" />
-                  <span>Masjid Jamoat Ekrani (TV)</span>
-                </Button>
+                  <Tv className="w-3.5 h-3.5 text-[#C8A85E]" />
+                  <span>Masjid TV</span>
+                </button>
               )}
             </div>
           </div>
 
-          {/* Right 5 Columns: Animated Circular Next-Prayer Countdown Mihrab Card */}
+          {/* Right 5 Columns: Translucent Obsidian Next-Prayer Countdown Card */}
           <div className="lg:col-span-5">
-            <div className="relative rounded-3xl bg-[#010906]/85 border border-[#DFBD69]/55 p-6 sm:p-7 backdrop-blur-2xl shadow-[0_24px_70px_rgba(0,0,0,0.65)] overflow-hidden">
-              <ArabesqueCornerOrnaments size={22} />
-              <div className="relative z-10 flex items-center justify-between gap-2 pb-4 border-b border-[#DFBD69]/25">
+            <div className="relative rounded-3xl bg-[#0B1713]/85 border border-white/[0.1] p-6 sm:p-7 backdrop-blur-xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.65)]">
+              <div className="flex items-start justify-between gap-3 pb-5 border-b border-white/[0.08]">
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-[#DFBD69] block">
-                    Navbatdagi Namoz Vaqti
+                  <span className="text-xs font-medium text-[#8EA39B] block">
+                    Navbatdagi namoz vaqti
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-display font-bold text-[#FFF8E8] mt-0.5">
-                    {nextPrayerInfo.nextPrayer
-                      ? t(`prayer:${nextPrayerInfo.nextPrayer.key}`, nextPrayerInfo.nextPrayer.nameUz)
-                      : 'Bomdod'}{' '}
-                    <span className="font-arabic text-lg az-gold-foil-text ml-1">
+                  <h2 className="text-xl sm:text-2xl font-display font-bold text-[#F7F5F0] mt-1 tracking-tight flex items-baseline gap-2">
+                    <span>
+                      {nextPrayerInfo.nextPrayer
+                        ? t(`prayer:${nextPrayerInfo.nextPrayer.key}`, nextPrayerInfo.nextPrayer.nameUz)
+                        : 'Bomdod'}
+                    </span>
+                    <span className="font-arabic text-lg text-[#C8A85E] font-normal">
                       {nextPrayerInfo.nextPrayer?.nameAr || 'الفجر'}
                     </span>
                   </h2>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] uppercase tracking-wider text-[#FFF8E8]/60 block">
+                  <span className="text-xs text-[#8EA39B] block">
                     Azon vaqti
                   </span>
-                  <span className="text-2xl font-mono-numbers font-bold az-gold-foil-text">
+                  <span className="text-2xl font-mono-numbers font-bold text-[#10B981] tabular-nums">
                     {nextPrayerInfo.nextPrayer?.time || '05:14'}
                   </span>
                 </div>
               </div>
 
               {/* Circular Animated Progress Ring */}
-              <div className="relative z-10 py-5 flex flex-col sm:flex-row items-center justify-around gap-5">
-                <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 150 150">
-                    <circle
-                      cx="75"
-                      cy="75"
-                      r={ringRadius}
-                      stroke="rgba(223, 189, 105, 0.16)"
-                      strokeWidth="8"
-                      fill="transparent"
-                    />
-                    <circle
-                      cx="75"
-                      cy="75"
-                      r={ringRadius}
-                      stroke="url(#hero-countdown-gold)"
-                      strokeWidth="8.5"
-                      strokeDasharray={ringCircumference}
-                      strokeDashoffset={ringStrokeDashoffset}
-                      strokeLinecap="round"
-                      fill="transparent"
-                      className="transition-all duration-700 ease-out"
-                    />
-                    <defs>
-                      <linearGradient id="hero-countdown-gold" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="#8A6621" />
-                        <stop offset="30%" stopColor="#DFBD69" />
-                        <stop offset="55%" stopColor="#FFF6C8" />
-                        <stop offset="80%" stopColor="#D4AF37" />
-                        <stop offset="100%" stopColor="#7A5818" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
-                    <span className="text-[10px] uppercase tracking-widest text-[#DFBD69] font-semibold">
-                      Qolgan vaqt
+              <div className="pt-5 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <AnimatedProgressRing
+                  progress={prayerRingPercent}
+                  size={156}
+                  strokeWidth={7.5}
+                  trackClassName="stroke-white/10"
+                  strokeColor="#10B981"
+                  secondaryStrokeColor="#C8A85E"
+                  className="shrink-0"
+                >
+                  <span className="text-[11px] text-[#8EA39B] font-medium">
+                    Qolgan vaqt
+                  </span>
+                  <span className="text-xl sm:text-2xl font-mono-numbers font-bold text-[#F7F5F0] tracking-tight mt-0.5 tabular-nums">
+                    {nextPrayerInfo.countdownText}
+                  </span>
+                  {nextPrayerInfo.currentPrayer && (
+                    <span className="text-[11px] text-[#10B981] font-medium mt-1">
+                      Hozir: {t(`prayer:${nextPrayerInfo.currentPrayer.key}`, nextPrayerInfo.currentPrayer.nameUz)}
                     </span>
-                    <span className="text-xl sm:text-2xl font-mono-numbers font-bold text-[#FFF8E8] tracking-tight mt-0.5">
-                      {nextPrayerInfo.countdownText}
-                    </span>
-                    {nextPrayerInfo.currentPrayer && (
-                      <span className="text-[10px] text-emerald-300 font-semibold mt-1">
-                        Hozir: {t(`prayer:${nextPrayerInfo.currentPrayer.key}`, nextPrayerInfo.currentPrayer.nameUz)}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  )}
+                </AnimatedProgressRing>
 
-                {/* Quick Adhan Preview & Schedule Details */}
-                <div className="space-y-3 w-full sm:w-auto">
-                  <div className="p-3 rounded-2xl bg-[#041D13]/90 border border-[#DFBD69]/35">
-                    <div className="text-[11px] text-[#DFBD69] font-semibold">
-                      Jamoat (Iqomat) vaqti:
+                {/* Quick Adhan Preview & Iqamah Details */}
+                <div className="space-y-3 w-full sm:flex-1">
+                  <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
+                    <div className="text-xs text-[#8EA39B]">
+                      Jamoat (Iqomat) vaqti
                     </div>
-                    <div className="text-lg font-mono-numbers font-bold text-[#FFF8E8]">
+                    <div className="text-lg font-mono-numbers font-bold text-[#F7F5F0] tabular-nums mt-0.5">
                       {nextPrayerInfo.nextPrayer?.iqamahTime || nextPrayerInfo.nextPrayer?.time || '05:40'}
                     </div>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => toggleAdhanAudio(ADHAN_TRACKS[0]?.id || 'mishary-alafasy-standard')}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-[#DFBD69]/25 to-[#D4AF37]/15 hover:from-[#DFBD69] hover:to-[#D4AF37] text-[#FFF6C8] hover:text-[#010906] border border-[#DFBD69]/55 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+                    className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-white/[0.07] hover:bg-[#10B981] text-[#F7F5F0] hover:text-[#04120D] border border-white/[0.12] hover:border-[#10B981] text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer"
                   >
                     {isAdhanPreviewPlaying ? (
                       <>
-                        <Pause className="w-3.5 h-3.5" />
+                        <Pause className="w-4 h-4 shrink-0" />
                         <span>Azonni toʻxtatish</span>
                       </>
                     ) : (
                       <>
-                        <Volume2 className="w-3.5 h-3.5" />
+                        <Volume2 className="w-4 h-4 shrink-0" />
                         <span>Mishariy Azonini tinglash</span>
                       </>
                     )}
@@ -676,13 +656,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 text-xs text-[#063D32] dark:text-[#C6A45C] uppercase tracking-widest font-bold mb-1">
-              <Clock className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-2 text-xs text-[#4B635B] dark:text-[#8EA39B] font-medium mb-1">
               <span>{t('navigation:prayer')}</span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono-numbers">{currentTime} ({t('common:tashkentTime')})</span>
+              <span className="font-mono-numbers tabular-nums">{currentTime} ({t('common:tashkentTime')})</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#042B25] dark:text-[#F8F5EC]">
+            <h2 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-[#0B1B16] dark:text-[#F7F5F0]">
               {t('home:todayPrayers')}
             </h2>
           </div>
@@ -699,30 +678,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         {/* 8-Time Prayer Architectural Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
+        <StaggerGrid className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3" staggerDelay={0.03}>
           {prayerSchedule.times.map((p) => {
             const isNext = nextPrayerInfo.nextPrayer?.key === p.key;
             const isCurrent = nextPrayerInfo.currentPrayer?.key === p.key;
             const translatedName = t(`prayer:${p.key}`, p.nameUz);
 
             return (
+              <StaggerCard key={p.id}>
               <Card
-                key={p.id}
                 variant={isNext ? 'emerald' : 'elevated'}
                 interactive
                 onClick={() => onNavigate('prayer')}
-                className={`p-4 transition-all ${
+                className={`p-4 transition-all h-full ${
                   isNext
-                    ? 'ring-2 ring-[#C6A45C] shadow-lg'
+                    ? 'ring-1 ring-[#10B981]/60 shadow-lg'
                     : isCurrent
-                    ? 'border-[#063D32] dark:border-[#C6A45C]/60'
+                    ? 'border-[#064E3B]/40 dark:border-[#10B981]/40'
                     : ''
                 }`}
               >
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <span
                     className={`font-semibold ${
-                      isNext ? 'text-[#DCC58C]' : 'text-[#2C4A42] dark:text-[#D4CFC3]'
+                      isNext ? 'text-[#A7F3D0]' : 'text-[#4B635B] dark:text-[#9CAFA7]'
                     }`}
                   >
                     {translatedName}
@@ -755,9 +734,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </div>
                 )}
               </Card>
+              </StaggerCard>
             );
           })}
-        </div>
+        </StaggerGrid>
 
         {/* Daily 5-Prayer Completion Tracker Bar */}
         <Card elevated className="p-5 sm:p-6 space-y-4">

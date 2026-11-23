@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'emerald' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'emerald' | 'secondary' | 'outline' | 'ghost' | 'champagne';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
 }
@@ -14,25 +14,27 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center justify-center font-semibold tracking-wide transition-all duration-200 rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DFBD69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8F5EC] dark:focus-visible:ring-offset-[#010906] disabled:opacity-50 disabled:pointer-events-none active:scale-[0.97] cursor-pointer';
+    'inline-flex items-center justify-center font-semibold tracking-[-0.01em] transition-[transform,background-color,border-color,color,box-shadow] duration-150 rounded-2xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#10B981] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F5F0] dark:focus-visible:ring-offset-[#060B09] disabled:opacity-45 disabled:pointer-events-none active:scale-[0.975] cursor-pointer';
 
   const sizeStyles = {
-    sm: 'text-xs min-h-[38px] px-3.5 py-2 gap-1.5',
+    sm: 'text-xs min-h-[38px] px-3.5 py-2 gap-1.5 rounded-xl',
     md: 'text-sm min-h-[44px] px-5 py-2.5 gap-2',
-    lg: 'text-base min-h-[50px] px-6 py-3 gap-2.5',
+    lg: 'text-[15px] min-h-[50px] px-6 py-3 gap-2.5',
   };
 
-  const variantStyles = {
+  const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
     primary:
-      'bg-[linear-gradient(135deg,#8A6621_0%,#DFBD69_25%,#FFF6C8_50%,#D4AF37_75%,#7A5818_100%)] text-[#010906] font-extrabold hover:brightness-105 hover:shadow-[0_8px_24px_-4px_rgba(223,189,105,0.55)] shadow-[0_4px_16px_-2px_rgba(212,175,55,0.42),inset_0_1px_0_rgba(255,255,255,0.65)] border border-[#FFF6C8]/65',
+      'bg-[#064E3B] text-[#F7F5F0] hover:bg-[#053E2F] dark:bg-[#C8A85E] dark:text-[#07110D] dark:hover:bg-[#D6B974] font-bold shadow-[0_1px_2px_rgba(0,0,0,0.12),0_10px_24px_-10px_rgba(6,78,59,0.45)] dark:shadow-[0_10px_24px_-10px_rgba(200,168,94,0.42)]',
+    champagne:
+      'bg-[#C8A85E] text-[#07110D] hover:bg-[#D6B974] font-bold shadow-[0_8px_22px_-10px_rgba(200,168,94,0.45)]',
     emerald:
-      'bg-[linear-gradient(135deg,#092E1F_0%,#063D32_50%,#075747_100%)] text-[#FFF8E8] hover:brightness-110 border border-[#DFBD69]/45 shadow-[0_6px_20px_-4px_rgba(3,23,15,0.5),inset_0_1px_0_rgba(255,246,200,0.2)]',
+      'bg-emerald-600 text-white hover:bg-emerald-500 font-semibold shadow-[0_8px_20px_-8px_rgba(16,185,129,0.45)]',
     secondary:
-      'bg-[#FFF8E8] text-[#03170F] hover:bg-[#F1EBDD] border border-[#063D32]/18 dark:bg-[#041D13] dark:text-[#FFF8E8] dark:hover:bg-[#092E1F] dark:border-[#DFBD69]/32 shadow-xs',
+      'bg-[#F2EFE9] text-[#0B1B16] hover:bg-[#E7E2D8] border border-[#064E3B]/10 dark:bg-white/[0.06] dark:text-[#F7F5F0] dark:hover:bg-white/[0.11] dark:border-white/[0.08]',
     outline:
-      'border border-[#DFBD69]/65 text-[#063D32] dark:text-[#DFBD69] hover:bg-[#DFBD69]/15 hover:border-[#FFF6C8] shadow-[inset_0_1px_0_rgba(255,246,200,0.12)]',
+      'border border-[#064E3B]/18 text-[#064E3B] hover:bg-[#064E3B]/6 dark:border-white/[0.14] dark:text-[#E8E4DA] dark:hover:bg-white/[0.07] dark:hover:border-white/[0.24]',
     ghost:
-      'text-[#1E3F35] hover:text-[#03170F] hover:bg-[#063D32]/8 dark:text-[#E6DFCE] dark:hover:text-[#FFF8E8] dark:hover:bg-white/8',
+      'text-[#334F46] hover:text-[#0B1B16] hover:bg-[#064E3B]/6 dark:text-[#A3B8B0] dark:hover:text-[#F7F5F0] dark:hover:bg-white/[0.07]',
   };
 
   return (
@@ -44,4 +46,3 @@ export const Button: React.FC<ButtonProps> = ({
     </button>
   );
 };
-

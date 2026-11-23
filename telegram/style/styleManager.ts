@@ -352,9 +352,11 @@ export class TelegramStyleManager {
   buildPrayerRichMessage(
     prayerAdapter: TelegramPrayerAdapter,
     locale: TelegramLocale,
-    includeWidgetBtn = false
+    includeWidgetBtn = false,
+    now: Date = new Date()
   ): { blocks: InputRichBlock[]; fallbackText: string } {
     const sched = prayerAdapter.getCurrentSchedule();
+    const dateCtx = prayerAdapter.getResolvedDateContext(locale, now);
     const headerText = this.getTemplate('prayer_header');
     const footerText = this.getTemplate('prayer_footer');
     const rows: InputRichText[][] = sched.times.map((t) => [
@@ -379,7 +381,7 @@ export class TelegramStyleManager {
         type: 'paragraph',
         text: this.richWithIcon(
           'calendar',
-          `${sched.formattedDateUz || sched.date} • ${sched.hijriDate || ''} (${locale})`
+          `${dateCtx.gregorian.formatted} • ${dateCtx.hijri.formatted}`
         ),
       },
       {
@@ -537,13 +539,18 @@ export class TelegramStyleManager {
    * Interactive Prayer Schedule Card (Bot API 10.4 HTML Widget).
    * Strictly self-contained (zero network calls, zero external fonts/scripts), XSS-escaped.
    */
-  buildPrayerCountdownWidgetHtml(prayerAdapter: TelegramPrayerAdapter): {
+  buildPrayerCountdownWidgetHtml(
+    prayerAdapter: TelegramPrayerAdapter,
+    locale: TelegramLocale = 'uz-Latn',
+    now: Date = new Date()
+  ): {
     html: string;
     fallbackText: string;
   } {
     const sched = prayerAdapter.getCurrentSchedule();
-    const safeDate = escapeTelegramHtml(sched.formattedDateUz || sched.date);
-    const safeHijri = escapeTelegramHtml(sched.hijriDate || '');
+    const dateCtx = prayerAdapter.getResolvedDateContext(locale, now);
+    const safeDate = escapeTelegramHtml(dateCtx.gregorian.formatted);
+    const safeHijri = escapeTelegramHtml(dateCtx.hijri.formatted);
     const rowsHtml = sched.times
       .map(
         (t) =>
@@ -565,7 +572,7 @@ export class TelegramStyleManager {
 
     const fallbackText =
       `{{emoji:prayer}} ASAKA ZIYO — Asaka Namoz Vaqtlari\n` +
-      `{{emoji:calendar}} ${sched.formattedDateUz || sched.date} • ${sched.hijriDate || ''}\n\n` +
+      `{{emoji:calendar}} ${dateCtx.gregorian.formatted} • ${dateCtx.hijri.formatted}\n\n` +
       sched.times.map((t) => `• ${t.nameUz}: ${t.time}`).join('\n');
 
     return { html, fallbackText };

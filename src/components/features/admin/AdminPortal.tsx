@@ -17,6 +17,7 @@ import {
   PublishMode,
 } from '../../../types';
 import { ADMIN_ROLES_CONFIG, INITIAL_AUDIT_LOGS } from '../../../data/adminData';
+import { resolveAsakaDateContext } from '../../../../telegram/services/dateCalendarService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { GeometricPattern, IslamicStarEmblem, ArabesqueCornerOrnaments } from '../../ui/GeometricPattern';
@@ -1253,7 +1254,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       )
       .join('\n');
 
-    const message = `🌙 <b>ASAKA ZIYO — RASMIY 8 NAMOZ TAQVIMI</b>\n📍 <i>Asaka shahri, Andijon viloyati</i>\n📅 <i>${currentSchedule.formattedDateUz} / ${currentSchedule.hijriDate}</i>\n\n${timesList}\n\n<i>«Albatta, namoz moʻminlarga vaqtida tayinlangan farzdir»</i>\n\n📲 Rasmiy portal: @asaka_ziyo_rasmiy`;
+    const liveDate = resolveAsakaDateContext(new Date(), 'uz-Latn');
+    const message = `🌙 <b>ASAKA ZIYO — RASMIY 8 NAMOZ TAQVIMI</b>\n📍 <i>Asaka shahri, Andijon viloyati</i>\n📅 <i>${liveDate.gregorian.formatted} / ${liveDate.hijri.formatted}</i>\n\n${timesList}\n\n<i>«Albatta, namoz moʻminlarga vaqtida tayinlangan farzdir»</i>\n\n📲 Rasmiy portal: @Asaka_Ziyo`;
 
     handleSendTelegramMessage(message);
   };

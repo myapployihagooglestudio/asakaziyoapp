@@ -4,102 +4,94 @@
 
 @layer base {
   :root {
-    /* ASAKA ZIYO — Global Luxury Sacred Cinema Brand System
-       Light Mode: Warm Ivory (#FFF8E8 / #F8F5EC) & Royal Emerald (#063D32 / #075747) */
-    --bg-canvas: #F8F5EC;
-    --bg-surface: #FFF8E8;
-    --bg-surface-subtle: #F1EBDD;
+    /* ASAKA ZIYO — 2026/2027 Architectural Design System ("NOOR")
+       Light Mode: Gallery Warm Alabaster (#F7F5F0), Pure Surface (#FFFFFF), Deep Forest (#064E3B), Champagne Hairline (#C8A85E) */
+    --bg-canvas: #F7F5F0;
+    --bg-surface: #FFFFFF;
+    --bg-surface-subtle: #F2EFE9;
     --bg-surface-elevated: #FFFFFF;
-    --text-primary: #03170F;
-    --text-secondary: #1E3F35;
-    --text-muted: #526B62;
-    --border-hairline: rgba(6, 61, 50, 0.12);
-    --border-gold: rgba(212, 175, 55, 0.42);
+    --text-primary: #0B1B16;
+    --text-secondary: #334F46;
+    --text-muted: #5F776F;
+    --border-hairline: rgba(6, 78, 59, 0.1);
+    --border-gold: rgba(200, 168, 94, 0.35);
 
     /* Primary & Secondary Brand Palette Tokens */
-    --color-emerald-obsidian: #010906;
-    --color-emerald-night: #03170F;
-    --color-emerald-velvet: #041D13;
-    --color-emerald-sacred: #092E1F;
-    --color-emerald-deep: #063D32;
-    --color-emerald-royal: #075747;
-    --color-forest-dark: #03170F;
-    --color-ivory-warm: #FFF8E8;
-    --color-ivory-soft: #F8F5EC;
-    --color-cream-soft: #F1EBDD;
+    --color-emerald-obsidian: #060B09;
+    --color-emerald-night: #0A1210;
+    --color-emerald-velvet: #0C1512;
+    --color-emerald-sacred: #11221C;
+    --color-emerald-deep: #064E3B;
+    --color-emerald-royal: #059669;
+    --color-forest-dark: #0B1B16;
+    --color-ivory-warm: #FAF8F4;
+    --color-ivory-soft: #F7F5F0;
+    --color-cream-soft: #F2EFE9;
 
-    /* Realistic 5-Stop Metallic Gold Foil Tokens */
-    --color-gold-shadow: #8A6621;
-    --color-gold-champagne: #DFBD69;
-    --color-gold-highlight: #FFF6C8;
-    --color-gold-classic: #D4AF37;
-    --color-gold-bronze: #7A5818;
-    --color-gold-muted: #DFBD69;
-    --color-gold-300: #FFF6C8;
-    --color-gold-400: #DFBD69;
-    --color-gold-500: #D4AF37;
-    --color-gold-600: #8A6621;
+    /* Refined Champagne Gold Accent Tokens (restrained, never kitschy) */
+    --color-gold-shadow: #9A7A3A;
+    --color-gold-champagne: #C8A85E;
+    --color-gold-highlight: #F4E6C1;
+    --color-gold-classic: #C8A85E;
+    --color-gold-bronze: #8A6B2D;
+    --color-gold-muted: #C8A85E;
+    --color-gold-300: #F4E6C1;
+    --color-gold-400: #D6B974;
+    --color-gold-500: #C8A85E;
+    --color-gold-600: #9A7A3A;
 
-    --gradient-gold-foil: linear-gradient(
-      135deg,
-      #8A6621 0%,
-      #DFBD69 25%,
-      #FFF6C8 50%,
-      #D4AF37 75%,
-      #7A5818 100%
-    );
+    --gradient-gold-foil: linear-gradient(135deg, #B59247 0%, #D6B974 52%, #C8A85E 100%);
     --gradient-emerald-royal: radial-gradient(
-      circle at 50% 18%,
-      #092E1F 0%,
-      #063D32 45%,
-      #03170F 85%,
-      #010906 100%
+      circle at 18% 0%,
+      #0B3B2D 0%,
+      #06231B 48%,
+      #060B09 100%
     );
 
-    --color-canvas-dark: #010906;
-    --color-surface-dark: #03170F;
-    --color-surface-dark-elevated: #041D13;
+    --color-canvas-dark: #060B09;
+    --color-surface-dark: #0B1411;
+    --color-surface-dark-elevated: #111E19;
 
     /* Fluid Typography Scale (320px Mobile -> 3840px 4K Display) */
-    --font-fluid-hero: clamp(1.85rem, 2.8vw + 1rem, 3.5rem);
-    --font-fluid-h1: clamp(1.5rem, 2vw + 0.85rem, 2.75rem);
-    --font-fluid-h2: clamp(1.25rem, 1.4vw + 0.75rem, 2rem);
-    --font-fluid-body: clamp(0.875rem, 0.25vw + 0.8rem, 1.0625rem);
-    --font-fluid-arabic: clamp(1.55rem, 1.8vw + 1.1rem, 2.65rem);
+    --font-fluid-hero: clamp(1.85rem, 2.6vw + 0.95rem, 3.4rem);
+    --font-fluid-h1: clamp(1.5rem, 1.9vw + 0.85rem, 2.6rem);
+    --font-fluid-h2: clamp(1.22rem, 1.3vw + 0.75rem, 1.85rem);
+    --font-fluid-body: clamp(0.875rem, 0.2vw + 0.82rem, 1.025rem);
+    --font-fluid-arabic: clamp(1.6rem, 1.8vw + 1.1rem, 2.65rem);
 
     /* Fluid Spacing & Container Dimension Tokens */
     --space-fluid-sm: clamp(0.5rem, 1vw, 1rem);
     --space-fluid-md: clamp(1rem, 2vw, 2rem);
-    --space-fluid-lg: clamp(1.5rem, 3vw, 3.5rem);
+    --space-fluid-lg: clamp(1.5rem, 3vw, 3.25rem);
     --container-max-width: 90rem;
     --radius-card: 1.5rem;
-    --radius-hero: 2rem;
+    --radius-hero: 1.75rem;
 
     /* Elevation & Motion Tokens */
-    --shadow-card: 0 12px 34px -8px rgba(3, 23, 15, 0.08), 0 2px 8px -1px rgba(138, 102, 33, 0.06);
-    --shadow-elevated: 0 24px 54px -12px rgba(3, 23, 15, 0.18), 0 4px 16px -2px rgba(212, 175, 55, 0.14);
-    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --shadow-card: 0 1px 2px rgba(6, 24, 18, 0.04), 0 10px 30px -14px rgba(6, 24, 18, 0.08);
+    --shadow-elevated: 0 2px 6px rgba(6, 24, 18, 0.05), 0 22px 48px -18px rgba(6, 24, 18, 0.14);
+    --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --duration-fast: 160ms;
-    --duration-normal: 280ms;
+    --duration-fast: 150ms;
+    --duration-normal: 260ms;
   }
 
   .dark {
-    /* ASAKA ZIYO — Dark Mode: Deep Emerald Velvet (#010906 -> #03170F -> #041D13) & Metallic Gold Foil */
-    --bg-canvas: #010906;
-    --bg-surface: #03170F;
-    --bg-surface-subtle: #041D13;
-    --bg-surface-elevated: #092E1F;
-    --text-primary: #FFF8E8;
-    --text-secondary: #E6DFCE;
-    --text-muted: #9CB5AC;
-    --border-hairline: rgba(223, 189, 105, 0.18);
-    --border-gold: rgba(223, 189, 105, 0.48);
+    /* ASAKA ZIYO — Dark Mode: Architectural Obsidian Pine (#060B09 -> #0B1411 -> #111E19) */
+    --bg-canvas: #060B09;
+    --bg-surface: #0B1411;
+    --bg-surface-subtle: #0F1A16;
+    --bg-surface-elevated: #14241E;
+    --text-primary: #F7F5F0;
+    --text-secondary: #D4DDD8;
+    --text-muted: #8FA69D;
+    --border-hairline: rgba(255, 255, 255, 0.08);
+    --border-gold: rgba(200, 168, 94, 0.34);
 
-    --color-gold-500: #DFBD69;
-    --color-gold-600: #FFF6C8;
-    --shadow-card: 0 16px 40px -8px rgba(0, 0, 0, 0.68), inset 0 1px 0 rgba(255, 246, 200, 0.1);
-    --shadow-elevated: 0 28px 68px -12px rgba(0, 0, 0, 0.82), 0 0 28px -4px rgba(223, 189, 105, 0.16), inset 0 1px 0 rgba(255, 246, 200, 0.18);
+    --color-gold-500: #C8A85E;
+    --color-gold-600: #F4E6C1;
+    --shadow-card: 0 16px 38px -14px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-elevated: 0 26px 64px -16px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   html, body, #root {
@@ -116,13 +108,21 @@
   }
 
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
     font-size: var(--font-fluid-body);
     background-color: var(--bg-canvas);
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 220ms ease, color 220ms ease;
+    transition: background-color 200ms ease, color 200ms ease;
+    background-image:
+      radial-gradient(ellipse 80% 45% at 50% -10%, rgba(16, 185, 129, 0.06), transparent 65%);
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(ellipse 85% 42% at 50% -12%, rgba(16, 185, 129, 0.11), transparent 62%),
+      radial-gradient(ellipse 45% 30% at 88% 0%, rgba(200, 168, 94, 0.06), transparent 55%);
   }
 
   h1, h2, h3, .headline-balance {
@@ -145,9 +145,30 @@
 
   /* Universal Keyboard & Smart TV Remote Focus Indicator */
   :focus-visible {
-    outline: 2.5px solid #DFBD69 !important;
-    outline-offset: 3px !important;
+    outline: 2px solid #10B981 !important;
+    outline-offset: 2px !important;
   }
+}
+
+/* 2026 Progressive View Transitions API */
+::view-transition-old(root) {
+  animation: 160ms cubic-bezier(0.22, 1, 0.36, 1) both azViewOut;
+}
+::view-transition-new(root) {
+  animation: 220ms cubic-bezier(0.22, 1, 0.36, 1) both azViewIn;
+}
+@keyframes azViewOut {
+  from { opacity: 1; }
+  to { opacity: 0.72; }
+}
+@keyframes azViewIn {
+  from { opacity: 0.78; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* CSS Container Query Surface Hook */
+.az-container {
+  container-type: inline-size;
 }
 
 .font-arabic {
@@ -160,16 +181,19 @@
   line-height: 2.35;
 }
 
+/* Modern Editorial Display Typography (Plus Jakarta Sans / Cormorant Garamond pairing) */
 .font-display {
-  font-family: 'Cinzel', serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -0.025em;
 }
 
 .font-editorial {
   font-family: 'Cormorant Garamond', Georgia, serif;
+  letter-spacing: -0.01em;
 }
 
 .font-mono-numbers {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -178,85 +202,62 @@
 }
 
 .pb-safe {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px));
 }
 
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-top, 0px));
 }
 
-/* Luxury Architectural Surface Utilities */
+/* 2026 Architectural Glass Surfaces */
 .surface-luxury-glass {
-  background: linear-gradient(145deg, rgba(255, 248, 232, 0.94), rgba(248, 245, 236, 0.88));
-  backdrop-filter: blur(22px) saturate(160%);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
-  border: 1px solid rgba(212, 175, 55, 0.34);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(6, 78, 59, 0.1);
   box-shadow: var(--shadow-card);
 }
 
 .dark .surface-luxury-glass {
-  background: linear-gradient(155deg, rgba(4, 29, 19, 0.82) 0%, rgba(9, 46, 31, 0.68) 50%, rgba(1, 9, 6, 0.90) 100%);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(223, 189, 105, 0.36);
+  background: rgba(11, 20, 17, 0.76);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: var(--shadow-card);
 }
 
 .surface-emerald-royal {
-  background: radial-gradient(circle at 50% 18%, #092E1F 0%, #063D32 45%, #03170F 85%, #010906 100%);
+  background: radial-gradient(circle at 20% 0%, #0B3B2D 0%, #071F18 48%, #060B09 100%);
 }
 
-/* Global Metallic Gold Foil Text & Background Utilities */
+/* Restrained Champagne Accent Utilities (backwards-compatible class names, refined 2026 look) */
 .az-gold-foil-text {
-  background: linear-gradient(135deg, #8A6621 0%, #DFBD69 25%, #FFF6C8 50%, #D4AF37 75%, #7A5818 100%);
+  background: linear-gradient(135deg, #D6B974 0%, #F4E6C1 50%, #C8A85E 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .az-gold-foil-bg {
-  background: linear-gradient(135deg, #8A6621 0%, #DFBD69 25%, #FFF6C8 50%, #D4AF37 75%, #7A5818 100%);
+  background: linear-gradient(135deg, #C8A85E 0%, #D8BC78 55%, #BA9649 100%);
 }
 
 .az-hero-sanctuary {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 16%, rgba(16, 185, 129, 0.18) 0%, transparent 48%),
-    radial-gradient(circle at 85% 22%, rgba(223, 189, 105, 0.14) 0%, transparent 44%),
-    radial-gradient(circle at 50% 25%, #092E1F 0%, #041D13 48%, #03170F 78%, #010906 100%);
-  border: 1.5px solid rgba(223, 189, 105, 0.48);
+    radial-gradient(ellipse 68% 58% at 15% 0%, rgba(16, 185, 129, 0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 52% 45% at 92% 14%, rgba(200, 168, 94, 0.14) 0%, transparent 55%),
+    linear-gradient(155deg, #09251D 0%, #071712 52%, #050C0A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
-    0 28px 70px -16px rgba(1, 9, 6, 0.65),
-    inset 0 1px 0 rgba(255, 246, 200, 0.28),
-    inset 0 0 36px rgba(223, 189, 105, 0.08);
+    0 28px 70px -24px rgba(3, 12, 9, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .az-card-specular {
   position: relative;
   overflow: hidden;
-}
-
-.az-card-specular::after {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  top: 0;
-  left: -120%;
-  width: 55%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 246, 200, 0.08) 50%,
-    transparent 100%
-  );
-  transform: skewX(-22deg);
-  transition: left 0.75s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.az-card-specular:hover::after {
-  left: 160%;
 }
 
 /* ==========================================================================

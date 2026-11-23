@@ -1,12 +1,11 @@
 import React from 'react';
-import { ArabesqueCornerOrnaments } from './GeometricPattern';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   elevated?: boolean;
   interactive?: boolean;
   ornamental?: boolean;
-  variant?: 'default' | 'elevated' | 'emerald' | 'ivory' | 'glass' | 'obsidian' | string;
+  variant?: 'default' | 'elevated' | 'emerald' | 'ivory' | 'glass' | 'obsidian' | 'subtle' | string;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -20,27 +19,34 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const isEmerald = variant === 'emerald' || variant === 'obsidian';
   const isGlass = variant === 'glass';
+  const isSubtle = variant === 'subtle';
 
   const surfaceStyles = isEmerald
-    ? 'bg-[radial-gradient(circle_at_50%_15%,#092E1F_0%,#041D13_55%,#010906_100%)] text-[#FFF8E8] border-[#DFBD69]/45 shadow-[0_24px_54px_-12px_rgba(1,9,6,0.62),inset_0_1px_0_rgba(255,246,200,0.22)]'
+    ? 'bg-gradient-to-br from-[#062C22] via-[#071E17] to-[#05110D] text-[#F7F5F0] border-emerald-400/20 shadow-[0_20px_50px_-14px_rgba(3,15,11,0.55),inset_0_1px_0_rgba(255,255,255,0.08)]'
     : isGlass
-    ? 'surface-luxury-glass shadow-[0_14px_36px_-8px_rgba(3,23,15,0.12)] dark:shadow-[0_20px_48px_-8px_rgba(0,0,0,0.72)]'
+    ? 'surface-luxury-glass text-[#0B1B16] dark:text-[#F7F5F0]'
+    : isSubtle
+    ? 'bg-[#F2EFE9]/80 dark:bg-[#0D1714]/80 text-[#0B1B16] dark:text-[#F7F5F0] border-[#064E3B]/8 dark:border-white/[0.06]'
     : elevated || variant === 'elevated'
-    ? 'bg-[#FFF8E8] dark:bg-[linear-gradient(155deg,rgba(4,29,19,0.88)_0%,rgba(9,46,31,0.72)_50%,rgba(3,23,15,0.94)_100%)] backdrop-blur-xl border-[#8A6621]/22 dark:border-[#DFBD69]/34 shadow-[0_12px_34px_-6px_rgba(3,23,15,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_18px_44px_-8px_rgba(0,0,0,0.68),inset_0_1px_0_rgba(255,246,200,0.14)]'
-    : 'bg-[#F8F5EC]/90 dark:bg-[#03170F]/92 border-[#063D32]/14 dark:border-[#DFBD69]/24 shadow-[inset_0_1px_0_rgba(255,246,200,0.08)]';
+    ? 'bg-white dark:bg-[#0C1512] text-[#0B1B16] dark:text-[#F7F5F0] border-[#064E3B]/10 dark:border-white/[0.08] shadow-[0_1px_2px_rgba(6,24,18,0.04),0_12px_32px_-12px_rgba(6,24,18,0.08)] dark:shadow-[0_18px_40px_-16px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.05)]'
+    : 'bg-white/90 dark:bg-[#0A1210]/95 text-[#0B1B16] dark:text-[#F7F5F0] border-[#064E3B]/9 dark:border-white/[0.07] shadow-[0_1px_2px_rgba(6,24,18,0.03)]';
 
   return (
     <div
-      className={`relative rounded-[24px] border transition-all duration-300 overflow-hidden az-card-specular ${surfaceStyles} ${
+      className={`az-container relative rounded-[24px] border transition-[transform,border-color,box-shadow,background-color] duration-200 overflow-hidden ${surfaceStyles} ${
         interactive
-          ? 'hover:border-[#DFBD69]/80 dark:hover:border-[#FFF6C8]/70 hover:-translate-y-1 hover:shadow-[0_22px_46px_-10px_rgba(6,61,50,0.18),0_0_20px_rgba(223,189,105,0.18)] dark:hover:shadow-[0_24px_54px_-10px_rgba(0,0,0,0.82),0_0_24px_rgba(223,189,105,0.22)] active:translate-y-0 active:scale-[0.99] cursor-pointer'
+          ? 'hover:border-[#064E3B]/28 dark:hover:border-emerald-400/35 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_-14px_rgba(6,78,59,0.14)] dark:hover:shadow-[0_22px_48px_-14px_rgba(0,0,0,0.75)] active:translate-y-0 active:scale-[0.992] cursor-pointer'
           : ''
       } ${className}`}
       {...props}
     >
-      {(ornamental || isEmerald) && <ArabesqueCornerOrnaments size={22} />}
+      {ornamental && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8A85E]/55 to-transparent"
+        />
+      )}
       {children}
     </div>
   );
 };
-

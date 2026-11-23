@@ -8,6 +8,7 @@
  */
 
 import { Ayah, HadithItem, DhikrItem, SupportedLocale } from '../types';
+import { resolveAsakaDateContextForDateKey } from '../../telegram/services/dateCalendarService';
 
 export interface DailyIslamicBundle {
   id: string;
@@ -360,20 +361,28 @@ export function getDailyBundleForDate(dateInput?: Date | string): DailyIslamicBu
     targetKey = dateInput.toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
   }
 
-  // 1. Direct match by date key
+  // 1. Direct match by date key — still refresh live formatted Gregorian & Hijri labels
+  const resolvedDates = resolveAsakaDateContextForDateKey(targetKey, 'uz-Latn');
   const exact = AUTHENTIC_DAILY_BUNDLES.find((b) => b.dateKey === targetKey);
-  if (exact) return exact;
+  if (exact) {
+    return {
+      ...exact,
+      formattedDateUz: resolvedDates.gregorian.formatted,
+      hijriDateUz: resolvedDates.hijri.formatted,
+    };
+  }
 
   // 2. Deterministic modular day hash so future / past dates map stably
   const parts = targetKey.split('-').map((p) => parseInt(p, 10));
-  const dayHash = Math.abs((parts[0] || 2026) * 365 + (parts[1] || 11) * 31 + (parts[2] || 3));
+  const dayHash = Math.abs((parts[0] || 2026) * 365 + (parts[1] || 1) * 31 + (parts[2] || 1));
   const index = dayHash % AUTHENTIC_DAILY_BUNDLES.length;
   const template = AUTHENTIC_DAILY_BUNDLES[index];
 
   return {
     ...template,
     dateKey: targetKey,
-    formattedDateUz: `${parts[2] || 3}-Noyabr, 2026`,
+    formattedDateUz: resolvedDates.gregorian.formatted,
+    hijriDateUz: resolvedDates.hijri.formatted,
   };
 }
 

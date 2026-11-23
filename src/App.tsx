@@ -89,6 +89,15 @@ import {
   getUnreadMessagesCount,
   syncMessagesWithFirestore,
 } from './utils/messagesService';
+import {
+  initTelegramMiniApp,
+  applyTelegramThemeChrome,
+  syncTelegramBackButton,
+  triggerTelegramHaptic,
+  resolveInitialDeepLinkTab,
+} from './utils/telegramMiniApp';
+import { navigateWithViewTransition } from './utils/viewTransitions';
+import { Search, Download, Tv, MessageCircle, ChevronRight } from 'lucide-react';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
@@ -102,6 +111,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>(() => {
+    const deepLinkTab = resolveInitialDeepLinkTab();
+    if (deepLinkTab) return deepLinkTab;
     if (typeof window !== 'undefined') {
       const pathName = (window.location.pathname || '').toLowerCase();
       const hashVal = (window.location.hash || '').toLowerCase();
@@ -124,6 +135,7 @@ export default function App() {
     return 'home';
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileMenuSearch, setMobileMenuSearch] = useState('');
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -241,6 +253,7 @@ export default function App() {
       } else {
         root.classList.remove('dark');
       }
+      applyTelegramThemeChrome(shouldBeDark);
     };
 
     applyTheme();
@@ -318,7 +331,12 @@ export default function App() {
   };
 
   const handleNavigate = (tab: NavigationTab) => {
-    setActiveTab(tab);
+    navigateWithViewTransition(() => {
+      setActiveTab(tab);
+    });
+    if (settings.hapticFeedback) {
+      triggerTelegramHaptic('selection');
+    }
     try {
       if (typeof window !== 'undefined' && window.history?.pushState) {
         if (tab === 'masjid_tv') {
@@ -343,7 +361,24 @@ export default function App() {
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setIsMobileMenuOpen(false);
+    setMobileMenuSearch('');
   };
+
+  // Initialize Telegram Mini App native bridge (ready, expand, safe-area insets, deep links)
+  useEffect(() => {
+    const isDarkNow = document.documentElement.classList.contains('dark');
+    const cleanup = initTelegramMiniApp(isDarkNow, (startTab) => {
+      setActiveTab(startTab);
+    });
+    return cleanup;
+  }, []);
+
+  // Sync Telegram native BackButton with active screen
+  useEffect(() => {
+    syncTelegramBackButton(activeTab !== 'home', () => {
+      handleNavigate('home');
+    });
+  }, [activeTab]);
 
   // Preserve browser back/forward navigation history & global keyboard shortcuts (Ctrl+K, Shift+T)
   useEffect(() => {
@@ -512,14 +547,14 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="relative min-h-screen flex flex-col bg-[#F8F5EC] text-[#03170F] dark:bg-[#010906] dark:text-[#FFF8E8] transition-colors duration-200 overflow-x-hidden max-w-full">
-        {/* Subtle GPU-friendly Ambient Sacred Emerald & Gold Top Aura */}
+      <div className="relative min-h-screen flex flex-col bg-[#F7F5F0] text-[#0B1B16] dark:bg-[#060B09] dark:text-[#F7F5F0] transition-colors duration-200 overflow-x-hidden max-w-full">
+        {/* Restrained 2026 Ambient Obsidian-Emerald Top Glow */}
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-x-0 top-0 h-[440px] opacity-40 dark:opacity-100 -z-10"
+          className="pointer-events-none fixed inset-x-0 top-0 h-[380px] opacity-30 dark:opacity-100 -z-10"
           style={{
             background:
-              'radial-gradient(ellipse 75% 55% at 50% -10%, rgba(9, 46, 31, 0.72) 0%, rgba(223, 189, 105, 0.08) 45%, transparent 80%)',
+              'radial-gradient(ellipse 70% 50% at 50% -15%, rgba(16, 185, 129, 0.14) 0%, rgba(200, 168, 94, 0.04) 45%, transparent 80%)',
           }}
         />
 
@@ -561,6 +596,7 @@ export default function App() {
             activeTab={activeTab}
             onSelectTab={handleNavigate}
             onOpenTvMode={() => setIsTvModalOpen(true)}
+            prayerSchedule={prayerSchedule}
           />
           <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 lg:pb-12">
             <AnimatePresence mode="wait">
@@ -740,107 +776,172 @@ export default function App() {
         unreadMessagesCount={unreadMessagesCount}
       />
 
-      {/* Mobile More Sections Modal */}
+      {/* 2026 Categorized & Searchable Mobile Ecosystem Sheet */}
       <Modal
         isOpen={isMobileMenuOpen}
-        onClose={() => setIsMobileMenuOpen(false)}
-        title="Barcha Boʻlimlar"
-        subtitle="ASAKA ZIYO — Islomiy Super Ekotizim navigatsiyasi"
+        onClose={() => {
+          setIsMobileMenuOpen(false);
+          setMobileMenuSearch('');
+        }}
+        title="Barcha boʻlimlar"
+        subtitle="ASAKA ZIYO — Islomiy raqamli ekotizim"
         maxWidth="md"
       >
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                setIsInstallModalOpen(true);
-              }}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl az-gold-foil-bg text-[#010906] font-extrabold text-xs shadow-md cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <span className="p-1 rounded bg-[#010906]/10">📥</span>
-                <span>APK v4.0.0 Yuklab Olish</span>
-              </div>
-              <span className="text-[10px] bg-[#010906] text-[#FFF6C8] px-2 py-0.5 rounded font-mono-numbers">
-                v4.0
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                setIsTvModalOpen(true);
-              }}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#092E1F] border border-[#DFBD69]/55 text-[#FFF8E8] font-bold text-xs shadow-md cursor-pointer hover:border-[#FFF6C8]"
-            >
-              <div className="flex items-center gap-2">
-                <span className="p-1 rounded bg-[#DFBD69]/15">🕌</span>
-                <span>Masjid Jamoat Ekrani (TV)</span>
-              </div>
-              <span className="text-[10px] bg-[#DFBD69] text-[#010906] px-2 py-0.5 rounded font-extrabold">
-                Haramayn
-              </span>
-            </button>
+        <div className="space-y-4">
+          {/* Quick Live Filter */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-[#5F736C] dark:text-[#8EA39B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={mobileMenuSearch}
+              onChange={(e) => setMobileMenuSearch(e.target.value)}
+              placeholder="Boʻlim nomini qidiring (masalan: Qurʼon, Qibla, Roʻza)..."
+              className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-[#F7F5F0] dark:bg-[#0F1A16] border border-[#064E3B]/[0.12] dark:border-white/[0.1] text-xs text-[#0B1B16] dark:text-[#F7F5F0] placeholder-[#5F736C] dark:placeholder-[#7A9088] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
-            {[
-              { id: 'home', label: 'Bosh sahifa' },
-              { id: 'prayer', label: 'Namoz vaqtlari' },
-              { id: 'display', label: 'Smart Mosque Display (24/7 TV)' },
-              { id: 'quran', label: 'Qurʼoni Karim' },
-              { id: 'hifz_istiqomat', label: 'Hifz va Istiqomat' },
-              { id: 'academy', label: 'Qurʼon Akademiyasi' },
-              { id: 'quran_quiz', label: 'Qurʼon Viktorinasi (Shorts)' },
-              { id: 'hadith', label: 'Hadislar toʻplami' },
-              { id: 'dhikr', label: 'Zikr va duolar' },
-              { id: 'scholars', label: 'Ulamolar va Meros' },
-              { id: 'media_center', label: 'Media Markazi' },
-              { id: 'mosques', label: 'Masjidlar va Qibla' },
-              { id: 'articles', label: 'Maqolalar' },
-              { id: 'ai_assistant', label: 'Islomiy AI Yordamchi' },
-              { id: 'messages', label: 'Xabarlar kanali' },
-              { id: 'notifications', label: 'Bildirishnomalar' },
-              { id: 'quiz', label: 'Kunlik Viktorina' },
-              { id: 'news', label: 'Yangiliklar' },
-              { id: 'announcements', label: 'Eʼlonlar' },
-              { id: 'calendar', label: 'Hijriy Taqvim' },
-              { id: 'khatm_planner', label: 'Qurʼon Xatmi Rejasi' },
-              { id: 'prayer_journal', label: 'Namoz Kundaligi' },
-              { id: 'mosque_events', label: 'Masjid Tadbirlari' },
-              { id: 'fasting', label: 'Roʻza Yordamchisi' },
-              { id: 'library', label: 'Raqamli Kutubxona' },
-              { id: 'ask_imam', label: 'Imomga Savol' },
-              { id: 'achievements', label: 'Shaxsiy Yutuqlar' },
-              { id: 'favorites', label: 'Sevimlilar' },
-              { id: 'profile', label: 'Shaxsiy Profil' },
-              { id: 'settings', label: 'Sozlamalar' },
-              { id: 'admin', label: 'Maʼmuriyat konsoli' },
-            ].map((item) => (
+          {/* Primary Platform Quick Actions */}
+          {!mobileMenuSearch.trim() && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
-                key={item.id}
-                onClick={() => handleNavigate(item.id as NavigationTab)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  activeTab === item.id
-                    ? 'az-gold-foil-bg text-[#010906] border-[#FFF6C8] font-extrabold shadow-sm'
-                    : 'border-[#063D32]/15 dark:border-[#DFBD69]/22 bg-[#F8F5EC] dark:bg-[#041D13]/85 text-[#03170F] dark:text-[#FFF8E8] hover:border-[#DFBD69]/55'
-                }`}
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsInstallModalOpen(true);
+                }}
+                className="w-full min-h-[48px] flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] font-semibold text-xs cursor-pointer transition-opacity hover:opacity-95"
               >
-                {item.label}
+                <span className="flex items-center gap-2">
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>Android APK yuklab olish</span>
+                </span>
+                <span className="text-[11px] font-mono-numbers opacity-85">v4.0</span>
               </button>
-            ))}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsTvModalOpen(true);
+                }}
+                className="w-full min-h-[48px] flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#0B1713] border border-white/[0.12] text-[#F7F5F0] font-semibold text-xs cursor-pointer hover:border-[#10B981]/50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-[#C8A85E] shrink-0" />
+                  <span>Masjid Jamoat Ekrani (TV)</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-[#8EA39B]" />
+              </button>
+            </div>
+          )}
+
+          {/* Categorized Modules */}
+          <div className="space-y-4">
+            {[
+              {
+                group: 'Ibodat va Vaqt',
+                items: [
+                  { id: 'home', label: 'Bosh sahifa' },
+                  { id: 'prayer', label: 'Namoz vaqtlari' },
+                  { id: 'mosques', label: 'Masjidlar va Qibla' },
+                  { id: 'calendar', label: 'Hijriy taqvim' },
+                  { id: 'dhikr', label: 'Zikr va duolar' },
+                  { id: 'fasting', label: 'Roʻza yordamchisi' },
+                  { id: 'prayer_journal', label: 'Namoz kundaligi' },
+                  { id: 'display', label: 'Smart Mosque Display (TV)' },
+                ],
+              },
+              {
+                group: 'Qurʼon va Ilm',
+                items: [
+                  { id: 'quran', label: 'Qurʼoni Karim' },
+                  { id: 'hifz_istiqomat', label: 'Hifz va Istiqomat' },
+                  { id: 'academy', label: 'Qurʼon Akademiyasi' },
+                  { id: 'khatm_planner', label: 'Qurʼon xatmi rejasi' },
+                  { id: 'hadith', label: 'Hadislar toʻplami' },
+                  { id: 'scholars', label: 'Ulamolar va meros' },
+                  { id: 'library', label: 'Raqamli kutubxona' },
+                  { id: 'articles', label: 'Ilmiy maqolalar' },
+                ],
+              },
+              {
+                group: 'AI, Media va Jamiyat',
+                items: [
+                  { id: 'ai_assistant', label: 'Islomiy AI yordamchi' },
+                  { id: 'quran_quiz', label: 'Qurʼon viktorinasi (9:16)' },
+                  { id: 'quiz', label: 'Kunlik viktorina' },
+                  { id: 'media_center', label: 'Media markazi' },
+                  { id: 'ask_imam', label: 'Imomga savol' },
+                  { id: 'mosque_events', label: 'Masjid tadbirlari' },
+                  { id: 'messages', label: 'Xabarlar kanali' },
+                  { id: 'news', label: 'Yangiliklar' },
+                  { id: 'announcements', label: 'Eʼlonlar' },
+                ],
+              },
+              {
+                group: 'Shaxsiy va Tizim',
+                items: [
+                  { id: 'notifications', label: 'Bildirishnomalar' },
+                  { id: 'achievements', label: 'Shaxsiy yutuqlar' },
+                  { id: 'favorites', label: 'Sevimlilar' },
+                  { id: 'profile', label: 'Shaxsiy profil' },
+                  { id: 'settings', label: 'Sozlamalar' },
+                  { id: 'admin', label: 'Maʼmuriyat konsoli' },
+                ],
+              },
+            ].map((section) => {
+              const q = mobileMenuSearch.trim().toLowerCase();
+              const visible = q
+                ? section.items.filter(
+                    (it) =>
+                      it.label.toLowerCase().includes(q) ||
+                      section.group.toLowerCase().includes(q)
+                  )
+                : section.items;
+
+              if (visible.length === 0) return null;
+
+              return (
+                <div key={section.group} className="space-y-2">
+                  <div className="text-[11px] font-semibold text-[#5F736C] dark:text-[#8EA39B] px-0.5">
+                    {section.group}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {visible.map((item) => {
+                      const isCurrent = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleNavigate(item.id as NavigationTab)}
+                          className={`min-h-[44px] px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer font-medium ${
+                            isCurrent
+                              ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] border-[#064E3B] dark:border-[#10B981] font-semibold'
+                              : 'border-[#064E3B]/[0.08] dark:border-white/[0.08] bg-[#F7F5F0] dark:bg-[#0F1A16] text-[#0B1B16] dark:text-[#E5ECE9] hover:border-[#064E3B]/30 dark:hover:border-white/20'
+                          }`}
+                        >
+                          <span className="line-clamp-1">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
             <button
+              type="button"
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 setIsChatModalOpen(true);
               }}
-              className="col-span-2 w-full flex items-center justify-between p-3.5 rounded-xl bg-[#041D13] border border-[#DFBD69]/45 text-[#DFBD69] font-bold text-xs shadow-md cursor-pointer hover:border-[#FFF6C8] transition-colors"
+              className="w-full min-h-[48px] flex items-center justify-between px-4 py-3 rounded-xl bg-[#F2EFE9] dark:bg-[#0F1A16] border border-[#064E3B]/[0.12] dark:border-white/[0.1] text-[#0B1B16] dark:text-[#F7F5F0] font-semibold text-xs cursor-pointer hover:border-[#064E3B]/35 dark:hover:border-[#10B981]/40 transition-colors"
             >
-              <div className="flex items-center gap-2">
-                <span className="p-1 rounded bg-[#DFBD69]/15">💬</span>
-                <span>Maʼmuriyat bilan Muloqot & Chat</span>
-              </div>
-              <span className="text-[10px] az-gold-foil-bg text-[#010906] font-extrabold px-2.5 py-0.5 rounded">
+              <span className="flex items-center gap-2.5">
+                <MessageCircle className="w-4 h-4 text-[#064E3B] dark:text-[#10B981] shrink-0" />
+                <span>Maʼmuriyat bilan muloqot va yordam</span>
+              </span>
+              <span className="text-xs font-semibold text-[#064E3B] dark:text-[#10B981]">
                 Yozish
               </span>
             </button>

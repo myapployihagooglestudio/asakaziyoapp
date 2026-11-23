@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { ArabesqueCornerOrnaments, IslamicStarEmblem } from './GeometricPattern';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { PREMIUM_EASE } from './MotionPrimitives';
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,6 +23,8 @@ export const Modal: React.FC<ModalProps> = ({
   size,
 }) => {
   const effectiveSize = size || maxWidth || 'lg';
+  const prefersReduced = useReducedMotion();
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -53,43 +55,48 @@ export const Modal: React.FC<ModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-[#010906]/78 backdrop-blur-md"
+            transition={{ duration: prefersReduced ? 0 : 0.18 }}
+            className="fixed inset-0 bg-[#040807]/72 backdrop-blur-md"
             onClick={onClose}
             aria-hidden="true"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 18 }}
+            initial={prefersReduced ? { opacity: 1 } : { opacity: 0, scale: 0.97, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-            className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-[#FFF8E8] dark:bg-[linear-gradient(155deg,#041D13_0%,#03170F_55%,#010906_100%)] border border-[#DFBD69]/45 rounded-t-3xl sm:rounded-3xl shadow-[0_32px_80px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,246,200,0.22)] z-10 overflow-hidden sm:my-auto`}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 16 }}
+            transition={
+              prefersReduced
+                ? { duration: 0 }
+                : { duration: 0.26, ease: PREMIUM_EASE }
+            }
+            className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-[#FAF8F4] dark:bg-[#0B1411] border border-[#064E3B]/12 dark:border-white/[0.1] rounded-t-[28px] sm:rounded-[28px] shadow-[0_32px_90px_-16px_rgba(0,0,0,0.65)] z-10 overflow-hidden sm:my-auto pb-safe`}
             role="dialog"
             aria-modal="true"
+            aria-label={title}
           >
-            <ArabesqueCornerOrnaments size={22} />
+            {/* Mobile Bottom Sheet Grabber */}
+            <div className="sm:hidden flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-[#064E3B]/20 dark:bg-white/20" />
+            </div>
 
-            {/* Mobile drag indicator */}
-            <div className="sm:hidden w-12 h-1.5 bg-[#DFBD69]/45 rounded-full mx-auto mt-3" />
-
-            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#063D32]/14 dark:border-[#DFBD69]/25 bg-[#F8F5EC]/60 dark:bg-[#092E1F]/35">
-              <div className="pr-3">
-                <div className="flex items-center gap-2">
-                  <IslamicStarEmblem size={15} className="text-[#DFBD69] shrink-0" />
-                  <h3 className="text-lg font-bold text-[#03170F] dark:text-[#FFF8E8] font-display tracking-wide">
-                    {title}
-                  </h3>
-                </div>
+            <div className="flex items-start justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#064E3B]/9 dark:border-white/[0.07]">
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-bold text-[#0B1B16] dark:text-[#F7F5F0] tracking-[-0.015em] leading-snug">
+                  {title}
+                </h3>
                 {subtitle && (
-                  <p className="text-xs text-[#526B62] dark:text-[#9CB5AC] mt-0.5 pl-6">{subtitle}</p>
+                  <p className="text-xs text-[#4A635B] dark:text-[#9AB0A7] mt-0.5 leading-relaxed">
+                    {subtitle}
+                  </p>
                 )}
               </div>
               <button
+                type="button"
                 onClick={onClose}
-                className="min-w-[42px] min-h-[42px] flex items-center justify-center text-[#526B62] hover:text-[#03170F] dark:text-[#DFBD69] dark:hover:text-[#FFF8E8] rounded-xl border border-transparent hover:border-[#DFBD69]/35 hover:bg-[#063D32]/8 dark:hover:bg-white/8 transition-all cursor-pointer shrink-0"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center text-[#4A635B] hover:text-[#0B1B16] dark:text-[#9AB0A7] dark:hover:text-white rounded-full bg-[#064E3B]/5 hover:bg-[#064E3B]/10 dark:bg-white/[0.05] dark:hover:bg-white/[0.12] transition-colors cursor-pointer shrink-0"
                 aria-label="Yopish"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-5 sm:p-6 max-h-[82vh] overflow-y-auto">{children}</div>
@@ -99,4 +106,3 @@ export const Modal: React.FC<ModalProps> = ({
     </AnimatePresence>
   );
 };
-

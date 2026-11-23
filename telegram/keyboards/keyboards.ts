@@ -220,6 +220,30 @@ export function buildMainMenuKeyboard(
         emoji.buildKeyboardButton('favorites', b.myBookmarks, { callback_data: 'nav:bookmarks' }),
       ],
       [
+        emoji.buildKeyboardButton(
+          'hifz',
+          locale === 'ru'
+            ? 'Личные привычки'
+            : locale === 'en'
+              ? 'Daily Habits'
+              : locale === 'uz-Cyrl'
+                ? 'Кунлик ибодат режаси'
+                : 'Kunlik ibodat rejasi',
+          { callback_data: 'habits:home' }
+        ),
+        emoji.buildKeyboardButton(
+          'admin.shield',
+          locale === 'ru'
+            ? 'Полезные сервисы'
+            : locale === 'en'
+              ? 'Community Services'
+              : locale === 'uz-Cyrl'
+                ? 'Фойдали хизматлар'
+                : 'Foydali xizmatlar',
+          { callback_data: 'tools:hub' }
+        ),
+      ],
+      [
         emoji.buildKeyboardButton('brand.star', b.globalSearch, { callback_data: 'nav:search' }),
         ...bottomRow,
       ],
@@ -361,9 +385,22 @@ export function buildPrayerKeyboard(
         ),
       ],
       [
+        emoji.buildKeyboardButton(
+          'prayer',
+          locale === 'ru'
+            ? 'Регионы (Таквим)'
+            : locale === 'en'
+              ? 'Regional Taqvim'
+              : locale === 'uz-Cyrl'
+                ? 'Ҳудудий тақвим'
+                : 'Hududiy taqvim',
+          { callback_data: 'tools:regions' }
+        ),
         emoji.buildKeyboardButton('nav.settings', b.togglePrayerAlerts, {
           callback_data: 'nav:settings',
         }),
+      ],
+      [
         emoji.buildKeyboardButton('nav.back', b.backToMenu, {
           callback_data: 'nav:home',
         }),
@@ -1022,8 +1059,16 @@ export function buildAdminPrayerKeyboard(
  { text: 'Asr', callback_data: 'admin:prayer:edit:asr'},
       ],
       [
- { text: 'Shom', callback_data: 'admin:prayer:edit:shom'},
- { text: 'Xufton', callback_data: 'admin:prayer:edit:xufton'},
+        { text: 'Shom', callback_data: 'admin:prayer:edit:shom' },
+        { text: 'Xufton', callback_data: 'admin:prayer:edit:xufton' },
+      ],
+      [
+        { text: 'Hijriy -1 kun', callback_data: 'admin:hijri:offset:-1' },
+        { text: 'Hijriy 0', callback_data: 'admin:hijri:offset:0' },
+        { text: 'Hijriy +1 kun', callback_data: 'admin:hijri:offset:1' },
+      ],
+      [
+        { text: 'Hijriy chegara: 00:00 / Shom', callback_data: 'admin:hijri:boundary:toggle' },
       ],
       [
         emoji.buildKeyboardButton('nav.admin', b.adminPanel, { callback_data: 'admin:home' }),
@@ -1670,6 +1715,13 @@ export function buildSupportTicketUserReplyKeyboard(
         emoji.buildKeyboardButton('support', dict.supportReplyUserBtn, {
           callback_data: `support:reply_user:${ticketId}`,
         }),
+      ],
+      [
+        { text: '1/5', callback_data: `support:rate:${ticketId}:1` },
+        { text: '2/5', callback_data: `support:rate:${ticketId}:2` },
+        { text: '3/5', callback_data: `support:rate:${ticketId}:3` },
+        { text: '4/5', callback_data: `support:rate:${ticketId}:4` },
+        { text: '5/5', callback_data: `support:rate:${ticketId}:5` },
       ],
       [
         emoji.buildKeyboardButton('back', dict.buttons.backToMenu, {

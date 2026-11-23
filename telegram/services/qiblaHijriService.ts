@@ -9,6 +9,7 @@
  */
 
 import { TelegramLocale } from '../types';
+import { DateResolutionOptions, resolveDynamicHijriDate } from './dateCalendarService';
 
 export const KAABA_COORDS = { lat: 21.422487, lon: 39.826206 } as const;
 export const ASAKA_COORDS = { lat: 40.6415, lon: 72.2387 } as const;
@@ -232,87 +233,16 @@ export function isWithinQuietHours(
   return cur >= start || cur < end;
 }
 
-const HIJRI_MONTHS_UZ = [
-  'Muharram',
-  'Safar',
-  'Rabiul avval',
-  'Rabiul oxir',
-  'Jumodul avval',
-  'Jumodul oxir',
-  'Rajab',
-  'Shaʼbon',
-  'Ramazon',
-  'Shavvol',
-  'Zulqaʼda',
-  'Zulhijja',
-];
-
-const HIJRI_MONTHS_RU = [
-  'Мухаррам',
-  'Сафар',
-  'Раби аль-авваль',
-  'Раби ас-сани',
-  'Джумада аль-уля',
-  'Джумада ас-сани',
-  'Раджаб',
-  'Шаабан',
-  'Рамадан',
-  'Шавваль',
-  'Зуль-каада',
-  'Зуль-хиджа',
-];
-
-const HIJRI_MONTHS_EN = [
-  'Muharram',
-  'Safar',
-  'Rabi al-Awwal',
-  'Rabi al-Thani',
-  'Jumada al-Ula',
-  'Jumada al-Akhirah',
-  'Rajab',
-  'Shaban',
-  'Ramadan',
-  'Shawwal',
-  'Dhul Qadah',
-  'Dhul Hijjah',
-];
-
 export function getDynamicHijriDate(
   now = new Date(),
-  locale: TelegramLocale = 'uz-Latn'
+  locale: TelegramLocale = 'uz-Latn',
+  options?: DateResolutionOptions
 ): { day: number; monthNumber: number; year: number; formatted: string } {
-  try {
-    const fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', {
-      timeZone: 'Asia/Tashkent',
-      day: 'numeric',
-      month: 'numeric',
-      year: 'numeric',
-    });
-    const parts = fmt.formatToParts(now);
-    const day = Number(parts.find((p) => p.type === 'day')?.value || 1);
-    const monthNumber = Number(parts.find((p) => p.type === 'month')?.value || 1);
-    const year = Number(parts.find((p) => p.type === 'year')?.value || 1448);
-
-    const idx = Math.max(0, Math.min(11, monthNumber - 1));
-    const monthName =
-      locale === 'ru'
-        ? HIJRI_MONTHS_RU[idx]
-        : locale === 'en'
-        ? HIJRI_MONTHS_EN[idx]
-        : HIJRI_MONTHS_UZ[idx];
-
-    return {
-      day,
-      monthNumber,
-      year,
-      formatted: `${day} ${monthName}, ${year}`,
-    };
-  } catch {
-    return {
-      day: 1,
-      monthNumber: 1,
-      year: 1448,
-      formatted: '1448 Hijriy',
-    };
-  }
+  const res = resolveDynamicHijriDate(now, locale, options);
+  return {
+    day: res.day,
+    monthNumber: res.monthNumber,
+    year: res.year,
+    formatted: res.formatted,
+  };
 }

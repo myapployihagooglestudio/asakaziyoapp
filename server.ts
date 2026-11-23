@@ -32,6 +32,7 @@ import {
 import { createSmartMosqueDisplayRouter } from './server/smartMosqueDisplayRouter';
 import { createTelegramPlatformRouter } from './telegram/bot/router';
 import { AppReleaseService } from './telegram/services/appReleaseService';
+import { resolveAsakaDateContext } from './telegram/services/dateCalendarService';
 import type { SyncActionType, SyncEntityType } from './telegram/sync/syncEngine';
 
 
@@ -540,11 +541,12 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 function getDefaultDatabase() {
+  const liveDate = resolveAsakaDateContext(new Date(), 'uz-Latn');
   return {
     prayerSchedule: {
-      date: '2026-11-04',
-      formattedDateUz: '4-Noyabr, Chorshanba, 2026',
-      hijriDate: '24 Jumodul avval, 1448',
+      date: liveDate.dateKey,
+      formattedDateUz: liveDate.gregorian.formatted,
+      hijriDate: liveDate.hijri.formatted,
       location: 'Asaka shahri, Andijon viloyati',
       qiblaAngleDeg: 241,
       timezone: 'Asia/Tashkent',

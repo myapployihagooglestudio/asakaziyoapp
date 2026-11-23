@@ -12,6 +12,8 @@ import {
   ArabesqueCornerOrnaments,
   VolumetricGodRays,
 } from '../../ui/GeometricPattern';
+import { AnimatedProgressRing } from '../../ui/MotionPrimitives';
+import { resolveAsakaDateContext } from '../../../../telegram/services/dateCalendarService';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
   playGentleChime,
@@ -94,6 +96,9 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
   const [prayerCalculation, setPrayerCalculation] = useState<NextPrayerInfo>(() =>
     getNextPrayerCalculation(schedule.times)
   );
+  const [liveDateContext, setLiveDateContext] = useState(() =>
+    resolveAsakaDateContext(new Date(), currentLocale)
+  );
 
   // Unified Prayer Alert & Adhan Audio Settings
   const [showAzanModal, setShowAzanModal] = useState(false);
@@ -128,11 +133,12 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
   useEffect(() => {
     const updateCountdown = () => {
       setPrayerCalculation(getNextPrayerCalculation(schedule.times));
+      setLiveDateContext(resolveAsakaDateContext(new Date(), currentLocale));
     };
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [schedule.times]);
+  }, [schedule.times, currentLocale]);
 
   const getLocalizedPrayerName = (key: string, defaultName: string) => {
     return t(`prayer:${key}`, { defaultValue: defaultName });
@@ -182,10 +188,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
     // fallback
   }
 
-  // SVG Circle calculations
-  const radius = 70;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
+  // Progress percentage passed directly to AnimatedProgressRing
 
   const isFiveDailyPrayer = (key: string): key is 'bomdod' | 'peshin' | 'asr' | 'shom' | 'xufton' => {
     return ['bomdod', 'peshin', 'asr', 'shom', 'xufton'].includes(key);
@@ -277,15 +280,19 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
 
         <div className="relative z-10 max-w-4xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-2 border-b border-[#DFBD69]/20">
               <CalligraphyBasmalahBadge />
-              <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#DFBD69] uppercase tracking-wider bg-[#010906]/75 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-[#DFBD69]/45 shadow-lg">
-                <MapPin className="w-3.5 h-3.5 text-[#DFBD69]" />
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#DFBD69] tracking-wide">
+                <MapPin className="w-3.5 h-3.5 text-[#DFBD69] shrink-0" />
                 <span>{t('prayer:regionCity')}</span>
-                <span aria-hidden="true">·</span>
+                <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
                 <span>{t('prayer:regionProvince')}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono-numbers text-emerald-400">Asia/Tashkent (UTC+5)</span>
+                <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
+                <span className="text-[#FFF8E8] font-bold">{liveDateContext.gregorian.formatted}</span>
+                <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
+                <span className="font-mono-numbers text-emerald-300 font-bold">
+                  {liveDateContext.hijri.formatted}
+                </span>
               </div>
             </div>
 
@@ -437,9 +444,11 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
             <GeometricPattern opacity={0.06} />
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
               <div className="space-y-3 text-center md:text-left max-w-lg">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#c5a869]/20 text-[#c5a869] text-xs font-bold uppercase tracking-widest border border-[#c5a869]/30">
-                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                <div className="inline-flex items-center gap-2 text-[#DFBD69] text-xs font-bold uppercase tracking-[0.2em]">
+                  <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
                   <span>{t('prayer:nextPrayer')}</span>
+                  <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
+                  <span className="font-mono-numbers text-emerald-300">{liveDateContext.hijri.formatted}</span>
                 </div>
 
                 <h2 className="text-3xl sm:text-4xl font-display font-bold text-white">
@@ -457,47 +466,23 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                 </p>
               </div>
 
-              {/* Visually stunning animated circular progress bar */}
-              <div className="relative w-44 h-44 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r={radius}
-                    stroke="currentColor"
-                    strokeWidth="12"
-                    className="text-emerald-950/80"
-                    fill="transparent"
-                  />
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r={radius}
-                    stroke="url(#goldGradient)"
-                    strokeWidth="12"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    className="transition-all duration-1000 ease-out"
-                  />
-                  <defs>
-                    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#e6ce8a" />
-                      <stop offset="100%" stopColor="#c5a869" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
+              {/* Spring-animated circular countdown ring */}
+              <AnimatedProgressRing
+                progress={progressPercent}
+                size={176}
+                strokeWidth={11}
+                trackClassName="stroke-emerald-950/80"
+                strokeColor="#e6ce8a"
+                secondaryStrokeColor="#c5a869"
+                className="shrink-0"
+              >
                   <div className="text-2xl sm:text-3xl font-mono-numbers font-extrabold text-white tracking-wider">
                     {prayerCalculation.countdownText}
                   </div>
                   <div className="text-[10px] text-[#c5a869] uppercase tracking-widest font-bold mt-1">
                     {Math.round(progressPercent)}% oʻtdi
                   </div>
-                </div>
-              </div>
+              </AnimatedProgressRing>
             </div>
           </Card>
 

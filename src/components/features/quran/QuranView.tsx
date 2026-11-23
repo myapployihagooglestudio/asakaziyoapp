@@ -949,87 +949,89 @@ export const QuranView: React.FC<QuranViewProps> = ({
   const filteredTafsirList = searchTafsirHilol(tafsirSearchQuery);
 
   return (
-    <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 1. LUXURY SACRED CINEMA HEADER BANNER */}
-      <div className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary p-6 sm:p-10 text-[#FFF8E8] shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
+    <div className="space-y-7 pb-16 max-w-7xl mx-auto">
+      {/* 1. 2026 MUSHAF READING STUDIO BANNER */}
+      <div className="relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#071410] p-6 sm:p-9 text-[#F7F5F0] shadow-[0_24px_64px_-20px_rgba(3,10,8,0.6)]">
         <img
           src="/images/quran_illumination_art_1793634658336.jpg"
           alt="Quran Illumination Art"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-[0.18] mix-blend-luminosity"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#010906]/95 via-[#041D13]/88 to-[#063D32]/75" />
-        <VolumetricGodRays />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[280px] ml-auto hidden md:block" />
-        <ArabesqueCornerOrnaments size={28} />
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#DFBD69] uppercase tracking-wider bg-[#010906]/70 px-3.5 py-1.5 rounded-xl border border-[#DFBD69]/40">
-              <BookOpen className="w-4 h-4 text-[#DFBD69]" />
-              <span>Kalomulloh Ekotizimi</span>
-              <span aria-hidden="true">·</span>
-              <span>114 Ta Sura · {availableReciters.length} Ta Faol Qori · Tafsiri Hilol</span>
-            </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#060E0B]/95 via-[#091C16]/90 to-[#0C2920]/78" />
+        <GeometricPattern opacity={0.04} />
+        <div className="relative z-10 max-w-3xl space-y-3.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#9CAFA7]">
+            <span className="font-medium text-[#C8A85E]">Kalomulloh Ekotizimi</span>
+            <span aria-hidden="true" className="text-white/25">·</span>
+            <span className="tabular-nums">114 ta sura</span>
+            <span aria-hidden="true" className="text-white/25">·</span>
+            <span className="tabular-nums">{availableReciters.length} ta faol qori</span>
+            <span aria-hidden="true" className="text-white/25">·</span>
+            <span>Tafsiri Hilol</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8]">
+          <h1 className="text-2xl sm:text-4xl lg:text-[2.6rem] font-display font-bold tracking-[-0.03em] text-[#F7F5F0] text-balance leading-[1.12]">
             Qurʼoni Karim va Tafsir Maskani
           </h1>
-          <p className="text-xs sm:text-sm text-[#FFF8E8]/85 leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-[#C2D1CB] leading-relaxed max-w-2xl">
             114 ta suraning toʻliq arabcha matni, {availableReciters.length} ta mashhur va maxsus qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
           </p>
         </div>
       </div>
 
-      {/* 2. Mode Selector: 4 Tabs (Mushaf, Tafsiri Hilol, Xatm & Tracker, Xatcho'plar & Qaydlar) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DFBD69]/25 pb-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-[#F1EBDD] dark:bg-[#03170F] border border-[#DFBD69]/35">
+      {/* 2. Mode Selector & Reading Studio Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#064E3B]/[0.1] dark:border-white/[0.08] pb-4">
+        <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-[#ECE8DF] dark:bg-[#0B1411] border border-[#064E3B]/[0.08] dark:border-white/[0.08]">
           <button
+            type="button"
             onClick={() => setActiveQuranTab('mushaf')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`min-h-[40px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeQuranTab === 'mushaf'
-                ? 'az-gold-foil-bg text-[#010906] shadow-md'
-                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
+                ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
             }`}
           >
-            <BookOpen className="w-4 h-4" />
-            <span>Mushaf & Tilovat</span>
+            <BookOpen className="w-4 h-4 text-[#10B981]" />
+            <span>Mushaf va Tilovat</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveQuranTab('tafsir_hilol')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`min-h-[40px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeQuranTab === 'tafsir_hilol'
-                ? 'az-gold-foil-bg text-[#010906] shadow-md'
-                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
+                ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-amber-500" />
+            <Sparkles className="w-4 h-4 text-[#C8A85E]" />
             <span>Tafsiri Hilol</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveQuranTab('tracker')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`min-h-[40px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeQuranTab === 'tracker'
-                ? 'az-gold-foil-bg text-[#010906] shadow-md'
-                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
+                ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
             }`}
           >
-            <Award className="w-4 h-4 text-emerald-500" />
-            <span>Xatm & Mutolaa Tracker</span>
+            <Award className="w-4 h-4 text-[#10B981]" />
+            <span>Xatm va Mutolaa</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveQuranTab('bookmarks_notes')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            className={`min-h-[40px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeQuranTab === 'bookmarks_notes'
-                ? 'az-gold-foil-bg text-[#010906] shadow-md'
-                : 'text-stone-600 dark:text-[#FFF8E8]/75 hover:text-stone-900 dark:hover:text-[#FFF8E8]'
+                ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
             }`}
           >
-            <Bookmark className="w-4 h-4 text-blue-400" />
-            <span>Xatchoʻplar & Qaydlar ({bookmarks.length + notes.length})</span>
+            <Bookmark className="w-4 h-4 text-[#C8A85E]" />
+            <span className="tabular-nums">Xatchoʻplar ({bookmarks.length + notes.length})</span>
           </button>
         </div>
 
@@ -1037,29 +1039,31 @@ export const QuranView: React.FC<QuranViewProps> = ({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {/* Night Reading Mode Toggle */}
           <button
+            type="button"
             onClick={() => setNightReadingMode(!nightReadingMode)}
-            className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`min-h-[40px] px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
               nightReadingMode
-                ? 'bg-indigo-950/80 border-indigo-500/60 text-indigo-300'
-                : 'bg-white dark:bg-[#091a18] border-stone-200 dark:border-emerald-950 text-stone-600 dark:text-stone-300'
+                ? 'bg-[#14241E] border-[#10B981]/50 text-[#A7F3D0]'
+                : 'bg-white dark:bg-[#0B1411] border-[#064E3B]/[0.1] dark:border-white/[0.08] text-[#4B635B] dark:text-[#9CAFA7]'
             }`}
             title="Tungi oʻqish rejimi (koʻzni toliqtirmaydi)"
           >
-            {nightReadingMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
+            {nightReadingMode ? <Sun className="w-3.5 h-3.5 text-[#C8A85E]" /> : <Moon className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">Tungi rejim</span>
           </button>
 
           {/* Arabic Font Size: Kichik, Oʻrta, Katta */}
-          <div className="flex items-center gap-1 bg-white dark:bg-[#091a18] p-1 rounded-xl border border-stone-200 dark:border-emerald-950">
-            <span className="text-[10px] text-stone-400 px-1 font-semibold">Shrift:</span>
+          <div className="flex items-center gap-1 bg-white dark:bg-[#0B1411] p-1 rounded-xl border border-[#064E3B]/[0.1] dark:border-white/[0.08]">
+            <span className="text-[11px] text-[#5F736C] dark:text-[#8EA39B] px-1.5 font-medium">Shrift:</span>
             {(['standard', 'large', 'huge'] as const).map((sz) => (
               <button
+                type="button"
                 key={sz}
                 onClick={() => setFontSizeChoice(sz)}
-                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                className={`min-h-[30px] px-2.5 py-0.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
                   fontSizeChoice === sz
-                    ? 'bg-[#c5a869] text-[#071614]'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                    ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D]'
+                    : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
                 }`}
               >
                 {sz === 'standard' ? 'Oʻrta' : sz === 'large' ? 'Katta' : 'Ulkan'}
@@ -1070,7 +1074,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
           {/* Reciter Selector */}
           {activeQuranTab === 'mushaf' && (
             <div className="flex items-center gap-1.5 text-xs">
-              <Headphones className="w-3.5 h-3.5 text-[#c5a869]" />
+              <Headphones className="w-3.5 h-3.5 text-[#10B981]" />
               <select
                 value={activeReciter.id}
                 onChange={(e) => {
@@ -1081,7 +1085,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
                     // ignore
                   }
                 }}
-                className="px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 font-semibold text-xs focus:ring-1 focus:ring-[#c5a869] cursor-pointer"
+                className="min-h-[40px] px-3 py-1.5 rounded-xl border border-[#064E3B]/[0.12] dark:border-white/[0.1] bg-white dark:bg-[#0B1411] text-[#0B1B16] dark:text-[#F7F5F0] font-semibold text-xs focus:outline-none focus:ring-1 focus:ring-[#10B981] cursor-pointer"
               >
                 {availableReciters.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -1098,32 +1102,34 @@ export const QuranView: React.FC<QuranViewProps> = ({
       {activeQuranTab === 'mushaf' && (
         <div className="space-y-6">
           {/* Active Reciter Profile & Quick Reciter Switcher Bar */}
-          <Card className="p-4 sm:p-5 border-[#c5a869]/30 bg-white/90 dark:bg-[#081b18]/90 space-y-4">
+          <Card className="p-4 sm:p-5 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3.5">
                 <img
                   src={activeReciter.profileImageUrl || '/images/quran_illumination_art_1793634658336.jpg'}
                   alt={activeReciter.name}
-                  className="w-14 h-14 rounded-2xl object-cover border-2 border-[#c5a869]/50 shadow-md shrink-0"
+                  referrerPolicy="no-referrer"
+                  className="w-14 h-14 rounded-2xl object-cover ring-1 ring-[#064E3B]/15 dark:ring-white/15 shrink-0"
                 />
                 <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#c5a869]/20 text-[#c5a869]">
-                      Tanlangan Qori
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                    <span className="text-xs font-medium text-[#064E3B] dark:text-[#10B981]">
+                      Tanlangan qori
                     </span>
-                    <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white">
+                    <span aria-hidden="true" className="text-[#9CAFA7]">·</span>
+                    <h3 className="text-base sm:text-lg font-bold text-[#0B1B16] dark:text-[#F7F5F0]">
                       {activeReciter.name}
                     </h3>
                     {activeReciter.nameAr && (
-                      <span className="font-arabic text-base text-[#c5a869]">{activeReciter.nameAr}</span>
+                      <span className="font-arabic text-base text-[#C8A85E]">{activeReciter.nameAr}</span>
                     )}
                   </div>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                  <p className="text-xs text-[#5F736C] dark:text-[#8EA39B]">
                     {activeReciter.subtext}
                     {activeReciter.rewaya ? ` · Rivoyat: ${activeReciter.rewaya}` : ''}
                   </p>
                   {activeReciter.biographyUz && (
-                    <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed max-w-3xl">
+                    <p className="text-xs text-[#4B635B] dark:text-[#B4C4BD] leading-relaxed max-w-3xl">
                       {activeReciter.biographyUz}
                     </p>
                   )}
@@ -1131,12 +1137,12 @@ export const QuranView: React.FC<QuranViewProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs">
-                  <div className="text-[10px] text-stone-400 uppercase font-semibold">114 Sura Audio Xazinasi</div>
-                  <div className="font-bold text-emerald-500">
+                <div className="px-3.5 py-2 rounded-xl bg-[#064E3B]/[0.06] dark:bg-[#10B981]/[0.08] border border-[#064E3B]/[0.1] dark:border-[#10B981]/20 text-xs">
+                  <div className="text-[11px] text-[#5F736C] dark:text-[#8EA39B] font-medium">114 sura audio xazinasi</div>
+                  <div className="font-bold text-[#064E3B] dark:text-[#10B981] tabular-nums">
                     Mavjud: {availableSurahsCountForReciter} / 114 sura
                     {missingSurahsCountForReciter > 0 && (
-                      <span className="text-amber-500 ml-1.5">
+                      <span className="text-amber-600 dark:text-amber-400 ml-1.5">
                         (Yuklanmagan: {missingSurahsCountForReciter})
                       </span>
                     )}
@@ -1145,9 +1151,9 @@ export const QuranView: React.FC<QuranViewProps> = ({
               </div>
             </div>
 
-            {/* Reciter Quick Selection Chips (All Active Reciters from Firestore) */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 border-t border-stone-200/60 dark:border-emerald-950/60">
-              <span className="text-[11px] font-semibold text-stone-400 shrink-0">
+            {/* Reciter Quick Selection Bar (All Active Reciters from Firestore) */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-3 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08]">
+              <span className="text-xs font-medium text-[#5F736C] dark:text-[#8EA39B] shrink-0 tabular-nums">
                 Qorilar ({availableReciters.length}):
               </span>
               {availableReciters.map((rec) => {
@@ -1166,27 +1172,28 @@ export const QuranView: React.FC<QuranViewProps> = ({
                         // ignore
                       }
                     }}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`min-h-[38px] flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#c5a869] text-[#071614] border-[#c5a869] shadow-sm'
-                        : 'bg-stone-100/80 dark:bg-emerald-950/40 border-stone-200 dark:border-emerald-900/40 text-stone-700 dark:text-stone-300 hover:border-[#c5a869]/50'
+                        ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] border-[#064E3B] dark:border-[#10B981]'
+                        : 'bg-[#F2EFE9] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#2C453D] dark:text-[#C2D1CB] hover:border-[#064E3B]/30 dark:hover:border-white/20'
                     }`}
                   >
                     {rec.profileImageUrl && (
                       <img
                         src={rec.profileImageUrl}
                         alt={rec.name}
+                        referrerPolicy="no-referrer"
                         className="w-4 h-4 rounded-full object-cover"
                       />
                     )}
                     <span>{rec.name}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded ${
+                      className={`text-[11px] font-mono-numbers tabular-nums ${
                         isSelected
-                          ? 'bg-black/20 text-[#071614]'
+                          ? 'opacity-80'
                           : recCount > 0
-                          ? 'bg-emerald-500/15 text-emerald-500'
-                          : 'bg-amber-500/15 text-amber-500'
+                          ? 'text-[#064E3B] dark:text-[#10B981]'
+                          : 'text-amber-600 dark:text-amber-400'
                       }`}
                     >
                       {recCount}/114
@@ -1201,52 +1208,54 @@ export const QuranView: React.FC<QuranViewProps> = ({
           {/* Left Column: 114 Surahs Directory & 30 Juz Navigation (4 cols) */}
           <div className="lg:col-span-4 space-y-4">
             {/* Directory Switcher: Suralar (114) vs Poralar / Juzlar (30) */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-stone-100 dark:bg-emerald-950/40 border border-stone-200 dark:border-emerald-900/40">
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#ECE8DF] dark:bg-[#0B1411] border border-[#064E3B]/[0.08] dark:border-white/[0.08]">
               <button
+                type="button"
                 onClick={() => setDirectoryMode('surah')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`min-h-[38px] py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   directoryMode === 'surah'
-                    ? 'bg-[#c5a869] text-[#071614] shadow'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                    ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                    : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
                 }`}
               >
                 <List className="w-3.5 h-3.5" />
-                <span>114 Ta Sura</span>
+                <span>114 ta sura</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setDirectoryMode('juz')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`min-h-[38px] py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   directoryMode === 'juz'
-                    ? 'bg-[#c5a869] text-[#071614] shadow'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                    ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                    : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>30 Ta Pora (Juz)</span>
+                <span>30 ta pora (Juz)</span>
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[#5F736C] dark:text-[#8EA39B] absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder={directoryMode === 'surah' ? "Sura nomi, raqami yoki arabchasini qidiring..." : "Pora nomi yoki raqamini qidiring..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#c5a869]"
+                className="w-full min-h-[42px] pl-10 pr-4 py-2 text-xs rounded-xl border border-[#064E3B]/[0.12] dark:border-white/[0.1] bg-white dark:bg-[#0B1411] text-[#0B1B16] dark:text-[#F7F5F0] placeholder-[#5F736C] dark:placeholder-[#7A9088] focus:outline-none focus:ring-1 focus:ring-[#10B981]"
               />
             </div>
 
             {directoryMode === 'surah' && missingSurahsCountForReciter > 0 && (
-              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-stone-100 dark:bg-emerald-950/40 border border-stone-200 dark:border-emerald-900/40 text-[11px]">
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[#ECE8DF] dark:bg-[#0B1411] border border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[11px]">
                 <button
                   type="button"
                   onClick={() => setSurahAudioFilter('all')}
-                  className={`py-1 rounded-lg font-semibold cursor-pointer ${
+                  className={`py-1.5 rounded-lg font-semibold cursor-pointer ${
                     surahAudioFilter === 'all'
-                      ? 'bg-[#c5a869] text-[#071614]'
-                      : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                      ? 'bg-white dark:bg-[#14241E] text-[#064E3B] dark:text-[#F7F5F0] shadow-xs'
+                      : 'text-[#4B635B] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
                   }`}
                 >
                   Barchasi (114)

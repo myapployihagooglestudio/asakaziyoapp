@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavigationTab } from '../../types';
+import { motion, useReducedMotion } from 'motion/react';
+import { NavigationTab, PrayerSchedule } from '../../types';
+import { getNextPrayerCalculation } from '../../utils/prayerTimeUtils';
 import {
   Home,
   Clock,
@@ -21,12 +23,19 @@ import {
   Shield,
   Bookmark,
   Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Compass,
+  Award,
+  Moon,
+  Bell,
 } from 'lucide-react';
 
 interface DesktopSidebarProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
   onOpenTvMode?: () => void;
+  prayerSchedule?: PrayerSchedule;
 }
 
 interface SidebarSection {
@@ -38,52 +47,88 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   activeTab,
   onSelectTab,
   onOpenTvMode,
+  prayerSchedule,
 }) => {
-  const { t } = useTranslation('navigation');
+  const { t } = useTranslation(['navigation', 'prayer']);
+  const prefersReduced = useReducedMotion();
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem('az_sidebar_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const [nextPrayer, setNextPrayer] = useState(() =>
+    prayerSchedule?.times ? getNextPrayerCalculation(prayerSchedule.times) : null,
+  );
+
+  useEffect(() => {
+    if (!prayerSchedule?.times) return;
+    const tick = () => setNextPrayer(getNextPrayerCalculation(prayerSchedule.times));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [prayerSchedule?.times]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('az_sidebar_collapsed', next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const sections: SidebarSection[] = [
     {
       title: 'Asosiy',
       items: [
-        { id: 'home', labelKey: 'home', fallback: 'Bosh sahifa', icon: <Home className="w-4 h-4" /> },
-        { id: 'prayer', labelKey: 'prayer', fallback: 'Namoz vaqtlari', icon: <Clock className="w-4 h-4" /> },
-        { id: 'quran', labelKey: 'quran', fallback: 'Qurʼon Markazi', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'hadith', labelKey: 'hadith', fallback: 'Hadislar', icon: <ScrollText className="w-4 h-4" /> },
-        { id: 'dhikr', labelKey: 'dhikr', fallback: 'Zikr va Duolar', icon: <Sparkles className="w-4 h-4" /> },
+        { id: 'home', labelKey: 'home', fallback: 'Bosh sahifa', icon: <Home className="w-[18px] h-[18px]" /> },
+        { id: 'prayer', labelKey: 'prayer', fallback: 'Namoz vaqtlari', icon: <Clock className="w-[18px] h-[18px]" /> },
+        { id: 'quran', labelKey: 'quran', fallback: 'Qurʼon Markazi', icon: <BookOpen className="w-[18px] h-[18px]" /> },
+        { id: 'hadith', labelKey: 'hadith', fallback: 'Hadislar', icon: <ScrollText className="w-[18px] h-[18px]" /> },
+        { id: 'dhikr', labelKey: 'dhikr', fallback: 'Zikr va Duolar', icon: <Sparkles className="w-[18px] h-[18px]" /> },
       ],
     },
     {
-      title: 'Qurʼon Taʼlimi',
+      title: 'Qurʼon va Taʼlim',
       items: [
-        { id: 'hifz_istiqomat', labelKey: 'hifz_istiqomat', fallback: 'Hifz va Istiqomat', icon: <Flame className="w-4 h-4" /> },
-        { id: 'academy', labelKey: 'academy', fallback: 'Qurʼon Akademiyasi', icon: <GraduationCap className="w-4 h-4" /> },
-        { id: 'khatm_planner', labelKey: 'khatm_planner', fallback: 'Xatm Rejasi', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'hifz_istiqomat', labelKey: 'hifz_istiqomat', fallback: 'Hifz va Murojaʼa', icon: <Flame className="w-[18px] h-[18px]" /> },
+        { id: 'academy', labelKey: 'academy', fallback: 'Tajvid Akademiyasi', icon: <GraduationCap className="w-[18px] h-[18px]" /> },
+        { id: 'khatm_planner', labelKey: 'khatm_planner', fallback: 'Xatm Rejasi', icon: <BookOpen className="w-[18px] h-[18px]" /> },
+        { id: 'quiz', labelKey: 'quiz', fallback: 'Dars va Testlar', icon: <Award className="w-[18px] h-[18px]" /> },
       ],
     },
     {
-      title: 'Kutubxona va Media',
+      title: 'Ilm va Media',
       items: [
-        { id: 'scholars', labelKey: 'scholars', fallback: 'Ulamolar', icon: <Users className="w-4 h-4" /> },
-        { id: 'library', labelKey: 'library', fallback: 'Elektron Kutubxona', icon: <Library className="w-4 h-4" /> },
-        { id: 'media_center', labelKey: 'media_center', fallback: 'Media Markaz', icon: <Headphones className="w-4 h-4" /> },
-        { id: 'articles', labelKey: 'articles', fallback: 'Maqolalar', icon: <Newspaper className="w-4 h-4" /> },
+        { id: 'articles', labelKey: 'articles', fallback: 'Maqola va Yangilik', icon: <Newspaper className="w-[18px] h-[18px]" /> },
+        { id: 'library', labelKey: 'library', fallback: 'Islomiy Kutubxona', icon: <Library className="w-[18px] h-[18px]" /> },
+        { id: 'scholars', labelKey: 'scholars', fallback: 'Ulamolar va Qorilar', icon: <Users className="w-[18px] h-[18px]" /> },
+        { id: 'media_center', labelKey: 'media_center', fallback: 'Media va Video', icon: <Headphones className="w-[18px] h-[18px]" /> },
       ],
     },
     {
-      title: 'Islomiy Xizmatlar',
+      title: 'Xizmatlar va AI',
       items: [
-        { id: 'mosques', labelKey: 'mosques', fallback: 'Masjidlar va Qibla', icon: <MapPin className="w-4 h-4" /> },
-        { id: 'ask_imam', labelKey: 'ask_imam', fallback: 'Diniy Savol-Javob', icon: <MessageCircleQuestion className="w-4 h-4" /> },
-        { id: 'calendar', labelKey: 'calendar', fallback: 'Hijriy Taqvim', icon: <Calendar className="w-4 h-4" /> },
-        { id: 'ai_assistant', labelKey: 'ai_assistant', fallback: 'AI Yordamchi', icon: <Bot className="w-4 h-4" /> },
+        { id: 'ai_assistant', labelKey: 'ai_assistant', fallback: 'AI Ustoz', icon: <Bot className="w-[18px] h-[18px]" /> },
+        { id: 'mosques', labelKey: 'mosques', fallback: 'Masjidlar va Qibla', icon: <MapPin className="w-[18px] h-[18px]" /> },
+        { id: 'calendar', labelKey: 'calendar', fallback: 'Hijriy Taqvim', icon: <Calendar className="w-[18px] h-[18px]" /> },
+        { id: 'fasting', labelKey: 'fasting', fallback: 'Roʻza Yordamchisi', icon: <Moon className="w-[18px] h-[18px]" /> },
+        { id: 'ask_imam', labelKey: 'ask_imam', fallback: 'Imomga Savol', icon: <MessageCircleQuestion className="w-[18px] h-[18px]" /> },
       ],
     },
     {
       title: 'Shaxsiy va Boshqaruv',
       items: [
-        { id: 'favorites', labelKey: 'favorites', fallback: 'Sevimlilar', icon: <Bookmark className="w-4 h-4" /> },
-        { id: 'settings', labelKey: 'settings', fallback: 'Sozlamalar', icon: <Settings className="w-4 h-4" /> },
-        { id: 'admin', labelKey: 'admin', fallback: 'Admin Portal', icon: <Shield className="w-4 h-4" /> },
+        { id: 'favorites', labelKey: 'favorites', fallback: 'Sevimlilar', icon: <Bookmark className="w-[18px] h-[18px]" /> },
+        { id: 'notifications', labelKey: 'notifications', fallback: 'Bildirishnomalar', icon: <Bell className="w-[18px] h-[18px]" /> },
+        { id: 'settings', labelKey: 'settings', fallback: 'Sozlamalar', icon: <Settings className="w-[18px] h-[18px]" /> },
+        { id: 'admin', labelKey: 'admin', fallback: 'Admin Panel', icon: <Shield className="w-[18px] h-[18px]" /> },
       ],
     },
   ];
@@ -91,46 +136,124 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   return (
     <aside
       aria-label="Asosiy yon navigatsiya"
-      className="hidden xl:flex flex-col w-64 shrink-0 border-r border-[#063D32]/12 dark:border-[#DFBD69]/20 bg-[#FFF8E8]/60 dark:bg-[#02120B]/80 px-3 py-5 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto"
+      className={`hidden lg:flex flex-col shrink-0 border-r border-[#064E3B]/10 dark:border-white/[0.07] bg-[#FAF8F4]/75 dark:bg-[#08100D]/85 backdrop-blur-xl py-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto transition-[width,padding] duration-200 ${
+        collapsed ? 'w-[76px] px-2.5' : 'w-[262px] px-3.5'
+      }`}
     >
-      <div className="space-y-6">
-        {sections.map((sec) => (
-          <div key={sec.title} className="space-y-1">
-            <div className="px-3 text-[11px] font-bold tracking-wider uppercase text-[#526B62] dark:text-[#9CB5AC]">
-              {sec.title}
+      {/* Top Row: Live Asaka Next-Prayer Compact Card + Collapse Toggle */}
+      <div className="mb-5 space-y-2.5">
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between px-1'}`}>
+          {!collapsed && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5F776F] dark:text-[#8FA69D]">
+              Workspace
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-xl text-[#5F776F] dark:text-[#8FA69D] hover:text-[#0B1B16] dark:hover:text-white hover:bg-[#064E3B]/7 dark:hover:bg-white/[0.07] transition-colors cursor-pointer"
+            title={collapsed ? 'Yon panelni kengaytirish' : 'Yon panelni yigʻish'}
+            aria-label={collapsed ? 'Yon panelni kengaytirish' : 'Yon panelni yigʻish'}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="w-4 h-4" />
+            ) : (
+              <PanelLeftClose className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+
+        {nextPrayer?.nextPrayer && !collapsed && (
+          <button
+            type="button"
+            onClick={() => onSelectTab('prayer')}
+            className="w-full text-left rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#072B21] via-[#061C16] to-[#05100D] text-[#F7F5F0] p-3.5 shadow-sm hover:border-emerald-400/40 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.14em] text-emerald-300/90 font-semibold">
+              <span>Asaka · Keyingi namoz</span>
+              <span className="font-mono-numbers text-[#C8A85E] font-bold">
+                {nextPrayer.nextPrayer.time}
+              </span>
             </div>
+            <div className="mt-1.5 flex items-baseline justify-between gap-2">
+              <span className="text-sm font-bold truncate">
+                {t(`prayer:${nextPrayer.nextPrayer.key}`, nextPrayer.nextPrayer.nameUz)}
+              </span>
+              <span className="text-xs font-mono-numbers font-bold text-white tabular-nums shrink-0">
+                {nextPrayer.countdownText}
+              </span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-white/[0.08] flex items-center justify-between text-[10px] text-[#9AB0A7]">
+              <span className="inline-flex items-center gap-1">
+                <Compass className="w-3 h-3 text-[#C8A85E]" />
+                <span>Qibla {prayerSchedule?.qiblaAngleDeg || 241}°</span>
+              </span>
+              <span className="font-mono-numbers">UTC+5</span>
+            </div>
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-5 flex-1">
+        {sections.map((sec) => (
+          <div key={sec.title} className="space-y-0.5">
+            {!collapsed && (
+              <div className="px-3 pb-1 text-[10px] font-bold tracking-[0.14em] uppercase text-[#5F776F] dark:text-[#7D968D]">
+                {sec.title}
+              </div>
+            )}
             {sec.items.map((item) => {
               const isActive = activeTab === item.id;
+              const label = t(`navigation:${item.labelKey}`, item.fallback);
               return (
                 <button
                   key={item.id}
+                  type="button"
+                  title={collapsed ? label : undefined}
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 min-h-[40px] rounded-xl text-sm font-medium transition-colors cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-[#DFBD69] ${
+                  className={`relative w-full flex items-center ${
+                    collapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                  } py-2.5 min-h-[42px] rounded-xl text-[13px] font-medium transition-colors cursor-pointer text-left ${
                     isActive
-                      ? 'bg-[#063D32] text-[#FFF8E8] dark:bg-[#DFBD69] dark:text-[#010906] font-bold shadow-xs'
-                      : 'text-[#1E3F35] dark:text-[#E6DFCE] hover:bg-[#063D32]/8 dark:hover:bg-[#092E1F]'
+                      ? 'text-[#F7F5F0] dark:text-[#07110D] font-bold'
+                      : 'text-[#2D4A41] dark:text-[#C5D4CE] hover:bg-[#064E3B]/7 dark:hover:bg-white/[0.06] hover:text-[#0B1B16] dark:hover:text-white'
                   }`}
                 >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="truncate">{t(item.labelKey, item.fallback)}</span>
+                  {isActive && (
+                    <motion.span
+                      layoutId="desktop-sidebar-active"
+                      transition={
+                        prefersReduced
+                          ? { duration: 0 }
+                          : { type: 'spring', stiffness: 380, damping: 32 }
+                      }
+                      className="absolute inset-0 rounded-xl bg-[#064E3B] dark:bg-[#C8A85E] shadow-xs"
+                    />
+                  )}
+                  <span className="relative z-10 shrink-0">{item.icon}</span>
+                  {!collapsed && <span className="relative z-10 truncate">{label}</span>}
                 </button>
               );
             })}
           </div>
         ))}
-
-        {onOpenTvMode && (
-          <div className="pt-3 border-t border-[#063D32]/12 dark:border-[#DFBD69]/20">
-            <button
-              onClick={onOpenTvMode}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[42px] rounded-xl bg-[#092E1F] text-[#FFF6C8] border border-[#DFBD69]/40 text-xs font-bold hover:border-[#DFBD69] transition-colors cursor-pointer"
-            >
-              <Tv className="w-4 h-4 text-[#DFBD69]" />
-              <span>Masjid TV Tablosi</span>
-            </button>
-          </div>
-        )}
       </div>
+
+      {onOpenTvMode && (
+        <div className="pt-4 mt-4 border-t border-[#064E3B]/10 dark:border-white/[0.08]">
+          <button
+            type="button"
+            title="Masjid TV Tablosi"
+            onClick={onOpenTvMode}
+            className={`w-full flex items-center ${
+              collapsed ? 'justify-center px-0' : 'gap-2.5 px-3'
+            } py-2.5 min-h-[42px] rounded-xl bg-[#064E3B]/8 dark:bg-white/[0.05] text-[#064E3B] dark:text-[#E8E4DA] border border-[#064E3B]/12 dark:border-white/[0.08] text-xs font-semibold hover:bg-[#064E3B]/14 dark:hover:bg-white/[0.1] transition-colors cursor-pointer`}
+          >
+            <Tv className="w-4 h-4 text-[#064E3B] dark:text-[#C8A85E] shrink-0" />
+            {!collapsed && <span>Masjid TV Tablosi</span>}
+          </button>
+        </div>
+      )}
     </aside>
   );
 };

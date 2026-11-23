@@ -10,7 +10,8 @@ import {
   ADHAN_TRACKS,
   AdhanPlayerState,
 } from '../../utils/notificationService';
-import { drawerSlideVariants, usePrefersReducedMotion } from '../../utils/motionSystem';
+import { drawerSlideVariants } from '../../utils/motionSystem';
+import { AudioWaveformBars, PREMIUM_EASE } from './MotionPrimitives';
 import {
   updateNativeMediaSession,
   updateNativeMediaPositionState,
@@ -51,7 +52,6 @@ export const PersistentAudioPlayer: React.FC = () => {
     error: null,
   });
   const [expanded, setExpanded] = useState(false);
-  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const unsub = subscribeToAdhanPlayerState((state) => {
@@ -115,14 +115,14 @@ export const PersistentAudioPlayer: React.FC = () => {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="fixed bottom-16 lg:bottom-4 right-3 left-3 sm:left-auto sm:w-[440px] z-40 rounded-2xl bg-[#041d17]/95 backdrop-blur-md border border-[#c5a869]/50 text-[#F4F1EA] shadow-2xl overflow-hidden"
+        className="fixed bottom-[86px] lg:bottom-5 right-3 left-3 sm:left-auto sm:w-[430px] z-40 rounded-[26px] bg-[#0B1411]/94 backdrop-blur-2xl border border-white/[0.12] text-[#F7F5F0] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.78)] overflow-hidden"
         role="region"
         aria-label="Global Azon va Audio Pleyer"
       >
         {/* Top Progress Strip */}
-        <div className="h-1 w-full bg-white/10 overflow-hidden">
+        <div className="h-[3px] w-full bg-white/[0.08] overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-[#c5a869] to-[#e6ce8a] transition-all duration-200"
+            className="h-full bg-gradient-to-r from-emerald-400 to-[#C8A85E] transition-all duration-200"
             style={{ width: `${Math.min(100, Math.max(0, playerState.progressPercent || 0))}%` }}
           />
         </div>
@@ -137,7 +137,7 @@ export const PersistentAudioPlayer: React.FC = () => {
                   playerState.playingTrackId &&
                   toggleAdhanAudio(playerState.playingTrackId, playerState.volume)
                 }
-                className="w-10 h-10 rounded-xl bg-[#c5a869] text-[#03120e] flex items-center justify-center shrink-0 shadow hover:bg-[#d8be80] transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-2xl bg-[#C8A85E] text-[#07110D] flex items-center justify-center shrink-0 shadow-xs hover:bg-[#D6B974] transition-colors cursor-pointer"
                 aria-label={playerState.isPlaying ? 'Toʻxtatib turish' : 'Davom ettirish'}
               >
                 {playerState.isLoading ? (
@@ -151,21 +151,11 @@ export const PersistentAudioPlayer: React.FC = () => {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  {/* Real Playback Waveform Indicator — ONLY animates when audio is genuinely playing */}
-                  <div className="flex items-end gap-0.5 h-3 shrink-0" aria-hidden="true">
-                    {[0, 1, 2, 3].map((bar) => (
-                      <span
-                        key={bar}
-                        className={`w-0.5 rounded-full bg-[#c5a869] transition-all duration-200 ${
-                          playerState.isPlaying && !prefersReducedMotion
-                            ? bar % 2 === 0
-                              ? 'h-3 animate-pulse'
-                              : 'h-2 animate-pulse'
-                            : 'h-1 opacity-50'
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  <AudioWaveformBars
+                    isPlaying={playerState.isPlaying}
+                    className="h-3.5 shrink-0"
+                    barClassName="bg-[#c5a869]"
+                  />
                   <span className="text-xs font-bold text-white truncate">
                     {playerState.track?.titleUz || 'Azon Audio'}
                   </span>
@@ -210,8 +200,16 @@ export const PersistentAudioPlayer: React.FC = () => {
           )}
 
           {/* Expanded Spatial Player Drawer */}
-          {expanded && (
-            <div className="pt-2 border-t border-white/10 space-y-3 animate-fade-in">
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="expanded-audio-drawer"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.24, ease: PREMIUM_EASE }}
+                className="overflow-hidden pt-2 border-t border-white/10 space-y-3"
+              >
               <div className="text-right font-arabic text-sm text-[#e6ce8a]" dir="rtl">
                 {playerState.track?.titleAr}
               </div>
@@ -283,8 +281,9 @@ export const PersistentAudioPlayer: React.FC = () => {
                   />
                 </div>
               </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </AnimatePresence>

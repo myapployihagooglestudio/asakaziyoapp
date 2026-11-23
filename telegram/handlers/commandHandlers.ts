@@ -35,6 +35,21 @@ import {
   ASAKA_DISTANCE_TO_KAABA_KM,
   getCompassDirectionLabel,
 } from '../services/qiblaHijriService';
+import { getTashkentCalendarParts } from '../services/dateCalendarService';
+import {
+  buildCommunityServicesHubKeyboard,
+  buildCyberSafetyKeyboard,
+  buildHabitsKeyboard,
+  buildRegionalTaqvimKeyboard,
+  buildSourceVerificationKeyboard,
+  buildUmrahGuideKeyboard,
+  ensureHabitState,
+  formatCyberSafetyHomeText,
+  formatHabitsDashboardText,
+  formatRegionalTaqvimNotice,
+  formatSourceVerificationGuide,
+  formatUmrahGuideMessage,
+} from '../services/communityServicesSuite';
 import { getTelegramLocaleBundle, TELEGRAM_LANGUAGE_NATIVE_NAMES } from '../locales';
 import {
   buildAcademyKeyboard,
@@ -1355,6 +1370,103 @@ export async function handleBotCommand(
         reply_markup: ctx.styleManager ? ctx.styleManager.decorateInlineMarkup(kb) : kb,
       });
       return { handled: true, command: '/admin' };
+    }
+
+    case '/habits':
+    case '/odatlar': {
+      const todayKey = getTashkentCalendarParts().dateKey;
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const state = ensureHabitState(eng.worshipHabits, todayKey);
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatHabitsDashboardText(user.language, state)
+      );
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: buildHabitsKeyboard(user.language, state, ctx.emojiRegistry),
+      });
+      return { handled: true, command: '/habits' };
+    }
+
+    case '/umrah':
+    case '/umra': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatUmrahGuideMessage(user.language, 'home')
+      );
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: buildUmrahGuideKeyboard(user.language, ctx.emojiRegistry),
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/umrah' };
+    }
+
+    case '/verify_source':
+    case '/manba': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatSourceVerificationGuide(user.language, parsed.args || undefined)
+      );
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: buildSourceVerificationKeyboard(user.language, ctx.emojiRegistry),
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/verify_source' };
+    }
+
+    case '/cybersafety':
+    case '/xavfsizlik': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatCyberSafetyHomeText(user.language)
+      );
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: buildCyberSafetyKeyboard(user.language, ctx.emojiRegistry),
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/cybersafety' };
+    }
+
+    case '/regions':
+    case '/hududlar': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatRegionalTaqvimNotice(user.language)
+      );
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: buildRegionalTaqvimKeyboard(user.language, ctx.emojiRegistry),
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/regions' };
+    }
+
+    case '/services':
+    case '/xizmatlar': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        user.language === 'ru'
+          ? '{{emoji:admin.shield}} Полезные сервисы ASAKA ZIYO\n\nВыберите нужный раздел:'
+          : user.language === 'en'
+            ? '{{emoji:admin.shield}} ASAKA ZIYO Community Services\n\nSelect a module below:'
+            : user.language === 'uz-Cyrl'
+              ? '{{emoji:admin.shield}} ASAKA ZIYO Фойдали хизматлар маркази\n\nКеракли бўлимни танланг:'
+              : '{{emoji:admin.shield}} ASAKA ZIYO Foydali xizmatlar markazi\n\nKerakli boʻlimni tanlang:'
+      );
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: formatted.text,
+        ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+        reply_markup: buildCommunityServicesHubKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, command: '/services' };
     }
 
     case '/help': {

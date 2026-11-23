@@ -55,6 +55,22 @@ import {
   ASAKA_DISTANCE_TO_KAABA_KM,
   getCompassDirectionLabel,
 } from '../services/qiblaHijriService';
+import { clampHijriOffset, getTashkentCalendarParts } from '../services/dateCalendarService';
+import {
+  buildCommunityServicesHubKeyboard,
+  buildCyberSafetyKeyboard,
+  buildHabitsKeyboard,
+  buildRegionalTaqvimKeyboard,
+  buildSourceVerificationKeyboard,
+  buildUmrahGuideKeyboard,
+  ensureHabitState,
+  formatCyberSafetyHomeText,
+  formatHabitsDashboardText,
+  formatRegionalTaqvimNotice,
+  formatSourceVerificationGuide,
+  formatUmrahGuideMessage,
+  toggleUserWorshipHabit,
+} from '../services/communityServicesSuite';
 import { getTelegramLocaleBundle, isValidTelegramLocale } from '../locales';
 import {
   buildAcademyKeyboard,
@@ -3258,12 +3274,15 @@ export async function handleCallbackQuery(
 
     if (data === 'admin:prayer') {
       const sched = ctx.prayerAdapter.getCurrentSchedule();
+      const dateCtx = ctx.prayerAdapter.getResolvedDateContext(user.language);
+      const offsetDays = clampHijriOffset(settings.hijriDateOffsetDays);
+      const boundary = settings.hijriBoundaryMode === 'maghrib' ? 'Shom (Maghrib)' : '00:00 (Fuqarolik)';
       const lines = sched.times.map((t) => `• ${t.nameUz}: ${t.time}`).join('\n');
       const formatted = ctx.emojiRegistry.formatMessage(
         `${dict.adminTitle} — Asaka Namoz Jadvali (Qoʻlda boshqaruv)\n\n` +
-          `{{emoji:calendar}} Sana: ${sched.formattedDateUz || sched.date}\n` +
-          `{{emoji:brand}} Hijriy: ${sched.hijriDate}\n\n${lines}\n\n` +
-          `Oʻzgartirmoqchi boʻlgan namoz vaqtini tanlang (avtomatik hisoblanmaydi, toʻgʻridan-toʻgʻri Firestore ga saqlanadi):`
+          `{{emoji:calendar}} Sana (Asia/Tashkent): ${dateCtx.gregorian.formatted}\n` +
+          `{{emoji:brand}} Hijriy: ${dateCtx.hijri.formatted} (Siljish: ${offsetDays >= 0 ? `+${offsetDays}` : offsetDays} kun | Chegara: ${boundary})\n\n${lines}\n\n` +
+          `Oʻzgartirmoqchi boʻlgan namoz vaqtini yoki Hijriy kalendar sozlamasini tanlang (namoz vaqtlari avtomatik almashtirilmaydi):`
       );
       await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
@@ -3272,6 +3291,69 @@ export async function handleCallbackQuery(
         reply_markup: buildAdminPrayerKeyboard(user.language, ctx.emojiRegistry),
       });
       return { handled: true, action: 'admin:prayer' };
+    }
+
+    if (data.startsWith('admin:hijri:offset:')) {
+      const rawOffset = Number.parseInt(data.slice('admin:hijri:offset:'.length), 10);
+      const nextOffset = clampHijriOffset(rawOffset);
+      await ctx.repository.saveSettings({ hijriDateOffsetDays: nextOffset }, user.telegramId);
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_hijri_offset_updated',
+        targetType: 'settings',
+        targetId: 'hijriDateOffsetDays',
+        metadata: { offsetDays: nextOffset },
+      });
+      const dateCtx = ctx.prayerAdapter.getResolvedDateContext(user.language);
+      const sched = ctx.prayerAdapter.getCurrentSchedule();
+      const lines = sched.times.map((t) => `• ${t.nameUz}: ${t.time}`).join('\n');
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:confirm}} Hijriy sana tuzatishi saqlandi (${nextOffset >= 0 ? `+${nextOffset}` : nextOffset} kun)\n\n` +
+          `{{emoji:calendar}} Sana: ${dateCtx.gregorian.formatted}\n` +
+          `{{emoji:brand}} Yangi Hijriy sana: ${dateCtx.hijri.formatted}\n\n${lines}`
+      );
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `Hijriy siljish: ${nextOffset >= 0 ? `+${nextOffset}` : nextOffset} kun`,
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildAdminPrayerKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: data };
+    }
+
+    if (data === 'admin:hijri:boundary:toggle') {
+      const nextMode: 'civil' | 'maghrib' =
+        settings.hijriBoundaryMode === 'maghrib' ? 'civil' : 'maghrib';
+      await ctx.repository.saveSettings({ hijriBoundaryMode: nextMode }, user.telegramId);
+      await ctx.repository.appendAuditLog({
+        actorTelegramId: user.telegramId,
+        actorRole: role,
+        action: 'admin_hijri_boundary_toggled',
+        targetType: 'settings',
+        targetId: 'hijriBoundaryMode',
+        metadata: { mode: nextMode },
+      });
+      const dateCtx = ctx.prayerAdapter.getResolvedDateContext(user.language);
+      const modeLabel = nextMode === 'maghrib' ? 'Shom (Maghrib)' : '00:00 (Fuqarolik)';
+      const formatted = ctx.emojiRegistry.formatMessage(
+        `{{emoji:confirm}} Hijriy kun almashish qoidasi yangilandi: ${modeLabel}\n` +
+          `{{emoji:calendar}} Sana: ${dateCtx.gregorian.formatted}\n` +
+          `{{emoji:brand}} Hijriy: ${dateCtx.hijri.formatted}`
+      );
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `Hijriy chegara: ${modeLabel}`,
+      });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildAdminPrayerKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: data };
     }
 
     if (data.startsWith('admin:prayer:edit:')) {
@@ -4847,7 +4929,169 @@ export async function handleCallbackQuery(
       return { handled: true, action: 'nav:help' };
     }
 
+    case 'tools:hub': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        user.language === 'ru'
+          ? '{{emoji:admin.shield}} Полезные сервисы ASAKA ZIYO\n\nВыберите нужный раздел:'
+          : user.language === 'en'
+            ? '{{emoji:admin.shield}} ASAKA ZIYO Community Services\n\nSelect a module below:'
+            : user.language === 'uz-Cyrl'
+              ? '{{emoji:admin.shield}} ASAKA ZIYO Фойдали хизматлар маркази\n\nКеракли бўлимни танланг:'
+              : '{{emoji:admin.shield}} ASAKA ZIYO Foydali xizmatlar markazi\n\nKerakli boʻlimni tanlang:'
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildCommunityServicesHubKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'tools:hub' };
+    }
+
+    case 'tools:verify:home': {
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatSourceVerificationGuide(user.language)
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildSourceVerificationKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'tools:verify:home' };
+    }
+
+    case 'tools:verify:search': {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'tools_verify_search' });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        user.language === 'ru'
+          ? '{{emoji:brand.book}} Введите название книги, автора или издательства для поиска в каталоге ASAKA ZIYO:'
+          : user.language === 'en'
+            ? '{{emoji:brand.book}} Type a book title, author, or publisher to search the ASAKA ZIYO catalog:'
+            : user.language === 'uz-Cyrl'
+              ? '{{emoji:brand.book}} Китоб номи, муаллиф ёки нашриётни ёзиб юборинг:'
+              : '{{emoji:brand.book}} Kitob nomi, muallif yoki nashriyotni yozib yuboring:'
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildSourceVerificationKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'tools:verify:search' };
+    }
+
+    case 'tools:umrah:home':
+    case 'tools:umrah:rituals':
+    case 'tools:umrah:checklist':
+    case 'tools:umrah:duas': {
+      const sec = data.split(':')[2] as 'home' | 'rituals' | 'checklist' | 'duas';
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatUmrahGuideMessage(user.language, sec)
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildUmrahGuideKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: data };
+    }
+
+    case 'tools:cyber:home': {
+      const formatted = ctx.emojiRegistry.formatMessage(formatCyberSafetyHomeText(user.language));
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildCyberSafetyKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'tools:cyber:home' };
+    }
+
+    case 'tools:cyber:check': {
+      await ctx.userService.setActiveFlow(user.telegramId, { type: 'tools_cyber_check' });
+      const formatted = ctx.emojiRegistry.formatMessage(
+        user.language === 'ru'
+          ? '{{emoji:admin.shield}} Отправьте подозрительную ссылку (URL), текст сообщения или имя файла для статической проверки:'
+          : user.language === 'en'
+            ? '{{emoji:admin.shield}} Send a suspicious URL, message text, or filename for static heuristic verification:'
+            : user.language === 'uz-Cyrl'
+              ? '{{emoji:admin.shield}} Шубҳали ҳавола (URL), хабар матни ёки файл номини юборинг (бот файлни ишга туширмайди):'
+              : '{{emoji:admin.shield}} Shubhali havola (URL), xabar matni yoki fayl nomini yuboring (bot faylni ishga tushirmaydi):'
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildCyberSafetyKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'tools:cyber:check' };
+    }
+
+    case 'tools:regions': {
+      const formatted = ctx.emojiRegistry.formatMessage(formatRegionalTaqvimNotice(user.language));
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildRegionalTaqvimKeyboard(user.language, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'tools:regions' };
+    }
+
+    case 'habits:home': {
+      const todayKey = getTashkentCalendarParts().dateKey;
+      const eng = ctx.repository.getUserEngagement(user.telegramId);
+      const state = ensureHabitState(eng.worshipHabits, todayKey);
+      const formatted = ctx.emojiRegistry.formatMessage(
+        formatHabitsDashboardText(user.language, state)
+      );
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      await renderScreenUpdate(ctx.apiClient, callback, {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildHabitsKeyboard(user.language, state, ctx.emojiRegistry),
+      });
+      return { handled: true, action: 'habits:home' };
+    }
+
     default: {
+      if (data.startsWith('habits:toggle:')) {
+        const habitId = data.slice('habits:toggle:'.length);
+        const res = await toggleUserWorshipHabit(ctx.repository, user.telegramId, habitId);
+        const formatted = ctx.emojiRegistry.formatMessage(
+          formatHabitsDashboardText(user.language, res.state)
+        );
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: res.completed ? 'Belgilandi!' : 'Belgi olib tashlandi',
+        });
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: formatted.text,
+          entities: formatted.entities,
+          reply_markup: buildHabitsKeyboard(user.language, res.state, ctx.emojiRegistry),
+        });
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('support:rate:')) {
+        const parts = data.split(':');
+        const ticketId = parts[2];
+        const rating = Number.parseInt(parts[3] || '5', 10);
+        const rated = ticketId
+          ? await ctx.supportService.rateTicket(ticketId, user.telegramId, rating)
+          : null;
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: rated
+            ? `Rahmat! Bahoingiz saqlandi: ${rated.userRating}/5`
+            : 'Murojaat topilmadi.',
+          show_alert: true,
+        });
+        return { handled: true, action: data };
+      }
+
       await ctx.apiClient.answerCallbackQuery({
         callback_query_id: callback.id,
         text: dict.unknownCommand,

@@ -80,20 +80,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleFinish}
-      title="ASAKA ZIYO — Xush Kelibsiz!"
+      title="ASAKA ZIYO — Xush kelibsiz"
       subtitle="Ilovani oʻzingizga qulay til, mavzu va azon eslatmalari bilan moslab oling (Roʻyxatdan oʻtish majburiy emas)"
       maxWidth="lg"
     >
       <div className="space-y-6">
         {/* Brand Identity Banner */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#04241d] via-[#063127] to-[#031d17] border border-[#c5a869]/40 flex items-center gap-4 text-white">
-          <div className="w-12 h-12 rounded-2xl bg-[#c5a869]/20 border border-[#c5a869] flex items-center justify-center shrink-0">
-            <IslamicStarEmblem size={24} className="text-[#c5a869]" />
+        <div className="p-4 rounded-2xl bg-[#071410] border border-white/[0.1] flex items-center gap-4 text-[#F7F5F0]">
+          <div className="w-12 h-12 rounded-2xl bg-[#10B981]/15 border border-[#10B981]/30 flex items-center justify-center shrink-0">
+            <IslamicStarEmblem size={22} className="text-[#10B981]" />
           </div>
-          <div className="text-xs leading-relaxed text-stone-200">
-            <div className="font-bold text-sm text-[#e6ce8a] flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#c5a869]" />
-              <span>Asaka Markaziy Jome Masjidi va Raqamli Islomiy Ekotizimi</span>
+          <div className="text-xs leading-relaxed text-[#C2D1CB]">
+            <div className="font-semibold text-sm text-[#F7F5F0] mb-0.5">
+              Asaka Markaziy Jome Masjidi raqamli ekotizimi
             </div>
             Aniq namoz vaqtlari, Shayx Mishari Roshid Al-Afosiy azoni, Qurʼoni Karim (Tafsiri Hilol bilan), sahih hadislar va kunlik viktorina.
           </div>
@@ -101,9 +100,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* 1. 5-Language Selector */}
         <div className="space-y-2.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-[#c5a869] flex items-center gap-1.5">
-            <Globe className="w-4 h-4" />
-            <span>1. Ilova Tilini Tanlang (5 xil alifbo va til)</span>
+          <label className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+            <Globe className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />
+            <span>1. Ilova tilini tanlang (5 xil alifbo va til)</span>
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {LANGUAGES.map((l) => {
@@ -113,17 +112,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   key={l.code}
                   type="button"
                   onClick={() => handleSelectLanguage(l.code)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  className={`min-h-[48px] p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
                     active
-                      ? 'bg-[#c5a869]/20 border-[#c5a869] text-white'
-                      : 'bg-white/5 border-white/10 text-stone-300 hover:border-white/30'
+                      ? 'bg-[#064E3B]/[0.08] dark:bg-[#10B981]/15 border-[#064E3B] dark:border-[#10B981] text-[#064E3B] dark:text-[#F7F5F0]'
+                      : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#0B1B16] dark:text-[#E5ECE9] hover:border-[#064E3B]/30 dark:hover:border-white/20'
                   }`}
                 >
                   <div>
-                    <div className="text-xs font-bold text-white">{l.label}</div>
-                    <div className="text-[10px] text-stone-400">{l.sub}</div>
+                    <div className="text-xs font-semibold">{l.label}</div>
+                    <div className="text-[11px] text-[#5F736C] dark:text-[#8EA39B]">{l.sub}</div>
                   </div>
-                  {active && <CheckCircle2 className="w-4 h-4 text-[#c5a869] shrink-0" />}
+                  {active && <CheckCircle2 className="w-4 h-4 text-[#064E3B] dark:text-[#10B981] shrink-0" />}
                 </button>
               );
             })}
@@ -132,42 +131,42 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* 2. Theme Mode Selector (Light, Dark, System) */}
         <div className="space-y-2.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-[#c5a869] flex items-center gap-1.5">
-            <Sun className="w-4 h-4" />
-            <span>2. Koʻrinish Mavzusi (Yorugʻ / Tungi / Tizim)</span>
+          <label className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+            <Sun className="w-4 h-4 text-[#C8A85E]" />
+            <span>2. Koʻrinish mavzusi</span>
           </label>
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => onUpdateSettings({ theme: 'light' })}
-              className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 settings.theme === 'light'
-                  ? 'bg-[#FBF9F5] text-[#14221B] border-[#c5a869] shadow'
-                  : 'bg-white/5 border-white/10 text-stone-300'
+                  ? 'bg-[#064E3B] text-white border-[#064E3B]'
+                  : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
               }`}
             >
-              <Sun className="w-4 h-4 text-amber-500" />
+              <Sun className="w-4 h-4" />
               <span>Yorugʻ</span>
             </button>
             <button
               type="button"
               onClick={() => onUpdateSettings({ theme: 'dark' })}
-              className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 settings.theme === 'dark'
-                  ? 'bg-[#064e3b] text-white border-[#c5a869] shadow'
-                  : 'bg-white/5 border-white/10 text-stone-300'
+                  ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] border-[#064E3B] dark:border-[#10B981]'
+                  : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
               }`}
             >
-              <Moon className="w-4 h-4 text-[#c5a869]" />
+              <Moon className="w-4 h-4" />
               <span>Tungi</span>
             </button>
             <button
               type="button"
               onClick={() => onUpdateSettings({ theme: 'system' })}
-              className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 settings.theme === 'system'
-                  ? 'bg-[#c5a869] text-[#051210] border-[#c5a869] shadow'
-                  : 'bg-white/5 border-white/10 text-stone-300'
+                  ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] border-[#064E3B] dark:border-[#10B981]'
+                  : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
               }`}
             >
               <Sparkles className="w-4 h-4" />
@@ -177,14 +176,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         </div>
 
         {/* 3. Adhan Audio & Notification Permission */}
-        <div className="p-4 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="p-4 rounded-2xl bg-[#F7F5F0] dark:bg-[#0F1A16] border border-[#064E3B]/[0.08] dark:border-white/[0.08] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Bell className="w-4 h-4 text-[#c5a869]" />
-                <span>3. Azon Ovozi va Namoz Eslatmalari</span>
+              <div className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />
+                <span>3. Azon ovozi va namoz eslatmalari</span>
               </div>
-              <p className="text-[11px] text-stone-400 mt-0.5">
+              <p className="text-[11px] text-[#5F736C] dark:text-[#8EA39B] mt-0.5">
                 Namoz vaqti kirganda Shayx Mishari Roshid Al-Afosiy azonini eshitish
               </p>
             </div>
@@ -193,10 +192,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={handleTestAdhan}
-                className="text-xs border-[#c5a869]/50 text-[#c5a869]"
+                className="text-xs"
               >
                 <Volume2 className="w-3.5 h-3.5 mr-1" />
-                <span>{isTestingAdhan ? 'Toʻxtatish' : 'Azonni Sinash'}</span>
+                <span>{isTestingAdhan ? 'Toʻxtatish' : 'Azonni sinash'}</span>
               </Button>
               <Button
                 variant={notifGranted ? 'outline' : 'primary'}
@@ -204,23 +203,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 onClick={handleEnableNotifications}
                 className="text-xs"
               >
-                {notifGranted ? 'Ruxsat berilgan ✓' : 'Eslatmani Yoqish'}
+                {notifGranted ? 'Ruxsat berilgan' : 'Eslatmani yoqish'}
               </Button>
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+        <div className="flex items-center justify-between pt-3 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08]">
           <button
             type="button"
             onClick={handleFinish}
-            className="text-xs text-stone-400 hover:text-white underline cursor-pointer"
+            className="text-xs text-[#5F736C] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0] underline cursor-pointer"
           >
             Oʻtkazib yuborish (Mehmon rejimi)
           </button>
           <Button variant="primary" size="sm" onClick={handleFinish} className="gap-1.5">
-            <span>Tayyor, Boshlash</span>
+            <span>Tayyor, boshlash</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
         </div>

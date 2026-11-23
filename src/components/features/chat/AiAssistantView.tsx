@@ -576,34 +576,32 @@ export const AiAssistantView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 space-y-6">
-      {/* Luxury Architectural Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#c9a84c]/35 bg-gradient-to-br from-[#061e17] via-[#0a2e23] to-[#04120e] text-[#f8f4ec] p-6 sm:p-8 shadow-2xl">
-        <GeometricPattern opacity={0.07} />
+    <div className="max-w-7xl mx-auto px-1 sm:px-2 py-2 space-y-6">
+      {/* 2026 Architectural AI Workspace Header */}
+      <div className="relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#071410] text-[#F7F5F0] p-6 sm:p-8 shadow-[0_24px_64px_-20px_rgba(3,10,8,0.55)]">
+        <GeometricPattern opacity={0.04} />
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#c9a84c]/15 border border-[#c9a84c]/40 text-[#e5c97b] text-xs font-semibold tracking-wider uppercase">
-              <IslamicStarEmblem className="w-3.5 h-3.5 text-[#c9a84c]" />
-              <span>ASAKA ZIYO · GOOGLE GEMINI AI ({aiStatus.model})</span>
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  aiStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#9CAFA7]">
+              <span className="font-medium text-[#10B981]">ASAKA ZIYO</span>
+              <span aria-hidden="true" className="text-white/25">·</span>
+              <span>Islomiy ilmiy suhbat</span>
+              <span aria-hidden="true" className="text-white/25">·</span>
+              <span className="text-[#C8A85E]">{aiStatus.connected ? 'Faol ulanish' : 'Mahalliy rejim'}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-[-0.03em] text-[#F7F5F0] text-balance leading-[1.12]">
               Ilmiy va Maʼrifiy Islomiy AI Yordamchi
             </h1>
-            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#C2D1CB] leading-relaxed">
               Qurʼoni Karim oyatlari, Shayx Muhammad Sodiq Muhammad Yusufning «Tafsiri Hilol» va «Hadis va Hayot»
               asarlari, sahih hadislar hamda Asaka shahri 8 mahal namoz taqvimi asosida jonli ilmiy suhbat.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Language Switcher */}
-            <div className="flex items-center gap-2 bg-[#04120e]/80 px-3.5 py-2.5 rounded-2xl border border-[#c9a84c]/30 text-xs text-stone-200">
-              <Globe size={15} className="text-[#c9a84c]" />
+            <div className="min-h-[44px] flex items-center gap-2 bg-white/[0.06] px-3.5 py-2 rounded-xl border border-white/[0.1] text-xs text-[#F7F5F0]">
+              <Globe size={15} className="text-[#10B981] shrink-0" />
               <select
                 value={locale}
                 onChange={(e) => {
@@ -611,21 +609,21 @@ export const AiAssistantView: React.FC = () => {
                   setLocale(nextLoc);
                 }}
                 aria-label="Muloqot tilini tanlash"
-                className="bg-transparent text-white font-semibold focus:outline-none cursor-pointer"
+                className="bg-transparent text-[#F7F5F0] font-semibold focus:outline-none cursor-pointer"
               >
-                <option value="uz-Latn" className="bg-[#061e17] text-white">
+                <option value="uz-Latn" className="bg-[#0B1411] text-[#F7F5F0]">
                   Oʻzbekcha (Lotin)
                 </option>
-                <option value="uz-Cyrl" className="bg-[#061e17] text-white">
+                <option value="uz-Cyrl" className="bg-[#0B1411] text-[#F7F5F0]">
                   Ўзбекча (Кирилл)
                 </option>
-                <option value="uz-Latn-new" className="bg-[#061e17] text-white">
+                <option value="uz-Latn-new" className="bg-[#0B1411] text-[#F7F5F0]">
                   Oʻzbekcha (Yangi alifbo)
                 </option>
-                <option value="ru" className="bg-[#061e17] text-white">
+                <option value="ru" className="bg-[#0B1411] text-[#F7F5F0]">
                   Русский
                 </option>
-                <option value="en" className="bg-[#061e17] text-white">
+                <option value="en" className="bg-[#0B1411] text-[#F7F5F0]">
                   English
                 </option>
               </select>
@@ -634,7 +632,7 @@ export const AiAssistantView: React.FC = () => {
             <button
               type="button"
               onClick={handleStartNewConversation}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#c9a84c] hover:bg-[#d8b85c] text-[#04120e] font-bold text-xs transition-all shadow-lg cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-[#04120D] font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
             >
               <Plus size={15} />
               <span>Yangi suhbat</span>
@@ -644,19 +642,19 @@ export const AiAssistantView: React.FC = () => {
               type="button"
               onClick={() => setShowClearConfirm(true)}
               title="Suhbat tarixini tozalash"
-              className="p-2.5 rounded-2xl bg-[#04120e]/80 hover:bg-rose-950/70 text-stone-300 hover:text-rose-200 border border-[#c9a84c]/25 hover:border-rose-500/40 transition-colors cursor-pointer"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/[0.06] hover:bg-rose-500/20 text-[#C2D1CB] hover:text-rose-200 border border-white/[0.1] hover:border-rose-500/40 transition-colors cursor-pointer"
             >
-              <Trash2 size={17} />
+              <Trash2 size={16} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Religious Scholarly Advisory Banner */}
-      <div className="rounded-2xl bg-[#0a231c]/90 border border-[#c9a84c]/30 p-3.5 text-xs text-stone-200 flex items-start gap-3 shadow-md">
-        <ShieldAlert size={18} className="text-[#c9a84c] shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-[#e5c97b]">Fiqhiy va ilmiy eslatma:</span> Ushbu sunʼiy intellekt
+      {/* Religious Scholarly Advisory Note */}
+      <div className="rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] p-4 text-xs text-[#4B635B] dark:text-[#9CAFA7] flex items-start gap-3">
+        <ShieldAlert size={18} className="text-[#C8A85E] shrink-0 mt-0.5" />
+        <div className="leading-relaxed">
+          <span className="font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">Fiqhiy va ilmiy eslatma:</span> Ushbu sunʼiy intellekt
           yordamchisi ishonchli islomiy manbalar asosida maʼrifiy maʼlumot beradi. Nikoh, taloq, meros taqsimoti va
           shaxsiy sharʼiy fatvolar boʻyicha Oʻzbekiston musulmonlari idorasi yoki Asaka Jome masjidi imom-xatiblariga
           murojaat qiling.
@@ -667,18 +665,18 @@ export const AiAssistantView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Sidebar: Saved Conversations & Topic Starters */}
         <div className="lg:col-span-4 xl:col-span-3 space-y-4">
-          <div className="rounded-2xl bg-[#071a14] border border-[#c9a84c]/25 p-4 space-y-3 shadow-xl">
+          <div className="rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#c9a84c] flex items-center gap-2">
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Suhbatlar tarixi ({conversations.length})</span>
+              <h2 className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+                <MessageSquare className="w-3.5 h-3.5 text-[#064E3B] dark:text-[#10B981]" />
+                <span className="tabular-nums">Suhbatlar tarixi ({conversations.length})</span>
               </h2>
               <button
                 type="button"
                 onClick={handleStartNewConversation}
-                className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-[#064E3B] dark:text-[#10B981] hover:opacity-80 flex items-center gap-1 cursor-pointer"
               >
-                <Plus className="w-3 h-3" /> Yangi
+                <Plus className="w-3.5 h-3.5" /> Yangi
               </button>
             </div>
 
@@ -691,13 +689,13 @@ export const AiAssistantView: React.FC = () => {
                     onClick={() => handleSelectConversation(conv)}
                     className={`group flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer border ${
                       isActive
-                        ? 'bg-[#c9a84c]/15 border-[#c9a84c]/50 text-white font-semibold'
-                        : 'bg-[#04120e]/60 border-white/5 text-stone-300 hover:border-[#c9a84c]/30'
+                        ? 'bg-[#064E3B]/[0.08] dark:bg-[#10B981]/15 border-[#064E3B]/25 dark:border-[#10B981]/35 text-[#064E3B] dark:text-[#F7F5F0] font-semibold'
+                        : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-transparent text-[#4B635B] dark:text-[#9CAFA7] hover:border-[#064E3B]/15 dark:hover:border-white/15'
                     }`}
                   >
                     <div className="truncate flex-1">
                       <div className="truncate">{conv.title || 'Yangi ilmiy suhbat'}</div>
-                      <div className="text-[10px] text-stone-400 mt-0.5">
+                      <div className="text-[11px] text-[#5F736C] dark:text-[#7A9088] mt-0.5 tabular-nums">
                         {conv.messages?.length || 1} ta xabar
                       </div>
                     </div>
@@ -705,7 +703,7 @@ export const AiAssistantView: React.FC = () => {
                       <button
                         type="button"
                         onClick={(e) => handleDeleteConversation(conv.id, e)}
-                        className="opacity-60 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-500/20 text-stone-400 hover:text-rose-300 cursor-pointer"
+                        className="opacity-60 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-rose-500/15 text-[#5F736C] dark:text-[#8EA39B] hover:text-rose-500 cursor-pointer"
                         title="Suhbatni oʻchirish"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -718,10 +716,10 @@ export const AiAssistantView: React.FC = () => {
           </div>
 
           {/* Quick Islamic Knowledge Categories */}
-          <div className="rounded-2xl bg-[#071a14] border border-[#c9a84c]/25 p-4 space-y-3 shadow-xl">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#c9a84c] flex items-center gap-2">
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>Ilmiy Mavzular</span>
+          <div className="rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] p-4 space-y-3">
+            <h2 className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+              <HelpCircle className="w-3.5 h-3.5 text-[#C8A85E]" />
+              <span>Ilmiy mavzular</span>
             </h2>
             <div className="space-y-2">
               {TOPIC_CATEGORIES.map((topic) => (
@@ -730,7 +728,7 @@ export const AiAssistantView: React.FC = () => {
                   type="button"
                   disabled={isLoading}
                   onClick={() => handleSend(topic.prompt[locale] || topic.prompt['uz-Latn'])}
-                  className="w-full text-left px-3.5 py-2.5 rounded-xl bg-[#04120e]/70 hover:bg-[#c9a84c]/15 border border-white/10 hover:border-[#c9a84c]/40 transition-all flex items-center gap-2.5 text-xs text-stone-200 cursor-pointer disabled:opacity-50"
+                  className="w-full min-h-[42px] text-left px-3.5 py-2.5 rounded-xl bg-[#F7F5F0] dark:bg-[#0F1A16] hover:bg-[#ECE8DF] dark:hover:bg-[#14241E] border border-[#064E3B]/[0.08] dark:border-white/[0.07] transition-colors flex items-center gap-2.5 text-xs text-[#0B1B16] dark:text-[#E5ECE9] cursor-pointer disabled:opacity-50"
                 >
                   {topic.icon}
                   <span className="font-medium">{topic.labelUz}</span>
@@ -740,9 +738,9 @@ export const AiAssistantView: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Live Gemini Chat Stream */}
+        {/* Right Column: Live Conversational Stream */}
         <div className="lg:col-span-8 xl:col-span-9">
-          <div className="rounded-3xl bg-[#071a14] border border-[#c9a84c]/30 shadow-2xl flex flex-col h-[640px] overflow-hidden">
+          <div className="rounded-3xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] flex flex-col h-[640px] overflow-hidden shadow-xs">
             {/* Messages Scroll Area */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
               {messages.map((m) => (
@@ -753,46 +751,46 @@ export const AiAssistantView: React.FC = () => {
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                       m.role === 'user'
-                        ? 'bg-[#c9a84c] text-[#04120e]'
-                        : 'bg-[#0d2e24] text-[#c9a84c] border border-[#c9a84c]/40'
+                        ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D]'
+                        : 'bg-[#F2EFE9] dark:bg-[#14241E] text-[#064E3B] dark:text-[#10B981] border border-[#064E3B]/[0.1] dark:border-white/[0.08]'
                     }`}
                   >
-                    {m.role === 'user' ? <User size={17} /> : <Bot size={17} />}
+                    {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                   </div>
 
                   <div className="space-y-1.5 min-w-0 flex-1">
                     <div
-                      className={`p-4 rounded-2xl text-sm leading-relaxed shadow-md ${
+                      className={`p-4 rounded-2xl text-sm leading-relaxed ${
                         m.role === 'user'
-                          ? 'bg-gradient-to-br from-[#0f382c] to-[#0a261e] text-white rounded-tr-none border border-[#c9a84c]/35'
+                          ? 'bg-[#064E3B] dark:bg-[#14241E] text-[#F7F5F0] rounded-tr-sm border border-[#064E3B] dark:border-[#10B981]/25'
                           : m.isError
-                          ? 'bg-rose-950/50 text-rose-200 rounded-tl-none border border-rose-500/40'
-                          : 'bg-[#04120e]/90 text-stone-100 rounded-tl-none border border-white/10'
+                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 rounded-tl-sm border border-rose-200 dark:border-rose-500/30'
+                          : 'bg-[#F7F5F0] dark:bg-[#0F1A16] text-[#0B1B16] dark:text-[#EEF3F1] rounded-tl-sm border border-[#064E3B]/[0.08] dark:border-white/[0.07]'
                       }`}
                     >
                       <div className="whitespace-pre-wrap break-words">{m.content}</div>
                     </div>
 
                     <div
-                      className={`flex items-center gap-3 text-[11px] text-stone-400 px-1 ${
+                      className={`flex items-center gap-3 text-[11px] text-[#5F736C] dark:text-[#7A9088] px-1 ${
                         m.role === 'user' ? 'justify-end' : 'justify-between'
                       }`}
                     >
-                      <span>{m.timestamp}</span>
+                      <span className="tabular-nums">{m.timestamp}</span>
                       {m.role === 'model' && m.content && (
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleCopyMessage(m)}
-                            className="inline-flex items-center gap-1 text-stone-400 hover:text-[#c9a84c] transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[#5F736C] dark:text-[#8EA39B] hover:text-[#064E3B] dark:hover:text-[#10B981] transition-colors cursor-pointer"
                             title="Javobdan nusxa olish"
                           >
                             {copiedMsgId === m.id ? (
                               <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="text-emerald-400">Nusxalandi</span>
+                                <Check className="w-3.5 h-3.5 text-[#10B981]" />
+                                <span className="text-[#064E3B] dark:text-[#10B981]">Nusxalandi</span>
                               </>
                             ) : (
                               <>
@@ -810,19 +808,19 @@ export const AiAssistantView: React.FC = () => {
 
               {isLoading && (
                 <div className="flex gap-3 max-w-[80%] mr-auto items-center">
-                  <div className="w-9 h-9 rounded-2xl bg-[#0d2e24] text-[#c9a84c] border border-[#c9a84c]/40 flex items-center justify-center shrink-0">
-                    <RefreshCw size={16} className="animate-spin" />
+                  <div className="w-9 h-9 rounded-xl bg-[#F2EFE9] dark:bg-[#14241E] text-[#064E3B] dark:text-[#10B981] border border-[#064E3B]/[0.1] dark:border-white/[0.08] flex items-center justify-center shrink-0">
+                    <RefreshCw size={15} className="animate-spin" />
                   </div>
-                  <div className="bg-[#04120e]/90 px-4 py-3 rounded-2xl rounded-tl-none border border-[#c9a84c]/30 text-xs text-stone-300 flex items-center gap-3">
+                  <div className="bg-[#F7F5F0] dark:bg-[#0F1A16] px-4 py-3 rounded-2xl rounded-tl-sm border border-[#064E3B]/[0.1] dark:border-white/[0.08] text-xs text-[#4B635B] dark:text-[#C2D1CB] flex items-center gap-3">
                     <span>
                       {isStreaming
-                        ? 'Google Gemini AI jonli javob yozmoqda...'
-                        : 'ASAKA ZIYO AI manbalarni tahlil qilmoqda...'}
+                        ? 'Jonli javob tayyorlanmoqda...'
+                        : 'ASAKA ZIYO manbalarni tahlil qilmoqda...'}
                     </span>
                     <button
                       type="button"
                       onClick={handleStopGeneration}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-semibold cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-semibold cursor-pointer"
                     >
                       <Square className="w-3 h-3" />
                       <span>Toʻxtatish</span>
@@ -834,10 +832,10 @@ export const AiAssistantView: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Action Bar: Regenerate & Status */}
-            <div className="px-4 py-2 bg-[#04120e]/80 border-t border-white/10 flex items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 text-stone-400">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            {/* Action Bar: Regenerate & Sources */}
+            <div className="px-4 py-2.5 bg-[#F7F5F0] dark:bg-[#08100D] border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-[#5F736C] dark:text-[#8EA39B] min-w-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                 <span className="truncate">
                   Manba: Qurʼoni Karim, Tafsiri Hilol, Sahih al-Buxoriy va Asaka 8 namoz taqvimi
                 </span>
@@ -846,7 +844,7 @@ export const AiAssistantView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleRegenerateLast}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 hover:bg-[#c9a84c]/20 text-stone-300 hover:text-[#e5c97b] border border-white/10 transition-colors shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#14241E] hover:bg-[#ECE8DF] dark:hover:bg-[#1B2F27] text-[#0B1B16] dark:text-[#E5ECE9] border border-[#064E3B]/[0.1] dark:border-white/[0.08] transition-colors shrink-0 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Qayta javob olish</span>
@@ -860,20 +858,20 @@ export const AiAssistantView: React.FC = () => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="p-3.5 bg-[#04120e] border-t border-[#c9a84c]/25 flex items-center gap-3"
+              className="p-3.5 bg-white dark:bg-[#0B1411] border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] flex items-center gap-2.5"
             >
               <input
                 type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder="Diniy savolingizni yozing (masalan: Bomdod namozi, Oyatul Kursiy, Asaka namoz vaqti)..."
-                className="flex-1 bg-[#071a14] text-white placeholder-stone-500 px-4 py-3.5 rounded-2xl border border-[#c9a84c]/30 focus:outline-none focus:border-[#c9a84c] text-sm"
+                className="flex-1 min-h-[46px] bg-[#F7F5F0] dark:bg-[#0F1A16] text-[#0B1B16] dark:text-[#F7F5F0] placeholder-[#5F736C] dark:placeholder-[#7A9088] px-4 py-3 rounded-xl border border-[#064E3B]/[0.12] dark:border-white/[0.1] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981] text-sm"
               />
               {isLoading ? (
                 <button
                   type="button"
                   onClick={handleStopGeneration}
-                  className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-3.5 rounded-2xl font-bold flex items-center gap-2 transition-colors shadow-lg shrink-0 text-xs uppercase tracking-wider cursor-pointer"
+                  className="min-h-[46px] bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors shrink-0 text-xs cursor-pointer"
                 >
                   <Square size={15} />
                   <span>Toʻxtatish</span>
@@ -882,7 +880,7 @@ export const AiAssistantView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!inputVal.trim()}
-                  className="bg-[#c9a84c] hover:bg-[#d8b85c] disabled:opacity-40 text-[#04120e] px-5 py-3.5 rounded-2xl font-bold flex items-center gap-2 transition-colors shadow-lg shrink-0 text-xs uppercase tracking-wider cursor-pointer"
+                  className="min-h-[46px] bg-[#064E3B] hover:bg-[#04392B] dark:bg-[#10B981] dark:hover:bg-[#059669] disabled:opacity-40 text-white dark:text-[#04120D] px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors shrink-0 text-xs cursor-pointer"
                 >
                   <span>Yuborish</span>
                   <Send size={15} />
@@ -895,27 +893,27 @@ export const AiAssistantView: React.FC = () => {
 
       {/* Clear Conversation Confirmation Modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-[#071a14] border border-[#c9a84c]/40 p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-amber-400">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <h3 className="text-base font-bold text-white">Suhbat tarixini tozalash</h3>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.12] dark:border-white/[0.12] p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <h3 className="text-base font-bold text-[#0B1B16] dark:text-[#F7F5F0]">Suhbat tarixini tozalash</h3>
             </div>
-            <p className="text-xs text-stone-300 leading-relaxed">
+            <p className="text-xs text-[#4B635B] dark:text-[#9CAFA7] leading-relaxed">
               Joriy suhbatdagi barcha savol va javoblarni oʻchirib, yangi sahifadan boshlashni tasdiqlaysizmi?
             </p>
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-stone-200 text-xs font-semibold cursor-pointer"
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-[#F2EFE9] dark:bg-white/[0.08] hover:bg-[#E6E1D6] dark:hover:bg-white/[0.14] text-[#0B1B16] dark:text-[#E5ECE9] text-xs font-semibold cursor-pointer"
               >
                 Bekor qilish
               </button>
               <button
                 type="button"
                 onClick={confirmClearHistory}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
               >
                 Ha, tozalash
               </button>

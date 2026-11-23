@@ -233,6 +233,30 @@ export class TelegramSupportService {
     return ticket;
   }
 
+  async rateTicket(
+    ticketId: string,
+    userId: string,
+    rating: number
+  ): Promise<TelegramSupportTicketRecord | null> {
+    const ticket = this.repo.getSupportTicket(ticketId);
+    if (!ticket || ticket.userId !== userId) return null;
+    const clamped = Math.max(1, Math.min(5, Math.trunc(rating)));
+    const nowIso = new Date().toISOString();
+    ticket.userRating = clamped;
+    ticket.ratedAt = nowIso;
+    ticket.updatedAt = nowIso;
+    await this.repo.saveSupportTicket(ticket);
+    await this.repo.appendAuditLog({
+      actorTelegramId: userId,
+      actorRole: 'user',
+      action: 'support_ticket_rated',
+      targetType: 'support',
+      targetId: ticketId,
+      metadata: { rating: clamped },
+    });
+    return ticket;
+  }
+
   listUserTickets(userId: string): TelegramSupportTicketRecord[] {
     return this.repo.listSupportTickets().filter((t) => t.userId === userId);
   }

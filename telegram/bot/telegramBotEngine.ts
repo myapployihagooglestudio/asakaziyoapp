@@ -75,6 +75,13 @@ import {
   calculateQiblaFromCoordinates,
   getCompassDirectionLabel,
 } from '../services/qiblaHijriService';
+import {
+  analyzeCyberSafetyInput,
+  buildCyberSafetyKeyboard,
+  buildSourceVerificationKeyboard,
+  formatCyberSafetyResultText,
+  formatSourceVerificationGuide,
+} from '../services/communityServicesSuite';
 import { handleBotCommand, parseBotCommand } from '../handlers/commandHandlers';
 import { handleCallbackQuery } from '../handlers/callbackHandlers';
 import { getTelegramLocaleBundle } from '../locales';
@@ -325,7 +332,13 @@ export class TelegramBotEngine {
       this.config.rateLimitWindowMs
     );
     this.userService = new TelegramUserService(this.repository);
-    this.prayerAdapter = new TelegramPrayerAdapter(options.readOnlyPrayerProvider);
+    this.prayerAdapter = new TelegramPrayerAdapter(options.readOnlyPrayerProvider, () => {
+      const liveSettings = this.repository.getSettings();
+      return {
+        hijriOffsetDays: liveSettings.hijriDateOffsetDays ?? 0,
+        hijriBoundaryMode: liveSettings.hijriBoundaryMode || 'civil',
+      };
+    });
     this.centralContent = new CentralContentProvider(options.centralContentReader);
     this.contentAdapter = new TelegramIslamicContentAdapter(this.centralContent);
     this.appReleaseService =
@@ -1392,6 +1405,37 @@ export class TelegramBotEngine {
         reply_markup: buildBackOnlyKeyboard(locale, this.emojiRegistry),
       });
       return { ok: true, updateId: 0, kind: 'flow_input', detail: 'global_search' };
+    }
+
+    if (flow.type === 'tools_verify_search') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      const fmt = this.emojiRegistry.formatMessage(
+        formatSourceVerificationGuide(locale, text || 'Tafsiri Hilol')
+      );
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildSourceVerificationKeyboard(locale, this.emojiRegistry),
+        disable_web_page_preview: true,
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: 'tools_verify_search' };
+    }
+
+    if (flow.type === 'tools_cyber_check') {
+      await this.userService.setActiveFlow(actorId, { type: 'idle' });
+      // Static filename/URL inspection ONLY — NEVER download or execute attachments
+      const docName = message.document?.file_name;
+      const analysis = analyzeCyberSafetyInput(text, docName);
+      const fmt = this.emojiRegistry.formatMessage(formatCyberSafetyResultText(locale, analysis));
+      await this.apiClient.sendMessage({
+        chat_id: chatId,
+        text: fmt.text,
+        ...(fmt.entities.length > 0 ? { entities: fmt.entities } : {}),
+        reply_markup: buildCyberSafetyKeyboard(locale, this.emojiRegistry),
+        disable_web_page_preview: true,
+      });
+      return { ok: true, updateId: 0, kind: 'flow_input', detail: `tools_cyber_check:${analysis.riskLevel}` };
     }
 
     if (flow.type === 'khatm_set_days') {
