@@ -1035,6 +1035,7 @@ async function runTests(): Promise<void> {
     assert.ok(calCard.text.length > 40);
 
     await engine.userService.setUserLanguage('500100', 'uz-Latn-new');
+    engine.stopRuntime();
     const restarted = new TelegramBotEngine({
       config: createTestConfig(),
       storePath: persistPath,
@@ -1545,9 +1546,9 @@ async function runTests(): Promise<void> {
     assert.ok(engine.adminService.listAuditLogs(20).some((a) => a.action === 'admin_callback_denied'));
   });
 
-  // 24. Security & Isolation: 14-Collection Firestore Allowlist, Failure Telemetry, Redaction & Mini App HMAC
-  await test('24. Security: 14-collection Firestore allowlist, honest sync failure telemetry & Mini App HMAC', async () => {
-    assert.equal(ALLOWED_TELEGRAM_COLLECTIONS.length, 14);
+  // 24. Security & Isolation: 17-Collection Firestore Allowlist, Failure Telemetry, Redaction & Mini App HMAC
+  await test('24. Security: 17-collection Firestore allowlist, honest sync failure telemetry & Mini App HMAC', async () => {
+    assert.equal(ALLOWED_TELEGRAM_COLLECTIONS.length, 17);
 
     const cfg = createTestConfig();
     assert.equal(verifyWebhookSecretHeader(undefined, cfg).valid, false);

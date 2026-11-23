@@ -340,6 +340,67 @@
   }
 }
 
+/* SMART TV 10-FOOT FOCUS & READABILITY MODE (toggleable on any TV/Desktop screen) */
+.tv-mode {
+  font-size: 118%;
+}
+
+.tv-mode :focus-visible {
+  outline: 3.5px solid #DFBD69 !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 6px rgba(223, 189, 105, 0.28) !important;
+  transform: scale(1.02);
+}
+
+/* TAJWEED SEMANTIC COLOR-CODING SYSTEM (Accessible Light & Dark Contrast) */
+.tajweed-ghunnah {
+  color: #059669;
+  font-weight: 700;
+}
+.dark .tajweed-ghunnah {
+  color: #34D399;
+}
+
+.tajweed-ikhfa {
+  color: #D97706;
+  font-weight: 700;
+}
+.dark .tajweed-ikhfa {
+  color: #FBBF24;
+}
+
+.tajweed-qalqalah {
+  color: #2563EB;
+  font-weight: 700;
+}
+.dark .tajweed-qalqalah {
+  color: #60A5FA;
+}
+
+.tajweed-madd {
+  color: #DC2626;
+  font-weight: 700;
+}
+.dark .tajweed-madd {
+  color: #F87171;
+}
+
+.tajweed-idgham {
+  color: #7C3AED;
+  font-weight: 700;
+}
+.dark .tajweed-idgham {
+  color: #C084FC;
+}
+
+.tajweed-iqlab {
+  color: #0891B2;
+  font-weight: 700;
+}
+.dark .tajweed-iqlab {
+  color: #22D3EE;
+}
+
 /* Compositor-only luxury transitions */
 @keyframes fadeIn {
   from {

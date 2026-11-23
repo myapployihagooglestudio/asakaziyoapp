@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Check,
   CheckCircle,
+  Copy,
   Eye,
   History,
   Info,
   Plus,
   Power,
   RefreshCw,
+  Search,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -20,11 +23,14 @@ import { getActiveAdminToken } from '../../../utils/firebaseClient';
 
 interface EmojiSlotEntry {
   key: string;
+  name?: string;
   category: string;
   description: string;
   semanticPurpose?: string;
   usedIn?: string[];
   isCustomAdminSlot?: boolean;
+  isExtended30Slot?: boolean;
+  status?: 'verified' | 'unverified' | 'missing' | 'disabled';
   customEmojiId?: string | null;
   stickerSetName?: string;
   verified: boolean;
@@ -68,18 +74,75 @@ interface EmojiHistoryLog {
   createdAt: string;
 }
 
-type ManagerTab = 'registry' | 'missing' | 'create' | 'audit' | 'history';
+interface RuntimeDiagnosticsPayload {
+  instanceId: string;
+  deploymentId: string;
+  gitCommit: string;
+  buildVersion: string;
+  processId: number;
+  startedAt: string;
+  uptimeSec: number;
+  mode: string;
+  startupState: string;
+  startupReason: string;
+  configVersion: number;
+  configUpdatedAt: string;
+  emojiRegistryVersion: number;
+  firestoreOnline: boolean;
+  degradedMode: boolean;
+  lastFirestoreReadAt: string | null;
+  lastFirestoreWriteAt: string | null;
+  lastCacheRefreshAt: string | null;
+  activeInstanceCount: number;
+  outdatedInstancesDetected: boolean;
+  polling: {
+    pollingActive: boolean;
+    conflictCount: number;
+    lastConflictAt: string | null;
+    multiInstanceConflictDetected: boolean;
+    updatesProcessedCount: number;
+  };
+  rollbackWarnings: Array<{
+    id: string;
+    target: string;
+    source: string;
+    currentVersion: number;
+    incomingVersion: number;
+    reason: string;
+    createdAt: string;
+  }>;
+  performance: {
+    activeUserQueues: number;
+    inFlightUpdates: number;
+    deduplicatedUpdates: number;
+    totalProcessed: number;
+    overall: { count: number; avgMs: number; p50Ms: number; p95Ms: number; p99Ms: number; maxMs: number; errorCount: number };
+    database: { count: number; avgMs: number; p50Ms: number; p95Ms: number; p99Ms: number; maxMs: number };
+    telegramApi: { count: number; avgMs: number; p50Ms: number; p95Ms: number; p99Ms: number; maxMs: number };
+    byCategory: Record<string, { count: number; avgMs: number; p50Ms: number; p95Ms: number; p99Ms: number; maxMs: number }>;
+  };
+}
+
+type ManagerTab = 'registry' | 'missing' | 'create' | 'audit' | 'health' | 'history';
 
 export const PremiumEmojiManagerPanel: React.FC = () => {
   const [tab, setTab] = useState<ManagerTab>('registry');
   const [entries, setEntries] = useState<EmojiSlotEntry[]>([]);
   const [missingEntries, setMissingEntries] = useState<EmojiSlotEntry[]>([]);
   const [audit, setAudit] = useState<EmojiAuditReport | null>(null);
+  const [runtimeDiag, setRuntimeDiag] = useState<RuntimeDiagnosticsPayload | null>(null);
   const [history, setHistory] = useState<EmojiHistoryLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [filterMode, setFilterMode] = useState<'all' | 'active' | 'missing' | 'disabled' | 'custom'>('all');
+  const [filterMode, setFilterMode] = useState<
+    'all' | 'owner34' | 'extended30' | 'active' | 'missing' | 'disabled' | 'custom'
+  >('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
+  const [appConfigVersion, setAppConfigVersion] = useState<number>(0);
   const [idDrafts, setIdDrafts] = useState<Record<string, string>>({});
   const [previewChatId, setPreviewChatId] = useState('');
 
@@ -101,16 +164,18 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
     setLoading(true);
     try {
       const headers = authHeaders();
-      const [listRes, auditRes, histRes] = await Promise.all([
+      const [listRes, auditRes, histRes, diagRes] = await Promise.all([
         fetch('/api/telegram/platform/emojis', { headers, cache: 'no-store' }),
         fetch('/api/telegram/platform/emojis/audit', { headers, cache: 'no-store' }),
         fetch('/api/telegram/platform/emojis/history?limit=40', { headers, cache: 'no-store' }),
+        fetch('/api/telegram/platform/diagnostics/runtime', { headers, cache: 'no-store' }),
       ]);
       if (listRes.ok) {
         const j = await listRes.json();
         const rows: EmojiSlotEntry[] = Array.isArray(j.entries) ? j.entries : [];
         setEntries(rows);
         setMissingEntries(Array.isArray(j.missingCanonical) ? j.missingCanonical : []);
+        if (typeof j.appConfigVersion === 'number') setAppConfigVersion(j.appConfigVersion);
         setIdDrafts((prev) => {
           const next = { ...prev };
           for (const row of rows) {
@@ -129,6 +194,10 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
         const hj = await histRes.json();
         setHistory(Array.isArray(hj.logs) ? hj.logs : []);
       }
+      if (diagRes.ok) {
+        const dj = await diagRes.json();
+        if (dj.diagnostics) setRuntimeDiag(dj.diagnostics);
+      }
     } catch (err: any) {
       setNotice({ type: 'err', text: err?.message || 'Emoji reyestrini yuklashda xatolik.' });
     } finally {
@@ -140,15 +209,44 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
     void loadData();
   }, [loadData]);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of entries) {
+      if (e.category) set.add(e.category);
+    }
+    return Array.from(set).sort();
+  }, [entries]);
+
   const filteredEntries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return entries.filter((e) => {
-      if (filterMode === 'active') return Boolean(e.customEmojiId && e.verified && e.enabled !== false);
-      if (filterMode === 'missing') return !e.customEmojiId;
-      if (filterMode === 'disabled') return e.enabled === false;
-      if (filterMode === 'custom') return Boolean(e.isCustomAdminSlot);
+      if (filterMode === 'owner34' && (e.isExtended30Slot || e.isCustomAdminSlot)) return false;
+      if (filterMode === 'extended30' && !e.isExtended30Slot) return false;
+      if (filterMode === 'active' && !Boolean(e.customEmojiId && e.verified && e.enabled !== false))
+        return false;
+      if (filterMode === 'missing' && Boolean(e.customEmojiId)) return false;
+      if (filterMode === 'disabled' && e.enabled !== false) return false;
+      if (filterMode === 'custom' && !e.isCustomAdminSlot) return false;
+      if (selectedCategory !== 'all' && e.category !== selectedCategory) return false;
+      if (q) {
+        const hay = `${e.key} ${e.name || ''} ${e.category} ${e.description} ${e.semanticPurpose || ''} ${e.customEmojiId || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [entries, filterMode]);
+  }, [entries, filterMode, selectedCategory, searchQuery]);
+
+  const handleCopyId = async (entry: EmojiSlotEntry) => {
+    const idVal = (entry.customEmojiId || idDrafts[entry.key] || '').trim();
+    if (!idVal) return;
+    try {
+      await navigator.clipboard.writeText(idVal);
+      setCopiedKey(entry.key);
+      setTimeout(() => setCopiedKey((cur) => (cur === entry.key ? null : cur)), 1800);
+    } catch {
+      setNotice({ type: 'err', text: 'Nusxalashda xatolik yuz berdi.' });
+    }
+  };
 
   const handleSaveId = async (entry: EmojiSlotEntry) => {
     const val = (idDrafts[entry.key] || '').trim();
@@ -208,6 +306,7 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
   };
 
   const handleDeleteOrClear = async (entry: EmojiSlotEntry) => {
+    setConfirmDeleteKey(null);
     setBusyKey(`del:${entry.key}`);
     setNotice(null);
     try {
@@ -270,11 +369,34 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
       if (!res.ok || !json.success) throw new Error(json.error || 'Tekshirishda xatolik.');
       setNotice({
         type: 'ok',
-        text: `Telegram API tekshiruvi yakunlandi — Tasdiqlangan: ${json.verification?.verifiedKeys?.length ?? 0}, Rad etilgan: ${json.verification?.rejectedKeys?.length ?? 0}.`,
+        text: `Telegram API tekshiruvi yakunlandi — Tasdiqlangan: ${json.verification?.verifiedKeys?.length ?? 0}, Rad etilgan: ${json.verification?.rejectedKeys?.length ?? 0}. (appConfig v${json.appConfigVersion ?? '-'})`,
       });
       await loadData();
     } catch (err: any) {
       setNotice({ type: 'err', text: err?.message || 'API tekshiruvi xatosi.' });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleSeed34OfficialIds = async () => {
+    setBusyKey('seed_34');
+    setNotice(null);
+    try {
+      const res = await fetch('/api/telegram/platform/emojis/seed-defaults', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ verifyWithTelegram: true, forceOverwrite: false }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || '34 ta rasmiy ID migratsiya qilinmadi.');
+      setNotice({
+        type: 'ok',
+        text: `34 ta rasmiy Premium Emoji ID + 30 ta yangi slot Firestore (app_config/premium_emojis v${json.appConfigVersion ?? 1}) ga saqlandi. Tasdiqlangan: ${json.verifiedCount ?? 0}/34, Telegram API tekshirildi: ${json.telegramChecked ? 'Ha' : 'Yoʻq'}.`,
+      });
+      await loadData();
+    } catch (err: any) {
+      setNotice({ type: 'err', text: err?.message || '34 ta ID migratsiyasida xatolik.' });
     } finally {
       setBusyKey(null);
     }
@@ -392,6 +514,15 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleSeed34OfficialIds}
+            disabled={busyKey === 'seed_34'}
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1" />
+            <span>34 ID + 30 Slot Migratsiya</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleVerifyAll}
             disabled={busyKey === 'verify_all'}
           >
@@ -499,6 +630,7 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
             ['missing', `Yetishmayotganlar (${missingEntries.length})`],
             ['create', 'Yangi Custom Slot'],
             ['audit', 'Toʻliq Audit va Test'],
+            ['health', `Bot Salomatligi & Tezlik${runtimeDiag?.rollbackWarnings?.length ? ` (${runtimeDiag.rollbackWarnings.length})` : ''}`],
             ['history', `Oʻzgarishlar Tarixi (${history.length})`],
           ] as Array<[ManagerTab, string]>
         ).map(([key, label]) => (
@@ -520,29 +652,61 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
       {/* TAB 1: Registry */}
       {tab === 'registry' && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2 text-xs">
-            {(
-              [
-                ['all', 'Barchasi'],
-                ['active', 'Faol Premium'],
-                ['missing', 'Bogʻlanmagan'],
-                ['disabled', 'Oʻchirilgan'],
-                ['custom', 'Custom Admin'],
-              ] as const
-            ).map(([f, lbl]) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilterMode(f)}
-                className={`px-2.5 py-1 rounded-md border text-[11px] font-medium cursor-pointer ${
-                  filterMode === f
-                    ? 'border-[#c5a869] bg-[#c5a869]/15 text-stone-900 dark:text-stone-100'
-                    : 'border-stone-200 dark:border-emerald-950 text-stone-500'
-                }`}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ['all', `Barchasi (${entries.length})`],
+                  ['owner34', '34 Rasmiy ID'],
+                  ['extended30', 'Yangi 30 ta Slot'],
+                  ['active', 'Faol Premium'],
+                  ['missing', 'ID Kiritilmagan'],
+                  ['disabled', 'Oʻchirilgan'],
+                  ['custom', 'Custom Admin'],
+                ] as const
+              ).map(([f, lbl]) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilterMode(f)}
+                  className={`px-2.5 py-1 rounded-md border text-[11px] font-medium cursor-pointer ${
+                    filterMode === f
+                      ? 'border-[#c5a869] bg-[#c5a869]/15 text-stone-900 dark:text-stone-100'
+                      : 'border-stone-200 dark:border-emerald-950 text-stone-500'
+                  }`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Kalit, nom yoki ID qidirish..."
+                  className="pl-8 pr-2.5 py-1 rounded-lg border border-stone-300 dark:border-emerald-900 bg-white dark:bg-[#091a18] text-[11px] text-stone-900 dark:text-stone-100 w-48"
+                />
+              </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="rounded-lg border border-stone-300 dark:border-emerald-900 bg-white dark:bg-[#091a18] px-2 py-1 text-[11px] text-stone-900 dark:text-stone-100"
               >
-                {lbl}
-              </button>
-            ))}
+                <option value="all">Barcha kategoriyalar</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] font-mono text-stone-500 dark:text-stone-400">
+                Firestore: app_config/premium_emojis (v{appConfigVersion})
+              </span>
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-emerald-950">
@@ -565,6 +729,7 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
                       </div>
                       <div className="text-[10px] text-stone-500">
                         {entry.category}
+                        {entry.isExtended30Slot ? ' · Yangi 30 Slot' : ''}
                         {entry.isCustomAdminSlot ? ' · Custom' : ''}
                       </div>
                     </td>
@@ -587,7 +752,7 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
                           onChange={(e) =>
                             setIdDrafts((prev) => ({ ...prev, [entry.key]: e.target.value }))
                           }
-                          placeholder="Raqamli custom_emoji_id..."
+                          placeholder={entry.isExtended30Slot ? 'ID kiritilmagan (yangi slot)...' : 'Raqamli custom_emoji_id...'}
                           className="w-44 rounded-lg border border-stone-300 dark:border-emerald-900 bg-stone-50 dark:bg-[#071614] px-2 py-1 font-mono text-[11px] text-stone-900 dark:text-stone-100"
                         />
                         <Button
@@ -602,6 +767,20 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
                     </td>
                     <td className="py-2.5 px-3">
                       <div className="flex items-center justify-end gap-1">
+                        {Boolean(entry.customEmojiId || idDrafts[entry.key]) && (
+                          <button
+                            type="button"
+                            title="custom_emoji_id ni nusxalash"
+                            onClick={() => void handleCopyId(entry)}
+                            className="p-1.5 rounded-lg border border-stone-200 dark:border-emerald-900 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-emerald-950/60 cursor-pointer"
+                          >
+                            {copiedKey === entry.key ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
                         <button
                           type="button"
                           title="Telegram chatga preview yuborish"
@@ -620,15 +799,35 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
                         >
                           <Power className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          title={entry.isCustomAdminSlot ? 'Butunlay oʻchirish' : 'ID ni tozalash'}
-                          onClick={() => void handleDeleteOrClear(entry)}
-                          disabled={busyKey === `del:${entry.key}`}
-                          className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {confirmDeleteKey === entry.key ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteOrClear(entry)}
+                              disabled={busyKey === `del:${entry.key}`}
+                              className="px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold cursor-pointer"
+                            >
+                              Tasdiqlash
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteKey(null)}
+                              className="px-1.5 py-1 rounded-lg border border-stone-300 dark:border-emerald-900 text-[10px] text-stone-600 dark:text-stone-300 cursor-pointer"
+                            >
+                              Bekor
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            title={entry.isCustomAdminSlot ? 'Butunlay oʻchirish' : 'ID ni tozalash'}
+                            onClick={() => setConfirmDeleteKey(entry.key)}
+                            disabled={busyKey === `del:${entry.key}`}
+                            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -644,7 +843,7 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
         <div className="space-y-3">
           {missingEntries.length === 0 ? (
             <div className="p-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-700 dark:text-emerald-300">
-              Barcha 27 ta standart kategoriya tasdiqlangan Telegram Premium Custom Emoji bilan toʻliq bogʻlangan!
+              Barcha 34 ta rasmiy kategoriya Telegram Premium Custom Emoji bilan toʻliq bogʻlangan!
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -812,6 +1011,91 @@ export const PremiumEmojiManagerPanel: React.FC = () => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 4B: Bot System Health, Anti-Rollback Guard & Latency Telemetry */}
+      {tab === 'health' && runtimeDiag && (
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/70 dark:bg-[#071614]/70">
+              <div className="text-[11px] text-stone-500">Konfiguratsiya Versiyasi</div>
+              <div className="text-lg font-bold text-stone-900 dark:text-stone-100">
+                v{runtimeDiag.configVersion}
+              </div>
+              <div className="text-[10px] text-stone-400">
+                Emoji Registry: v{runtimeDiag.emojiRegistryVersion}
+              </div>
+            </div>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/70 dark:bg-[#071614]/70">
+              <div className="text-[11px] text-stone-500">Firestore Holati</div>
+              <div
+                className={`text-lg font-bold ${
+                  runtimeDiag.firestoreOnline && !runtimeDiag.degradedMode
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-amber-600 dark:text-amber-400'
+                }`}
+              >
+                {runtimeDiag.firestoreOnline ? 'ONLINE' : 'DEGRADED'}
+              </div>
+              <div className="text-[10px] text-stone-400">
+                Rejim: {runtimeDiag.mode} · PID {runtimeDiag.processId}
+              </div>
+            </div>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/70 dark:bg-[#071614]/70">
+              <div className="text-[11px] text-stone-500">Faol Instansiyalar / 409 Konflikt</div>
+              <div
+                className={`text-lg font-bold ${
+                  runtimeDiag.polling.multiInstanceConflictDetected || runtimeDiag.outdatedInstancesDetected
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                {runtimeDiag.activeInstanceCount} ta / {runtimeDiag.polling.conflictCount} konflikt
+              </div>
+              <div className="text-[10px] text-stone-400">
+                Eski instansiya: {runtimeDiag.outdatedInstancesDetected ? 'ANIQLANDI!' : 'Yoʻq'}
+              </div>
+            </div>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50/70 dark:bg-[#071614]/70">
+              <div className="text-[11px] text-stone-500">Bot Javob Tezligi (p50 / p95 / p99)</div>
+              <div className="text-base font-bold text-stone-900 dark:text-stone-100">
+                {runtimeDiag.performance.overall.p50Ms} / {runtimeDiag.performance.overall.p95Ms} / {runtimeDiag.performance.overall.p99Ms} ms
+              </div>
+              <div className="text-[10px] text-stone-400">
+                Qayta ishlangan: {runtimeDiag.performance.totalProcessed} · Dedupe: {runtimeDiag.performance.deduplicatedUpdates}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-1.5">
+              <div className="font-bold text-stone-900 dark:text-stone-100">Instansiya va Deployment Identifikatori</div>
+              <div className="font-mono text-[11px] text-stone-600 dark:text-stone-300">Instance: {runtimeDiag.instanceId}</div>
+              <div className="font-mono text-[11px] text-stone-600 dark:text-stone-300">Deployment: {runtimeDiag.deploymentId} · Commit: {runtimeDiag.gitCommit}</div>
+              <div className="text-stone-500">Oxirgi Firestore oʻqish: {runtimeDiag.lastFirestoreReadAt || 'Hali yoʻq'}</div>
+              <div className="text-stone-500">Oxirgi Firestore yozish: {runtimeDiag.lastFirestoreWriteAt || 'Hali yoʻq'}</div>
+              <div className="text-stone-500">Uptime: {runtimeDiag.uptimeSec}s · Parallel navbatlar: {runtimeDiag.performance.activeUserQueues}</div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-stone-200 dark:border-emerald-950 space-y-1.5">
+              <div className="font-bold text-stone-900 dark:text-stone-100">Rollback Himoyasi Ogohlantirishlari ({runtimeDiag.rollbackWarnings.length})</div>
+              {runtimeDiag.rollbackWarnings.length === 0 ? (
+                <div className="text-emerald-600 dark:text-emerald-400">
+                  Barcha konfiguratsiya va emoji versiyalari barqaror — hech qanday rollback urinishi qayd etilmagan.
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {runtimeDiag.rollbackWarnings.slice(0, 8).map((w) => (
+                    <div key={w.id} className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-700 dark:text-rose-300">
+                      <div className="font-mono font-bold">[{w.target}] v{w.incomingVersion} &lt; v{w.currentVersion}</div>
+                      <div>{w.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

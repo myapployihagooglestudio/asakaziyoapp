@@ -68,6 +68,11 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   const secondaryLinks: { id: NavigationTab; labelKey: string }[] = [
+    { id: 'hifz_istiqomat', labelKey: 'hifz_istiqomat' },
+    { id: 'academy', labelKey: 'academy' },
+    { id: 'scholars', labelKey: 'scholars' },
+    { id: 'mosques', labelKey: 'mosques' },
+    { id: 'media_center', labelKey: 'media_center' },
     { id: 'ai_assistant', labelKey: 'ai_assistant' },
     { id: 'news', labelKey: 'news' },
     { id: 'announcements', labelKey: 'announcements' },
@@ -191,7 +196,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ASAKA ZIYO — Barcha Xizmatlar va Boʻlimlar
                       </span>
                       <span className="text-[10px] font-mono-numbers text-[#526B62] dark:text-[#9CB5AC]">
-                        13 ta modul
+                        {secondaryLinks.length} ta modul
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">

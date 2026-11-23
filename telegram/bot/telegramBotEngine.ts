@@ -17,10 +17,17 @@
  *     and photo/document inlineData analysis
  */
 
+import crypto from 'crypto';
+import os from 'os';
 import {
+  CustomEmojiWebAssetFormat,
   TelegramApiMessage,
   TelegramApiUpdate,
   TelegramCentralAdminWriter,
+  TelegramLatencyBucketStats,
+  TelegramLatencySample,
+  TelegramPerformanceSummary,
+  TelegramRuntimeInstanceRecord,
   TelegramUserRecord,
 } from '../types';
 import {
@@ -29,7 +36,12 @@ import {
   loadTelegramPlatformConfig,
 } from '../config';
 import { FetchLike, TelegramApiClient, WebhookInfoResult } from '../api/telegramApiClient';
-import { CustomEmojiRegistry } from '../emoji/customEmojiRegistry';
+import {
+  CANONICAL_EMOJI_SLOTS,
+  CustomEmojiRegistry,
+  EXTENDED_30_EMOJI_SLOTS,
+  OWNER_INITIAL_PREMIUM_EMOJI_CATALOG,
+} from '../emoji/customEmojiRegistry';
 import { ScopedFirestoreBridge, TelegramRepository } from '../database/telegramRepository';
 import { TelegramLogger, createTelegramLogger } from '../middlewares/logger';
 import { TelegramRateLimiter } from '../middlewares/rateLimiter';
@@ -244,6 +256,14 @@ export class TelegramBotEngine {
   public readonly styleManager: TelegramStyleManager;
   public readonly jobScheduler: TelegramJobScheduler;
 
+  public readonly instanceId: string = `tg_${process.env.K_REVISION || os.hostname() || 'node'}_${process.pid}_${crypto.randomBytes(3).toString('hex')}`;
+  public readonly deploymentId: string =
+    process.env.K_REVISION || process.env.CLOUD_RUN_REVISION || process.env.HOSTNAME || 'local-runtime';
+  public readonly gitCommit: string =
+    process.env.GIT_COMMIT_SHA || process.env.COMMIT_SHA || process.env.GITHUB_SHA || 'workspace-build';
+  public readonly buildVersion: string = process.env.npm_package_version || '1.0.0';
+  public readonly startedAt: string = new Date().toISOString();
+
   private startupState: TelegramStartupState = 'not_started';
   private startupReason = 'Telegram bot runtime has not been initialized yet.';
   private botApiConnected = false;
@@ -258,6 +278,22 @@ export class TelegramBotEngine {
   private lastError: string | null = null;
   private lastErrorAt: string | null = null;
   private startupRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private instanceHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly perUserQueues = new Map<string, Promise<void>>();
+  private inFlightUpdates = 0;
+  private deduplicatedUpdates = 0;
+  private readonly latencySamples: TelegramLatencySample[] = [];
+  private readonly emojiAssetCache = new Map<
+    string,
+    {
+      buffer: Buffer;
+      mimeType: string;
+      format: CustomEmojiWebAssetFormat;
+      renderable: boolean;
+      cachedAt: number;
+      customEmojiId: string;
+    }
+  >();
   private startupRetryCount = 0;
   private readonly processedUpdateIds = new Set<number>();
   private readonly hasCustomAiGenerator: boolean;
@@ -372,11 +408,15 @@ export class TelegramBotEngine {
   }
 
   async initializeRuntime(): Promise<TelegramRuntimeState> {
-    // Hydrate from Firestore (if bridge attached) safely without blocking startup
+    // 1. STRICT STARTUP HYDRATION FIRST — load authoritative Firestore state BEFORE polling/webhook!
     try {
-      await this.repository.hydrateFromFirestore();
+      const hydrateRes = await this.repository.hydrateFromFirestore();
       await this.appReleaseService.hydrateFromFirestore();
-      // Sync CustomEmojiRegistry & StyleManager with hydrated Firestore records
+      // Sync CustomEmojiRegistry from unified appConfig/emojiRegistry + telegramCustomEmojis
+      const appCfgDoc = this.repository.getAppConfigEmojiRegistry();
+      if (appCfgDoc) {
+        this.emojiRegistry.hydrateFromAppConfigDocument(appCfgDoc);
+      }
       this.emojiRegistry.hydrateFromEntries(this.repository.listCustomEmojis());
       const hydratedSettings = this.repository.getSettings();
       this.emojiRegistry.setPremiumEnabled(
@@ -386,13 +426,47 @@ export class TelegramBotEngine {
         Boolean(hydratedSettings.premiumKeyboardIconsEnabled)
       );
       this.styleManager.syncFromSettings(hydratedSettings);
+      const missingCanonicalAfterHydration = CANONICAL_EMOJI_SLOTS.filter(
+        (k) => !this.emojiRegistry.getEntry(k)?.customEmojiId
+      );
+      if (missingCanonicalAfterHydration.length > 0 || !appCfgDoc) {
+        void this.seedOwnerOfficialEmojis({
+          verifyWithTelegram: false,
+          preserveExistingCustomIds: true,
+          updatedBy: 'auto_migration_34',
+        }).catch(() => {});
+      }
+      this.logger.info('[BOOT_HYDRATION] Startup state synchronized before Telegram dispatch', {
+        instanceId: this.instanceId,
+        deploymentId: this.deploymentId,
+        gitCommit: this.gitCommit,
+        buildVersion: this.buildVersion,
+        processId: process.pid,
+        firestoreOk: hydrateRes.ok,
+        collectionsLoaded: hydrateRes.collectionsLoaded,
+        configVersion: hydratedSettings.version || 1,
+        emojiRegistryVersion: appCfgDoc?.version || hydratedSettings.emojiRegistryVersion || 0,
+        missingCanonicalAutoMigrating: missingCanonicalAfterHydration.length,
+      });
     } catch (err) {
-      this.logger.warn('Firestore hydration encountered an error during startup', {
+      this.logger.warn('Firestore hydration encountered an error during startup (degraded read-cache active)', {
+        instanceId: this.instanceId,
         error: err instanceof Error ? err.message : String(err),
       });
     }
 
-    // Start durable Unified Sync outbox worker & recover any interrupted jobs
+    // 2. Register active instance heartbeat in Firestore (non-blocking) for multi-instance visibility
+    void this.publishInstanceHeartbeat().catch(() => {});
+    if (!this.instanceHeartbeatTimer) {
+      this.instanceHeartbeatTimer = setInterval(() => {
+        void this.publishInstanceHeartbeat().catch(() => {});
+      }, 90_000);
+      if (typeof this.instanceHeartbeatTimer.unref === 'function') {
+        this.instanceHeartbeatTimer.unref();
+      }
+    }
+
+    // 3. Start durable Unified Sync outbox worker & recover any interrupted jobs
     this.syncEngine.startWorker();
 
     if (!this.config.isConfigured) {
@@ -551,9 +625,299 @@ export class TelegramBotEngine {
       clearTimeout(this.startupRetryTimer);
       this.startupRetryTimer = null;
     }
+    if (this.instanceHeartbeatTimer) {
+      clearInterval(this.instanceHeartbeatTimer);
+      this.instanceHeartbeatTimer = null;
+    }
     this.syncEngine.stopWorker();
     this.jobScheduler.stopPolling();
     this.jobScheduler.stopScheduledJobs();
+    this.repository.flushToDiskSync();
+  }
+
+  private async publishInstanceHeartbeat(): Promise<void> {
+    const polling = this.jobScheduler.getPollingStatus();
+    const settings = this.repository.getSettings();
+    const rec: TelegramRuntimeInstanceRecord = {
+      id: this.instanceId,
+      instanceId: this.instanceId,
+      deploymentId: this.deploymentId,
+      gitCommit: this.gitCommit,
+      buildVersion: this.buildVersion,
+      processId: process.pid,
+      hostname: os.hostname(),
+      mode: this.config.mode,
+      configVersion: settings.version || 1,
+      emojiRegistryVersion:
+        this.repository.getAppConfigEmojiRegistry()?.version || settings.emojiRegistryVersion || 0,
+      startedAt: this.startedAt,
+      lastHeartbeatAt: new Date().toISOString(),
+      pollingActive: polling.pollingActive,
+      pollingConflictCount: polling.conflictCount,
+    };
+    await this.repository.registerRuntimeInstance(rec);
+  }
+
+  /**
+   * Synchronizes the in-memory CustomEmojiRegistry into Firestore `appConfig/emojiRegistry`
+   * AND `app_config/premium_emojis` so Web App, Android App, Admin Panel, and Telegram Bot
+   * share one authoritative catalog.
+   */
+  async syncEmojiRegistryToAppConfig(updatedBy = 'admin') {
+    const currentVer = this.repository.getAppConfigEmojiRegistry()?.version || 0;
+    const nextVer = currentVer + 1;
+    const doc = this.emojiRegistry.toAppConfigDocument(nextVer, updatedBy);
+    const premiumDoc = this.emojiRegistry.toPremiumEmojisConfigDocument(nextVer, updatedBy);
+    return this.repository.saveAppConfigEmojiRegistry(doc, premiumDoc);
+  }
+
+  /**
+   * Seeds all 34 permanent owner-provided Telegram Premium Custom Emoji IDs
+   * (28 core + 6 welcome/reaction IDs) and registers all 30 extended managed slots (without fake IDs)
+   * into Firestore `telegramCustomEmojis`, `appConfig/emojiRegistry`, AND `app_config/premium_emojis`.
+   * Migration is idempotent and non-destructive by default (`preserveExistingCustomIds: true`).
+   * If Telegram Bot API token is configured and `verifyWithTelegram` is true, runs live
+   * `getCustomEmojiStickers` verification (unverified IDs are NEVER falsely marked verified).
+   */
+  async seedOwnerOfficialEmojis(options?: {
+    verifyWithTelegram?: boolean;
+    preserveExistingCustomIds?: boolean;
+    updatedBy?: string;
+  }): Promise<{
+    ok: boolean;
+    seededCount: number;
+    canonicalCount: number;
+    extended30SlotsCount: number;
+    verifiedCount: number;
+    unverifiedKeys: string[];
+    telegramChecked: boolean;
+    appConfigSaved: boolean;
+    appConfigVersion: number;
+    firestorePaths: string[];
+    error?: string;
+  }> {
+    const updatedBy = options?.updatedBy || 'owner_seed_34';
+    const preserveExistingCustomIds = options?.preserveExistingCustomIds !== false;
+    const entries = this.emojiRegistry.buildOwnerInitialCatalogEntries(updatedBy, {
+      preserveExistingCustomIds,
+    });
+
+    let telegramChecked = false;
+    let verifiedCount = 0;
+    const unverifiedKeys: string[] = [];
+
+    if (options?.verifyWithTelegram !== false && this.apiClient.isConfigured) {
+      telegramChecked = true;
+      const ids = entries.map((e) => e.customEmojiId!).filter(Boolean);
+      const stickerRes = await this.apiClient.getCustomEmojiStickers(ids);
+      const stickerMap = new Map<string, any>();
+      if (stickerRes.ok && Array.isArray(stickerRes.result)) {
+        for (const st of stickerRes.result) {
+          if (st?.custom_emoji_id) stickerMap.set(String(st.custom_emoji_id), st);
+        }
+      }
+      const nowIso = new Date().toISOString();
+      for (const entry of entries) {
+        const st = entry.customEmojiId ? stickerMap.get(entry.customEmojiId) : undefined;
+        if (st) {
+          entry.verified = true;
+          entry.verifiedAt = nowIso;
+          entry.status = entry.enabled === false ? 'disabled' : 'verified';
+          entry.stickerSetName = st.set_name || entry.stickerSetName;
+          const fmt: CustomEmojiWebAssetFormat = st.is_video
+            ? 'webm'
+            : st.is_animated
+              ? 'tgs'
+              : 'webp';
+          entry.webAssetFormat = fmt;
+          entry.webRenderable = fmt === 'webp' || fmt === 'webm';
+          verifiedCount++;
+        } else {
+          entry.verified = false;
+          unverifiedKeys.push(entry.key);
+        }
+      }
+    } else {
+      for (const entry of entries) {
+        if (entry.verified) verifiedCount++;
+        else unverifiedKeys.push(entry.key);
+      }
+    }
+
+    const savedEntries: typeof entries = [];
+    for (const entry of entries) {
+      const saved = await this.repository.saveCustomEmoji(entry);
+      savedEntries.push(saved);
+    }
+    this.emojiRegistry.hydrateFromEntries(savedEntries);
+
+    const appCfgRes = await this.syncEmojiRegistryToAppConfig(updatedBy);
+
+    if (verifiedCount > 0) {
+      await this.repository.saveSettings(
+        {
+          premiumEmojiEnabled: true,
+          premiumKeyboardIconsEnabled: true,
+          premiumEmojiEligibilityVerified: true,
+          premiumEmojiEligibilityCheckedAt: new Date().toISOString(),
+          emojiRegistryVersion: appCfgRes.doc.version,
+        },
+        updatedBy
+      );
+      this.emojiRegistry.setPremiumEnabled(true);
+      this.emojiRegistry.setKeyboardIconsEnabled(true);
+    }
+
+    await this.repository.appendAuditLog({
+      actorTelegramId: updatedBy,
+      actorRole: 'admin',
+      action: 'owner_34_emojis_seeded',
+      targetType: 'emoji',
+      metadata: {
+        seededCount: entries.length,
+        canonicalCount: CANONICAL_EMOJI_SLOTS.length,
+        extended30SlotsCount: EXTENDED_30_EMOJI_SLOTS.length,
+        preserveExistingCustomIds,
+        verifiedCount,
+        telegramChecked,
+        appConfigVersion: appCfgRes.doc.version,
+        aiAssistantId: OWNER_INITIAL_PREMIUM_EMOJI_CATALOG.ai_assistant,
+      },
+    });
+
+    return {
+      ok: true,
+      seededCount: entries.length,
+      canonicalCount: CANONICAL_EMOJI_SLOTS.length,
+      extended30SlotsCount: EXTENDED_30_EMOJI_SLOTS.length,
+      verifiedCount,
+      unverifiedKeys,
+      telegramChecked,
+      appConfigSaved: appCfgRes.ok,
+      appConfigVersion: appCfgRes.doc.version,
+      firestorePaths: ['app_config/premium_emojis', 'appConfig/emojiRegistry', 'telegramCustomEmojis'],
+      error: appCfgRes.error,
+    };
+  }
+
+  /**
+   * Resolves a Telegram custom emoji asset strictly server-side (ZERO bot token exposure!)
+   * with in-memory caching for Web App & Android WebView rendering.
+   * Detects `webp` (static), `webm` (video), or `tgs` (Lottie) honestly.
+   */
+  async resolveEmojiWebAsset(key: string): Promise<{
+    ok: boolean;
+    buffer?: Buffer;
+    mimeType?: string;
+    format: CustomEmojiWebAssetFormat;
+    renderable: boolean;
+    reason?: string;
+  }> {
+    const entry = this.emojiRegistry.getEntry(key);
+    if (!entry || !entry.customEmojiId) {
+      return { ok: false, format: 'unknown', renderable: false, reason: 'Emoji slot has no customEmojiId.' };
+    }
+
+    const cached = this.emojiAssetCache.get(key);
+    if (
+      cached &&
+      cached.customEmojiId === entry.customEmojiId &&
+      Date.now() - cached.cachedAt < 6 * 60 * 60_000
+    ) {
+      return {
+        ok: true,
+        buffer: cached.buffer,
+        mimeType: cached.mimeType,
+        format: cached.format,
+        renderable: cached.renderable,
+      };
+    }
+
+    if (!this.apiClient.isConfigured) {
+      return {
+        ok: false,
+        format: entry.webAssetFormat || 'unknown',
+        renderable: false,
+        reason: 'TELEGRAM_BOT_TOKEN1 is not configured on server; Telegram sticker file cannot be fetched.',
+      };
+    }
+
+    const stickers = await this.apiClient.getCustomEmojiStickers([entry.customEmojiId]);
+    const sticker = stickers.ok && Array.isArray(stickers.result) ? stickers.result[0] : undefined;
+    if (!sticker || !sticker.file_id) {
+      return {
+        ok: false,
+        format: 'unknown',
+        renderable: false,
+        reason: stickers.description || 'Sticker not found in Telegram API.',
+      };
+    }
+
+    const format: CustomEmojiWebAssetFormat = sticker.is_video
+      ? 'webm'
+      : sticker.is_animated
+        ? 'tgs'
+        : 'webp';
+    // Prefer static thumbnail if animated TGS (browsers can render WebP thumbnail natively!)
+    const targetFileId =
+      format === 'tgs' && (sticker as any).thumbnail?.file_id
+        ? String((sticker as any).thumbnail.file_id)
+        : sticker.file_id;
+    const effectiveFormat: CustomEmojiWebAssetFormat =
+      format === 'tgs' && (sticker as any).thumbnail?.file_id ? 'webp' : format;
+
+    const fileRes = await this.apiClient.getFile(targetFileId);
+    if (!fileRes.ok || !fileRes.result?.file_path) {
+      return {
+        ok: false,
+        format: effectiveFormat,
+        renderable: false,
+        reason: fileRes.description || 'Telegram getFile failed.',
+      };
+    }
+
+    const dl = await this.apiClient.downloadFileBuffer(fileRes.result.file_path);
+    if (!dl.ok || !dl.buffer) {
+      return {
+        ok: false,
+        format: effectiveFormat,
+        renderable: false,
+        reason: dl.error || 'Telegram file download failed.',
+      };
+    }
+
+    const mimeType =
+      effectiveFormat === 'webm'
+        ? 'video/webm'
+        : effectiveFormat === 'tgs'
+          ? 'application/x-tgsticker'
+          : 'image/webp';
+    const renderable = effectiveFormat === 'webp' || effectiveFormat === 'webm';
+
+    this.emojiAssetCache.set(key, {
+      buffer: dl.buffer,
+      mimeType,
+      format: effectiveFormat,
+      renderable,
+      cachedAt: Date.now(),
+      customEmojiId: entry.customEmojiId,
+    });
+    if (this.emojiAssetCache.size > 200) {
+      const oldestKey = this.emojiAssetCache.keys().next().value;
+      if (oldestKey) this.emojiAssetCache.delete(oldestKey);
+    }
+
+    // Update entry metadata in memory so public catalog reports exact format & renderability
+    entry.webAssetFormat = effectiveFormat;
+    entry.webRenderable = renderable;
+
+    return {
+      ok: true,
+      buffer: dl.buffer,
+      mimeType,
+      format: effectiveFormat,
+      renderable,
+    };
   }
 
   getRuntimeState(): TelegramRuntimeState {
@@ -1533,6 +1897,7 @@ export class TelegramBotEngine {
             updatedBy: actorId,
           });
           await this.repository.saveCustomEmoji(created);
+          await this.syncEmojiRegistryToAppConfig(actorId);
           await this.repository.appendAuditLog({
             actorTelegramId: actorId,
             actorRole: role,
@@ -1640,6 +2005,7 @@ export class TelegramBotEngine {
           return { ok: true, updateId: 0, kind: 'flow_input', detail: 'admin_emoji_capture_failed' };
         }
         await this.repository.saveCustomEmoji(reg.entry);
+        await this.syncEmojiRegistryToAppConfig(actorId);
         this.emojiRegistry.setPremiumEnabled(true);
         const savedSettings = await this.repository.saveSettings(
           {
@@ -1847,12 +2213,131 @@ export class TelegramBotEngine {
     return null;
   }
 
+  private maskUserId(actorId: string): string {
+    if (actorId.length <= 4) return `***${actorId}`;
+    return `${actorId.slice(0, 2)}***${actorId.slice(-3)}`;
+  }
+
+  private computeLatencyBucket(values: number[], errorCount = 0): TelegramLatencyBucketStats {
+    if (values.length === 0) {
+      return { count: 0, avgMs: 0, p50Ms: 0, p95Ms: 0, p99Ms: 0, maxMs: 0, errorCount };
+    }
+    const sorted = [...values].sort((a, b) => a - b);
+    const sum = sorted.reduce((acc, v) => acc + v, 0);
+    const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
+    return {
+      count: sorted.length,
+      avgMs: Math.round((sum / sorted.length) * 100) / 100,
+      p50Ms: Math.round(pct(50) * 100) / 100,
+      p95Ms: Math.round(pct(95) * 100) / 100,
+      p99Ms: Math.round(pct(99) * 100) / 100,
+      maxMs: Math.round(sorted[sorted.length - 1] * 100) / 100,
+      errorCount,
+    };
+  }
+
+  private recordLatencySample(sample: TelegramLatencySample): void {
+    this.latencySamples.push(sample);
+    if (this.latencySamples.length > 1000) {
+      this.latencySamples.shift();
+    }
+  }
+
+  getPerformanceSummary(): TelegramPerformanceSummary {
+    const overallVals = this.latencySamples.map((s) => s.processing_time_ms);
+    const overallErrors = this.latencySamples.filter((s) => s.status === 'error').length;
+    const dbVals = this.latencySamples.map((s) => s.database_time_ms);
+    const apiVals = this.latencySamples.map((s) => s.api_time_ms);
+
+    const byCategory: Record<string, TelegramLatencyBucketStats> = {};
+    const cats = ['start', 'callback', 'menu', 'command', 'ai', 'media', 'other'] as const;
+    for (const c of cats) {
+      const subset = this.latencySamples.filter((s) => s.category === c);
+      if (subset.length > 0) {
+        byCategory[c] = this.computeLatencyBucket(
+          subset.map((s) => s.processing_time_ms),
+          subset.filter((s) => s.status === 'error').length
+        );
+      }
+    }
+
+    const recentSlowUpdates = [...this.latencySamples]
+      .sort((a, b) => b.processing_time_ms - a.processing_time_ms)
+      .slice(0, 15);
+
+    return {
+      instanceId: this.instanceId,
+      deploymentId: this.deploymentId,
+      gitCommit: this.gitCommit,
+      buildVersion: this.buildVersion,
+      processId: process.pid,
+      uptimeSec: Math.round(process.uptime()),
+      activeUserQueues: this.perUserQueues.size,
+      inFlightUpdates: this.inFlightUpdates,
+      deduplicatedUpdates: this.deduplicatedUpdates,
+      totalProcessed: this.totalUpdatesHandled,
+      overall: this.computeLatencyBucket(overallVals, overallErrors),
+      byCategory,
+      database: this.computeLatencyBucket(dbVals, 0),
+      telegramApi: this.computeLatencyBucket(apiVals, 0),
+      recentSlowUpdates,
+    };
+  }
+
+  getRuntimeDiagnostics() {
+    const fsSync = this.repository.getFirestoreSyncStatus();
+    const polling = this.jobScheduler.getPollingStatus();
+    const activeInstances = this.repository.listRuntimeInstances(5 * 60_000);
+    const currentVersion = fsSync.configVersion;
+    const outdatedInstances = activeInstances.filter(
+      (i) =>
+        i.instanceId !== this.instanceId &&
+        (i.configVersion < currentVersion || i.gitCommit !== this.gitCommit)
+    );
+    return {
+      instanceId: this.instanceId,
+      deploymentId: this.deploymentId,
+      gitCommit: this.gitCommit,
+      buildVersion: this.buildVersion,
+      processId: process.pid,
+      startedAt: this.startedAt,
+      uptimeSec: Math.round(process.uptime()),
+      mode: this.config.mode,
+      startupState: this.startupState,
+      startupReason: this.startupReason,
+      configVersion: fsSync.configVersion,
+      configUpdatedAt: fsSync.configUpdatedAt,
+      emojiRegistryVersion: fsSync.emojiRegistryVersion,
+      firestoreOnline: fsSync.firestoreOnline,
+      degradedMode: fsSync.degradedMode,
+      lastFirestoreReadAt: fsSync.lastFirestoreReadAt,
+      lastFirestoreWriteAt: fsSync.lastFirestoreWriteAt,
+      lastCacheRefreshAt: fsSync.lastCacheRefreshAt,
+      syncWorker: this.syncEngine.getStatusSummary(),
+      polling,
+      activeInstanceCount: Math.max(1, activeInstances.length),
+      activeInstances,
+      outdatedInstancesDetected: outdatedInstances.length > 0,
+      outdatedInstances,
+      rollbackWarnings: fsSync.rollbackWarnings,
+      performance: this.getPerformanceSummary(),
+    };
+  }
+
+  /**
+   * Concurrent update dispatcher:
+   * - Deduplicates `update_id` immediately (O(1) bounded LRU set)
+   * - Guarantees strict sequential ordering PER USER (`perUserQueues`)
+   * - Executes DIFFERENT USERS in parallel so slow AI/audio/file tasks NEVER block other users
+   * - Records structured per-stage latency telemetry (`processing_time_ms`, `database_time_ms`, `api_time_ms`)
+   */
   async processUpdate(update: TelegramApiUpdate): Promise<UpdateDispatchOutcome> {
     const updateId = update.update_id;
 
     // Duplicate update_id deduplication (webhook retries / polling overlap)
     if (typeof updateId === 'number' && updateId > 0) {
       if (this.processedUpdateIds.has(updateId)) {
+        this.deduplicatedUpdates++;
         return { ok: true, updateId, kind: 'ignored', detail: 'duplicate_update_id' };
       }
       this.processedUpdateIds.add(updateId);
@@ -1862,20 +2347,111 @@ export class TelegramBotEngine {
       }
     }
 
-    try {
-      const actor = update.callback_query?.from || update.message?.from;
-      const chatId = update.callback_query?.message?.chat.id || update.message?.chat.id || actor?.id;
+    const actor = update.callback_query?.from || update.message?.from;
+    const chatId = update.callback_query?.message?.chat.id || update.message?.chat.id || actor?.id;
+    if (!actor || actor.is_bot || !chatId) {
+      return { ok: true, updateId, kind: 'ignored', detail: 'no_human_actor' };
+    }
 
+    const queueKey = String(actor.id);
+    const prevTail = this.perUserQueues.get(queueKey) || Promise.resolve();
+    let releaseQueue!: () => void;
+    const nextTail = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    const chainedTail = prevTail.catch(() => {}).then(() => nextTail);
+    this.perUserQueues.set(queueKey, chainedTail);
+
+    await prevTail.catch(() => {});
+    this.inFlightUpdates++;
+    const startedHr = performance.now();
+    const timingCtx = {
+      dbMs: 0,
+      apiMs: 0,
+      handlerName: 'unknown',
+      category: 'other' as TelegramLatencySample['category'],
+    };
+    try {
+      const outcome = await this.processUpdateSerialized(update, timingCtx);
+      const totalMs = Math.max(0, performance.now() - startedHr);
+      const effectiveApiMs = Math.max(0, timingCtx.apiMs > 0 ? timingCtx.apiMs : totalMs - timingCtx.dbMs);
+      this.recordLatencySample({
+        update_id: updateId,
+        user_id_masked: this.maskUserId(queueKey),
+        handler_name: outcome.detail || timingCtx.handlerName,
+        category: timingCtx.category,
+        instance_id: this.instanceId,
+        deployment_id: this.deploymentId,
+        git_commit: this.gitCommit,
+        processing_time_ms: Math.round(totalMs * 100) / 100,
+        database_time_ms: Math.round(timingCtx.dbMs * 100) / 100,
+        api_time_ms: Math.round(effectiveApiMs * 100) / 100,
+        status:
+          outcome.kind === 'error'
+            ? 'error'
+            : outcome.kind === 'rate_limited'
+              ? 'rate_limited'
+              : outcome.kind === 'maintenance'
+                ? 'maintenance'
+                : outcome.kind === 'ignored'
+                  ? 'ignored'
+                  : 'ok',
+        ...(outcome.kind === 'error' ? { error_code: outcome.detail || 'UPDATE_ERROR' } : {}),
+        timestamp: new Date().toISOString(),
+      });
+      return outcome;
+    } finally {
+      this.inFlightUpdates = Math.max(0, this.inFlightUpdates - 1);
+      releaseQueue();
+      if (this.perUserQueues.get(queueKey) === chainedTail) {
+        this.perUserQueues.delete(queueKey);
+      }
+    }
+  }
+
+  private async processUpdateSerialized(
+    update: TelegramApiUpdate,
+    timingCtx: {
+      dbMs: number;
+      apiMs: number;
+      handlerName: string;
+      category: TelegramLatencySample['category'];
+    }
+  ): Promise<UpdateDispatchOutcome> {
+    const updateId = update.update_id;
+    const actor = update.callback_query?.from || update.message?.from;
+    const chatId = update.callback_query?.message?.chat.id || update.message?.chat.id || actor?.id;
+    const actorId = actor ? String(actor.id) : '0';
+
+    try {
       if (!actor || actor.is_bot || !chatId) {
         return { ok: true, updateId, kind: 'ignored', detail: 'no_human_actor' };
       }
 
-      const actorId = String(actor.id);
+      if (update.callback_query) {
+        timingCtx.category = 'callback';
+        timingCtx.handlerName = `callback:${(update.callback_query.data || '').split(':')[0] || 'unknown'}`;
+      } else if (update.message?.text?.trim().startsWith('/start')) {
+        timingCtx.category = 'start';
+        timingCtx.handlerName = '/start';
+      } else if (update.message?.text?.trim().startsWith('/')) {
+        timingCtx.category = 'command';
+        timingCtx.handlerName = update.message.text.trim().split(/\s+/)[0];
+      } else if (update.message?.voice || update.message?.audio || update.message?.photo || update.message?.document) {
+        timingCtx.category = 'media';
+        timingCtx.handlerName = 'media_message';
+      } else if (update.message?.text) {
+        timingCtx.category = this.aiBridge.isUserInAiMode(actorId) ? 'ai' : 'menu';
+        timingCtx.handlerName = timingCtx.category === 'ai' ? 'ai_text' : 'reply_or_text';
+      }
+
       this.totalUpdatesHandled++;
       this.lastUpdateHandledAt = new Date().toISOString();
 
-      // 1. Register / update user in isolated `telegramUsers` collection
+      // 1. Register / update user in isolated `telegramUsers` collection (timed DB stage)
+      const dbStart = performance.now();
       const { user } = await this.userService.registerOrTouchUser(actor);
+      timingCtx.dbMs += performance.now() - dbStart;
       if (user.isBlocked) {
         return { ok: true, updateId, kind: 'ignored', detail: 'user_blocked' };
       }
@@ -2291,12 +2867,17 @@ export class TelegramBotEngine {
       ok: true,
       module: 'asaka-ziyo-telegram-platform',
       phase: 'unified_ecosystem_v4',
+      instanceId: this.instanceId,
+      deploymentId: this.deploymentId,
+      gitCommit: this.gitCommit,
+      buildVersion: this.buildVersion,
       miniAppUrl: this.config.miniAppUrl,
       config: getSafeTelegramConfigSummary(this.config),
       pollingActive: this.jobScheduler.isPolling(),
       runtime,
       firestoreSync: this.repository.getFirestoreSyncStatus(),
       syncEngine: this.syncEngine.getStatusSummary(),
+      performance: this.getPerformanceSummary(),
       centralContentCounts: this.centralContent.getSummaryCounts(),
       quranMp3RecitersCount: this.quranMp3Service.listReciters().length,
       styleConfig: this.styleManager.getConfig(),

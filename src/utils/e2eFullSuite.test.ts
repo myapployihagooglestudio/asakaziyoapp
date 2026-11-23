@@ -1026,11 +1026,11 @@ async function runFullE2ESuite() {
   );
 
   // Test per-user conversation persistence (/api/ai/conversations)
-  const testAiUserId = `e2e_ai_user_${Date.now()}`;
+  const testAiUserId = `user_e2e_ai_${Date.now()}`;
   const testConvId = `conv_${Date.now()}`;
   const saveConvRes = await fetch(`${BASE_URL}/api/ai/conversations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-asaka-user-id': testAiUserId },
     body: JSON.stringify({
       userId: testAiUserId,
       conversation: {
@@ -1046,7 +1046,9 @@ async function runFullE2ESuite() {
   });
   assert(saveConvRes.status === 200, 'POST /api/ai/conversations saves user conversation history');
 
-  const getConvRes = await fetch(`${BASE_URL}/api/ai/conversations?userId=${encodeURIComponent(testAiUserId)}`);
+  const getConvRes = await fetch(`${BASE_URL}/api/ai/conversations?userId=${encodeURIComponent(testAiUserId)}`, {
+    headers: { 'x-asaka-user-id': testAiUserId },
+  });
   const getConvJson = await getConvRes.json();
   assert(
     getConvRes.status === 200 &&
@@ -1058,7 +1060,7 @@ async function runFullE2ESuite() {
 
   const delConvRes = await fetch(
     `${BASE_URL}/api/ai/conversations/${encodeURIComponent(testConvId)}?userId=${encodeURIComponent(testAiUserId)}`,
-    { method: 'DELETE' }
+    { method: 'DELETE', headers: { 'x-asaka-user-id': testAiUserId } }
   );
   assert(delConvRes.status === 200, 'DELETE /api/ai/conversations/:id removes user conversation cleanly');
 

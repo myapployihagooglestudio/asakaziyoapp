@@ -13,6 +13,7 @@ android/keystore.properties
 *.keystore
 data/.android-signing/
 data/.android_signing_key.pem
+data/.admin_session_secret
 data/.firestore_server_vault_key
 data/*.pem
 android/app/google-services.json

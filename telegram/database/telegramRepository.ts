@@ -16,7 +16,9 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import {
+  AppConfigEmojiRegistryDocument,
   CustomEmojiEntry,
+  RollbackWarningRecord,
   TelegramAdminRecord,
   TelegramAiLogRecord,
   TelegramAuditLogRecord,
@@ -26,6 +28,7 @@ import {
   TelegramContentDraftRecord,
   TelegramPublicationRecord,
   TelegramQuizAttemptRecord,
+  TelegramRuntimeInstanceRecord,
   TelegramSupportTicketRecord,
   TelegramUserEngagementRecord,
   TelegramUserRecord,
@@ -49,6 +52,9 @@ export const ALLOWED_TELEGRAM_COLLECTIONS = [
   'telegramAiLogs',
   'telegramQuizAttempts',
   'telegramHifzProfiles',
+  'appConfig',
+  'app_config',
+  'telegramRuntimeInstances',
 ] as const;
 
 export type AllowedTelegramCollection = (typeof ALLOWED_TELEGRAM_COLLECTIONS)[number];
@@ -122,6 +128,8 @@ interface TelegramLocalStoreShape {
   publications: TelegramPublicationRecord[];
   auditLogs: TelegramAuditLogRecord[];
   customEmojis: Record<string, CustomEmojiEntry>;
+  appConfigEmojiRegistry?: AppConfigEmojiRegistryDocument | null;
+  runtimeInstances?: Record<string, TelegramRuntimeInstanceRecord>;
   broadcasts: Record<string, TelegramBroadcastRecord>;
   supportTickets: Record<string, TelegramSupportTicketRecord>;
   contentDrafts: Record<string, TelegramContentDraftRecord>;
@@ -206,13 +214,22 @@ function createDefaultStore(): TelegramLocalStoreShape {
 
 export interface FirestoreSyncTelemetry {
   bridgeActive: boolean;
+  firestoreOnline: boolean;
+  degradedMode: boolean;
   hydratedFromFirestore: boolean;
   lastHydratedAt: string | null;
+  lastFirestoreReadAt: string | null;
+  lastFirestoreWriteAt: string | null;
+  lastCacheRefreshAt: string | null;
+  configVersion: number;
+  configUpdatedAt: string;
+  emojiRegistryVersion: number;
   totalWritesAttempted: number;
   totalWritesSucceeded: number;
   totalWritesFailed: number;
   lastSyncAt: string | null;
   lastSyncError: string | null;
+  rollbackWarnings: RollbackWarningRecord[];
 }
 
 export class TelegramRepository {
@@ -222,12 +239,21 @@ export class TelegramRepository {
   private state: TelegramLocalStoreShape;
 
   private hydratedFromFirestore = false;
+  private firestoreOnline = false;
+  private degradedMode = false;
   private lastHydratedAt: string | null = null;
+  private lastFirestoreReadAt: string | null = null;
+  private lastFirestoreWriteAt: string | null = null;
+  private lastCacheRefreshAt: string | null = null;
   private totalWritesAttempted = 0;
   private totalWritesSucceeded = 0;
   private totalWritesFailed = 0;
   private lastSyncAt: string | null = null;
   private lastSyncError: string | null = null;
+  private rollbackWarnings: RollbackWarningRecord[] = [];
+  private diskFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  private diskFlushInProgress = false;
+  private diskFlushQueued = false;
 
   constructor(options: {
     storePath?: string;
@@ -258,6 +284,8 @@ export class TelegramRepository {
           publications: Array.isArray(parsed.publications) ? parsed.publications : [],
           auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
           customEmojis: parsed.customEmojis || {},
+          appConfigEmojiRegistry: parsed.appConfigEmojiRegistry || null,
+          runtimeInstances: parsed.runtimeInstances || {},
           broadcasts: parsed.broadcasts || {},
           supportTickets: parsed.supportTickets || {},
           contentDrafts: parsed.contentDrafts || {},
@@ -275,7 +303,63 @@ export class TelegramRepository {
     return createDefaultStore();
   }
 
-  private persistToDisk(): void {
+  /**
+   * Non-blocking debounced async disk cache persistence.
+   * Eliminates event-loop stalls caused by synchronous JSON.stringify + fs.writeFileSync
+   * under concurrent multi-user Telegram traffic.
+   */
+  private persistToDisk(immediate = false): void {
+    this.lastCacheRefreshAt = new Date().toISOString();
+    if (immediate) {
+      this.flushToDiskSync();
+      return;
+    }
+    if (this.diskFlushTimer) {
+      return;
+    }
+    this.diskFlushTimer = setTimeout(() => {
+      this.diskFlushTimer = null;
+      void this.flushToDiskAsync();
+    }, 120);
+    if (typeof this.diskFlushTimer.unref === 'function') {
+      this.diskFlushTimer.unref();
+    }
+  }
+
+  private async flushToDiskAsync(): Promise<void> {
+    if (this.diskFlushInProgress) {
+      this.diskFlushQueued = true;
+      return;
+    }
+    this.diskFlushInProgress = true;
+    try {
+      const dir = path.dirname(this.storePath);
+      await fs.promises.mkdir(dir, { recursive: true });
+      const tempPath = `${this.storePath}.${process.pid}.${Date.now()}.tmp`;
+      const serialized = JSON.stringify(this.state);
+      await fs.promises.writeFile(tempPath, serialized, 'utf-8');
+      await fs.promises.rename(tempPath, this.storePath);
+    } catch (err) {
+      this.logger.error('Failed async persisting isolated Telegram local store', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      this.diskFlushInProgress = false;
+      if (this.diskFlushQueued) {
+        this.diskFlushQueued = false;
+        void this.flushToDiskAsync();
+      }
+    }
+  }
+
+  /**
+   * Synchronous flush for graceful shutdown or critical config commits.
+   */
+  flushToDiskSync(): void {
+    if (this.diskFlushTimer) {
+      clearTimeout(this.diskFlushTimer);
+      this.diskFlushTimer = null;
+    }
     try {
       const dir = path.dirname(this.storePath);
       if (!fs.existsSync(dir)) {
@@ -291,6 +375,33 @@ export class TelegramRepository {
     }
   }
 
+  recordRollbackWarning(
+    warning: Omit<RollbackWarningRecord, 'id' | 'createdAt'>
+  ): RollbackWarningRecord {
+    const rec: RollbackWarningRecord = {
+      ...warning,
+      id: `rbw_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`,
+      createdAt: new Date().toISOString(),
+    };
+    this.rollbackWarnings.unshift(rec);
+    if (this.rollbackWarnings.length > 100) {
+      this.rollbackWarnings.length = 100;
+    }
+    this.logger.warn('[ROLLBACK_GUARD] Blocked stale state downgrade or anomaly', {
+      target: rec.target,
+      source: rec.source,
+      functionName: rec.functionName,
+      currentVersion: rec.currentVersion,
+      incomingVersion: rec.incomingVersion,
+      reason: rec.reason,
+    });
+    return rec;
+  }
+
+  getRollbackWarnings(): RollbackWarningRecord[] {
+    return [...this.rollbackWarnings];
+  }
+
   private async syncDocToFirestore(
     collectionName: AllowedTelegramCollection,
     docId: string,
@@ -304,7 +415,11 @@ export class TelegramRepository {
       const res = await this.firestore.writeTelegramDoc(collectionName, docId, payload);
       if (res.success) {
         this.totalWritesSucceeded++;
-        this.lastSyncAt = new Date().toISOString();
+        const now = new Date().toISOString();
+        this.lastSyncAt = now;
+        this.lastFirestoreWriteAt = now;
+        this.firestoreOnline = true;
+        this.degradedMode = false;
         return { ok: true };
       }
       const errMsg = res.error || 'Unknown Firestore write failure';
@@ -318,6 +433,8 @@ export class TelegramRepository {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.totalWritesFailed++;
       this.lastSyncError = `${collectionName}/${docId}: ${errMsg}`;
+      this.firestoreOnline = false;
+      this.degradedMode = true;
       this.logger.warn(`Firestore sync exception for ${collectionName}/${docId}`, { error: errMsg });
       return { ok: false, error: errMsg };
     }
@@ -343,9 +460,14 @@ export class TelegramRepository {
 
   /**
    * Hydrates repository state from Firestore on server boot so restarts recover persisted cloud records.
+   * Enforces strict anti-rollback monotonic version checks and degraded-mode protection:
+   * - Never overwrites newer in-memory state with an older version.
+   * - Never writes hardcoded defaults back to Firestore when Firestore is offline or returns empty.
    */
   async hydrateFromFirestore(): Promise<{ ok: boolean; collectionsLoaded: number; error?: string }> {
     if (!this.firestore?.readTelegramCollection) {
+      this.firestoreOnline = false;
+      this.degradedMode = true;
       return { ok: false, collectionsLoaded: 0, error: 'readTelegramCollection unavailable' };
     }
     let collectionsLoaded = 0;
@@ -364,6 +486,8 @@ export class TelegramRepository {
         aiLogs,
         quizAttempts,
         hifzProfiles,
+        appConfigDocs,
+        runtimeInstances,
       ] = await Promise.all([
         this.firestore.readTelegramCollection('telegramUsers'),
         this.firestore.readTelegramCollection('telegramSettings'),
@@ -378,12 +502,23 @@ export class TelegramRepository {
         this.firestore.readTelegramCollection('telegramAiLogs'),
         this.firestore.readTelegramCollection('telegramQuizAttempts'),
         this.firestore.readTelegramCollection('telegramHifzProfiles'),
+        this.firestore.readTelegramCollection('appConfig').catch(() => []),
+        this.firestore.readTelegramCollection('telegramRuntimeInstances').catch(() => []),
       ]);
+
+      this.lastFirestoreReadAt = new Date().toISOString();
+      this.firestoreOnline = true;
+      this.degradedMode = false;
 
       if (Array.isArray(users) && users.length > 0) {
         collectionsLoaded++;
         for (const u of users as unknown as TelegramUserRecord[]) {
-          if (u?.telegramId) this.state.users[u.telegramId] = u;
+          if (u?.telegramId) {
+            const cur = this.state.users[u.telegramId];
+            if (!cur || !cur.updatedAt || (u.updatedAt || '') >= cur.updatedAt) {
+              this.state.users[u.telegramId] = u;
+            }
+          }
         }
       }
       if (Array.isArray(settingsDocs)) {
@@ -392,7 +527,32 @@ export class TelegramRepository {
         );
         if (def) {
           collectionsLoaded++;
-          this.state.settings = { ...this.state.settings, ...def };
+          const curVer = typeof this.state.settings.version === 'number' ? this.state.settings.version : 0;
+          const incVer = typeof def.version === 'number' ? def.version : 0;
+          const isStaleVersion = curVer > 0 && incVer > 0 && incVer < curVer;
+          const isStaleTimestamp =
+            curVer === incVer &&
+            Boolean(this.state.settings.updatedAt) &&
+            Boolean(def.updatedAt) &&
+            def.updatedAt < this.state.settings.updatedAt &&
+            this.state.settings.updatedBy !== 'system';
+
+          if (isStaleVersion || isStaleTimestamp) {
+            this.recordRollbackWarning({
+              target: 'settings',
+              source: 'firestore:telegramSettings/default',
+              functionName: 'hydrateFromFirestore',
+              currentVersion: curVer,
+              incomingVersion: incVer,
+              reason: `Ignored stale settings snapshot (incoming v${incVer} @ ${def.updatedAt} < current v${curVer} @ ${this.state.settings.updatedAt})`,
+            });
+          } else {
+            this.state.settings = {
+              ...this.state.settings,
+              ...def,
+              version: Math.max(curVer, incVer, 1),
+            };
+          }
         }
       }
       if (Array.isArray(channels) && channels.length > 0) {
@@ -417,10 +577,96 @@ export class TelegramRepository {
           .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
           .slice(0, 500);
       }
+
+      // Hydrate unified appConfig/emojiRegistry first (anti-downgrade guarded)
+      if (Array.isArray(appConfigDocs) && appConfigDocs.length > 0) {
+        const regDoc = (appConfigDocs as unknown as AppConfigEmojiRegistryDocument[]).find(
+          (d) => d && d.id === 'emojiRegistry'
+        );
+        if (regDoc && regDoc.emojis) {
+          collectionsLoaded++;
+          const curRegVer = this.state.appConfigEmojiRegistry?.version || 0;
+          const incRegVer = typeof regDoc.version === 'number' ? regDoc.version : 0;
+          if (curRegVer > 0 && incRegVer > 0 && incRegVer < curRegVer) {
+            this.recordRollbackWarning({
+              target: 'emoji_registry',
+              source: 'firestore:appConfig/emojiRegistry',
+              functionName: 'hydrateFromFirestore',
+              currentVersion: curRegVer,
+              incomingVersion: incRegVer,
+              reason: `Ignored stale appConfig/emojiRegistry v${incRegVer} < current v${curRegVer}`,
+            });
+          } else {
+            this.state.appConfigEmojiRegistry = regDoc;
+            this.state.settings.emojiRegistryVersion = Math.max(
+              this.state.settings.emojiRegistryVersion || 0,
+              incRegVer
+            );
+            for (const [k, v] of Object.entries(regDoc.emojis)) {
+              const existing = this.state.customEmojis[k];
+              const curSlotVer = existing?.version || 0;
+              const incSlotVer = typeof v.version === 'number' ? v.version : incRegVer;
+              if (curSlotVer > 0 && incSlotVer > 0 && incSlotVer < curSlotVer) continue;
+              this.state.customEmojis[k] = {
+                key: k,
+                category: (v.category || existing?.category || 'custom') as CustomEmojiEntry['category'],
+                unicodeFallback: existing?.unicodeFallback || '*',
+                customEmojiId: v.customEmojiId ?? null,
+                semanticPurpose: v.semanticPurpose || existing?.semanticPurpose,
+                usedIn: v.usedIn || existing?.usedIn,
+                isCustomAdminSlot: v.isCustomAdminSlot ?? existing?.isCustomAdminSlot,
+                enabled: v.enabled !== false,
+                verified: Boolean(v.verified && v.customEmojiId),
+                verifiedAt: v.verifiedAt || existing?.verifiedAt,
+                stickerSetName: v.stickerSetName || existing?.stickerSetName,
+                supportsKeyboardIcon: existing ? existing.supportsKeyboardIcon : true,
+                description: v.description || existing?.description || k,
+                webAssetUrl: v.webAssetUrl || existing?.webAssetUrl || null,
+                webAssetFormat: v.webAssetFormat || existing?.webAssetFormat || 'unknown',
+                webRenderable: Boolean(v.webRenderable),
+                version: Math.max(curSlotVer, incSlotVer, 1),
+                updatedBy: v.updatedBy || regDoc.updatedBy,
+                updatedAt: v.updatedAt || regDoc.updatedAt,
+              };
+            }
+          }
+        }
+      }
+
       if (Array.isArray(customEmojis) && customEmojis.length > 0) {
         collectionsLoaded++;
         for (const e of customEmojis as unknown as CustomEmojiEntry[]) {
-          if (e?.key) this.state.customEmojis[e.key] = e;
+          if (!e?.key) continue;
+          const existing = this.state.customEmojis[e.key];
+          const curVer = existing?.version || 0;
+          const incVer = typeof e.version === 'number' ? e.version : 0;
+          if (curVer > 0 && incVer > 0 && incVer < curVer) {
+            this.recordRollbackWarning({
+              target: 'custom_emoji',
+              source: `firestore:telegramCustomEmojis/${e.key}`,
+              functionName: 'hydrateFromFirestore',
+              currentVersion: curVer,
+              incomingVersion: incVer,
+              reason: `Ignored stale custom emoji ${e.key} v${incVer} < v${curVer}`,
+            });
+            continue;
+          }
+          if (existing && curVer === incVer && existing.updatedAt && e.updatedAt && e.updatedAt < existing.updatedAt) {
+            continue;
+          }
+          this.state.customEmojis[e.key] = {
+            ...existing,
+            ...e,
+            version: Math.max(curVer, incVer, 1),
+          };
+        }
+      }
+      if (Array.isArray(runtimeInstances) && runtimeInstances.length > 0) {
+        if (!this.state.runtimeInstances) this.state.runtimeInstances = {};
+        for (const inst of runtimeInstances as unknown as TelegramRuntimeInstanceRecord[]) {
+          if (inst?.instanceId) {
+            this.state.runtimeInstances[inst.instanceId] = inst;
+          }
         }
       }
       if (Array.isArray(broadcasts) && broadcasts.length > 0) {
@@ -476,11 +722,21 @@ export class TelegramRepository {
 
       this.hydratedFromFirestore = true;
       this.lastHydratedAt = new Date().toISOString();
-      this.persistToDisk();
+      this.persistToDisk(true);
       return { ok: true, collectionsLoaded };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      this.firestoreOnline = false;
+      this.degradedMode = true;
       this.lastSyncError = `Hydrate failed: ${msg}`;
+      this.recordRollbackWarning({
+        target: 'firestore_degraded',
+        source: 'firestore',
+        functionName: 'hydrateFromFirestore',
+        currentVersion: this.state.settings.version || 0,
+        incomingVersion: 0,
+        reason: `Firestore unreachable during hydration (${msg}). Running in safe degraded read-cache mode; refusing to overwrite Firestore with defaults.`,
+      });
       this.logger.warn('TelegramRepository Firestore hydration warning', { error: msg });
       return { ok: false, collectionsLoaded, error: msg };
     }
@@ -489,13 +745,23 @@ export class TelegramRepository {
   getFirestoreSyncStatus(): FirestoreSyncTelemetry {
     return {
       bridgeActive: Boolean(this.firestore),
+      firestoreOnline: this.firestoreOnline,
+      degradedMode: this.degradedMode,
       hydratedFromFirestore: this.hydratedFromFirestore,
       lastHydratedAt: this.lastHydratedAt,
+      lastFirestoreReadAt: this.lastFirestoreReadAt,
+      lastFirestoreWriteAt: this.lastFirestoreWriteAt,
+      lastCacheRefreshAt: this.lastCacheRefreshAt,
+      configVersion: this.state.settings.version || 1,
+      configUpdatedAt: this.state.settings.updatedAt,
+      emojiRegistryVersion:
+        this.state.appConfigEmojiRegistry?.version || this.state.settings.emojiRegistryVersion || 0,
       totalWritesAttempted: this.totalWritesAttempted,
       totalWritesSucceeded: this.totalWritesSucceeded,
       totalWritesFailed: this.totalWritesFailed,
       lastSyncAt: this.lastSyncAt,
       lastSyncError: this.lastSyncError,
+      rollbackWarnings: this.rollbackWarnings.slice(0, 25),
     };
   }
 
@@ -543,20 +809,36 @@ export class TelegramRepository {
     patch: Partial<TelegramBotSettingsRecord>,
     updatedBy = 'system'
   ): Promise<TelegramBotSettingsRecord> {
+    const currentVersion = typeof this.state.settings.version === 'number' ? this.state.settings.version : 0;
+    // Reject explicit version downgrade attempts
+    if (typeof patch.version === 'number' && currentVersion > 0 && patch.version < currentVersion) {
+      this.recordRollbackWarning({
+        target: 'settings',
+        source: updatedBy,
+        functionName: 'saveSettings',
+        currentVersion,
+        incomingVersion: patch.version,
+        reason: `Rejected settings downgrade from v${currentVersion} to v${patch.version} by ${updatedBy}`,
+      });
+      return { ...this.state.settings };
+    }
+
+    const nextVersion = Math.max(currentVersion + 1, typeof patch.version === 'number' ? patch.version : 1);
     const next: TelegramBotSettingsRecord = {
       ...this.state.settings,
       ...patch,
       id: 'default',
+      version: nextVersion,
       updatedAt: new Date().toISOString(),
       updatedBy,
     };
     this.state.settings = next;
-    this.persistToDisk();
-    await this.syncDocToFirestore(
+    const syncRes = await this.syncDocToFirestore(
       'telegramSettings',
       'default',
       next as unknown as Record<string, unknown>
     );
+    this.persistToDisk(syncRes.ok);
     return next;
   }
 
@@ -675,24 +957,128 @@ export class TelegramRepository {
   }
 
   async saveCustomEmoji(entry: CustomEmojiEntry): Promise<CustomEmojiEntry> {
-    this.state.customEmojis[entry.key] = entry;
-    this.persistToDisk();
-    const safeDocId = entry.key.replace(/[^a-zA-Z0-9_-]/g, '_');
-    await this.syncDocToFirestore(
+    const existing = this.state.customEmojis[entry.key];
+    const currentVer = typeof existing?.version === 'number' ? existing.version : 0;
+    if (typeof entry.version === 'number' && currentVer > 0 && entry.version < currentVer) {
+      this.recordRollbackWarning({
+        target: 'custom_emoji',
+        source: entry.updatedBy || 'unknown',
+        functionName: 'saveCustomEmoji',
+        currentVersion: currentVer,
+        incomingVersion: entry.version,
+        reason: `Rejected stale custom emoji write for "${entry.key}" (v${entry.version} < v${currentVer})`,
+      });
+      return existing!;
+    }
+    const versioned: CustomEmojiEntry = {
+      ...entry,
+      version: Math.max(currentVer + 1, typeof entry.version === 'number' ? entry.version : 1),
+      updatedAt: entry.updatedAt || new Date().toISOString(),
+    };
+    this.state.customEmojis[versioned.key] = versioned;
+    const safeDocId = versioned.key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const syncRes = await this.syncDocToFirestore(
       'telegramCustomEmojis',
       safeDocId,
-      entry as unknown as Record<string, unknown>
+      versioned as unknown as Record<string, unknown>
     );
-    return entry;
+    this.persistToDisk(true);
+    void syncRes;
+    return versioned;
   }
 
   async deleteCustomEmoji(key: string): Promise<boolean> {
     const existed = Boolean(this.state.customEmojis[key]);
     delete this.state.customEmojis[key];
-    this.persistToDisk();
     const safeDocId = key.replace(/[^a-zA-Z0-9_-]/g, '_');
     await this.deleteDocFromFirestore('telegramCustomEmojis', safeDocId);
+    this.persistToDisk(true);
     return existed;
+  }
+
+  // ---- Unified AppConfig Emoji Registry (appConfig/emojiRegistry) ----
+
+  getAppConfigEmojiRegistry(): AppConfigEmojiRegistryDocument | null {
+    return this.state.appConfigEmojiRegistry || null;
+  }
+
+  async saveAppConfigEmojiRegistry(
+    doc: AppConfigEmojiRegistryDocument,
+    premiumEmojisDoc?: Record<string, unknown>
+  ): Promise<{ ok: boolean; doc: AppConfigEmojiRegistryDocument; premiumConfigSaved?: boolean; error?: string }> {
+    const currentVer = this.state.appConfigEmojiRegistry?.version || 0;
+    if (currentVer > 0 && doc.version < currentVer) {
+      this.recordRollbackWarning({
+        target: 'emoji_registry',
+        source: doc.updatedBy || 'unknown',
+        functionName: 'saveAppConfigEmojiRegistry',
+        currentVersion: currentVer,
+        incomingVersion: doc.version,
+        reason: `Rejected downgrade of appConfig/emojiRegistry from v${currentVer} to v${doc.version}`,
+      });
+      return {
+        ok: false,
+        doc: this.state.appConfigEmojiRegistry!,
+        error: `Version downgrade rejected (v${doc.version} < v${currentVer})`,
+      };
+    }
+    const nextDoc: AppConfigEmojiRegistryDocument = {
+      ...doc,
+      id: 'emojiRegistry',
+      version: Math.max(currentVer + 1, doc.version || 1),
+      updatedAt: new Date().toISOString(),
+    };
+    this.state.appConfigEmojiRegistry = nextDoc;
+    this.state.settings.emojiRegistryVersion = nextDoc.version;
+    const syncRes = await this.syncDocToFirestore(
+      'appConfig',
+      'emojiRegistry',
+      nextDoc as unknown as Record<string, unknown>
+    );
+    let premiumConfigSaved = false;
+    if (premiumEmojisDoc) {
+      const pRes = await this.syncDocToFirestore('app_config', 'premium_emojis', {
+        ...premiumEmojisDoc,
+        version: nextDoc.version,
+        updated_at: nextDoc.updatedAt,
+      });
+      premiumConfigSaved = pRes.ok;
+    }
+    this.persistToDisk(syncRes.ok);
+    return { ok: syncRes.ok, doc: nextDoc, premiumConfigSaved, error: syncRes.error };
+  }
+
+  // ---- Active Runtime Instance Tracking (telegramRuntimeInstances) ----
+
+  async registerRuntimeInstance(
+    record: TelegramRuntimeInstanceRecord
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (!this.state.runtimeInstances) this.state.runtimeInstances = {};
+    this.state.runtimeInstances[record.instanceId] = record;
+    if (!this.firestore) {
+      return { ok: false, error: 'Firestore bridge not configured' };
+    }
+    try {
+      const safeId = record.instanceId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+      const res = await this.firestore.writeTelegramDoc(
+        'telegramRuntimeInstances',
+        safeId,
+        record as unknown as Record<string, unknown>
+      );
+      return { ok: res.success, error: res.error };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  listRuntimeInstances(activeWithinMs = 5 * 60_000): TelegramRuntimeInstanceRecord[] {
+    const cutoff = Date.now() - activeWithinMs;
+    return Object.values(this.state.runtimeInstances || {})
+      .filter((inst) => {
+        const ts = Date.parse(inst.lastHeartbeatAt || inst.startedAt || '');
+        return Number.isFinite(ts) ? ts >= cutoff : true;
+      })
+      .sort((a, b) => (b.lastHeartbeatAt || '').localeCompare(a.lastHeartbeatAt || ''));
   }
 
   listEmojiAuditLogs(limit = 30): TelegramAuditLogRecord[] {

@@ -96,10 +96,13 @@ for (let i = 0; i < 30; i++) {
 }
 
 // -----------------------------------------------------------------------------
-// Test 3: 9 Canonical Reciters (Shayx Alijon qori first) & Audio URL generation
+// Test 3: 10 Canonical Reciters (Shayx Alijon qori & Jahongir qori Neʼmatov included) & Audio URL generation
 // -----------------------------------------------------------------------------
-assert(QURAN_RECITERS.length === 9, '9 Canonical reciters are configured');
+assert(QURAN_RECITERS.length === 10, '10 Canonical reciters are configured (including Jahongir qori Neʼmatov)');
 assert(QURAN_RECITERS[0].id === 'alijon' && QURAN_RECITERS[0].name === 'Shayx Alijon qori', 'Shayx Alijon qori is listed first');
+const jahongir = QURAN_RECITERS.find((r) => r.id === 'jahongir_nematov');
+assert(Boolean(jahongir), 'Jahongir qori Neʼmatov dedicated 114-surah slot is configured');
+assert(getReciterAyahAudioUrl('jahongir_nematov', 1, 1) === '', 'Jahongir qori must NOT silently fallback to fake or another reciter audio');
 const alijonSurah1Url = getReciterSurahAudioUrl('alijon', 1);
 const alijonSurah114Url = getReciterSurahAudioUrl('alijon', 114);
 assert(alijonSurah1Url.includes('/001.mp3') && alijonSurah114Url.includes('/114.mp3'), 'Alijon qori 1-114 surah MP3 URLs formatted cleanly');

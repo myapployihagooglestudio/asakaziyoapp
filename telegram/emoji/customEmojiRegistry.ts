@@ -21,8 +21,10 @@
 import fs from 'fs';
 import path from 'path';
 import {
+  AppConfigEmojiRegistryDocument,
   CustomEmojiCategory,
   CustomEmojiEntry,
+  CustomEmojiWebAssetFormat,
   TelegramApiMessage,
   TelegramEmojiAuditReport,
   TelegramInlineKeyboardButton,
@@ -60,7 +62,46 @@ export type CanonicalEmojiSlot =
   | 'loading'
   | 'calendar'
   | 'statistics'
-  | 'support';
+  | 'support'
+  | 'ramadan_banner'
+  | 'welcome'
+  | 'confirm'
+  | 'error_cancel'
+  | 'important_warning'
+  | 'idea_advice'
+  | 'fire_great';
+
+export type Extended30EmojiSlot =
+  | 'islamic_greeting'
+  | 'quran_verse'
+  | 'surah_collection'
+  | 'tajweed'
+  | 'arabic_alphabet'
+  | 'quran_learning'
+  | 'quran_memorization'
+  | 'reciter'
+  | 'audio_player'
+  | 'adhan'
+  | 'mosque'
+  | 'qibla'
+  | 'hijri_calendar'
+  | 'ramadan'
+  | 'fasting'
+  | 'islamic_library'
+  | 'islamic_scholar'
+  | 'religious_lesson'
+  | 'quiz'
+  | 'knowledge_test'
+  | 'ai_voice_assistant'
+  | 'voice_message'
+  | 'media_gallery'
+  | 'video_reels'
+  | 'announcement'
+  | 'channel_publishing'
+  | 'scheduled_post'
+  | 'user_activity'
+  | 'premium_membership'
+  | 'special_islamic_banner';
 
 export const CANONICAL_EMOJI_SLOTS: readonly CanonicalEmojiSlot[] = [
   'home',
@@ -90,7 +131,93 @@ export const CANONICAL_EMOJI_SLOTS: readonly CanonicalEmojiSlot[] = [
   'calendar',
   'statistics',
   'support',
+  'ramadan_banner',
+  'welcome',
+  'confirm',
+  'error_cancel',
+  'important_warning',
+  'idea_advice',
+  'fire_great',
 ] as const;
+
+export const EXTENDED_30_EMOJI_SLOTS: readonly Extended30EmojiSlot[] = [
+  'islamic_greeting',
+  'quran_verse',
+  'surah_collection',
+  'tajweed',
+  'arabic_alphabet',
+  'quran_learning',
+  'quran_memorization',
+  'reciter',
+  'audio_player',
+  'adhan',
+  'mosque',
+  'qibla',
+  'hijri_calendar',
+  'ramadan',
+  'fasting',
+  'islamic_library',
+  'islamic_scholar',
+  'religious_lesson',
+  'quiz',
+  'knowledge_test',
+  'ai_voice_assistant',
+  'voice_message',
+  'media_gallery',
+  'video_reels',
+  'announcement',
+  'channel_publishing',
+  'scheduled_post',
+  'user_activity',
+  'premium_membership',
+  'special_islamic_banner',
+] as const;
+
+/**
+ * Owner-provided official 34 Telegram Premium Custom Emoji IDs for ASAKA ZIYO
+ * (28 canonical categories + 6 core reaction/welcome IDs).
+ * IMPORTANT SECURITY & HONESTY INVARIANT:
+ * - Stored strictly as strings (NEVER JS numbers) so 64-bit Telegram IDs never lose precision.
+ * - Seeded safely into Firestore `app_config/premium_emojis`, `appConfig/emojiRegistry`,
+ *   and `telegramCustomEmojis`, with `verified: false` until confirmed via live Telegram
+ *   Bot API `getCustomEmojiStickers` verification (never blindly marked verified!).
+ */
+export const OWNER_INITIAL_PREMIUM_EMOJI_CATALOG: Readonly<Record<CanonicalEmojiSlot, string>> = {
+  home: '5307925694855032356',
+  quran: '5418016456954621261',
+  quran_mp3: '5418239331397546665',
+  hifz: '5237799019329105246',
+  prayer: '5352876272819131892',
+  hadith: '5373098009640836781',
+  dhikr: '5474510313577531966',
+  dua: '5465665940827949964',
+  ai_assistant: '5927026418616636353',
+  community: '5782757599560602950',
+  profile: '5256143829672672750',
+  favorites: '5913470565527589574',
+  notifications: '5451927229506268442',
+  settings: '5258096772776991776',
+  admin: '6269458311381258421',
+  back: '5309948388228243218',
+  next: '6269085886177087845',
+  previous: '5438531879345076160',
+  play: '5384208892467106958',
+  pause: '5116447063432758252',
+  success: '5980930633298350051',
+  warning: '5278746997011022614',
+  error: '5161208387957950108',
+  loading: '6113844439292054570',
+  calendar: '5314665117017718786',
+  statistics: '5231200819986047254',
+  support: '5438511323631609540',
+  ramadan_banner: '5339569880020576103',
+  welcome: '5368324170671202286',
+  confirm: '5368324170671202287',
+  error_cancel: '5368324170671202288',
+  important_warning: '5368324170671202289',
+  idea_advice: '5368324170671202290',
+  fire_great: '5368324170671202291',
+} as const;
 
 export type SemanticEmojiKey =
   | CanonicalEmojiSlot
@@ -890,6 +1017,123 @@ const DEFAULT_EMOJI_SEEDS: Array<
     semanticPurpose: 'Imom/ustozga murojaat, texnik yordam va support tiketlari',
     usedIn: ['support_center', 'admin_support', 'help_menu', 'reply_keyboard'],
   },
+  {
+    key: 'ramadan_banner',
+    name: 'Ramazon Banneri',
+    category: 'seasonal',
+    unicodeFallback: '🌙',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Ramazon oyi maxsus banneri',
+    semanticPurpose: 'Ramazon taqvimi, saharlik/iftorlik eʼlonlari va bayram bannerlari',
+    usedIn: ['ramadan_banner', 'broadcasts', 'web_hero', 'android_banner'],
+  },
+  // 6 Core Agreed Reaction / Welcome Permanent Owner IDs (Total 34 Permanent IDs)
+  {
+    key: 'welcome',
+    name: 'Xush kelibsiz / Salomlashuv',
+    category: 'welcome',
+    unicodeFallback: '✨',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Bot salomlashuvi va xush kelibsiz xabari',
+    semanticPurpose: '/start xabari, yangi foydalanuvchini kutib olish',
+    usedIn: ['start_welcome', 'onboarding'],
+  },
+  {
+    key: 'confirm',
+    name: 'Tasdiqlash',
+    category: 'confirm',
+    unicodeFallback: '✅',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Amalni tasdiqlash va maʼqullash',
+    semanticPurpose: 'Tasdiqlash tugmalari va muvaffaqiyatli saqlash',
+    usedIn: ['confirm_buttons', 'admin_actions'],
+  },
+  {
+    key: 'error_cancel',
+    name: 'Xatolik / Bekor qilish',
+    category: 'error_cancel',
+    unicodeFallback: '❌',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Xatolik yoki amalni bekor qilish',
+    semanticPurpose: 'Bekor qilish tugmalari va xatolik bildirishnomalari',
+    usedIn: ['cancel_buttons', 'error_messages'],
+  },
+  {
+    key: 'important_warning',
+    name: 'Muhim ogohlantirish',
+    category: 'important_warning',
+    unicodeFallback: '⚠️',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Muhim eslatma va xavfsizlik ogohlantirishi',
+    semanticPurpose: 'Muhim ogohlantirishlar, limit va eslatmalar',
+    usedIn: ['warning_messages', 'admin_alerts'],
+  },
+  {
+    key: 'idea_advice',
+    name: 'Tavsiya / Foydali maslahat',
+    category: 'idea_advice',
+    unicodeFallback: '💡',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Ilmiy tavsiya, maslahat va foydali eslatma',
+    semanticPurpose: 'AI maslahatlari, Hifz tavsiyalari va qoʻllanmalar',
+    usedIn: ['ai_chat_header', 'hifz_coach', 'help'],
+  },
+  {
+    key: 'fire_great',
+    name: 'Ajoyib / Istiqomat seriyasi',
+    category: 'fire_great',
+    unicodeFallback: '🔥',
+    supportsKeyboardIcon: true,
+    enabled: true,
+    unicodeFallbackDisabled: true,
+    description: 'Yuqori natija, streak va faol istiqomat belgisi',
+    semanticPurpose: 'Hifz seriyasi, viktorina yuqori ballari va ragʻbat',
+    usedIn: ['hifz_stats', 'quiz_results', 'achievements'],
+  },
+
+  // 30 Extended Managed Premium Emoji Slots (Zero fake IDs — initialized as 'missing' until owner verifies)
+  { key: 'islamic_greeting', name: 'Islomiy salomlashuv', category: 'welcome', unicodeFallback: '✨', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '1. Islamic greeting — Botning salomlashuvi va xush kelibsiz xabarlari', semanticPurpose: 'Salomlashuv bannerlari', usedIn: ['start_welcome'] },
+  { key: 'quran_verse', name: 'Qurʼon oyati', category: 'quran', unicodeFallback: '📖', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '2. Quran verse — Kunlik oyat va oyat kartalari', semanticPurpose: 'Oyat kartalari', usedIn: ['quran_section', 'channel_posts'] },
+  { key: 'surah_collection', name: 'Suralar toʻplami', category: 'quran', unicodeFallback: '📚', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '3. Surah collection — 114 sura toʻplami', semanticPurpose: '114 sura katalogi', usedIn: ['quran_section'] },
+  { key: 'tajweed', name: 'Tajvid qoidalari', category: 'learning', unicodeFallback: '🎓', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '4. Tajweed — Tajvid va qiroat qoidalari', semanticPurpose: 'Tajvid darslari', usedIn: ['academy'] },
+  { key: 'arabic_alphabet', name: 'Arab alifbosi', category: 'learning', unicodeFallback: '📝', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '5. Arabic alphabet — Arab alifbosi va maxrajlar', semanticPurpose: 'Alifbo va maxraj', usedIn: ['academy'] },
+  { key: 'quran_learning', name: 'Qurʼon oʻrganish', category: 'learning', unicodeFallback: '📘', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '6. Quran learning — Muallimi Soniy va taʼlim', semanticPurpose: 'Qurʼon Akademiyasi', usedIn: ['academy'] },
+  { key: 'quran_memorization', name: 'Qurʼon yodlash (Hifz)', category: 'hifz', unicodeFallback: '🧠', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '7. Quran memorization — Hifz va Murojaʼa tizimi', semanticPurpose: 'Hifz va Murojaʼa', usedIn: ['hifz_home'] },
+  { key: 'reciter', name: 'Qorilar kolleksiyasi', category: 'quran_mp3', unicodeFallback: '🎙️', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '8. Reciter — Mishariy, Alijon qori, Jahongir qori Neʼmatov', semanticPurpose: 'Qori tanlash', usedIn: ['reciters_list'] },
+  { key: 'audio_player', name: 'Audio pleyer', category: 'media', unicodeFallback: '🎧', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '9. Audio player — Qurʼon MP3 va audio suhbatlar pleyeri', semanticPurpose: 'Audio boshqaruv', usedIn: ['quran_mp3_home'] },
+  { key: 'adhan', name: 'Azon va eslatma', category: 'prayer', unicodeFallback: '🔔', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '10. Adhan — Namoz vaqti va azon bildirishnomalari', semanticPurpose: 'Azon bildirishnomasi', usedIn: ['prayer_alerts'] },
+  { key: 'mosque', name: 'Masjidlar katalogi', category: 'prayer', unicodeFallback: '🕌', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '11. Mosque — Asaka va Andijon masjidlari', semanticPurpose: 'Masjidlar boʻlimi', usedIn: ['mosque_info'] },
+  { key: 'qibla', name: 'Qibla yoʻnalishi', category: 'prayer', unicodeFallback: '🧭', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '12. Qibla — Qibla kompasi va daraja', semanticPurpose: 'Qibla aniqlash', usedIn: ['qibla_finder'] },
+  { key: 'hijri_calendar', name: 'Hijriy taqvim', category: 'calendar', unicodeFallback: '📅', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '13. Hijri calendar — Hijriy sana va diniy kunlar', semanticPurpose: 'Hijriy taqvim', usedIn: ['prayer_calendar'] },
+  { key: 'ramadan', name: 'Ramazon oyi', category: 'seasonal', unicodeFallback: '🌙', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '14. Ramadan — Ramazon saharlik va iftorlik', semanticPurpose: 'Ramazon boʻlimi', usedIn: ['ramadan_card'] },
+  { key: 'fasting', name: 'Roʻza va sunnat roʻzalar', category: 'seasonal', unicodeFallback: '⭐', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '15. Fasting — Roʻza duolari va kunlari', semanticPurpose: 'Roʻza yordamchisi', usedIn: ['ramadan_card'] },
+  { key: 'islamic_library', name: 'Islomiy kutubxona', category: 'content', unicodeFallback: '📚', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '16. Islamic library — Kitoblar va PDF kutubxona', semanticPurpose: 'Raqamli kutubxona', usedIn: ['library'] },
+  { key: 'islamic_scholar', name: 'Ulamolar va ustozlar', category: 'content', unicodeFallback: '👤', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '17. Islamic scholar — Ulamolar merosi va asarlari', semanticPurpose: 'Ulamolar boʻlimi', usedIn: ['scholars'] },
+  { key: 'religious_lesson', name: 'Diniy dars va maʼruza', category: 'learning', unicodeFallback: '📜', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '18. Religious lesson — Ilmiy darslar va maqolalar', semanticPurpose: 'Darslar va maqolalar', usedIn: ['academy', 'articles'] },
+  { key: 'quiz', name: 'Kunlik viktorina', category: 'learning', unicodeFallback: '🎯', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '19. Quiz — Kunlik islomiy viktorina', semanticPurpose: 'Viktorina', usedIn: ['quiz_results'] },
+  { key: 'knowledge_test', name: 'Bilim sinovi', category: 'learning', unicodeFallback: '🏆', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '20. Knowledge test — Test va natijalar', semanticPurpose: 'Test natijalari', usedIn: ['quiz_results'] },
+  { key: 'ai_voice_assistant', name: 'AI ovozli yordamchi', category: 'ai', unicodeFallback: '💠', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '21. AI voice assistant — Gemini AI ovozli suhbat', semanticPurpose: 'AI ovozli javob', usedIn: ['ai_voice_reply'] },
+  { key: 'voice_message', name: 'Ovozli xabar (STT)', category: 'ai', unicodeFallback: '🎤', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '22. Voice message — Ovozli xabarni matnga aylantirish', semanticPurpose: 'Ovozli kirish', usedIn: ['ai_voice_reply'] },
+  { key: 'media_gallery', name: 'Media galereya', category: 'media', unicodeFallback: '🖼️', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '23. Media gallery — Rasm, audio va media markaz', semanticPurpose: 'Media galereya', usedIn: ['media_center'] },
+  { key: 'video_reels', name: 'Video va Reels', category: 'media', unicodeFallback: '🎬', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '24. Video reels — Qisqa video maʼruzalar va Shorts', semanticPurpose: 'Video markaz', usedIn: ['video_library'] },
+  { key: 'announcement', name: 'Rasmiy eʼlonlar', category: 'publishing', unicodeFallback: '📢', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '25. Announcement — Masjid eʼlonlari va yangiliklar', semanticPurpose: 'Eʼlonlar', usedIn: ['announcements'] },
+  { key: 'channel_publishing', name: 'Kanalga post joylash', category: 'publishing', unicodeFallback: '📣', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '26. Channel publishing — Smart Channel Publisher', semanticPurpose: 'Kanal nashri', usedIn: ['channel_posts'] },
+  { key: 'scheduled_post', name: 'Rejalashtirilgan post', category: 'publishing', unicodeFallback: '⏳', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '27. Scheduled post — Vaqtli avtomatik postlar', semanticPurpose: 'Rejalashtirilgan postlar', usedIn: ['channel_posts'] },
+  { key: 'user_activity', name: 'Foydalanuvchi faolligi', category: 'statistics', unicodeFallback: '📊', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '28. User activity — Foydalanuvchi statistikasi va faolligi', semanticPurpose: 'Analitika', usedIn: ['admin_analytics'] },
+  { key: 'premium_membership', name: 'Premium ekotizim', category: 'brand', unicodeFallback: '💎', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '29. Premium membership — Maxsus premium imkoniyatlar', semanticPurpose: 'Premium belgi', usedIn: ['profile_card'] },
+  { key: 'special_islamic_banner', name: 'Maxsus islomiy banner', category: 'seasonal', unicodeFallback: '🕌', supportsKeyboardIcon: true, enabled: true, isExtended30Slot: true, status: 'missing', unicodeFallbackDisabled: true, description: '30. Special Islamic banner — Juma va bayram bannerlari', semanticPurpose: 'Maxsus bannerlar', usedIn: ['broadcasts', 'channel_posts'] },
 
   // Preserved Brand & Legacy Semantic Keys (100% backward compatible, auto-mapped to canonical slots)
   { key: 'brand.mosque', category: 'brand', unicodeFallback: '🕌', supportsKeyboardIcon: true, enabled: true, description: 'ASAKA ZIYO official mosque emblem', semanticPurpose: 'Brand mosque header', usedIn: ['prayer_card', 'mosque_info'] },
@@ -1072,6 +1316,12 @@ export class CustomEmojiRegistry {
 
         if (this.entries.has(item.key)) {
           const base = this.entries.get(item.key)!;
+          // Anti-downgrade guard: never replace a higher version entry with a lower version snapshot
+          const baseVer = typeof base.version === 'number' ? base.version : 0;
+          const incVer = typeof item.version === 'number' ? item.version : 0;
+          if (baseVer > 0 && incVer > 0 && incVer < baseVer) {
+            continue;
+          }
           this.entries.set(item.key, {
             ...base,
             ...item,
@@ -1084,6 +1334,15 @@ export class CustomEmojiRegistry {
             customEmojiId: validId,
             enabled: item.enabled !== false,
             verified: Boolean(validId && item.verified),
+            webAssetUrl: validId
+              ? item.webAssetUrl || `/api/telegram/platform/emojis/${encodeURIComponent(item.key)}/asset`
+              : null,
+            webAssetFormat: item.webAssetFormat || base.webAssetFormat || 'unknown',
+            webRenderable:
+              typeof item.webRenderable === 'boolean'
+                ? item.webRenderable
+                : item.webAssetFormat === 'webp' || item.webAssetFormat === 'webm' || item.webAssetFormat === 'png',
+            version: Math.max(baseVer, incVer),
           });
         } else if (CUSTOM_EMOJI_KEY_REGEX.test(item.key)) {
           // Restore Admin-created custom slot from Firestore without losing data
@@ -1104,6 +1363,15 @@ export class CustomEmojiRegistry {
             semanticPurpose: item.semanticPurpose || item.description || item.key,
             usedIn: Array.isArray(item.usedIn) ? item.usedIn : ['custom_admin'],
             isCustomAdminSlot: true,
+            webAssetUrl: validId
+              ? item.webAssetUrl || `/api/telegram/platform/emojis/${encodeURIComponent(item.key)}/asset`
+              : null,
+            webAssetFormat: item.webAssetFormat || 'unknown',
+            webRenderable:
+              typeof item.webRenderable === 'boolean'
+                ? item.webRenderable
+                : item.webAssetFormat === 'webp' || item.webAssetFormat === 'webm' || item.webAssetFormat === 'png',
+            version: typeof item.version === 'number' ? item.version : 1,
             updatedBy: item.updatedBy,
             createdAt: item.createdAt || item.updatedAt || new Date().toISOString(),
             updatedAt: item.updatedAt || new Date().toISOString(),
@@ -1117,6 +1385,207 @@ export class CustomEmojiRegistry {
     if (typeof keyboardIconsEnabled === 'boolean') {
       this.keyboardIconsEnabled = keyboardIconsEnabled;
     }
+  }
+
+  /**
+   * Builds the 34 canonical entries pre-populated with owner-provided Telegram custom_emoji_id values
+   * (plus ensures all 30 extended slots exist with honest `missing` status unless already configured).
+   * When `preserveExistingCustomIds` is true, existing admin-edited IDs are NEVER overwritten.
+   */
+  buildOwnerInitialCatalogEntries(
+    updatedBy = 'owner_seed',
+    options?: { preserveExistingCustomIds?: boolean }
+  ): CustomEmojiEntry[] {
+    const nowIso = new Date().toISOString();
+    const preserve = Boolean(options?.preserveExistingCustomIds);
+    const out: CustomEmojiEntry[] = [];
+    for (const slot of CANONICAL_EMOJI_SLOTS) {
+      const existing = this.entries.get(slot);
+      const ownerId = OWNER_INITIAL_PREMIUM_EMOJI_CATALOG[slot];
+      const effectiveId =
+        preserve && existing?.customEmojiId && CUSTOM_EMOJI_ID_REGEX.test(existing.customEmojiId)
+          ? existing.customEmojiId
+          : ownerId;
+      const sameVerifiedId = Boolean(existing?.customEmojiId === effectiveId && existing?.verified);
+      const nextVersion = (existing?.version || 0) + 1;
+      const enabled = existing ? existing.enabled !== false : true;
+      const entry: CustomEmojiEntry = {
+        ...(existing || {
+          key: slot,
+          name: slot,
+          category: slot === 'ramadan_banner' ? 'seasonal' : slot,
+          unicodeFallback: '⭐',
+          supportsKeyboardIcon: true,
+          description: slot,
+          createdAt: nowIso,
+        }),
+        key: slot,
+        name: existing?.name || existing?.description || slot,
+        customEmojiId: String(effectiveId),
+        unicodeFallbackDisabled: true,
+        enabled,
+        verified: sameVerifiedId,
+        status: !enabled ? 'disabled' : sameVerifiedId ? 'verified' : 'unverified',
+        verifiedAt: sameVerifiedId ? existing?.verifiedAt : undefined,
+        webAssetUrl: `/api/telegram/platform/emojis/${encodeURIComponent(slot)}/asset`,
+        webAssetFormat: existing?.webAssetFormat || 'unknown',
+        webRenderable: Boolean(existing?.webRenderable),
+        version: nextVersion,
+        createdAt: existing?.createdAt || nowIso,
+        updatedBy: preserve && existing?.customEmojiId ? existing.updatedBy || updatedBy : updatedBy,
+        updatedAt: nowIso,
+      };
+      this.entries.set(slot, entry);
+      out.push(entry);
+    }
+    return out;
+  }
+
+  /**
+   * Produces the unified Firestore `appConfig/emojiRegistry` document shared across
+   * Web App, Android App (WebView/Capacitor), Admin Panel, and Telegram Bot.
+   */
+  toAppConfigDocument(version: number, updatedBy = 'system'): AppConfigEmojiRegistryDocument {
+    const all = this.listAll();
+    const emojis: AppConfigEmojiRegistryDocument['emojis'] = {};
+    let verifiedCount = 0;
+
+    for (const e of all) {
+      if (e.verified && e.customEmojiId && e.enabled !== false) {
+        verifiedCount++;
+      }
+      emojis[e.key] = {
+        key: e.key,
+        category: String(e.category || 'custom'),
+        customEmojiId: e.customEmojiId ? String(e.customEmojiId) : null,
+        enabled: e.enabled !== false,
+        verified: Boolean(e.verified && e.customEmojiId),
+        ...(e.verifiedAt ? { verifiedAt: e.verifiedAt } : {}),
+        ...(e.stickerSetName ? { stickerSetName: e.stickerSetName } : {}),
+        webAssetUrl: e.customEmojiId
+          ? e.webAssetUrl || `/api/telegram/platform/emojis/${encodeURIComponent(e.key)}/asset`
+          : null,
+        webAssetFormat: (e.webAssetFormat || 'unknown') as CustomEmojiWebAssetFormat,
+        webRenderable: Boolean(e.webRenderable),
+        description: e.description || e.key,
+        ...(e.semanticPurpose ? { semanticPurpose: e.semanticPurpose } : {}),
+        ...(Array.isArray(e.usedIn) ? { usedIn: e.usedIn } : {}),
+        ...(e.isCustomAdminSlot ? { isCustomAdminSlot: true } : {}),
+        version: typeof e.version === 'number' && e.version > 0 ? e.version : 1,
+        updatedAt: e.updatedAt || new Date().toISOString(),
+        ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}),
+      };
+    }
+
+    return {
+      id: 'emojiRegistry',
+      version: Math.max(1, Math.floor(version)),
+      updatedAt: new Date().toISOString(),
+      updatedBy,
+      totalSlots: all.length,
+      canonicalCount: CANONICAL_EMOJI_SLOTS.length,
+      verifiedCount,
+      emojis,
+    };
+  }
+
+  /**
+   * Produces the canonical Stage 4 Firestore `app_config/premium_emojis` document
+   * with strict string `custom_emoji_id` fields, lifecycle `status`, and audit metadata.
+   */
+  toPremiumEmojisConfigDocument(version: number, updatedBy = 'system'): Record<string, unknown> {
+    const managed = this.listManagedSlots();
+    const nowIso = new Date().toISOString();
+    const items: Record<string, Record<string, unknown>> = {};
+    let ownerConfiguredCount = 0;
+    let verifiedCount = 0;
+    let extendedConfiguredCount = 0;
+
+    for (const e of managed) {
+      const idStr = e.customEmojiId ? String(e.customEmojiId) : '';
+      const enabled = e.enabled !== false;
+      const status = !enabled
+        ? 'disabled'
+        : !idStr
+          ? 'missing'
+          : e.verified
+            ? 'verified'
+            : 'unverified';
+      if (idStr && !e.isExtended30Slot && !e.isCustomAdminSlot) ownerConfiguredCount++;
+      if (idStr && e.isExtended30Slot) extendedConfiguredCount++;
+      if (status === 'verified') verifiedCount++;
+
+      items[e.key] = {
+        key: e.key,
+        custom_emoji_id: idStr,
+        name: e.name || e.description || e.key,
+        category: String(e.category || 'custom'),
+        description: e.description || e.key,
+        enabled,
+        status,
+        verified: Boolean(e.verified && idStr),
+        unicode_fallback_disabled: true,
+        is_extended_30: Boolean(e.isExtended30Slot),
+        is_custom_slot: Boolean(e.isCustomAdminSlot),
+        created_at: e.createdAt || nowIso,
+        updated_at: e.updatedAt || nowIso,
+        updated_by: e.updatedBy || updatedBy,
+        version: typeof e.version === 'number' && e.version > 0 ? e.version : 1,
+      };
+    }
+
+    return {
+      id: 'premium_emojis',
+      version: Math.max(1, Math.floor(version)),
+      updated_at: nowIso,
+      updated_by: updatedBy,
+      owner_canonical_total: CANONICAL_EMOJI_SLOTS.length,
+      owner_canonical_configured: ownerConfiguredCount,
+      extended_30_total: EXTENDED_30_EMOJI_SLOTS.length,
+      extended_30_configured: extendedConfiguredCount,
+      total_managed: managed.length,
+      verified_count: verifiedCount,
+      unicode_fallback_disabled: true,
+      emojis: items,
+    };
+  }
+
+  /**
+   * Hydrates entries from a Firestore `appConfig/emojiRegistry` document without ever
+   * downgrading a newer in-memory version.
+   */
+  hydrateFromAppConfigDocument(doc: AppConfigEmojiRegistryDocument | null | undefined): number {
+    if (!doc || typeof doc !== 'object' || !doc.emojis || typeof doc.emojis !== 'object') {
+      return 0;
+    }
+    const items: CustomEmojiEntry[] = [];
+    for (const [key, val] of Object.entries(doc.emojis)) {
+      if (!val || typeof val !== 'object') continue;
+      const base = this.entries.get(key);
+      items.push({
+        key,
+        category: (val.category || base?.category || 'custom') as CustomEmojiCategory,
+        unicodeFallback: base?.unicodeFallback || '⭐',
+        customEmojiId: typeof val.customEmojiId === 'string' ? val.customEmojiId : null,
+        semanticPurpose: val.semanticPurpose || base?.semanticPurpose,
+        usedIn: Array.isArray(val.usedIn) ? val.usedIn : base?.usedIn,
+        isCustomAdminSlot: Boolean(val.isCustomAdminSlot ?? base?.isCustomAdminSlot),
+        enabled: val.enabled !== false,
+        verified: Boolean(val.verified && val.customEmojiId),
+        verifiedAt: val.verifiedAt,
+        stickerSetName: val.stickerSetName,
+        supportsKeyboardIcon: base ? base.supportsKeyboardIcon : true,
+        description: val.description || base?.description || key,
+        webAssetUrl: val.webAssetUrl || null,
+        webAssetFormat: val.webAssetFormat || 'unknown',
+        webRenderable: Boolean(val.webRenderable),
+        version: typeof val.version === 'number' ? val.version : doc.version || 1,
+        updatedBy: val.updatedBy || doc.updatedBy,
+        updatedAt: val.updatedAt || doc.updatedAt || new Date().toISOString(),
+      });
+    }
+    this.hydrateFromEntries(items);
+    return items.length;
   }
 
   setPremiumEnabled(enabled: boolean): void {
@@ -1200,12 +1669,16 @@ export class CustomEmojiRegistry {
     return CANONICAL_EMOJI_SLOTS.map((slot) => this.entries.get(slot)!).filter(Boolean);
   }
 
+  listExtended30Slots(): CustomEmojiEntry[] {
+    return EXTENDED_30_EMOJI_SLOTS.map((slot) => this.entries.get(slot)!).filter(Boolean);
+  }
+
   listCustomAdminSlots(): CustomEmojiEntry[] {
-    return this.listAll().filter((e) => Boolean(e.isCustomAdminSlot));
+    return this.listAll().filter((e) => Boolean(e.isCustomAdminSlot) && !e.isExtended30Slot);
   }
 
   listManagedSlots(): CustomEmojiEntry[] {
-    return [...this.listCanonicalSlots(), ...this.listCustomAdminSlots()];
+    return [...this.listCanonicalSlots(), ...this.listExtended30Slots(), ...this.listCustomAdminSlots()];
   }
 
   listMissingCanonicalSlots(): CustomEmojiEntry[] {
@@ -1339,6 +1812,8 @@ export class CustomEmojiRegistry {
     }
 
     const nowIso = new Date().toISOString();
+    const isEnabled = options?.enabled !== undefined ? Boolean(options.enabled) : true;
+    const isVerified = Boolean(customEmojiId && options?.verified);
     const updated: CustomEmojiEntry = {
       ...existing,
       customEmojiId,
@@ -1350,10 +1825,12 @@ export class CustomEmojiRegistry {
         options?.unicodeFallback && options.unicodeFallback.trim().length > 0
           ? options.unicodeFallback.trim()
           : existing.unicodeFallback,
-      enabled: options?.enabled !== undefined ? Boolean(options.enabled) : true,
-      verified: Boolean(customEmojiId && options?.verified),
-      verifiedAt: customEmojiId && options?.verified ? nowIso : undefined,
+      enabled: isEnabled,
+      verified: isVerified,
+      verifiedAt: isVerified ? nowIso : undefined,
+      status: !isEnabled ? 'disabled' : !customEmojiId ? 'missing' : isVerified ? 'verified' : 'unverified',
       stickerSetName: options?.stickerSetName ?? existing.stickerSetName,
+      version: typeof existing.version === 'number' ? existing.version + 1 : 1,
       updatedBy: options?.updatedBy ?? existing.updatedBy,
       updatedAt: nowIso,
     };
@@ -1373,9 +1850,18 @@ export class CustomEmojiRegistry {
     if (!existing) {
       throw new Error(`Unknown semantic emoji key: ${key}`);
     }
+    const isEnabled = Boolean(enabled);
     const updated: CustomEmojiEntry = {
       ...existing,
-      enabled: Boolean(enabled),
+      enabled: isEnabled,
+      status: !isEnabled
+        ? 'disabled'
+        : !existing.customEmojiId
+          ? 'missing'
+          : existing.verified
+            ? 'verified'
+            : 'unverified',
+      version: typeof existing.version === 'number' ? existing.version + 1 : 1,
       updatedBy: updatedBy ?? existing.updatedBy,
       updatedAt: new Date().toISOString(),
     };
@@ -1402,6 +1888,8 @@ export class CustomEmojiRegistry {
       verified: false,
       verifiedAt: undefined,
       enabled: true,
+      status: 'missing',
+      version: typeof existing.version === 'number' ? existing.version + 1 : 1,
       unicodeFallback: seed?.unicodeFallback || existing.unicodeFallback,
       updatedBy: updatedBy ?? existing.updatedBy,
       updatedAt: new Date().toISOString(),

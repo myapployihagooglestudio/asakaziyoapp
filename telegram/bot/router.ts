@@ -186,12 +186,18 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
 
   // 5. Admin-Protected 100% Premium Custom Emoji Registry & Audit Management
   router.get('/emojis', deps.requireAdminAuth, (_req: Request, res: Response) => {
+    const appCfg = engine.repository.getAppConfigEmojiRegistry();
     return res.json({
       success: true,
       compatibility: engine.emojiRegistry.validateCompatibility(),
       entries: engine.emojiRegistry.listManagedSlots(),
       allEntries: engine.emojiRegistry.listAll(),
       missingCanonical: engine.emojiRegistry.listMissingCanonicalSlots(),
+      extended30Slots: engine.emojiRegistry.listExtended30Slots(),
+      canonicalSlotsCount: 34,
+      extended30SlotsCount: 30,
+      appConfigVersion: appCfg?.version || 0,
+      firestorePaths: ['app_config/premium_emojis', 'appConfig/emojiRegistry', 'telegramCustomEmojis'],
       ownerIdConfigured: Boolean(engine.config.ownerId),
     });
   });
@@ -287,19 +293,22 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
           'web_admin'
         );
       }
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
         action: customEmojiId ? 'custom_emoji_registered' : 'custom_emoji_cleared',
         targetType: 'emoji',
         targetId: key,
-        metadata: { hasCustomId: Boolean(customEmojiId), verified },
+        metadata: { hasCustomId: Boolean(customEmojiId), verified, appConfigVersion: appCfg.doc.version },
       });
 
       return res.json({
         success: true,
         entry: updated,
         verified,
+        appConfigSaved: appCfg.ok,
+        appConfigVersion: appCfg.doc.version,
         ...(verificationNote ? { verificationNote } : {}),
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
@@ -361,18 +370,21 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         updatedBy: 'web_admin',
       });
       await engine.repository.saveCustomEmoji(created);
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
         action: 'custom_emoji_slot_created',
         targetType: 'emoji',
         targetId: key,
-        metadata: { category, hasCustomId: Boolean(customEmojiId), verified },
+        metadata: { category, hasCustomId: Boolean(customEmojiId), verified, appConfigVersion: appCfg.doc.version },
       });
 
       return res.json({
         success: true,
         entry: created,
+        appConfigSaved: appCfg.ok,
+        appConfigVersion: appCfg.doc.version,
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
     }
@@ -409,6 +421,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         'web_admin'
       );
 
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
@@ -418,6 +431,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         metadata: {
           verified: verifyRes.verifiedKeys.length,
           rejected: verifyRes.rejectedKeys.length,
+          appConfigVersion: appCfg.doc.version,
         },
       });
 
@@ -425,10 +439,199 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         success: true,
         eligibility,
         verification: verifyRes,
+        appConfigSaved: appCfg.ok,
+        appConfigVersion: appCfg.doc.version,
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
     }
   );
+
+  // Public Read-Only Premium Emoji Catalog for Web App & Android App (ZERO bot token / ZERO secrets)
+  router.get('/emojis/public-catalog', (_req: Request, res: Response) => {
+    const existing = engine.repository.getAppConfigEmojiRegistry();
+    const doc = existing || engine.emojiRegistry.toAppConfigDocument(1, 'runtime_snapshot');
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    return res.json({
+      success: true,
+      version: doc.version,
+      updatedAt: doc.updatedAt,
+      totalSlots: doc.totalSlots,
+      canonicalCount: doc.canonicalCount,
+      verifiedCount: doc.verifiedCount,
+      emojis: doc.emojis,
+    });
+  });
+
+  // Public Read-Only `app_config/premium_emojis` Schema Mirror for Web App & Admin Verification (ZERO secrets)
+  router.get('/emojis/public', (_req: Request, res: Response) => {
+    const existingVer = engine.repository.getAppConfigEmojiRegistry()?.version || 1;
+    const premiumDoc = engine.emojiRegistry.toPremiumEmojisConfigDocument(existingVer, 'runtime_snapshot');
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    return res.json({
+      success: true,
+      firestorePath: 'app_config/premium_emojis',
+      ...premiumDoc,
+    });
+  });
+
+  // Server-Side Cached Premium Emoji Asset Proxy (ZERO bot token exposure to Web/Android)
+  router.get('/emojis/:key/asset', async (req: Request, res: Response) => {
+    const key = String(req.params.key || '').trim();
+    if (!CUSTOM_EMOJI_KEY_REGEX.test(key)) {
+      return res.status(400).json({ success: false, error: 'Invalid emoji key.' });
+    }
+    const asset = await engine.resolveEmojiWebAsset(key);
+    if (!asset.ok || !asset.buffer || !asset.mimeType) {
+      return res.status(422).json({
+        success: false,
+        key,
+        format: asset.format,
+        renderable: false,
+        reason: asset.reason || 'Telegram custom emoji asset could not be resolved.',
+      });
+    }
+    res.setHeader('Content-Type', asset.mimeType);
+    res.setHeader('X-Emoji-Format', asset.format);
+    res.setHeader('X-Emoji-Renderable', String(asset.renderable));
+    res.setHeader('Cache-Control', 'public, max-age=21600, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.send(asset.buffer);
+  });
+
+  // Admin: Idempotent Migration of all 34 Official Owner Premium Emoji IDs + 30 Extended Slots
+  router.post(
+    '/emojis/seed-defaults',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const verifyWithTelegram = req.body?.verifyWithTelegram !== false;
+      const preserveExistingCustomIds = req.body?.forceOverwrite !== true;
+      const result = await engine.seedOwnerOfficialEmojis({
+        verifyWithTelegram,
+        preserveExistingCustomIds,
+        updatedBy: 'web_admin',
+      });
+      return res.json({
+        success: result.ok,
+        ...result,
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  // Admin: Bulk Update Multiple Premium Emoji IDs Atomically
+  router.post(
+    '/emojis/bulk-update',
+    limitMiddleware,
+    deps.requireAdminAuth,
+    async (req: Request, res: Response) => {
+      const mapping = req.body?.emojis;
+      const verifyNow = req.body?.verifyNow !== false;
+      if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+        return res.status(400).json({
+          success: false,
+          error: 'emojis object map ({ key: customEmojiId }) is required.',
+        });
+      }
+
+      const entriesToVerify: Array<{ key: string; customEmojiId: string }> = [];
+      const rejected: Array<{ key: string; reason: string }> = [];
+      const updatedKeys: string[] = [];
+
+      for (const [rawKey, rawVal] of Object.entries(mapping)) {
+        const key = String(rawKey).trim().toLowerCase();
+        const val = rawVal === null || rawVal === '' ? null : String(rawVal).trim();
+        if (!CUSTOM_EMOJI_KEY_REGEX.test(key)) {
+          rejected.push({ key, reason: 'Invalid key format' });
+          continue;
+        }
+        if (val !== null && !CUSTOM_EMOJI_ID_REGEX.test(val)) {
+          rejected.push({ key, reason: 'Invalid numeric custom_emoji_id' });
+          continue;
+        }
+        const slot = engine.emojiRegistry.getEntry(key);
+        if (slot) {
+          engine.emojiRegistry.registerCustomEmojiId(key, val, {
+            verified: false,
+            updatedBy: 'web_admin',
+          });
+        } else {
+          engine.emojiRegistry.createOrUpdateSlot({
+            key,
+            category: 'custom',
+            description: key,
+            semanticPurpose: key,
+            customEmojiId: val,
+            verified: false,
+            updatedBy: 'web_admin',
+          });
+        }
+        updatedKeys.push(key);
+        if (val) entriesToVerify.push({ key, customEmojiId: val });
+      }
+
+      let verifiedCount = 0;
+      if (verifyNow && entriesToVerify.length > 0 && engine.apiClient.isConfigured) {
+        const stickerRes = await engine.apiClient.getCustomEmojiStickers(
+          entriesToVerify.map((e) => e.customEmojiId)
+        );
+        const foundMap = new Map<string, any>();
+        if (stickerRes.ok && Array.isArray(stickerRes.result)) {
+          for (const st of stickerRes.result) {
+            if (st?.custom_emoji_id) foundMap.set(String(st.custom_emoji_id), st);
+          }
+        }
+        for (const item of entriesToVerify) {
+          const st = foundMap.get(item.customEmojiId);
+          if (st) {
+            engine.emojiRegistry.registerCustomEmojiId(item.key, item.customEmojiId, {
+              verified: true,
+              stickerSetName: st.set_name,
+              updatedBy: 'web_admin',
+            });
+            verifiedCount++;
+          }
+        }
+      }
+
+      for (const key of updatedKeys) {
+        const entry = engine.emojiRegistry.getEntry(key);
+        if (entry) await engine.repository.saveCustomEmoji(entry);
+      }
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
+
+      await engine.repository.appendAuditLog({
+        actorTelegramId: 'web_admin',
+        actorRole: 'admin',
+        action: 'custom_emoji_bulk_updated',
+        targetType: 'emoji',
+        metadata: {
+          updatedCount: updatedKeys.length,
+          verifiedCount,
+          rejectedCount: rejected.length,
+          appConfigVersion: appCfg.doc.version,
+        },
+      });
+
+      return res.json({
+        success: true,
+        updatedCount: updatedKeys.length,
+        verifiedCount,
+        rejected,
+        appConfigSaved: appCfg.ok,
+        appConfigVersion: appCfg.doc.version,
+        compatibility: engine.emojiRegistry.validateCompatibility(),
+      });
+    }
+  );
+
+  // Admin: System Health, Anti-Rollback Guard & Latency Performance Diagnostics (p50/p95/p99)
+  router.get('/diagnostics/runtime', deps.requireAdminAuth, (_req: Request, res: Response) => {
+    return res.json({
+      success: true,
+      diagnostics: engine.getRuntimeDiagnostics(),
+    });
+  });
 
   router.post(
     '/emojis/import-set',
@@ -458,6 +661,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
             await engine.repository.saveCustomEmoji(entry);
           }
         }
+        const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
         await engine.repository.appendAuditLog({
           actorTelegramId: 'web_admin',
           actorRole: 'admin',
@@ -467,6 +671,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
           metadata: {
             matchedCount: result.matchedKeys.length,
             verifiedCount: result.matchedKeys.filter((m) => m.verified).length,
+            appConfigVersion: appCfg.doc.version,
           },
         });
       }
@@ -539,6 +744,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         typeof req.body?.enabled === 'boolean' ? req.body.enabled : existing.enabled === false;
       const updated = engine.emojiRegistry.setEntryEnabled(req.params.key, nextEnabled, 'web_admin');
       if (updated) await engine.repository.saveCustomEmoji(updated);
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
@@ -549,6 +755,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       return res.json({
         success: true,
         entry: updated,
+        appConfigVersion: appCfg.doc.version,
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
     }
@@ -564,6 +771,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         return res.status(404).json({ success: false, error: 'Emoji slot not found.' });
       }
       await engine.repository.saveCustomEmoji(updated);
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
@@ -574,6 +782,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       return res.json({
         success: true,
         entry: updated,
+        appConfigVersion: appCfg.doc.version,
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
     }
@@ -594,6 +803,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
       } else if (outcome.entry) {
         await engine.repository.saveCustomEmoji(outcome.entry);
       }
+      const appCfg = await engine.syncEmojiRegistryToAppConfig('web_admin');
       await engine.repository.appendAuditLog({
         actorTelegramId: 'web_admin',
         actorRole: 'admin',
@@ -605,6 +815,7 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
         success: true,
         removed: outcome.permanentlyRemoved,
         entry: outcome.entry,
+        appConfigVersion: appCfg.doc.version,
         compatibility: engine.emojiRegistry.validateCompatibility(),
       });
     }

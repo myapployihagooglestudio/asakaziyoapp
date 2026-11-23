@@ -2085,6 +2085,94 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* =======================================================================
+          14B. ASAKA ZIYO SUPER APP — HIFZ, AKADEMIYA, ULAMOLAR, MASJIDLAR, MEDIA
+          ======================================================================= */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div>
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#8A6621] dark:text-[#DFBD69]">
+              ASAKA ZIYO · Super Ekotizim Modullari
+            </span>
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+              Taʼlim, Hifz, Ulamolar Merosi va Masjidlar Xizmati
+            </h2>
+          </div>
+          <span className="text-xs text-[#526B62] dark:text-[#9CB5AC]">
+            Firestore bilan real-time sinxronlangan
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[
+            {
+              id: 'hifz_istiqomat' as NavigationTab,
+              title: 'Hifz va Istiqomat',
+              subtitle: '1/3/7/16/35-kunlik Murojaʼa va 114 sura yodlash tizimi',
+              badge: 'Murojaʼa',
+              icon: <Flame className="w-5 h-5 text-[#DFBD69]" />,
+            },
+            {
+              id: 'academy' as NavigationTab,
+              title: 'Qurʼon Akademiyasi',
+              subtitle: 'Arab alifbosi, Maxraj, rangli Tajvid, Muallimi Soniy va Bolalar',
+              badge: 'Taʼlim',
+              icon: <GraduationCap className="w-5 h-5 text-[#DFBD69]" />,
+            },
+            {
+              id: 'scholars' as NavigationTab,
+              title: 'Ulamolar va Meros',
+              subtitle: 'Shayx MSMY, Hasanxon va Husaynxon domla, Shayx Alijon qori asarlari',
+              badge: 'Ilmiy meros',
+              icon: <Users className="w-5 h-5 text-[#DFBD69]" />,
+            },
+            {
+              id: 'mosques' as NavigationTab,
+              title: 'Masjidlar va Qibla',
+              subtitle: 'Asaka va Andijon masjidlari xaritasi hamda jonli Qibla kompasi',
+              badge: 'Xarita · 241°',
+              icon: <MapPin className="w-5 h-5 text-[#DFBD69]" />,
+            },
+            {
+              id: 'media_center' as NavigationTab,
+              title: 'Media Markazi',
+              subtitle: 'Audio suhbatlar, tilovatlar, video maʼruzalar va uyqu taymeri',
+              badge: 'Audio · Video',
+              icon: <Headphones className="w-5 h-5 text-[#DFBD69]" />,
+            },
+          ].map((mod) => (
+            <Card
+              key={mod.id}
+              elevated
+              interactive
+              onClick={() => onNavigate(mod.id)}
+              className="p-4 flex flex-col justify-between gap-3 border-[#063D32]/15 dark:border-[#DFBD69]/25 hover:border-[#DFBD69]"
+            >
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-[#063D32] dark:bg-[#092E1F] border border-[#DFBD69]/40 flex items-center justify-center shrink-0">
+                    {mod.icon}
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#063D32]/10 dark:bg-[#DFBD69]/15 text-[#063D32] dark:text-[#DFBD69]">
+                    {mod.badge}
+                  </span>
+                </div>
+                <h3 className="text-base font-display font-bold text-[#042B25] dark:text-[#FFF8E8]">
+                  {mod.title}
+                </h3>
+                <p className="text-xs text-[#3C5850] dark:text-[#BFD1CA] leading-relaxed line-clamp-3">
+                  {mod.subtitle}
+                </p>
+              </div>
+              <div className="pt-2 border-t border-[#063D32]/10 dark:border-[#DFBD69]/15 flex items-center justify-between text-xs font-bold text-[#063D32] dark:text-[#DFBD69]">
+                <span>Ochish</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* =======================================================================
           15. IMOMGA SAVOL VA ISLOMIY AI YORDAMCHI SHOWCASE (`ask_imam` & `ai_assistant`)
           ======================================================================= */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

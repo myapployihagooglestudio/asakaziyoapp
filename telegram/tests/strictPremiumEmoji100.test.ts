@@ -135,7 +135,12 @@ function createHarness(options?: {
     pollingEnabled: false,
   };
 
-  const engine = new TelegramBotEngine({ config, fetchImpl: mockFetch as any });
+  const engine = new TelegramBotEngine({
+    config,
+    storePath: path.join(dataDir, 'telegram_platform_store.json'),
+    outboxPath: path.join(dataDir, 'sync_outbox.json'),
+    fetchImpl: mockFetch as any,
+  });
   return { engine, calls, dataDir, verifiedSet };
 }
 
@@ -407,10 +412,10 @@ async function runTests() {
   // CHECK 11 & 12: Persistence across restart (including custom admin slots) + Instant propagation
   // --------------------------------------------------------------------------
   const customSlot = h.engine.emojiRegistry.createOrUpdateSlot({
-    key: 'ramadan_banner',
+    key: 'eid_special_banner',
     category: 'seasonal',
-    description: 'Ramazon banneri',
-    semanticPurpose: 'Ramazon oyi maxsus sarlavhalari',
+    description: 'Hayit maxsus banneri',
+    semanticPurpose: 'Hayit bayrami maxsus sarlavhalari',
     usedIn: ['Broadcasts', 'Seasonal'],
     customEmojiId: '5368324170671202299',
     verified: true,
@@ -432,7 +437,7 @@ async function runTests() {
   // Restart a brand-new engine pointing to the same dataDir
   const h2 = createHarness({ dataDir: h.dataDir });
   const persistedQuran = h2.engine.emojiRegistry.getEntry('quran');
-  const persistedCustom = h2.engine.emojiRegistry.getEntry('ramadan_banner');
+  const persistedCustom = h2.engine.emojiRegistry.getEntry('eid_special_banner');
   assert.equal(persistedQuran?.customEmojiId, '5368324170671202299', 'Replaced customEmojiId must survive restart');
   assert.equal(persistedCustom?.customEmojiId, '5368324170671202299', 'Custom admin slot must survive restart');
   assert.equal(persistedCustom?.isCustomAdminSlot, true);

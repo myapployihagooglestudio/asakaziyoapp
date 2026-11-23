@@ -97,7 +97,9 @@ export class TelegramUserService {
         lastActiveAt: nowIso,
         interactionCount: (existing.interactionCount || 0) + 1,
       };
-      await this.repo.saveUser(updated);
+      // Persist locally immediately; sync routine lastActiveAt touch to Firestore asynchronously
+      // so every Telegram button tap does not stall on a synchronous network round-trip.
+      void this.repo.saveUser(updated).catch(() => {});
       return { user: updated, isNew: false };
     }
 

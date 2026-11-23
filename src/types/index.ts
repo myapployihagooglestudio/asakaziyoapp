@@ -33,7 +33,12 @@ export type NavigationTab =
   | 'ai_assistant'
   | 'search'
   | 'display'
-  | 'masjid_tv';
+  | 'masjid_tv'
+  | 'academy'
+  | 'hifz_istiqomat'
+  | 'scholars'
+  | 'media_center'
+  | 'mosques';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 
@@ -780,4 +785,72 @@ export interface QuranQuizAttempt {
   completedAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// 12. SUPER APP UNIFIED MODULES (SCHOLARS, MOSQUES, HIFZ/ISTIQOMAT, ACADEMY)
+// ---------------------------------------------------------------------------
+export interface ScholarProfile extends Archivable {
+  id: string;
+  name: string;
+  nameAr?: string;
+  titleUz: string;
+  eraOrRegion: string;
+  biographyUz: string;
+  specialtyTags: string[];
+  featuredWorks: { title: string; type: 'book' | 'tafsir' | 'lecture' | 'poetry' | 'article'; year?: string }[];
+  wisdomQuotes: { textUz: string; source?: string }[];
+  avatarInitials?: string;
+  imageUrl?: string;
+  isVerified: boolean;
+}
 
+export interface MosqueDirectoryItem extends Archivable {
+  id: string;
+  name: string;
+  nameAr?: string;
+  region: string;
+  city: string;
+  address: string;
+  imamName?: string;
+  jumaTime: string;
+  phone?: string;
+  latitude: number;
+  longitude: number;
+  qiblaAngleDeg: number;
+  facilities: string[];
+  descriptionUz: string;
+  isFeatured?: boolean;
+  isOfficialPartner?: boolean;
+}
+
+export interface HifzSurahReviewItem {
+  surahNumber: number;
+  surahNameUz: string;
+  memorizedAyahs: number;
+  totalAyahs: number;
+  masteryLevel: 'learning' | 'reviewing' | 'strong';
+  intervalDays: 1 | 3 | 7 | 14 | 30;
+  lastReviewedAt: string;
+  nextReviewAt: string;
+  reviewCount: number;
+}
+
+export interface IstiqomatDailyEntry {
+  date: string; // YYYY-MM-DD
+  prayersCompleted: number; // 0..5
+  quranAyahsRead: number;
+  morningAdhkar: boolean;
+  eveningAdhkar: boolean;
+  tasbihCount: number;
+  murojaaDone: boolean;
+  updatedAt: string;
+}
+
+export interface AcademyProgressState {
+  completedLetters: string[];
+  completedMakharijIds: string[];
+  completedTajweedRuleIds: string[];
+  completedMuallimLessonIds: string[];
+  bestExamScore: number;
+  examAttempts: number;
+  updatedAt: string;
+}

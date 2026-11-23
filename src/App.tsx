@@ -36,6 +36,7 @@ import {
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { MobileNav } from './components/layout/MobileNav';
+import { DesktopSidebar } from './components/layout/DesktopSidebar';
 import { Modal } from './components/ui/Modal';
 import { AppInstallModal } from './components/features/install/AppInstallModal';
 import { AppInstallBanner } from './components/features/install/AppInstallBanner';
@@ -74,6 +75,11 @@ import { IslamicAchievementsView } from './components/features/profile/IslamicAc
 import { SmartTvModal } from './components/features/tv/SmartTvModal';
 import { SmartMosqueDisplayPage } from './components/features/tv/SmartMosqueDisplayPage';
 import { MasjidTvTabloPage } from './components/features/tv/MasjidTvTabloPage';
+import { HifzIstiqomatView } from './components/features/academy/HifzIstiqomatView';
+import { QuranAcademyView } from './components/features/academy/QuranAcademyView';
+import { ScholarsView } from './components/features/scholars/ScholarsView';
+import { MosquesDirectoryView } from './components/features/mosques/MosquesDirectoryView';
+import { MediaCenterView } from './components/features/media/MediaCenterView';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
 import { PrivacyPolicyModal } from './components/features/legal/PrivacyPolicyModal';
@@ -549,16 +555,22 @@ export default function App() {
           </div>
         )}
 
-        {/* Main Content Area */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 lg:pb-12">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              variants={pageTransitionVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
+        {/* Desktop Sidebar + Main Content Area */}
+        <div className="flex-1 flex w-full max-w-[1600px] mx-auto">
+          <DesktopSidebar
+            activeTab={activeTab}
+            onSelectTab={handleNavigate}
+            onOpenTvMode={() => setIsTvModalOpen(true)}
+          />
+          <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-24 lg:pb-12">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                variants={pageTransitionVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
         {activeTab === 'home' && (
           <HomeView
             prayerSchedule={prayerSchedule}
@@ -701,9 +713,20 @@ export default function App() {
         {activeTab === 'search' && <GlobalSearchView onNavigate={handleNavigate} />}
 
         {activeTab === 'achievements' && <IslamicAchievementsView />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+
+        {activeTab === 'hifz_istiqomat' && <HifzIstiqomatView />}
+
+        {activeTab === 'academy' && <QuranAcademyView />}
+
+        {activeTab === 'scholars' && <ScholarsView onNavigate={handleNavigate} />}
+
+        {activeTab === 'mosques' && <MosquesDirectoryView />}
+
+        {activeTab === 'media_center' && <MediaCenterView />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
 
       {/* Institutional Editorial Footer */}
       <Footer onSelectTab={handleNavigate} />
@@ -766,9 +789,14 @@ export default function App() {
               { id: 'prayer', label: 'Namoz vaqtlari' },
               { id: 'display', label: 'Smart Mosque Display (24/7 TV)' },
               { id: 'quran', label: 'Qurʼoni Karim' },
+              { id: 'hifz_istiqomat', label: 'Hifz va Istiqomat' },
+              { id: 'academy', label: 'Qurʼon Akademiyasi' },
               { id: 'quran_quiz', label: 'Qurʼon Viktorinasi (Shorts)' },
               { id: 'hadith', label: 'Hadislar toʻplami' },
               { id: 'dhikr', label: 'Zikr va duolar' },
+              { id: 'scholars', label: 'Ulamolar va Meros' },
+              { id: 'media_center', label: 'Media Markazi' },
+              { id: 'mosques', label: 'Masjidlar va Qibla' },
               { id: 'articles', label: 'Maqolalar' },
               { id: 'ai_assistant', label: 'Islomiy AI Yordamchi' },
               { id: 'messages', label: 'Xabarlar kanali' },

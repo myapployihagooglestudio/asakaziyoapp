@@ -167,15 +167,16 @@ export const AiAssistantView: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [aiStatus, setAiStatus] = useState<{ connected: boolean; model: string }>({
-    connected: true,
+  const [aiStatus, setAiStatus] = useState<{ connected: boolean; model: string; checked?: boolean }>({
+    connected: false,
     model: 'gemini-3.8-flash',
+    checked: false,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check backend Gemini AI status on mount
+  // Check backend Gemini AI status on mount — never fake connected: true
   useEffect(() => {
     let mounted = true;
     fetch('/api/ai/status')
@@ -185,10 +186,19 @@ export const AiAssistantView: React.FC = () => {
           setAiStatus({
             connected: Boolean(data.connected),
             model: data.model || 'gemini-3.8-flash',
+            checked: true,
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (mounted) {
+          setAiStatus({
+            connected: false,
+            model: 'gemini-3.8-flash',
+            checked: true,
+          });
+        }
+      });
     return () => {
       mounted = false;
     };

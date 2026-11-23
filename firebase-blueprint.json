@@ -985,6 +985,30 @@
     "/sync_audit_logs/{logId}": {
       "schema": "SyncAuditLog",
       "description": "Append-only synchronization and notification audit log (admin/server-only)"
+    },
+    "/scholars/{scholarId}": {
+      "schema": "ScholarProfile",
+      "description": "Verified Islamic scholars, biographies, books, audio series, and quotes"
+    },
+    "/mosques/{mosqueId}": {
+      "schema": "MosqueDirectoryItem",
+      "description": "Official Asaka & Andijan mosque directory with coordinates, imam details, and facilities"
+    },
+    "/quranAcademyProgress/{progressId}": {
+      "schema": "QuranAcademyProgress",
+      "description": "Per-user Quran Academy learning progress (Arabic alphabet, Makharij, Tajweed, Muallimi Soniy, Kids)"
+    },
+    "/istiqomatLogs/{logId}": {
+      "schema": "IstiqomatLog",
+      "description": "Per-user Hifz memorization, 1/3/7/16/35-day Muroja'a queue, and daily Istiqomat habit logs"
+    },
+    "/app_config/{configId}": {
+      "schema": "PremiumEmojisConfig",
+      "description": "Unified ASAKA ZIYO Premium Custom Emoji registry (app_config/premium_emojis) shared by Telegram Bot, Web App, and Admin Panel"
+    },
+    "/appConfig/{configId}": {
+      "schema": "AppConfigEmojiRegistry",
+      "description": "Backward-compatible unified appConfig/emojiRegistry catalog synchronized atomically with app_config/premium_emojis"
     }
   }
 }

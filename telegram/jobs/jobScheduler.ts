@@ -67,6 +67,9 @@ export interface TelegramPollingStatus {
   dailyWisdomDispatched: number;
   scheduleChangePostsDispatched: number;
   consecutiveErrors: number;
+  conflictCount: number;
+  lastConflictAt: string | null;
+  multiInstanceConflictDetected: boolean;
   lastError: string | null;
   lastErrorCode: number | null;
   lastErrorAt: string | null;
@@ -118,6 +121,8 @@ export class TelegramJobScheduler {
   private hifzRemindersDispatched = 0;
   private consecutiveErrors = 0;
   private conflictYieldCount = 0;
+  private totalConflictCount = 0;
+  private lastConflictAt: string | null = null;
   private lastError: string | null = null;
   private lastErrorCode: number | null = null;
   private lastErrorAt: string | null = null;
@@ -171,6 +176,9 @@ export class TelegramJobScheduler {
       dailyWisdomDispatched: this.dailyWisdomDispatched,
       scheduleChangePostsDispatched: this.scheduleChangePostsDispatched,
       consecutiveErrors: this.consecutiveErrors,
+      conflictCount: this.totalConflictCount,
+      lastConflictAt: this.lastConflictAt,
+      multiInstanceConflictDetected: this.totalConflictCount > 0,
       lastError: this.lastError,
       lastErrorCode: this.lastErrorCode,
       lastErrorAt: this.lastErrorAt,
@@ -736,7 +744,7 @@ export class TelegramJobScheduler {
   private async pollOnce(): Promise<void> {
     if (!this.pollingActive) return;
     this.lastPollAt = new Date().toISOString();
-    const res = await this.apiClient.getUpdates(this.offset, 10);
+    const res = await this.apiClient.getUpdates(this.offset, 20);
 
     if (res.ok && Array.isArray(res.result)) {
       this.lastSuccessfulPollAt = new Date().toISOString();
@@ -745,22 +753,51 @@ export class TelegramJobScheduler {
       this.lastError = null;
       this.lastErrorCode = null;
 
+      // Non-blocking concurrent update dispatch:
+      // Each update is dispatched immediately into TelegramBotEngine's per-user sequential /
+      // cross-user parallel queue so slow AI/audio tasks for User A NEVER block User B!
       for (const update of res.result) {
         this.offset = update.update_id + 1;
         this.lastUpdateAt = new Date().toISOString();
         this.updatesProcessedCount++;
-        await this.onUpdate(update);
+        void Promise.resolve(this.onUpdate(update)).catch((err) => {
+          this.logger.error('Concurrent update dispatch error', {
+            updateId: update.update_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
       }
-      this.scheduleNextPoll(250);
+      this.scheduleNextPoll(res.result.length > 0 ? 20 : 80);
       return;
     }
 
     if (res.error_code === 409) {
-      // Another instance (e.g. dev vs shared preview container) or a transient restart overlap
-      // currently holds Telegram's single getUpdates poll slot. Yield quietly with jittered backoff
-      // without polluting runtime logs or health error counters.
+      // Explicit Multi-Instance Conflict Detection (critical anti-rollback telemetry!):
+      // Another running container/deployment is polling the same TELEGRAM_BOT_TOKEN1.
       this.conflictYieldCount++;
-      const jitterMs = Math.floor(Math.random() * 5_000);
+      this.totalConflictCount++;
+      this.lastConflictAt = new Date().toISOString();
+      this.lastErrorCode = 409;
+      this.lastError =
+        '409 Conflict: Another bot instance is polling TELEGRAM_BOT_TOKEN1 concurrently. Switch production to webhook mode or stop duplicate polling containers.';
+      this.lastErrorAt = this.lastConflictAt;
+
+      if (this.conflictYieldCount === 1 || this.conflictYieldCount % 5 === 0) {
+        this.logger.warn('[MULTI_INSTANCE_CONFLICT] Telegram 409 getUpdates conflict detected', {
+          conflictYieldCount: this.conflictYieldCount,
+          totalConflictCount: this.totalConflictCount,
+          description: res.description,
+        });
+        this.repository?.recordRollbackWarning({
+          target: 'polling_conflict',
+          source: 'TelegramJobScheduler.pollOnce',
+          functionName: 'pollOnce',
+          currentVersion: this.repository.getSettings().version || 1,
+          incomingVersion: 0,
+          reason: `Telegram HTTP 409 getUpdates conflict (#${this.totalConflictCount}): another instance is competing for the same bot token.`,
+        });
+      }
+      const jitterMs = Math.floor(Math.random() * 4_000);
       const conflictBackoffMs = Math.min(60_000, 15_000 * Math.min(this.conflictYieldCount, 4)) + jitterMs;
       this.scheduleNextPoll(conflictBackoffMs);
       return;

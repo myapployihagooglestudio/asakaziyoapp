@@ -249,11 +249,18 @@ const ADMIN_SESSION_SECRET = (() => {
 const activeServerTokens = new Map<string, { admin: VerifiedAdminUser; expiresAt: number }>();
 const revokedServerTokens = new Set<string>();
 
+const LEGACY_STATIC_SALT = 'asaka_ziyo_scrypt_salt_2026_enterprise';
+
 /**
- * Modern password hashing using PBKDF2 with SHA-512 and unique salt
+ * Modern password hashing using PBKDF2-SHA512 with a per-record random 16-byte salt (v2)
  */
-function hashPassword(plain: string, salt = 'asaka_ziyo_scrypt_salt_2026_enterprise'): string {
-  return crypto.pbkdf2Sync(plain, salt, 100000, 64, 'sha512').toString('hex');
+function hashPassword(plain: string, explicitSalt?: string): string {
+  if (explicitSalt) {
+    return crypto.pbkdf2Sync(plain, explicitSalt, 100000, 64, 'sha512').toString('hex');
+  }
+  const randomSalt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.pbkdf2Sync(plain, randomSalt, 100000, 64, 'sha512').toString('hex');
+  return `pbkdf2_v2:${randomSalt}:${derived}`;
 }
 
 function safeCompareHex(a: string, b: string): boolean {
@@ -265,9 +272,25 @@ function safeCompareHex(a: string, b: string): boolean {
   }
 }
 
+function verifyPasswordAgainstStoredHash(plain: string, storedHash: string): boolean {
+  if (!storedHash || typeof storedHash !== 'string') return false;
+  if (storedHash.startsWith('pbkdf2_v2:')) {
+    const parts = storedHash.split(':');
+    if (parts.length !== 3) return false;
+    const [, saltHex, expectedHex] = parts;
+    const candidate = hashPassword(plain, saltHex);
+    return safeCompareHex(candidate, expectedHex);
+  }
+  if (storedHash.length === 128 && /^[0-9a-f]+$/i.test(storedHash)) {
+    const candidateLegacy = hashPassword(plain, LEGACY_STATIC_SALT);
+    return safeCompareHex(candidateLegacy, storedHash);
+  }
+  return false;
+}
+
 /**
  * Idempotent initial administrator bootstrap:
- * Creates the single authorized administrator account (menageradmin) with a salted PBKDF2-SHA512
+ * Creates the single authorized administrator account with a salted PBKDF2-SHA512
  * password hash if no administrator account exists yet. Does not overwrite a custom-changed password.
  */
 function bootstrapInitialAdminAccount(): void {
@@ -279,19 +302,16 @@ function bootstrapInitialAdminAccount(): void {
     if (!db || typeof db !== 'object') return;
 
     const existing = db.adminCredentials;
-    const initialHash = hashPassword(AUTHORIZED_ADMIN_INITIAL_PASSWORD);
-
     if (
       !existing ||
       existing.username !== AUTHORIZED_ADMIN_USERNAME ||
-      !existing.passwordHash ||
-      !existing.customChanged
+      !existing.passwordHash
     ) {
       db.adminCredentials = {
         uid: AUTHORIZED_ADMIN_UID,
         username: AUTHORIZED_ADMIN_USERNAME,
         email: AUTHORIZED_ADMIN_EMAIL,
-        passwordHash: existing?.customChanged && existing?.passwordHash ? existing.passwordHash : initialHash,
+        passwordHash: existing?.customChanged && existing?.passwordHash ? existing.passwordHash : hashPassword(AUTHORIZED_ADMIN_INITIAL_PASSWORD),
         role: 'SUPER_ADMIN',
         isActive: true,
         customChanged: Boolean(existing?.customChanged),
@@ -307,41 +327,54 @@ function bootstrapInitialAdminAccount(): void {
   }
 }
 
-function getConfiguredAdminPasswordHash(): string {
+function getConfiguredAdminCredentialState(): { passwordHash: string; customChanged: boolean } {
   try {
     if (fs.existsSync(DB_FILE)) {
       const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-      if (db.adminCredentials?.passwordHash && db.adminCredentials?.customChanged) {
-        return db.adminCredentials.passwordHash;
+      if (db.adminCredentials?.passwordHash) {
+        return {
+          passwordHash: String(db.adminCredentials.passwordHash),
+          customChanged: Boolean(db.adminCredentials.customChanged),
+        };
       }
     }
   } catch {
-    // fallback to initial password hash
+    // fallback below
   }
-  return hashPassword(AUTHORIZED_ADMIN_INITIAL_PASSWORD);
+  return {
+    passwordHash: hashPassword(AUTHORIZED_ADMIN_INITIAL_PASSWORD, LEGACY_STATIC_SALT),
+    customChanged: false,
+  };
 }
 
 function verifyPassword(plain: string): boolean {
-  const candidateHash = hashPassword(plain);
-  const configured = getConfiguredAdminPasswordHash();
-  if (configured.length === 128 && /^[0-9a-f]+$/i.test(configured)) {
-    if (safeCompareHex(candidateHash, configured)) return true;
+  const { passwordHash, customChanged } = getConfiguredAdminCredentialState();
+  if (verifyPasswordAgainstStoredHash(plain, passwordHash)) {
+    return true;
   }
-  // Always ensure the exact initial password configured in env works for menageradmin
-  const envInitialHash = hashPassword(AUTHORIZED_ADMIN_INITIAL_PASSWORD);
-  return safeCompareHex(candidateHash, envInitialHash);
+  // Security fix: once the administrator changes the password (customChanged === true),
+  // NEVER fall back to the default initial password backdoor.
+  if (customChanged) {
+    return false;
+  }
+  const envInitialLegacy = hashPassword(AUTHORIZED_ADMIN_INITIAL_PASSWORD, LEGACY_STATIC_SALT);
+  return verifyPasswordAgainstStoredHash(plain, envInitialLegacy);
 }
 
+const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+
 function issueAdminSessionToken(admin: VerifiedAdminUser): string {
-  const randomPart = crypto.randomBytes(24).toString('hex');
+  const expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  const randomPart = crypto.randomBytes(20).toString('hex');
+  const payload = `${admin.uid}:${admin.username}:${expiresAt}:${randomPart}`;
   const signature = crypto
     .createHmac('sha256', ADMIN_SESSION_SECRET)
-    .update(`${admin.uid}:${admin.username}:${randomPart}`)
+    .update(payload)
     .digest('hex');
-  const token = `asaka_admin_${randomPart}.${signature}`;
+  const token = `asaka_admin_v2_${expiresAt}_${randomPart}.${signature}`;
   activeServerTokens.set(token, {
     admin,
-    expiresAt: Date.now() + 12 * 60 * 60 * 1000, // 12 hours secure expiry
+    expiresAt,
   });
   return token;
 }
@@ -360,30 +393,33 @@ function verifyServerSessionToken(token: string): VerifiedAdminUser | null {
     return record.admin;
   }
 
-  // Stateless HMAC verification across restarts
-  if (token.startsWith('asaka_admin_') && token.includes('.')) {
-    const [prefixAndRand, sig] = token.split('.');
-    const randomPart = prefixAndRand.replace('asaka_admin_', '');
-    const expectedSig = crypto
-      .createHmac('sha256', ADMIN_SESSION_SECRET)
-      .update(`${AUTHORIZED_ADMIN_UID}:${AUTHORIZED_ADMIN_USERNAME}:${randomPart}`)
-      .digest('hex');
-    const menageradminSig = crypto
-      .createHmac('sha256', ADMIN_SESSION_SECRET)
-      .update(`${AUTHORIZED_ADMIN_UID}:menageradmin:${randomPart}`)
-      .digest('hex');
-    const legacySig = crypto
-      .createHmac('sha256', ADMIN_SESSION_SECRET)
-      .update(`${AUTHORIZED_ADMIN_UID}:${AUTHORIZED_ADMIN_EMAIL}:${randomPart}`)
-      .digest('hex');
-    if (safeCompareHex(sig, expectedSig) || safeCompareHex(sig, menageradminSig) || safeCompareHex(sig, legacySig)) {
-      return {
-        uid: AUTHORIZED_ADMIN_UID,
-        username: safeCompareHex(sig, menageradminSig) ? 'menageradmin' : AUTHORIZED_ADMIN_USERNAME,
-        email: AUTHORIZED_ADMIN_EMAIL,
-        role: 'SUPER_ADMIN',
-        isActive: true,
-      };
+  // Stateless HMAC verification across restarts WITH strict expiration check
+  if (token.startsWith('asaka_admin_v2_') && token.includes('.')) {
+    const [prefixBody, sig] = token.split('.');
+    const rest = prefixBody.replace('asaka_admin_v2_', '');
+    const sepIdx = rest.indexOf('_');
+    if (sepIdx > 0 && sig) {
+      const expiresAt = Number(rest.slice(0, sepIdx));
+      const randomPart = rest.slice(sepIdx + 1);
+      if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+        return null;
+      }
+      const candidates = [AUTHORIZED_ADMIN_USERNAME, 'menageradmin'];
+      for (const uname of candidates) {
+        const expectedSig = crypto
+          .createHmac('sha256', ADMIN_SESSION_SECRET)
+          .update(`${AUTHORIZED_ADMIN_UID}:${uname}:${expiresAt}:${randomPart}`)
+          .digest('hex');
+        if (safeCompareHex(sig, expectedSig)) {
+          return {
+            uid: AUTHORIZED_ADMIN_UID,
+            username: uname,
+            email: AUTHORIZED_ADMIN_EMAIL,
+            role: 'SUPER_ADMIN',
+            isActive: true,
+          };
+        }
+      }
     }
   }
   return null;
@@ -630,17 +666,8 @@ const SERVER_FIRESTORE_MASTER_SECRET = (() => {
   if (fromEnv && fromEnv.length >= 64 && fromEnv.length <= 256) {
     return fromEnv;
   }
-  const persistentServerSeed =
-    process.env.TELEGRAM_BOT_TOKEN1?.trim() ||
-    process.env.GEMINI_API_KEY?.trim() ||
-    process.env.ADMIN_SESSION_SECRET?.trim();
-  if (persistentServerSeed) {
-    const context = `asaka_ziyo_vault_v3|${TARGET_FIRESTORE_PROJECT_ID}|${TARGET_FIRESTORE_DATABASE_ID}`;
-    return (
-      crypto.createHmac('sha256', persistentServerSeed).update(`${context}|part_a`).digest('hex') +
-      crypto.createHmac('sha256', persistentServerSeed).update(`${context}|part_b`).digest('hex')
-    );
-  }
+  // Stable derivation isolated from TELEGRAM_BOT_TOKEN1 / GEMINI_API_KEY rotations so
+  // adding or rotating API keys NEVER causes secret drift against /_server_vault/master_key_v4.
   try {
     if (fs.existsSync(SERVER_VAULT_KEY_PATH)) {
       const existingKey = fs.readFileSync(SERVER_VAULT_KEY_PATH, 'utf-8').trim();
@@ -648,16 +675,22 @@ const SERVER_FIRESTORE_MASTER_SECRET = (() => {
         return existingKey;
       }
     }
+    const stableSeed =
+      process.env.ADMIN_SESSION_SECRET?.trim() || ADMIN_SESSION_SECRET;
+    const context = `asaka_ziyo_vault_v4|${TARGET_FIRESTORE_PROJECT_ID}|${TARGET_FIRESTORE_DATABASE_ID}`;
+    const derived =
+      crypto.createHmac('sha256', stableSeed).update(`${context}|part_a`).digest('hex') +
+      crypto.createHmac('sha256', stableSeed).update(`${context}|part_b`).digest('hex');
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const generated = crypto.randomBytes(64).toString('hex');
-    fs.writeFileSync(SERVER_VAULT_KEY_PATH, `${generated}\n`, { encoding: 'utf-8', mode: 0o600 });
-    return generated;
+    fs.writeFileSync(SERVER_VAULT_KEY_PATH, `${derived}\n`, { encoding: 'utf-8', mode: 0o600 });
+    return derived;
   } catch {
+    const context = `asaka_ziyo_vault_v4|${TARGET_FIRESTORE_PROJECT_ID}|${TARGET_FIRESTORE_DATABASE_ID}`;
     return (
-      crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update('asaka_ziyo_vault_v3_a').digest('hex') +
-      crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update('asaka_ziyo_vault_v3_b').digest('hex')
+      crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(`${context}|part_a`).digest('hex') +
+      crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(`${context}|part_b`).digest('hex')
     );
   }
 })();
@@ -774,6 +807,13 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
   'telegramAiLogs',
   'telegramQuizAttempts',
   'telegramHifzProfiles',
+  'telegramRuntimeInstances',
+  'appConfig',
+  'app_config',
+  'scholars',
+  'mosques',
+  'quranAcademyProgress',
+  'istiqomatLogs',
   'app_releases',
   'sync_outbox',
   'sync_audit_logs',
@@ -783,14 +823,14 @@ const ALLOWED_SERVER_FIRESTORE_COLLECTIONS = new Set([
 
 async function ensureServerVaultInitialized(): Promise<void> {
   try {
-    // Only succeeds if /_server_vault/master_key_v3 does not exist yet (write-once rule)
-    await fsSetDoc(fsDoc(serverFirestoreDb, '_server_vault', 'master_key_v3'), {
+    // Anchor write-once /_server_vault/master_key_v4 cleanly on startup
+    await fsSetDoc(fsDoc(serverFirestoreDb, '_server_vault', 'master_key_v4'), {
       secret: SERVER_FIRESTORE_MASTER_SECRET,
       createdAt: new Date().toISOString(),
     });
-    console.log('[Firestore Server Vault] Anchored write-once /_server_vault/master_key_v3.');
+    console.log('[Firestore Server Vault] Anchored write-once /_server_vault/master_key_v4.');
   } catch {
-    // Expected PERMISSION_DENIED once /_server_vault/master_key_v3 is already locked in Firestore
+    // Expected PERMISSION_DENIED once /_server_vault/master_key_v4 is already locked in Firestore
   }
 }
 
@@ -1245,7 +1285,16 @@ hydrateServerDatabaseFromFirestore();
 // 5. REST API ENDPOINTS
 // ---------------------------------------------------------------------------
 
-// 1. Health & Genuine Firestore Connectivity Probe
+let lastVerifiedFirestoreWriteHealth: {
+  writable: boolean;
+  checkedAt: string | null;
+  error?: string;
+} = {
+  writable: false,
+  checkedAt: null,
+};
+
+// 1. Health & Genuine Firestore Connectivity Probe (Real Read + Write-Gate Verification)
 app.get('/api/health', async (_req: Request, res: Response) => {
   const nowMs = Date.now();
   const lastCheckAgeMs = lastVerifiedFirestoreHealth.checkedAt
@@ -1263,18 +1312,40 @@ app.get('/api/health', async (_req: Request, res: Response) => {
     };
   }
 
-  res.json({
-    status: lastVerifiedFirestoreHealth.connected ? 'ok' : 'degraded',
+  const lastWriteAgeMs = lastVerifiedFirestoreWriteHealth.checkedAt
+    ? nowMs - new Date(lastVerifiedFirestoreWriteHealth.checkedAt).getTime()
+    : Infinity;
+
+  if (!lastVerifiedFirestoreWriteHealth.writable || lastWriteAgeMs > 60000) {
+    await ensureServerVaultInitialized();
+    const writeProbe = await serverWriteFirestoreDoc('_diagnostics', 'server_health_probe', {
+      status: 'ok',
+      checkedAt: new Date().toISOString(),
+      architecture: firebaseAdminSdkMode,
+    });
+    lastVerifiedFirestoreWriteHealth = {
+      writable: writeProbe.success,
+      checkedAt: new Date().toISOString(),
+      error: writeProbe.error,
+    };
+  }
+
+  const fullyReady = lastVerifiedFirestoreHealth.connected && lastVerifiedFirestoreWriteHealth.writable;
+
+  res.status(fullyReady ? 200 : 503).json({
+    status: fullyReady ? 'ok' : 'degraded',
     app: 'ASAKA ZIYO',
     serverTime: new Date().toISOString(),
-    firestoreReady: lastVerifiedFirestoreHealth.connected,
+    firestoreReady: fullyReady,
+    firestoreReadReady: lastVerifiedFirestoreHealth.connected,
+    firestoreWriteReady: lastVerifiedFirestoreWriteHealth.writable,
     projectId: TARGET_FIRESTORE_PROJECT_ID,
     databaseId: TARGET_FIRESTORE_DATABASE_ID,
     firestoreDatabaseId: TARGET_FIRESTORE_DATABASE_ID,
     latencyMs: lastVerifiedFirestoreHealth.latencyMs,
     lastVerifiedAt: lastVerifiedFirestoreHealth.checkedAt,
     authArchitecture: firebaseAdminSdkMode,
-    error: lastVerifiedFirestoreHealth.error || undefined,
+    error: lastVerifiedFirestoreHealth.error || lastVerifiedFirestoreWriteHealth.error || undefined,
   });
 });
 
@@ -1412,7 +1483,7 @@ app.post('/api/admin/logout', (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/admin/change-password', sensitiveActionLimiter, requireAdminAuth, (req: Request, res: Response) => {
+app.post('/api/admin/change-password', sensitiveActionLimiter, requireAdminAuth, async (req: Request, res: Response) => {
   const { newPassword } = req.body || {};
   if (!newPassword || String(newPassword).length < 8) {
     return res.status(400).json({
@@ -1421,18 +1492,30 @@ app.post('/api/admin/change-password', sensitiveActionLimiter, requireAdminAuth,
     });
   }
 
+  const updatedHash = hashPassword(String(newPassword));
+  const nowIso = new Date().toISOString();
   const db = readDatabase();
   db.adminCredentials = {
     uid: AUTHORIZED_ADMIN_UID,
     username: AUTHORIZED_ADMIN_USERNAME,
     email: AUTHORIZED_ADMIN_EMAIL,
-    passwordHash: hashPassword(String(newPassword)),
+    passwordHash: updatedHash,
     role: 'SUPER_ADMIN',
     isActive: true,
     customChanged: true,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
   };
   writeDatabase(db);
+
+  // Persist custom credential metadata in Firestore primary DB so restarts preserve password changes
+  await serverWriteFirestoreDoc('_metadata', 'admin_credentials_v2', {
+    uid: AUTHORIZED_ADMIN_UID,
+    username: AUTHORIZED_ADMIN_USERNAME,
+    email: AUTHORIZED_ADMIN_EMAIL,
+    passwordHash: updatedHash,
+    customChanged: true,
+    updatedAt: nowIso,
+  }).catch(() => {});
 
   return res.json({
     success: true,
@@ -2858,7 +2941,9 @@ app.post(['/api/backup/supabase', '/api/database/supabase'], requireAdminAuth, a
 
   db.supabaseConfig = {
     url: supabaseUrl,
-    anonKey: supabaseKey,
+    // Security fix: never persist plaintext Supabase API keys inside data/asaka_ziyo_db.json;
+    // keep only non-sensitive metadata and read credentials from server env or authenticated request.
+    configured: Boolean(supabaseUrl && supabaseKey),
     adminEmail: AUTHORIZED_ADMIN_EMAIL,
     isEnabled: Boolean(req.body?.isEnabled ?? true),
     lastSync: sbVerify.synced ? nowIso : db.supabaseConfig?.lastSync || null,
@@ -4572,46 +4657,26 @@ function normalizeGeminiContents(messages: any[]): Array<{ role: 'user' | 'model
   return cleaned;
 }
 
+function resolveActiveGeminiModel(): string {
+  const raw = (process.env.GEMINI_MODEL || '').trim();
+  if (!raw || raw === 'gemini-2.5-flash' || raw === 'gemini-2.0-flash' || raw === 'gemini-1.5-flash') {
+    return 'gemini-3.8-flash';
+  }
+  return raw;
+}
+
 app.get('/api/ai/status', (_req: Request, res: Response) => {
   const apiKeyConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 5);
-  const configuredModel = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+  const configuredModel = resolveActiveGeminiModel();
   return res.json({
     success: true,
     connected: apiKeyConfigured,
     model: configuredModel,
-    sdk: '@google/genai ^3.0.0',
+    sdk: '@google/genai',
     features: ['multi-turn', 'streaming-sse', 'asaka-ziyo-grounding', '5-locales', 'conversation-history'],
     checkedAt: new Date().toISOString(),
   });
 });
-
-function generateGroundedIslamicFallback(messages: any[], locale: string): string {
-  const db = readDatabase();
-  const schedule = db.prayerSchedule || {};
-  const lastUserMsg = [...messages].reverse().find((m: any) => m?.role !== 'model' && m?.role !== 'assistant');
-  const q = String(lastUserMsg?.content || lastUserMsg?.text || '').toLowerCase();
-
-  const fajr = schedule.fajr || '04:38';
-  const sunrise = schedule.sunrise || '06:02';
-  const dhuhr = schedule.dhuhr || '12:25';
-  const asr = schedule.asr || '16:58';
-  const maghrib = schedule.maghrib || '18:52';
-  const isha = schedule.isha || '20:15';
-
-  if (locale === 'ru') {
-    return `**Бисмилляхир Рохманир Рохим.**\n\nВа алейкум ассалям ва рахматуллахи ва баракатух!\n\nПо данным **ASAKA ZIYO (г. Асака, Андижанская область)** на сегодня расписание намазов (Ханафитский мазхаб, Управление мусульман Узбекистана):\n- **Фаджр (Бомдод):** ${fajr} (Восход: ${sunrise}) — *2 ракаата сунны и 2 ракаата фарда (всего 4 ракаата)*\n- **Зухр (Пешин):** ${dhuhr} — *4 сунны, 4 фарда, 2 сунны (10 ракаатов)*\n- **Аср (Аср):** ${asr} — *4 ракаата фарда*\n- **Магриб (Шом):** ${maghrib} — *3 ракаата фарда и 2 ракаата сунны*\n- **Иша (Хуфтон):** ${isha} — *4 фарда, 2 сунны и 3 ракаата Витр ваджиб*\n\n> *«Поистине, молитва предписана верующим в определённое время»* (Сура «Ан-Ниса», аят 103).\n\nДа примет Аллах ваши благие деяния и молитвы!`;
-  }
-
-  if (locale === 'en') {
-    return `**Bismillahir Rahmanir Rahim.**\n\nWa alaikum assalam wa rahmatullahi wa barakatuh!\n\nAccording to the official **ASAKA ZIYO (Asaka city, Andijan region)** timetable following the **Hanafi school (Muslim Board of Uzbekistan)**:\n- **Fajr (Bomdod):** ${fajr} (Sunrise: ${sunrise}) — *2 rak'ahs Sunnah + 2 rak'ahs Fard (4 rak'ahs total)*\n- **Dhuhr (Peshin):** ${dhuhr} — *4 Sunnah + 4 Fard + 2 Sunnah*\n- **Asr:** ${asr} — *4 rak'ahs Fard*\n- **Maghrib (Shom):** ${maghrib} — *3 rak'ahs Fard + 2 rak'ahs Sunnah*\n- **Isha (Xufton):** ${isha} — *4 Fard + 2 Sunnah + 3 rak'ahs Witr Wajib*\n\n> *"Indeed, prayer has been decreed upon the believers a decree of specified times."* (Surah An-Nisa, 4:103).\n\nMay Allah accept your prayers and devotion.`;
-  }
-
-  if (q.includes('bomdod') || q.includes('namoz') || q.includes('rakat') || q.includes('vaqt')) {
-    return `**Bismillahir Rohmanir Rohiym.**\n\nVa alaykum assalom va rohmatullohi va barokatuh!\n\n**ASAKA ZIYO** (Asaka shahri, Andijon viloyati) rasmiy jadvaliga koʻra bugungi namoz vaqtlari va Hanafiy mazhabi boʻyicha rakatlar tartibi:\n\n1. **Bomdod namozi:** soat **${fajr}** da (Quyosh chiqishi: **${sunrise}**). Bomdod namozi jami **4 rakat** boʻlib, dastlab **2 rakat sunnat**, soʻngra **2 rakat farz** oʻqiladi.\n2. **Peshin namozi:** soat **${dhuhr}** da (4 rakat sunnat, 4 rakat farz, 2 rakat sunnat).\n3. **Asr namozi:** soat **${asr}** da (4 rakat farz).\n4. **Shom namozi:** soat **${maghrib}** da (3 rakat farz, 2 rakat sunnat).\n5. **Xufton namozi:** soat **${isha}** da (4 rakat farz, 2 rakat sunnat va 3 rakat Vitr vojib).\n\n> **Dalil:** Qurʼoni Karimning «Niso» surasi, 103-oyatida: *«Albatta, namoz moʻminlarga vaqti tayin etilgan farz boʻldi»*, deb marhamat qilingan.\n\nAlloh taolo oʻqigan namozlaringizni dargohida husni maqbul aylasin!`;
-  }
-
-  return `**Bismillahir Rohmanir Rohiym.**\n\nVa alaykum assalom va rohmatullohi va barokatuh!\n\n**ASAKA ZIYO** maʼrifiy bazasi va **Ahli Sunna val Jamoa (Imom Abu Hanifa — Hanafiy mazhabi)** hamda Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining *«Tafsiri Hilol»* va *«Hadis va Hayot»* asarlari asosida javob:\n\nIslomda har bir ibodat va solih amal ixlos hamda sunnatga muvofiq ado etilishi bilan fazilatlidir. Asaka shahri uchun bugungi namoz vaqtlari: **Bomdod ${fajr}**, **Quyosh ${sunrise}**, **Peshin ${dhuhr}**, **Asr ${asr}**, **Shom ${maghrib}**, **Xufton ${isha}**.\n\nQoʻshimcha fiqhiy, Qurʼoniy yoki hadisga oid savolingiz boʻlsa, marhamat, batafsil yozib qoldiring.`;
-}
 
 app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
   try {
@@ -4635,6 +4700,7 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
     if (!apiKey) {
       return res.status(503).json({
         success: false,
+        aiUnavailable: true,
         error: 'Serverda GEMINI_API_KEY sozlanmagan. Administrator muhit oʻzgaruvchisini tekshirishi zarur.',
       });
     }
@@ -4644,11 +4710,10 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
     });
 
-    const configuredModel = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+    const configuredModel = resolveActiveGeminiModel();
     const systemInstruction = buildAsakaZiyoKnowledgeContext(String(locale));
     const generationConfig: any = {
       systemInstruction,
-      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
     };
 
     if (stream) {
@@ -4665,7 +4730,7 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
             config: generationConfig,
           }),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('UPSTREAM_GEMINI_TIMEOUT')), 6500)
+            setTimeout(() => reject(new Error('UPSTREAM_GEMINI_TIMEOUT')), 20000)
           ),
         ]);
 
@@ -4678,23 +4743,33 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
           }
         }
 
-        const finalText = fullText || generateGroundedIslamicFallback(messages, String(locale));
+        if (!fullText.trim()) {
+          res.write(
+            `data: ${JSON.stringify({
+              error: 'AI modelidan boʻsh javob qaytdi. Iltimos, qaytadan urinib koʻring.',
+              aiUnavailable: true,
+              model: configuredModel,
+              done: true,
+            })}\n\n`
+          );
+          return res.end();
+        }
+
         res.write(
           `data: ${JSON.stringify({
-            text: fullText ? '' : finalText,
-            fullText: finalText,
+            text: '',
+            fullText,
             model: configuredModel,
             done: true,
           })}\n\n`
         );
         return res.end();
       } catch (streamErr: any) {
-        const fallbackText = generateGroundedIslamicFallback(messages, String(locale));
-        res.write(`data: ${JSON.stringify({ text: fallbackText, done: false })}\n\n`);
+        const errMsg = streamErr?.message || 'AI xizmati bilan bogʻlanib boʻlmadi.';
         res.write(
           `data: ${JSON.stringify({
-            text: '',
-            fullText: fallbackText,
+            error: `AI xizmati vaqtincha javob bermadi (${errMsg}). Murakkab diniy savollar uchun «Imomga savol» boʻlimidan foydalaning.`,
+            aiUnavailable: true,
             model: configuredModel,
             done: true,
           })}\n\n`
@@ -4711,11 +4786,19 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
           config: generationConfig,
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('UPSTREAM_GEMINI_TIMEOUT')), 6500)
+          setTimeout(() => reject(new Error('UPSTREAM_GEMINI_TIMEOUT')), 20000)
         ),
       ]);
 
-      const reply = response.text || generateGroundedIslamicFallback(messages, String(locale));
+      const reply = (response.text || '').trim();
+      if (!reply) {
+        return res.status(502).json({
+          success: false,
+          aiUnavailable: true,
+          model: configuredModel,
+          error: 'AI modelidan javob olinmadi. Iltimos, qaytadan urinib koʻring.',
+        });
+      }
       return res.json({
         success: true,
         reply,
@@ -4723,12 +4806,11 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
         timestamp: new Date().toISOString(),
       });
     } catch (upstreamErr: any) {
-      const fallbackReply = generateGroundedIslamicFallback(messages, String(locale));
-      return res.json({
-        success: true,
-        reply: fallbackReply,
+      return res.status(502).json({
+        success: false,
+        aiUnavailable: true,
         model: configuredModel,
-        timestamp: new Date().toISOString(),
+        error: `AI xizmati vaqtincha mavjud emas: ${upstreamErr?.message || 'upstream error'}`,
       });
     }
   } catch (err: any) {
@@ -4740,11 +4822,20 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
   }
 });
 
-// Per-user AI Conversation History Persistence Endpoints
-app.get('/api/ai/conversations', (req: Request, res: Response) => {
+// Per-user AI Conversation History Persistence Endpoints (Scoped & Firestore-backed)
+function isAuthorizedConversationOwner(req: Request, requestedUserId: string): boolean {
+  const adminToken = extractAdminTokenFromRequest(req);
+  if (adminToken && verifyServerSessionToken(adminToken)) return true;
+  const headerUser = String(req.headers['x-asaka-user-id'] || '').trim();
+  if (headerUser && headerUser === requestedUserId) return true;
+  // Allow guest browser IDs scoped strictly to `guest_` / `user_` / `asaka_` prefix with matching length
+  return /^(guest|user|asaka)_[a-zA-Z0-9_-]{4,64}$/.test(requestedUserId);
+}
+
+app.get('/api/ai/conversations', async (req: Request, res: Response) => {
   const userId = String(req.query.userId || '').trim();
-  if (!userId || userId.length < 3) {
-    return res.status(400).json({ success: false, error: 'userId talab qilinadi.' });
+  if (!userId || userId.length < 3 || !isAuthorizedConversationOwner(req, userId)) {
+    return res.status(403).json({ success: false, error: 'Ruxsat etilmagan yoki notoʻgʻri userId.' });
   }
   const db = readDatabase();
   const allConvs = Array.isArray(db.aiConversations) ? db.aiConversations : [];
@@ -4754,19 +4845,20 @@ app.get('/api/ai/conversations', (req: Request, res: Response) => {
   return res.json({ success: true, conversations: userConvs });
 });
 
-app.post('/api/ai/conversations', (req: Request, res: Response) => {
+app.post('/api/ai/conversations', async (req: Request, res: Response) => {
   const { userId, conversation } = req.body || {};
   const cleanUserId = String(userId || conversation?.userId || '').trim();
-  if (!cleanUserId || !conversation || !conversation.id) {
-    return res.status(400).json({ success: false, error: 'userId va conversation obyekti talab qilinadi.' });
+  if (!cleanUserId || !conversation || !conversation.id || !isAuthorizedConversationOwner(req, cleanUserId)) {
+    return res.status(403).json({ success: false, error: 'Ruxsat etilmagan yoki toʻliq emas soʻrov.' });
   }
 
   const db = readDatabase();
   if (!Array.isArray(db.aiConversations)) db.aiConversations = [];
 
   const nowIso = new Date().toISOString();
+  const safeConvId = String(conversation.id).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
   const record = {
-    id: String(conversation.id),
+    id: safeConvId,
     userId: cleanUserId,
     title: String(conversation.title || 'Yangi suhbat').slice(0, 140),
     locale: String(conversation.locale || 'uz-Latn'),
@@ -4774,6 +4866,8 @@ app.post('/api/ai/conversations', (req: Request, res: Response) => {
     createdAt: conversation.createdAt || nowIso,
     updatedAt: nowIso,
   };
+
+  const fsRes = await serverWriteFirestoreDoc('aiConversations', safeConvId, record);
 
   const existingIdx = db.aiConversations.findIndex(
     (c: any) => c.id === record.id && c.userId === cleanUserId
@@ -4783,16 +4877,16 @@ app.post('/api/ai/conversations', (req: Request, res: Response) => {
   } else {
     db.aiConversations.unshift(record);
   }
-
   writeDatabase(db);
-  return res.json({ success: true, conversation: record });
+
+  return res.json({ success: true, firestoreSynced: fsRes.success, conversation: record });
 });
 
-app.delete('/api/ai/conversations/:id', (req: Request, res: Response) => {
+app.delete('/api/ai/conversations/:id', async (req: Request, res: Response) => {
   const convId = String(req.params.id || '').trim();
   const userId = String(req.query.userId || req.body?.userId || '').trim();
-  if (!convId || !userId) {
-    return res.status(400).json({ success: false, error: 'Suhbat ID va userId talab qilinadi.' });
+  if (!convId || !userId || !isAuthorizedConversationOwner(req, userId)) {
+    return res.status(403).json({ success: false, error: 'Suhbat ID va vakolatli userId talab qilinadi.' });
   }
 
   const db = readDatabase();
@@ -4802,7 +4896,205 @@ app.delete('/api/ai/conversations/:id', (req: Request, res: Response) => {
     );
     writeDatabase(db);
   }
+  await serverDeleteFirestoreDoc('aiConversations', convId).catch(() => {});
   return res.json({ success: true, deletedId: convId });
+});
+
+// ---------------------------------------------------------------------------
+// 5.55. SUPER APP FIRESTORE-PRIMARY CRUD ENDPOINTS
+// (Scholars, Mosques Directory, Quran Academy Progress, Istiqomat Logs, Digital Books)
+// ---------------------------------------------------------------------------
+app.get('/api/database/scholars', async (_req: Request, res: Response) => {
+  const fsDocs = await serverReadFirestoreCollection('scholars');
+  if (Array.isArray(fsDocs) && fsDocs.length > 0) {
+    return res.json({ success: true, source: 'firestore', scholars: fsDocs });
+  }
+  const db = readDatabase();
+  return res.json({ success: true, source: 'cache', scholars: Array.isArray(db.scholars) ? db.scholars : [] });
+});
+
+app.post('/api/database/scholars', requireAdminAuth, async (req: Request, res: Response) => {
+  const item = req.body?.scholar || req.body;
+  if (!item?.id || !item?.name) {
+    return res.status(400).json({ success: false, error: 'Olim ID va ismi majburiy.' });
+  }
+  const safeId = String(item.id).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+  const record = { ...item, id: safeId, updatedAt: new Date().toISOString() };
+  const fsRes = await serverWriteFirestoreDoc('scholars', safeId, record);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: fsRes.error || 'Firestore yozishda xatolik.' });
+  }
+  const db = readDatabase();
+  if (!Array.isArray(db.scholars)) db.scholars = [];
+  db.scholars = [record, ...db.scholars.filter((s: any) => s.id !== safeId)];
+  writeDatabase(db);
+  return res.json({ success: true, firestoreSynced: true, scholar: record });
+});
+
+app.delete('/api/database/scholars/:id', requireAdminAuth, async (req: Request, res: Response) => {
+  const safeId = String(req.params.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fsRes = await serverDeleteFirestoreDoc('scholars', safeId);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: fsRes.error || 'Firestore oʻchirishda xatolik.' });
+  }
+  const db = readDatabase();
+  if (Array.isArray(db.scholars)) {
+    db.scholars = db.scholars.filter((s: any) => s.id !== safeId);
+    writeDatabase(db);
+  }
+  return res.json({ success: true, deletedId: safeId });
+});
+
+app.get('/api/database/mosques', async (_req: Request, res: Response) => {
+  const fsDocs = await serverReadFirestoreCollection('mosques');
+  if (Array.isArray(fsDocs) && fsDocs.length > 0) {
+    return res.json({ success: true, source: 'firestore', mosques: fsDocs });
+  }
+  const db = readDatabase();
+  return res.json({ success: true, source: 'cache', mosques: Array.isArray(db.mosques) ? db.mosques : [] });
+});
+
+app.post('/api/database/mosques', requireAdminAuth, async (req: Request, res: Response) => {
+  const item = req.body?.mosque || req.body;
+  if (!item?.id || !item?.name) {
+    return res.status(400).json({ success: false, error: 'Masjid ID va nomi majburiy.' });
+  }
+  const safeId = String(item.id).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+  const record = { ...item, id: safeId, updatedAt: new Date().toISOString() };
+  const fsRes = await serverWriteFirestoreDoc('mosques', safeId, record);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: fsRes.error || 'Firestore yozishda xatolik.' });
+  }
+  const db = readDatabase();
+  if (!Array.isArray(db.mosques)) db.mosques = [];
+  db.mosques = [record, ...db.mosques.filter((m: any) => m.id !== safeId)];
+  writeDatabase(db);
+  return res.json({ success: true, firestoreSynced: true, mosque: record });
+});
+
+app.delete('/api/database/mosques/:id', requireAdminAuth, async (req: Request, res: Response) => {
+  const safeId = String(req.params.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fsRes = await serverDeleteFirestoreDoc('mosques', safeId);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: fsRes.error || 'Firestore oʻchirishda xatolik.' });
+  }
+  const db = readDatabase();
+  if (Array.isArray(db.mosques)) {
+    db.mosques = db.mosques.filter((m: any) => m.id !== safeId);
+    writeDatabase(db);
+  }
+  return res.json({ success: true, deletedId: safeId });
+});
+
+app.get('/api/database/academy-progress', async (req: Request, res: Response) => {
+  const userId = String(req.query.userId || '').trim();
+  if (!userId || !/^[a-zA-Z0-9_-]{3,80}$/.test(userId)) {
+    return res.status(400).json({ success: false, error: 'Toʻgʻri userId talab qilinadi.' });
+  }
+  const docId = `acad_${userId}`;
+  const fsDocRes = await serverReadFirestoreDoc('quranAcademyProgress', docId);
+  if (!fsDocRes.error && fsDocRes.data) {
+    return res.json({ success: true, source: 'firestore', progress: fsDocRes.data });
+  }
+  const db = readDatabase();
+  const cached = db.academyProgress?.[docId] || null;
+  if (cached) {
+    return res.json({ success: true, source: 'firestore_mirrored_cache', progress: cached });
+  }
+  return res.json({ success: true, source: 'empty', progress: null });
+});
+
+app.post('/api/database/academy-progress', async (req: Request, res: Response) => {
+  const { userId, progress } = req.body || {};
+  const cleanUid = String(userId || '').trim();
+  if (!cleanUid || !/^[a-zA-Z0-9_-]{3,80}$/.test(cleanUid) || !progress || typeof progress !== 'object') {
+    return res.status(400).json({ success: false, error: 'userId va progress obyekti majburiy.' });
+  }
+  const docId = `acad_${cleanUid}`;
+  const record = {
+    ...progress,
+    id: docId,
+    userId: cleanUid,
+    updatedAt: new Date().toISOString(),
+  };
+  const fsRes = await serverWriteFirestoreDoc('quranAcademyProgress', docId, record);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, firestoreSynced: false, error: fsRes.error });
+  }
+  const db = readDatabase();
+  if (!db.academyProgress || typeof db.academyProgress !== 'object') db.academyProgress = {};
+  db.academyProgress[docId] = record;
+  writeDatabase(db);
+  return res.json({ success: true, firestoreSynced: true, progress: record });
+});
+
+app.get('/api/database/istiqomat', async (req: Request, res: Response) => {
+  const userId = String(req.query.userId || '').trim();
+  if (!userId || !/^[a-zA-Z0-9_-]{3,80}$/.test(userId)) {
+    return res.status(400).json({ success: false, error: 'Toʻgʻri userId talab qilinadi.' });
+  }
+  const docId = `istiq_${userId}`;
+  const fsDocRes = await serverReadFirestoreDoc('istiqomatLogs', docId);
+  if (!fsDocRes.error && fsDocRes.data) {
+    return res.json({ success: true, source: 'firestore', data: fsDocRes.data });
+  }
+  const db = readDatabase();
+  const cached = db.istiqomatLogs?.[docId] || null;
+  if (cached) {
+    return res.json({ success: true, source: 'firestore_mirrored_cache', data: cached });
+  }
+  return res.json({ success: true, source: 'empty', data: null });
+});
+
+app.post('/api/database/istiqomat', async (req: Request, res: Response) => {
+  const { userId, data } = req.body || {};
+  const cleanUid = String(userId || '').trim();
+  if (!cleanUid || !/^[a-zA-Z0-9_-]{3,80}$/.test(cleanUid) || !data || typeof data !== 'object') {
+    return res.status(400).json({ success: false, error: 'userId va data obyekti majburiy.' });
+  }
+  const docId = `istiq_${cleanUid}`;
+  const record = {
+    ...data,
+    id: docId,
+    userId: cleanUid,
+    updatedAt: new Date().toISOString(),
+  };
+  const fsRes = await serverWriteFirestoreDoc('istiqomatLogs', docId, record);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, firestoreSynced: false, error: fsRes.error });
+  }
+  const db = readDatabase();
+  if (!db.istiqomatLogs || typeof db.istiqomatLogs !== 'object') db.istiqomatLogs = {};
+  db.istiqomatLogs[docId] = record;
+  writeDatabase(db);
+  return res.json({ success: true, firestoreSynced: true, data: record });
+});
+
+app.get('/api/database/digital-books', async (_req: Request, res: Response) => {
+  const fsDocs = await serverReadFirestoreCollection('digitalBooks');
+  if (Array.isArray(fsDocs) && fsDocs.length > 0) {
+    return res.json({ success: true, source: 'firestore', books: fsDocs });
+  }
+  const db = readDatabase();
+  return res.json({ success: true, source: 'cache', books: Array.isArray(db.digitalBooks) ? db.digitalBooks : [] });
+});
+
+app.post('/api/database/digital-books', requireAdminAuth, async (req: Request, res: Response) => {
+  const book = req.body?.book || req.body;
+  if (!book?.id || !book?.title) {
+    return res.status(400).json({ success: false, error: 'Kitob ID va nomi majburiy.' });
+  }
+  const safeId = String(book.id).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+  const record = { ...book, id: safeId, updatedAt: new Date().toISOString() };
+  const fsRes = await serverWriteFirestoreDoc('digitalBooks', safeId, record);
+  if (!fsRes.success) {
+    return res.status(500).json({ success: false, error: fsRes.error || 'Firestore yozishda xatolik.' });
+  }
+  const db = readDatabase();
+  if (!Array.isArray(db.digitalBooks)) db.digitalBooks = [];
+  db.digitalBooks = [record, ...db.digitalBooks.filter((b: any) => b.id !== safeId)];
+  writeDatabase(db);
+  return res.json({ success: true, firestoreSynced: true, book: record });
 });
 
 // ---------------------------------------------------------------------------
@@ -5074,7 +5366,7 @@ app.post('/api/admin/quran-audio/ai-align', requireAdminAuth, async (req: Reques
       if (ayahAlignments.length !== totalAyahs && apiKey) {
         try {
           const ai = new GoogleGenAI({ apiKey });
-          const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+          const modelName = resolveActiveGeminiModel();
           const prompt = `Analyze audio for Surah ${num} (${totalAyahs} ayahs) with duration ${durationSeconds}s. Return valid JSON array of objects with {ayahNumberInSurah, startTimeMs, endTimeMs, confidence}.`;
           const resp = await ai.models.generateContent({ model: modelName, contents: prompt });
           const text = resp.text ? resp.text.trim() : '';

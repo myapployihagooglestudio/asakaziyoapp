@@ -1,9 +1,12 @@
 /**
- * ASAKA ZIYO — Supabase Cloud Data Synchronization Service
- * 
- * Provides robust optional cloud database synchronization using Supabase JavaScript client,
- * replacing legacy direct JSON reliance while keeping Firebase Authentication and Firestore 
- * as the primary security and auth engine.
+ * ASAKA ZIYO — Supabase Secondary Backup & Disaster-Recovery Service
+ *
+ * DATABASE OWNERSHIP POLICY (STRICT):
+ * - Primary Authoritative Source of Truth: Firebase Firestore (`firebase_firestore`)
+ * - Secondary Read/Backup Archive Only: Supabase (`secondary_backup_only`)
+ * - Conflict Resolution: Firebase Firestore ALWAYS wins over Supabase snapshots.
+ * - Uncontrolled bidirectional dual-write is prohibited. Supabase only receives explicit
+ *   snapshot backups after Firestore confirmation, and failures here NEVER block Firestore.
  */
 
 import { getStoredSupabaseConfig, getSupabaseClient } from './supabaseClient';
@@ -18,8 +21,16 @@ import {
   SupportInquiry,
 } from '../types';
 
+export const DATABASE_AUTHORITY_POLICY = {
+  primary: 'firebase_firestore' as const,
+  secondary: 'supabase_backup_only' as const,
+  conflictWinner: 'firebase_firestore' as const,
+  allowUncontrolledDualWrite: false as const,
+};
+
 export interface SupabaseSyncResult {
   success: boolean;
+  role?: 'secondary_backup_only';
   syncedTables?: string[];
   failedTables?: { table: string; error: string }[];
   error?: string;

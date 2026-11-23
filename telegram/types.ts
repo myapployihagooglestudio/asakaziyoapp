@@ -606,8 +606,84 @@ export interface TelegramBotSettingsRecord {
   }>;
   /** Persistent idempotent notification delivery log (bounded latest 500) */
   notificationDispatchLog?: TelegramNotificationDispatchRecord[];
+  /** Monotonic version counter preventing stale cache/container rollback */
+  version?: number;
+  /** Latest emoji registry version synchronized with appConfig/emojiRegistry */
+  emojiRegistryVersion?: number;
   updatedAt: string;
   updatedBy: string;
+}
+
+export interface RollbackWarningRecord {
+  id: string;
+  target: 'settings' | 'custom_emoji' | 'emoji_registry' | 'polling_conflict' | 'firestore_degraded' | 'supabase_guard';
+  source: string;
+  functionName: string;
+  currentVersion: number;
+  incomingVersion: number;
+  reason: string;
+  createdAt: string;
+}
+
+export interface TelegramRuntimeInstanceRecord {
+  id: string;
+  instanceId: string;
+  deploymentId: string;
+  gitCommit: string;
+  buildVersion: string;
+  processId: number;
+  hostname: string;
+  mode: string;
+  configVersion: number;
+  emojiRegistryVersion: number;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  pollingActive: boolean;
+  pollingConflictCount: number;
+}
+
+export interface TelegramLatencyBucketStats {
+  count: number;
+  avgMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+  maxMs: number;
+  errorCount: number;
+}
+
+export interface TelegramLatencySample {
+  update_id: number;
+  user_id_masked: string;
+  handler_name: string;
+  category: 'start' | 'callback' | 'menu' | 'command' | 'ai' | 'media' | 'other';
+  instance_id: string;
+  deployment_id: string;
+  git_commit: string;
+  processing_time_ms: number;
+  database_time_ms: number;
+  api_time_ms: number;
+  status: 'ok' | 'rate_limited' | 'maintenance' | 'ignored' | 'error';
+  error_code?: string;
+  timestamp: string;
+}
+
+export interface TelegramPerformanceSummary {
+  instanceId: string;
+  deploymentId: string;
+  gitCommit: string;
+  buildVersion: string;
+  processId: number;
+  uptimeSec: number;
+  activeUserQueues: number;
+  inFlightUpdates: number;
+  deduplicatedUpdates: number;
+  totalProcessed: number;
+  overall: TelegramLatencyBucketStats;
+  byCategory: Record<string, TelegramLatencyBucketStats>;
+  database: TelegramLatencyBucketStats;
+  telegramApi: TelegramLatencyBucketStats;
+  recentSlowUpdates: TelegramLatencySample[];
 }
 
 export interface TelegramNotificationDispatchRecord {
@@ -735,13 +811,28 @@ export type CustomEmojiCategory =
   | 'loading'
   | 'statistics'
   | 'support'
+  | 'ramadan_banner'
+  | 'welcome'
+  | 'confirm'
+  | 'error_cancel'
+  | 'important_warning'
+  | 'idea_advice'
+  | 'fire_great'
+  | 'learning'
+  | 'media'
+  | 'publishing'
   | 'custom'
   | 'seasonal'
   | 'announcement'
   | (string & {});
 
+export type CustomEmojiWebAssetFormat = 'webp' | 'webm' | 'tgs' | 'png' | 'unknown';
+
+export type CustomEmojiSlotStatus = 'verified' | 'unverified' | 'missing' | 'disabled';
+
 export interface CustomEmojiEntry {
   key: string;
+  name?: string;
   category: CustomEmojiCategory;
   /**
    * Internal 1-grapheme technical anchor required ONLY when Telegram renders a
@@ -753,15 +844,58 @@ export interface CustomEmojiEntry {
   semanticPurpose?: string;
   usedIn?: string[];
   isCustomAdminSlot?: boolean;
+  isExtended30Slot?: boolean;
+  status?: CustomEmojiSlotStatus;
+  unicodeFallbackDisabled?: boolean;
   enabled?: boolean;
   verified: boolean;
   verifiedAt?: string;
   stickerSetName?: string;
   supportsKeyboardIcon: boolean;
   description: string;
+  /** Server-side proxy asset URL for Web App & Android WebView (zero bot token leaked) */
+  webAssetUrl?: string | null;
+  /** Resolved sticker format from Telegram API (`webp` static, `webm` video, `tgs` Lottie) */
+  webAssetFormat?: CustomEmojiWebAssetFormat;
+  /** Whether the resolved format renders natively in browsers/WebView without plain emoji fallback */
+  webRenderable?: boolean;
+  /** Monotonic per-slot revision */
+  version?: number;
   createdAt?: string;
   updatedBy?: string;
   updatedAt: string;
+}
+
+export interface AppConfigEmojiRegistryDocument {
+  id: 'emojiRegistry';
+  version: number;
+  updatedAt: string;
+  updatedBy: string;
+  totalSlots: number;
+  canonicalCount: number;
+  verifiedCount: number;
+  emojis: Record<
+    string,
+    {
+      key: string;
+      category: string;
+      customEmojiId: string | null;
+      enabled: boolean;
+      verified: boolean;
+      verifiedAt?: string;
+      stickerSetName?: string;
+      webAssetUrl: string | null;
+      webAssetFormat: CustomEmojiWebAssetFormat;
+      webRenderable: boolean;
+      description: string;
+      semanticPurpose?: string;
+      usedIn?: string[];
+      isCustomAdminSlot?: boolean;
+      version: number;
+      updatedAt: string;
+      updatedBy?: string;
+    }
+  >;
 }
 
 export interface TelegramEmojiAuditReport {

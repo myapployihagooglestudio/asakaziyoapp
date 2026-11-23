@@ -3779,6 +3779,13 @@ export async function handleCallbackQuery(
         enabled: true,
       });
       await ctx.repository.saveCustomEmoji(savedEntry);
+      {
+        const nextVer = (ctx.repository.getAppConfigEmojiRegistry()?.version || 0) + 1;
+        await ctx.repository.saveAppConfigEmojiRegistry(
+          ctx.emojiRegistry.toAppConfigDocument(nextVer, user.telegramId),
+          ctx.emojiRegistry.toPremiumEmojisConfigDocument(nextVer, user.telegramId)
+        );
+      }
       ctx.emojiRegistry.setPremiumEnabled(true);
       ctx.emojiRegistry.setKeyboardIconsEnabled(true);
       const updatedSettings = await ctx.repository.saveSettings(
@@ -3837,6 +3844,13 @@ export async function handleCallbackQuery(
           user.telegramId
         );
         await ctx.repository.saveCustomEmoji(updated);
+        {
+          const nextVer = (ctx.repository.getAppConfigEmojiRegistry()?.version || 0) + 1;
+          await ctx.repository.saveAppConfigEmojiRegistry(
+            ctx.emojiRegistry.toAppConfigDocument(nextVer, user.telegramId),
+            ctx.emojiRegistry.toPremiumEmojisConfigDocument(nextVer, user.telegramId)
+          );
+        }
         await ctx.repository.appendAuditLog({
           actorTelegramId: user.telegramId,
           actorRole: role,
@@ -3874,6 +3888,13 @@ export async function handleCallbackQuery(
         await ctx.repository.deleteCustomEmoji(slotKey);
       } else if (outcome.entry) {
         await ctx.repository.saveCustomEmoji(outcome.entry);
+      }
+      {
+        const nextVer = (ctx.repository.getAppConfigEmojiRegistry()?.version || 0) + 1;
+        await ctx.repository.saveAppConfigEmojiRegistry(
+          ctx.emojiRegistry.toAppConfigDocument(nextVer, user.telegramId),
+          ctx.emojiRegistry.toPremiumEmojisConfigDocument(nextVer, user.telegramId)
+        );
       }
       await ctx.repository.appendAuditLog({
         actorTelegramId: user.telegramId,
@@ -4013,6 +4034,13 @@ export async function handleCallbackQuery(
       const ver = await ctx.emojiRegistry.verifyAllWithTelegramApi(ctx.apiClient);
       for (const entry of ctx.emojiRegistry.listAll()) {
         if (entry.customEmojiId) await ctx.repository.saveCustomEmoji(entry);
+      }
+      {
+        const nextVer = (ctx.repository.getAppConfigEmojiRegistry()?.version || 0) + 1;
+        await ctx.repository.saveAppConfigEmojiRegistry(
+          ctx.emojiRegistry.toAppConfigDocument(nextVer, user.telegramId),
+          ctx.emojiRegistry.toPremiumEmojisConfigDocument(nextVer, user.telegramId)
+        );
       }
       await ctx.repository.appendAuditLog({
         actorTelegramId: user.telegramId,
