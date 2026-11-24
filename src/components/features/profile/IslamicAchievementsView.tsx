@@ -1,159 +1,197 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { PersonalProgressSummary, IslamicAchievementMilestone } from '../../../types';
+import { PersonalProgressSummary } from '../../../types';
 import { Card } from '../../ui/Card';
-import { Button } from '../../ui/Button';
-import { IslamicHairlineDivider, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
 import {
-  getStoredUserAchievements,
-  saveStoredUserAchievements,
-} from '../../../utils/databaseService';
-import {
-  Award,
-  Sparkles,
-  BookOpen,
-  Clock,
-  Heart,
-  TrendingUp,
-  Shield,
-  Lock,
-  CheckCircle2,
-  Calendar,
-} from 'lucide-react';
+  StaggerGrid,
+  StaggerCard,
+  InteractiveCounter,
+  AnimatedProgressRing,
+  SpatialTiltCard,
+} from '../../ui/MotionPrimitives';
+import { getStoredUserAchievements } from '../../../utils/databaseService';
+import { Award, Lock, CheckCircle2 } from 'lucide-react';
 
 export const IslamicAchievementsView: React.FC = () => {
-  const { t } = useTranslation();
   const userId = 'asaka_user_current';
 
-  const [summary, setSummary] = useState<PersonalProgressSummary>(() =>
+  const [summary] = useState<PersonalProgressSummary>(() =>
     getStoredUserAchievements(userId)
   );
 
   const unlockedCount = summary.achievements.filter((a) => a.isUnlocked).length;
+  const overallPercent =
+    summary.achievements.length > 0
+      ? Math.round((unlockedCount / summary.achievements.length) * 100)
+      : 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8 animate-in fade-in">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#064e3b] via-[#052b22] to-[#041d18] border border-[#c5a869]/30 p-6 sm:p-8 text-white shadow-xl">
-        <div className="space-y-2 max-w-xl">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#d4af37]">
-            <Award className="w-4 h-4 text-[#d4af37]" />
-            <span>Shaxsiy Maʼnaviy Rivojlanish & Yutuqlar</span>
+    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+      <PageHero
+        variant="sanctuary"
+        kicker="Shaxsiy Maʼnaviy Rivojlanish · Yutuqlar"
+        title="Islomiy Amallar va Foydali Odatlar"
+        subtitle="Qurʼon mutolaasi, namoz intizomi va zikr odatlarini shaxsiy ragʻbat bilan rivojlantiring. Bu yutuqlar faqat oʻzingizning ruhiy kamolotingiz uchundir."
+        aside={
+          <div className="flex items-center justify-center sm:justify-end">
+            <div className="rounded-3xl bg-white/[0.06] border border-white/[0.12] backdrop-blur-md p-4 flex items-center gap-4">
+              <AnimatedProgressRing progress={overallPercent} size={96} strokeWidth={7}>
+                <span className="font-mono-numbers text-lg font-extrabold text-[#F7F4EC]">
+                  {overallPercent}%
+                </span>
+              </AnimatedProgressRing>
+              <div className="space-y-0.5 pr-2">
+                <div className="text-[11px] uppercase tracking-wider text-[#C8A85E] font-semibold">
+                  Ochilgan bosqich
+                </div>
+                <div className="text-xl font-display font-bold text-[#F7F4EC] font-mono-numbers">
+                  {unlockedCount} / {summary.achievements.length}
+                </div>
+                <div className="text-xs text-[#C2D4CD]">Shaxsiy ixlos daftari</div>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-white">
-            Islomiy Amallar va Foydali Odatlar
-          </h1>
-          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed">
-            Qurʼon mutolaasi, namoz intizomi va zikr odatlarini shaxsiy ragʻbat bilan rivojlantiring. Bu yutuqlar faqat oʻzingizning ruhiy kamolotingiz uchundir.
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {/* Disclaimers & Ethics */}
-      <div className="p-4 rounded-2xl bg-[#F3EFE6]/70 dark:bg-[#071614] border border-stone-200/80 dark:border-[#c5a869]/20 text-xs text-stone-700 dark:text-stone-300 space-y-1">
-        <div className="font-bold text-[#9E7F3C] dark:text-[#c5a869] flex items-center gap-1.5">
+      <Card elevated className="p-4 sm:p-5 space-y-1.5">
+        <div className="text-xs font-bold text-[#9E7F3C] dark:text-[#C8A85E] flex items-center gap-1.5">
           <Lock className="w-3.5 h-3.5" />
-          <span>Ibodat Odobi va Riyo Xavfidan Himoya:</span>
+          <span>Ibodat Odobi va Riyo Xavfidan Himoya</span>
         </div>
-        <p className="leading-relaxed">
+        <p className="text-xs sm:text-sm text-[#3B554D] dark:text-[#A4B9B1] leading-relaxed">
           Amallar faqat Alloh taolo roziligi uchun qilinadi. Ushbu ilova foydalanuvchilar oʻrtasida diniy musobaqa yoki reyting oʻrnatmaydi. Maʼlumotlar toʻliq maxfiy boʻlib, kishining ixlosini saqlashga xizmat qiladi.
         </p>
-      </div>
+      </Card>
 
-      {/* 4 Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0B1F1C] border border-stone-200/90 dark:border-[#c5a869]/30 shadow-xs">
-          <div className="text-[11px] text-stone-500 dark:text-stone-400">Sobitqadamlik (Streak)</div>
-          <div className="text-xl sm:text-2xl font-bold font-mono-numbers text-[#9E7F3C] dark:text-[#c5a869] mt-1">
-            {summary.streakDays} kun
+      {/* 4 Stats Bento Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
+        <Card elevated className="p-4 sm:p-5 text-center space-y-1">
+          <div className="text-[11px] font-medium text-[#587068] dark:text-[#9CAFA7]">
+            Sobitqadamlik (Streak)
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0B1F1C] border border-stone-200/90 dark:border-[#c5a869]/30 shadow-xs">
-          <div className="text-[11px] text-stone-500 dark:text-stone-400">Qurʼon Sahifalari</div>
-          <div className="text-xl sm:text-2xl font-bold font-mono-numbers text-emerald-600 dark:text-emerald-400 mt-1">
-            {summary.quranPagesReadTotal} bet
+          <div className="text-xl sm:text-2xl font-display font-extrabold text-[#9E7F3C] dark:text-[#C8A85E]">
+            <InteractiveCounter value={summary.streakDays} suffix=" kun" />
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0B1F1C] border border-stone-200/90 dark:border-[#c5a869]/30 shadow-xs">
-          <div className="text-[11px] text-stone-500 dark:text-stone-400">Jami Zikrlar</div>
-          <div className="text-xl sm:text-2xl font-bold font-mono-numbers text-stone-800 dark:text-stone-200 mt-1">
-            {summary.dhikrsCountTotal} marta
+        </Card>
+
+        <Card elevated className="p-4 sm:p-5 text-center space-y-1">
+          <div className="text-[11px] font-medium text-[#587068] dark:text-[#9CAFA7]">
+            Qurʼon Sahifalari
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0B1F1C] border border-stone-200/90 dark:border-[#c5a869]/30 shadow-xs">
-          <div className="text-[11px] text-stone-500 dark:text-stone-400">Ochilgan Bosqichlar</div>
-          <div className="text-xl sm:text-2xl font-bold font-mono-numbers text-[#9E7F3C] dark:text-[#c5a869] mt-1">
+          <div className="text-xl sm:text-2xl font-display font-extrabold text-[#064E3B] dark:text-[#10B981]">
+            <InteractiveCounter value={summary.quranPagesReadTotal} suffix=" bet" />
+          </div>
+        </Card>
+
+        <Card elevated className="p-4 sm:p-5 text-center space-y-1">
+          <div className="text-[11px] font-medium text-[#587068] dark:text-[#9CAFA7]">
+            Jami Zikrlar
+          </div>
+          <div className="text-xl sm:text-2xl font-display font-extrabold text-[#091813] dark:text-[#F7F4EC]">
+            <InteractiveCounter value={summary.dhikrsCountTotal} suffix=" marta" />
+          </div>
+        </Card>
+
+        <Card elevated className="p-4 sm:p-5 text-center space-y-1">
+          <div className="text-[11px] font-medium text-[#587068] dark:text-[#9CAFA7]">
+            Ochilgan Bosqichlar
+          </div>
+          <div className="text-xl sm:text-2xl font-display font-extrabold text-[#9E7F3C] dark:text-[#C8A85E] font-mono-numbers">
             {unlockedCount} / {summary.achievements.length}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Milestones Grid */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-stone-700 dark:text-stone-300">
+        <h2 className="az-type-overline text-[#587068] dark:text-[#9CAFA7] px-1">
           Shaxsiy Bosqichlar (Milestones)
-        </h3>
+        </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {summary.achievements.map((item) => {
             const percent = Math.min(100, Math.round((item.currentCount / item.targetCount) * 100));
 
             return (
-              <Card
-                key={item.id}
-                elevated
-                className="p-5 space-y-4 border-stone-200/90 dark:border-[#c5a869]/30 bg-white dark:bg-[#0B1F1C]"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
-                        item.isUnlocked
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                          : 'bg-stone-100 dark:bg-white/5 text-stone-400'
-                      }`}
-                    >
-                      <Award className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-stone-900 dark:text-white">
-                        {item.titleUz}
-                      </h4>
-                      <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                        {item.descriptionUz}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      item.isUnlocked
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-stone-100 dark:bg-white/5 text-stone-500'
+              <StaggerCard key={item.id}>
+                <SpatialTiltCard
+                  maxTilt={3}
+                  glowColor={
+                    item.isUnlocked
+                      ? 'rgba(16, 185, 129, 0.22)'
+                      : 'rgba(200, 168, 94, 0.16)'
+                  }
+                >
+                  <Card
+                    elevated
+                    className={`p-5 h-full space-y-4 ${
+                      item.isUnlocked ? 'ring-1 ring-emerald-500/35' : ''
                     }`}
                   >
-                    {item.isUnlocked ? 'Erishildi' : 'Jarayonda'}
-                  </span>
-                </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                            item.isUnlocked
+                              ? 'bg-emerald-500/15 text-[#064E3B] dark:text-[#10B981] border border-emerald-500/30'
+                              : 'az-liquid-glass-pill text-[#587068] dark:text-[#9CAFA7]'
+                          }`}
+                        >
+                          {item.isUnlocked ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : (
+                            <Award className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-sm sm:text-[15px] font-bold text-[#091813] dark:text-[#F7F4EC]">
+                            {item.titleUz}
+                          </h3>
+                          <p className="text-xs text-[#587068] dark:text-[#9CAFA7] mt-0.5">
+                            {item.descriptionUz}
+                          </p>
+                        </div>
+                      </div>
 
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex justify-between items-center text-[11px] font-mono-numbers text-stone-500">
-                    <span>Natija: {item.currentCount} / {item.targetCount}</span>
-                    <span>{percent}%</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-stone-100 dark:bg-emerald-950/80 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        item.isUnlocked ? 'bg-emerald-500' : 'bg-[#c5a869]'
-                      }`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
-              </Card>
+                      <span
+                        className={`text-[11px] font-semibold shrink-0 ${
+                          item.isUnlocked
+                            ? 'text-[#064E3B] dark:text-[#10B981]'
+                            : 'text-[#587068] dark:text-[#9CAFA7]'
+                        }`}
+                      >
+                        {item.isUnlocked ? 'Erishildi' : 'Jarayonda'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex justify-between items-center text-[11px] font-mono-numbers text-[#587068] dark:text-[#9CAFA7]">
+                        <span>
+                          Natija: {item.currentCount} / {item.targetCount}
+                        </span>
+                        <span className="font-semibold text-[#091813] dark:text-[#F7F4EC]">
+                          {percent}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-black/[0.06] dark:bg-white/[0.08] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            item.isUnlocked
+                              ? 'bg-gradient-to-r from-[#064E3B] to-[#10B981]'
+                              : 'bg-gradient-to-r from-[#9E7F3C] to-[#C8A85E]'
+                          }`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                </SpatialTiltCard>
+              </StaggerCard>
             );
           })}
-        </div>
+        </StaggerGrid>
       </div>
     </div>
   );

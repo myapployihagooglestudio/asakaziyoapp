@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, useReducedMotion } from 'motion/react';
 import { NavigationTab } from '../../types';
 import { Home, BookOpen, Clock, Bot, LayoutGrid } from 'lucide-react';
+import { triggerTactileHaptic } from '../../utils/motionSystem';
 
 interface MobileNavProps {
   activeTab: NavigationTab;
@@ -43,20 +44,24 @@ export const MobileNav: React.FC<MobileNavProps> = ({
           {items.map((item) => {
             const isActive = activeTab === item.id;
             return (
-              <button
+              <motion.button
                 key={item.id}
                 type="button"
-                onClick={() => onSelectTab(item.id)}
+                whileTap={prefersReduced ? undefined : { scale: 0.94 }}
+                onClick={() => {
+                  triggerTactileHaptic(8);
+                  onSelectTab(item.id);
+                }}
                 className={`relative flex flex-col items-center justify-center min-h-[48px] px-1 rounded-full transition-colors cursor-pointer ${
                   isActive
-                    ? 'text-[#F7F5F0] dark:text-[#07110D] font-bold'
-                    : 'text-[#526B62] dark:text-[#9AB0A7] hover:text-[#0B1B16] dark:hover:text-white'
+                    ? 'text-[#F7F4EC] dark:text-[#050C09] font-bold'
+                    : 'text-[#526B62] dark:text-[#9AB0A7] hover:text-[#091813] dark:hover:text-white'
                 }`}
               >
                 {isActive && (
                   <motion.span
                     layoutId="mobile-dock-active-pill"
-                    className="absolute inset-0 rounded-full bg-[#064E3B]/92 dark:bg-[#C8A85E] shadow-[0_1px_0_rgba(255,255,255,0.34)_inset,0_10px_22px_-8px_rgba(6,78,59,0.58)] dark:shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_10px_22px_-8px_rgba(200,168,94,0.5)]"
+                    className="absolute inset-0 rounded-full bg-[#064E3B]/95 dark:bg-[#C8A85E] shadow-[0_1px_0_rgba(255,255,255,0.34)_inset,0_10px_22px_-8px_rgba(6,78,59,0.58)] dark:shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_10px_22px_-8px_rgba(200,168,94,0.5)]"
                     transition={
                       prefersReduced
                         ? { duration: 0 }
@@ -68,7 +73,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 <span className="relative z-10 text-[10px] tracking-tight whitespace-nowrap truncate max-w-full leading-none">
                   {t(item.labelKey, item.fallback)}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
 

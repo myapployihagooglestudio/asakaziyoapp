@@ -20,7 +20,8 @@ import { ADMIN_ROLES_CONFIG, INITIAL_AUDIT_LOGS } from '../../../data/adminData'
 import { resolveAsakaDateContext } from '../../../../telegram/services/dateCalendarService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern, IslamicStarEmblem, ArabesqueCornerOrnaments } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import { GeometricPattern, IslamicStarEmblem } from '../../ui/GeometricPattern';
 import {
   Shield,
   ShieldCheck,
@@ -1861,8 +1862,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       return (
         <div className="min-h-[70vh] flex items-center justify-center p-4">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-3 border-[#c5a869] border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-stone-400 font-mono">Xavfsiz administrator sessiyasi tekshirilmoqda...</p>
+            <div className="w-10 h-10 border-[3px] border-[#064E3B] dark:border-[#10B981] border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-[#587068] dark:text-[#9CAFA7] font-mono">
+              Xavfsiz administrator sessiyasi tekshirilmoqda...
+            </p>
           </div>
         </div>
       );
@@ -1871,24 +1874,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
-          <Card elevated ornamental className="p-6 sm:p-8 relative overflow-hidden border-[#DFBD69]/55 shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
-            <GeometricPattern opacity={0.06} />
+          <Card elevated className="p-6 sm:p-8 relative overflow-hidden">
+            <GeometricPattern opacity={0.04} />
 
             <div className="relative z-10 space-y-6">
               <div className="text-center space-y-2">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-[#041D13] border border-[#DFBD69]/50 flex items-center justify-center shadow-lg">
-                  <Lock className="w-7 h-7 text-[#DFBD69]" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-[#064E3B] dark:bg-[#10B981]/15 border border-[#C8A85E]/40 flex items-center justify-center shadow-lg">
+                  <Lock className="w-7 h-7 text-[#E5C97B] dark:text-[#C8A85E]" />
                 </div>
-                <h2 className="text-2xl font-display font-bold text-[#03170F] dark:text-[#FFF8E8]">
+                <h2 className="text-2xl font-display font-bold text-[#091813] dark:text-[#F7F4EC]">
                   Maʼmuriyat Konsoli
                 </h2>
-                <p className="text-xs text-stone-500 dark:text-[#FFF8E8]/70">
+                <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">
                   Asaka Ziyo tizimini boshqarish uchun shaxsiy administrator login va parolingizni kiriting.
                 </p>
               </div>
 
               {loginError && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs flex items-center gap-2 animate-in fade-in">
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{loginError}</span>
                 </div>
@@ -1896,69 +1899,69 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
               {/* Enterprise Administrator Login Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
-                      Administrator logini:
-                    </label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#3B554D] dark:text-[#A4B9B1]">
+                    Administrator logini:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="username"
+                    placeholder="Loginni kiriting"
+                    value={loginInput}
+                    onChange={(e) => setLoginInput(e.target.value)}
+                    className="w-full p-3 min-h-[44px] rounded-xl border border-black/[0.1] dark:border-white/[0.12] bg-white/70 dark:bg-white/[0.04] text-[#091813] dark:text-[#F7F4EC] text-xs font-mono focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#3B554D] dark:text-[#A4B9B1]">
+                    Maxfiy Parol:
+                  </label>
+                  <div className="relative">
                     <input
-                      type="text"
+                      type={showPassword ? 'text' : 'password'}
                       required
-                      autoComplete="username"
-                      placeholder="Loginni kiriting"
-                      value={loginInput}
-                      onChange={(e) => setLoginInput(e.target.value)}
-                      className="w-full p-3 rounded-xl border border-[#DFBD69]/35 bg-[#F8F5EC] dark:bg-[#010906] text-xs font-mono focus:outline-none focus:border-[#DFBD69]"
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      className="w-full p-3 pr-10 min-h-[44px] rounded-xl border border-black/[0.1] dark:border-white/[0.12] bg-white/70 dark:bg-white/[0.04] text-[#091813] dark:text-[#F7F4EC] text-xs font-mono focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-[#587068] dark:text-[#9CAFA7] hover:text-[#091813] dark:hover:text-[#F7F4EC] cursor-pointer"
+                      title={showPassword ? 'Parolni yashirish' : 'Parolni koʻrsatish'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
+                </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-stone-700 dark:text-stone-300">
-                      Maxfiy Parol:
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        autoComplete="current-password"
-                        placeholder="••••••••"
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full p-3 pr-10 rounded-xl border border-[#DFBD69]/35 bg-[#F8F5EC] dark:bg-[#010906] text-xs font-mono focus:outline-none focus:border-[#DFBD69]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-3 text-stone-400 hover:text-stone-200 cursor-pointer"
-                        title={showPassword ? 'Parolni yashirish' : 'Parolni koʻrsatish'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    disabled={isSubmittingAuth}
-                    className="w-full justify-center text-xs font-bold py-3.5 tracking-wider uppercase cursor-pointer"
-                  >
-                    {isSubmittingAuth ? (
-                      <span>Tekshirilmoqda...</span>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4 mr-1.5" />
-                        <span>Konsolga Kirish</span>
-                      </>
-                    )}
-                  </Button>
-                </form>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  disabled={isSubmittingAuth}
+                  className="w-full min-h-[48px] justify-center text-xs font-bold tracking-wider uppercase cursor-pointer"
+                >
+                  {isSubmittingAuth ? (
+                    <span>Tekshirilmoqda...</span>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4 mr-1.5" />
+                      <span>Konsolga Kirish</span>
+                    </>
+                  )}
+                </Button>
+              </form>
 
               <div className="pt-2 text-center">
                 <button
                   type="button"
                   onClick={onExitAdmin}
-                  className="text-xs text-stone-500 hover:text-[#DFBD69] transition-colors cursor-pointer"
+                  className="text-xs text-[#587068] dark:text-[#9CAFA7] hover:text-[#064E3B] dark:hover:text-[#C8A85E] transition-colors cursor-pointer min-h-[36px] px-2"
                 >
                   ← Bosh sahifaga qaytish
                 </button>
@@ -1979,72 +1982,73 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   return (
     <div className="space-y-6 pb-20 max-w-full overflow-x-hidden">
-      {/* Top Banner & User Session Info */}
-      <div className="relative p-5 sm:p-6 rounded-3xl az-hero-sanctuary border border-[#DFBD69]/55 text-[#FFF8E8] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-[0_24px_70px_rgba(1,9,6,0.65)] overflow-hidden">
-        <ArabesqueCornerOrnaments size={22} />
-        <div className="relative z-10 flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-[#010906]/80 border border-[#DFBD69]/55 flex items-center justify-center shrink-0 shadow-lg">
-            <ShieldCheck className="w-6 h-6 text-[#DFBD69]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-display text-lg font-bold text-[#FFF8E8] tracking-wide">
-                ASAKA ZIYO — Maʼmuriyat Markazi
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold az-gold-foil-bg text-[#010906]">
-                {adminUser?.role || activeRole}
-              </span>
+      {/* Top SaaS Command Header */}
+      <PageHero
+        variant="saas"
+        kicker={`ASAKA ZIYO · Maʼmuriyat Konsoli · ${adminUser?.role || activeRole}`}
+        title="Maʼmuriyat Markazi"
+        subtitle={`Kirilgan hisob: ${adminUser?.username || AUTHORIZED_ADMIN_USERNAME} · Seans: Faol (Himoyalangan)${
+          aiStatusInfo
+            ? ` · Gemini AI: ${aiStatusInfo.model} (${aiStatusInfo.connected ? 'Ulangan' : 'Kalit kutilmoqda'})`
+            : ''
+        }`}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPasswordChangeModal(true)}
+              className="min-h-[42px] text-xs"
+            >
+              <Lock className="w-3.5 h-3.5 mr-1.5" />
+              <span>Parolni oʻzgartirish</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExitAdmin}
+              className="min-h-[42px] text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
+              <span>Ilovaga Qaytish</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="min-h-[42px] text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+            >
+              <LogOut className="w-3.5 h-3.5 mr-1.5" />
+              <span>Chiqish</span>
+            </Button>
+          </>
+        }
+        aside={
+          <div className="az-liquid-glass-card rounded-2xl p-4 flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-[#064E3B] dark:bg-[#10B981]/15 border border-[#C8A85E]/35 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-[#E5C97B] dark:text-[#10B981]" />
             </div>
-            <p className="text-xs text-[#FFF8E8]/80">
-              Kirilgan hisob:{' '}
-              <span className="font-semibold text-[#DFBD69]">
-                {adminUser?.username || AUTHORIZED_ADMIN_USERNAME}
-              </span>{' '}
-              · Maʼmuriyat seansi: <span className="font-mono text-emerald-400">Faol (Himoyalangan)</span>
-              {aiStatusInfo && (
-                <>
-                  {' '}· Gemini AI:{' '}
-                  <span className={aiStatusInfo.connected ? 'font-mono text-emerald-400' : 'font-mono text-amber-400'}>
-                    {aiStatusInfo.model} ({aiStatusInfo.connected ? 'Ulangan' : 'Kalit kutilmoqda'})
-                  </span>
-                </>
-              )}
-            </p>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-[#091813] dark:text-[#F7F4EC] truncate">
+                29 Enterprise Modul · 8 RBAC Rol
+              </div>
+              <div className="text-[11px] text-[#587068] dark:text-[#9CAFA7] truncate">
+                Real-vaqt Firestore & Telegram sinxronizatsiyasi
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-2 self-end sm:self-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowPasswordChangeModal(true)}
-            className="text-xs border-[#DFBD69]/50 text-[#DFBD69] hover:bg-[#DFBD69]/15"
-          >
-            <Lock className="w-3.5 h-3.5 mr-1" />
-            <span>Parolni oʻzgartirish</span>
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={onExitAdmin} className="text-xs border-[#FFF8E8]/30 text-[#FFF8E8]">
-            <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-            <span>Ilovaga Qaytish</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleLogout}
-            className="text-xs text-rose-400 hover:text-rose-300"
-          >
-            <LogOut className="w-3.5 h-3.5 mr-1" />
-            <span>Chiqish</span>
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Global Success Notification */}
       {saveSuccessMsg && (
-        <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs sm:text-sm font-semibold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle className="w-5 h-5 shrink-0" />
+        <div
+          role="status"
+          className="p-4 rounded-2xl bg-emerald-500/12 border border-emerald-500/35 text-[#064E3B] dark:text-emerald-300 text-xs sm:text-sm font-semibold flex items-center gap-2.5"
+        >
+          <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span>{saveSuccessMsg}</span>
         </div>
       )}

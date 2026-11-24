@@ -3,7 +3,14 @@ import { MediaPost } from '../../../types';
 import { getStoredMediaPosts, subscribeToDatabase } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { Play, Pause, Volume2, Video, Image as ImageIcon, Search, Clock, Headphones } from 'lucide-react';
+import { PageHero } from '../../ui/PageHero';
+import {
+  MorphingTabs,
+  StaggerGrid,
+  StaggerCard,
+  AudioWaveformBars,
+} from '../../ui/MotionPrimitives';
+import { Play, Pause, Volume2, Video, Image as ImageIcon, Search, Headphones } from 'lucide-react';
 
 export const MediaCenterView: React.FC = () => {
   const [posts, setPosts] = useState<MediaPost[]>(() =>
@@ -89,37 +96,50 @@ export const MediaCenterView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-16">
       <audio ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden" />
 
-      {/* Header */}
-      <section className="rounded-3xl bg-[#03170F] text-[#FFF8E8] border border-[#DFBD69]/35 p-6 sm:p-8 shadow-xl">
-        <p className="text-xs font-semibold tracking-widest uppercase text-[#DFBD69]">
-          Audio maʼruzalar · Video suhbatlar · Reels va Fotolenta
-        </p>
-        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold mt-2 text-balance">
-          ASAKA ZIYO Media Markazi
-        </h1>
-        <p className="text-sm sm:text-base text-[#E6DFCE]/85 mt-2 max-w-2xl leading-relaxed">
-          Maʼmuriyat tomonidan Firestore bazasiga yuklangan barcha rasmiy audio maʼruzalar, tilovatlar, video suhbatlar va maʼrifiy lavhalar.
-        </p>
-      </section>
+      <PageHero
+        variant="studio"
+        kicker="Audio Maʼruzalar · Video Suhbatlar · Fotolavhalar"
+        title="ASAKA ZIYO Media Markazi"
+        subtitle="Maʼmuriyat tomonidan Firestore bazasiga yuklangan rasmiy audio maʼruzalar, tilovatlar, video suhbatlar va maʼrifiy lavhalar."
+        aside={
+          <div className="rounded-2xl bg-white/[0.06] border border-white/[0.12] p-5 backdrop-blur-md space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#C8A85E] font-semibold uppercase tracking-[0.14em]">
+              <span>Media arxivi</span>
+              <AudioWaveformBars isPlaying={isPlaying} barCount={5} />
+            </div>
+            <div className="text-2xl font-display font-bold font-mono-numbers text-[#F7F4EC]">
+              {posts.length} <span className="text-sm font-normal text-[#A4B9B1]">material</span>
+            </div>
+            <p className="text-xs text-[#A4B9B1]">Tezlik boshqaruvi (0.75x–2x) va uyqu taymeri</p>
+          </div>
+        }
+      />
 
-      {/* Active Mini Audio Player */}
+      {/* Apple Studio Liquid Glass Active Mini Audio Player */}
       {activeAudioPost && (
-        <Card className="p-4 sm:p-5 bg-[#063D32] text-[#FFF8E8] border border-[#DFBD69]/45 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <Card
+          elevated
+          className="p-4 sm:p-5 bg-gradient-to-r from-[#064E3B] via-[#06362A] to-[#041D16] text-[#F7F4EC] border-[#C8A85E]/40 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
             <button
+              type="button"
               onClick={() => handleToggleAudio(activeAudioPost)}
-              className="w-11 h-11 rounded-full bg-[#DFBD69] text-[#010906] flex items-center justify-center shrink-0 cursor-pointer"
+              className="w-12 h-12 rounded-2xl bg-[#C8A85E] text-[#04120D] flex items-center justify-center shrink-0 cursor-pointer shadow-lg hover:brightness-105 transition-all"
               aria-label={isPlaying ? 'Pauza' : 'Ijro etish'}
             >
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
             </button>
-            <div className="min-w-0">
-              <div className="text-xs text-[#DFBD69] font-semibold">Ijro etilmoqda</div>
-              <div className="text-sm font-bold truncate">{activeAudioPost.title}</div>
-              <div className="text-xs text-[#E6DFCE]/80 truncate">{activeAudioPost.author}</div>
+            <div className="min-w-0 space-y-0.5">
+              <div className="flex items-center gap-2 text-xs text-[#C8A85E] font-semibold">
+                <AudioWaveformBars isPlaying={isPlaying} barCount={4} />
+                <span>{isPlaying ? 'Ijro etilmoqda' : 'Pauzada'}</span>
+              </div>
+              <div className="text-sm sm:text-base font-bold truncate">{activeAudioPost.title}</div>
+              <div className="text-xs text-[#C2D4CD] truncate">{activeAudioPost.author}</div>
             </div>
           </div>
 
@@ -127,11 +147,12 @@ export const MediaCenterView: React.FC = () => {
             {[0.75, 1, 1.25, 1.5, 2].map((rate) => (
               <button
                 key={rate}
+                type="button"
                 onClick={() => setPlaybackRate(rate)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold tabular-nums cursor-pointer ${
+                className={`px-2.5 py-1.5 min-h-[36px] rounded-xl text-xs font-bold font-mono-numbers cursor-pointer transition-colors ${
                   playbackRate === rate
-                    ? 'bg-[#DFBD69] text-[#010906]'
-                    : 'bg-[#092E1F] text-[#E6DFCE]'
+                    ? 'bg-[#C8A85E] text-[#04120D]'
+                    : 'bg-white/10 text-[#F7F4EC] hover:bg-white/15'
                 }`}
               >
                 {rate}x
@@ -142,135 +163,133 @@ export const MediaCenterView: React.FC = () => {
               aria-label="Uyqu taymeri"
               value={sleepTimerMin}
               onChange={(e) => setSleepTimerMin(Number(e.target.value))}
-              className="px-2.5 py-1.5 rounded-lg bg-[#092E1F] border border-[#DFBD69]/35 text-xs text-[#FFF8E8]"
+              className="px-3 py-1.5 min-h-[36px] rounded-xl bg-white/10 border border-white/15 text-xs text-[#F7F4EC]"
             >
-              <option value={0}>Taymer: Oʻchiq</option>
-              <option value={15}>15 daqiqa</option>
-              <option value={30}>30 daqiqa</option>
-              <option value={60}>60 daqiqa</option>
+              <option value={0} className="text-black">Taymer: Oʻchiq</option>
+              <option value={15} className="text-black">15 daqiqa</option>
+              <option value={30} className="text-black">30 daqiqa</option>
+              <option value={60} className="text-black">60 daqiqa</option>
             </select>
           </div>
         </Card>
       )}
 
       {/* Search & Type Filter */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-[#526B62] dark:text-[#9CB5AC] absolute left-3.5 top-1/2 -translate-y-1/2" />
+      <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+        <MorphingTabs
+          items={[
+            { id: 'all', label: 'Barchasi', count: posts.length },
+            { id: 'audio', label: 'Audio' },
+            { id: 'video', label: 'Video' },
+            { id: 'photo', label: 'Fotolavha' },
+          ]}
+          activeId={typeFilter}
+          onChange={(id) => setTypeFilter(id as 'all' | 'audio' | 'video' | 'photo')}
+          layoutId="media-type-tabs"
+        />
+
+        <div className="relative w-full lg:w-80">
+          <Search className="w-4 h-4 text-[#587068] dark:text-[#9CAFA7] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Maʼruza, video yoki muallif boʻyicha qidirish..."
-            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl bg-white dark:bg-[#041D13] border border-[#063D32]/15 dark:border-[#DFBD69]/25 text-sm text-[#03170F] dark:text-[#FFF8E8] focus:outline-none focus:border-[#DFBD69]"
+            placeholder="Maʼruza, video yoki muallif..."
+            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-2xl az-liquid-glass-pill text-sm text-[#091813] dark:text-[#F7F4EC] placeholder:text-[#6B827A] dark:placeholder:text-[#7E968D] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-[#F1EBDD] dark:bg-[#041D13] p-1 rounded-xl">
-          {[
-            { id: 'all' as const, label: 'Barchasi' },
-            { id: 'audio' as const, label: 'Audio' },
-            { id: 'video' as const, label: 'Video' },
-            { id: 'photo' as const, label: 'Fotolavha' },
-          ].map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setTypeFilter(f.id)}
-              className={`px-3.5 py-2 min-h-[38px] rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                typeFilter === f.id
-                  ? 'bg-white dark:bg-[#092E1F] text-[#03170F] dark:text-[#FFF6C8] shadow-xs'
-                  : 'text-[#526B62] dark:text-[#9CB5AC]'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
         </div>
       </div>
 
       {/* Media Grid */}
       {filteredPosts.length === 0 ? (
-        <Card className="p-10 text-center space-y-2">
-          <Headphones className="w-10 h-10 text-[#DFBD69] mx-auto" />
-          <h3 className="text-base font-bold text-[#03170F] dark:text-[#FFF8E8]">
+        <Card className="p-12 text-center space-y-2.5">
+          <Headphones className="w-10 h-10 text-[#C8A85E] mx-auto" />
+          <h3 className="text-base font-display font-bold text-[#091813] dark:text-[#F7F4EC]">
             Hozircha media materiallar topilmadi
           </h3>
-          <p className="text-sm text-[#526B62] dark:text-[#9CB5AC] max-w-md mx-auto">
+          <p className="text-sm text-[#587068] dark:text-[#9CAFA7] max-w-md mx-auto">
             Admin portal orqali audio, video yoki fotolavha qoʻshilganda u bu yerda avtomatik koʻrinadi.
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filteredPosts.map((post) => {
             const isThisAudioPlaying = activeAudioId === post.id && isPlaying;
             return (
-              <Card
-                key={post.id}
-                className="overflow-hidden flex flex-col justify-between border border-[#063D32]/12 dark:border-[#DFBD69]/22"
-              >
-                <div>
-                  <div className="relative aspect-video bg-[#041D13] overflow-hidden">
-                    {post.type === 'video' && post.mediaUrl ? (
-                      <video
-                        src={post.mediaUrl}
-                        poster={post.thumbnail || '/images/asaka_islamic_architecture_1793634657962.jpg'}
-                        controls
-                        preload="metadata"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={post.thumbnail || post.mediaUrl || '/images/asaka_islamic_architecture_1793634657962.jpg'}
-                        alt={post.title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-
-                  <div className="p-5 space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-[#8A6621] dark:text-[#DFBD69] font-semibold">
-                      {post.type === 'audio' ? (
-                        <Volume2 className="w-3.5 h-3.5" />
-                      ) : post.type === 'video' ? (
-                        <Video className="w-3.5 h-3.5" />
+              <StaggerCard key={post.id}>
+                <Card elevated className="overflow-hidden h-full flex flex-col justify-between">
+                  <div>
+                    <div className="relative aspect-video bg-[#04120D] overflow-hidden">
+                      {post.type === 'video' && post.mediaUrl ? (
+                        <video
+                          src={post.mediaUrl}
+                          poster={post.thumbnail || '/images/asaka_islamic_architecture_1793634657962.jpg'}
+                          controls
+                          preload="metadata"
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <ImageIcon className="w-3.5 h-3.5" />
+                        <img
+                          src={post.thumbnail || post.mediaUrl || '/images/asaka_islamic_architecture_1793634657962.jpg'}
+                          alt={post.title}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+                        />
                       )}
-                      <span>{post.category || post.type}</span>
-                      <span>·</span>
-                      <span className="tabular-nums">{post.publishedDate}</span>
                     </div>
 
-                    <h3 className="text-base font-bold text-[#03170F] dark:text-[#FFF8E8] leading-snug">
-                      {post.title}
-                    </h3>
-                    {post.author && (
-                      <p className="text-xs text-[#526B62] dark:text-[#9CB5AC]">{post.author}</p>
-                    )}
-                    {post.caption && (
-                      <p className="text-sm text-[#1E3F35] dark:text-[#E6DFCE] line-clamp-3 leading-relaxed">
-                        {post.caption}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                    <div className="p-5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-[#8B6B2E] dark:text-[#C8A85E] font-semibold">
+                        {post.type === 'audio' ? (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        ) : post.type === 'video' ? (
+                          <Video className="w-3.5 h-3.5" />
+                        ) : (
+                          <ImageIcon className="w-3.5 h-3.5" />
+                        )}
+                        <span>{post.category || post.type}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono-numbers">{post.publishedDate}</span>
+                      </div>
 
-                {post.type === 'audio' && (
-                  <div className="px-5 pb-5">
-                    <Button
-                      onClick={() => handleToggleAudio(post)}
-                      className="w-full"
-                      disabled={!post.mediaUrl}
-                    >
-                      {isThisAudioPlaying ? 'Pauza qilish' : 'Audioni tinglash'}
-                    </Button>
+                      <h3 className="text-base font-display font-bold text-[#091813] dark:text-[#F7F4EC] leading-snug">
+                        {post.title}
+                      </h3>
+                      {post.author && (
+                        <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">{post.author}</p>
+                      )}
+                      {post.caption && (
+                        <p className="text-sm text-[#3B554D] dark:text-[#A4B9B1] line-clamp-3 leading-relaxed">
+                          {post.caption}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                )}
-              </Card>
+
+                  {post.type === 'audio' && (
+                    <div className="px-5 pb-5">
+                      <Button
+                        variant={isThisAudioPlaying ? 'primary' : 'emerald'}
+                        onClick={() => handleToggleAudio(post)}
+                        className="w-full"
+                        disabled={!post.mediaUrl}
+                      >
+                        {isThisAudioPlaying ? (
+                          <span className="inline-flex items-center gap-2">
+                            <AudioWaveformBars isPlaying barCount={4} barClassName="bg-current" />
+                            <span>Pauza qilish</span>
+                          </span>
+                        ) : (
+                          'Audioni tinglash'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              </StaggerCard>
             );
           })}
-        </div>
+        </StaggerGrid>
       )}
     </div>
   );

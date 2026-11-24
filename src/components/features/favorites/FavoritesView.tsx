@@ -3,8 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { FavoriteItem, NavigationTab } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { PageHero } from '../../ui/PageHero';
 import { EmptyState } from '../../ui/EmptyState';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import {
+  StaggerGrid,
+  StaggerCard,
+  InteractiveCounter,
+  MagneticWrapper,
+} from '../../ui/MotionPrimitives';
 import { Bookmark, Trash2, ArrowRight } from 'lucide-react';
 
 interface FavoritesViewProps {
@@ -22,7 +28,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const typeLabels = {
+  const typeLabels: Record<string, string> = {
     ayah: t('favorites:typeAyah'),
     hadith: t('favorites:typeHadith'),
     dhikr: t('favorites:typeDhikr'),
@@ -31,92 +37,107 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
-      {/* 2026 Luxury Architectural Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
-              <Bookmark className="w-3.5 h-3.5" />
-              <span>{t('favorites:bannerTag')}</span>
-              <span aria-hidden="true">·</span>
-              <span>{t('favorites:savedItems')}</span>
+      <PageHero
+        variant="editorial"
+        kicker={`${t('favorites:bannerTag')} · ${t('favorites:savedItems')}`}
+        title={t('favorites:title')}
+        subtitle={t('favorites:subtitle')}
+        aside={
+          <div className="az-liquid-glass-card rounded-2xl p-5 flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="az-type-overline text-[#587068] dark:text-[#9CAFA7]">
+                {t('favorites:totalSaved')}
+              </div>
+              <div className="text-3xl font-display font-extrabold text-[#064E3B] dark:text-[#C8A85E]">
+                <InteractiveCounter value={favorites.length} />
+                <span className="text-sm font-semibold ml-1.5 text-[#587068] dark:text-[#9CAFA7]">
+                  {t('favorites:itemCountSuffix')}
+                </span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl az-liquid-glass-pill flex items-center justify-center text-[#064E3B] dark:text-[#C8A85E]">
+              <Bookmark className="w-5 h-5" />
             </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
-            {t('favorites:title')}
-          </h1>
-          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
-            {t('favorites:subtitle')}
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {favorites.length > 0 ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400">
+          <div className="flex items-center justify-between text-xs text-[#587068] dark:text-[#9CAFA7] px-1">
             <span>
-              {t('favorites:totalSaved')}: <strong className="font-mono-numbers">{favorites.length}</strong> {t('favorites:itemCountSuffix')}
+              {t('favorites:totalSaved')}:{' '}
+              <strong className="font-mono-numbers text-[#091813] dark:text-[#F7F4EC]">
+                {favorites.length}
+              </strong>{' '}
+              {t('favorites:itemCountSuffix')}
             </span>
             <button
+              type="button"
               onClick={onClearAll}
-              className="hover:text-red-500 transition-colors cursor-pointer"
+              className="font-semibold hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer min-h-[36px] px-2"
             >
               {t('favorites:clearAll')}
             </button>
           </div>
 
-          <div className="space-y-3">
+          <StaggerGrid className="space-y-3">
             {favorites.map((item) => (
-              <Card
-                key={item.id}
-                elevated
-                className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="font-semibold text-[#c5a869] uppercase tracking-wider">
-                      {typeLabels[item.type] || item.type}
-                    </span>
-                    <span aria-hidden="true" className="text-stone-400">·</span>
-                    <span className="font-mono-numbers text-stone-400 text-[11px]">
-                      {new Date(item.savedAt || item.timestamp || Date.now()).toLocaleDateString()}
-                    </span>
+              <StaggerCard key={item.id}>
+                <Card
+                  elevated
+                  interactive
+                  className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E] uppercase tracking-wider">
+                        {typeLabels[item.type] || item.type}
+                      </span>
+                      <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                        ·
+                      </span>
+                      <span className="font-mono-numbers text-[#587068] dark:text-[#9CAFA7] text-[11px]">
+                        {new Date(item.savedAt || item.timestamp || Date.now()).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-[#091813] dark:text-[#F7F4EC] leading-snug">
+                      {item.title}
+                    </h3>
+
+                    <p className="text-xs sm:text-sm text-[#3B554D] dark:text-[#A4B9B1] line-clamp-2 leading-relaxed">
+                      «{item.snippet}»
+                    </p>
                   </div>
 
-                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    {item.title}
-                  </h3>
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <MagneticWrapper strength={4}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 min-h-[44px]"
+                        onClick={() => onNavigate(item.routeTab)}
+                      >
+                        <span>{t('favorites:openItem')}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </MagneticWrapper>
 
-                  <p className="text-xs text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
-                    «{item.snippet}»
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => onNavigate(item.routeTab)}
-                  >
-                    <span>{t('favorites:openItem')}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-
-                  <button
-                    onClick={() => onRemoveFavorite(item.id)}
-                    className="p-2 rounded-xl border border-stone-200 dark:border-emerald-950 text-stone-400 hover:text-red-500 hover:border-red-400/40 transition-colors cursor-pointer"
-                    title={t('favorites:remove')}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </Card>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveFavorite(item.id)}
+                      className="w-11 h-11 rounded-xl az-liquid-glass-pill flex items-center justify-center text-[#587068] dark:text-[#9CAFA7] hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-400/40 transition-colors cursor-pointer"
+                      title={t('favorites:remove')}
+                      aria-label={t('favorites:remove')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </Card>
+              </StaggerCard>
             ))}
-          </div>
+          </StaggerGrid>
         </div>
       ) : (
         <EmptyState

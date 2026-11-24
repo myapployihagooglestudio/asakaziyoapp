@@ -31,6 +31,8 @@ import {
   Bell,
 } from 'lucide-react';
 
+import { triggerTactileHaptic } from '../../utils/motionSystem';
+
 interface DesktopSidebarProps {
   activeTab: NavigationTab;
   onSelectTab: (tab: NavigationTab) => void;
@@ -72,6 +74,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   }, [prayerSchedule?.times]);
 
   const toggleCollapsed = () => {
+    triggerTactileHaptic(6);
     setCollapsed((prev) => {
       const next = !prev;
       try {
@@ -145,13 +148,13 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between px-1'}`}>
           {!collapsed && (
             <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#5F776F] dark:text-[#8FA69D]">
-              Workspace
+              Ekotizim
             </span>
           )}
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-xl text-[#5F776F] dark:text-[#8FA69D] hover:text-[#0B1B16] dark:hover:text-white hover:bg-[#064E3B]/7 dark:hover:bg-white/[0.07] transition-colors cursor-pointer"
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#5F776F] dark:text-[#8FA69D] hover:text-[#091813] dark:hover:text-[#F7F4EC] hover:bg-[#064E3B]/7 dark:hover:bg-white/[0.07] transition-colors cursor-pointer"
             title={collapsed ? 'Yon panelni kengaytirish' : 'Yon panelni yigʻish'}
             aria-label={collapsed ? 'Yon panelni kengaytirish' : 'Yon panelni yigʻish'}
           >
@@ -166,8 +169,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         {nextPrayer?.nextPrayer && !collapsed && (
           <button
             type="button"
-            onClick={() => onSelectTab('prayer')}
-            className="w-full text-left rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#072B21] via-[#061C16] to-[#05100D] text-[#F7F5F0] p-3.5 shadow-sm hover:border-emerald-400/40 transition-colors cursor-pointer"
+            onClick={() => {
+              triggerTactileHaptic(8);
+              onSelectTab('prayer');
+            }}
+            className="w-full text-left rounded-2xl border border-emerald-500/22 bg-gradient-to-br from-[#072B21] via-[#061812] to-[#030706] text-[#F7F4EC] p-3.5 shadow-[0_14px_30px_-14px_rgba(0,0,0,0.65)] hover:border-emerald-400/45 transition-all cursor-pointer"
           >
             <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.14em] text-emerald-300/90 font-semibold">
               <span>Asaka · Keyingi namoz</span>
@@ -179,7 +185,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               <span className="text-sm font-bold truncate">
                 {t(`prayer:${nextPrayer.nextPrayer.key}`, nextPrayer.nextPrayer.nameUz)}
               </span>
-              <span className="text-xs font-mono-numbers font-bold text-white tabular-nums shrink-0">
+              <span className="text-xs font-mono-numbers font-bold text-[#F7F4EC] tabular-nums shrink-0">
                 {nextPrayer.countdownText}
               </span>
             </div>
@@ -210,13 +216,16 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                   key={item.id}
                   type="button"
                   title={collapsed ? label : undefined}
-                  onClick={() => onSelectTab(item.id)}
+                  onClick={() => {
+                    triggerTactileHaptic(6);
+                    onSelectTab(item.id);
+                  }}
                   className={`relative w-full flex items-center ${
                     collapsed ? 'justify-center px-0' : 'gap-3 px-3'
                   } py-2.5 min-h-[42px] rounded-xl text-[13px] font-medium transition-colors cursor-pointer text-left ${
                     isActive
-                      ? 'text-[#F7F5F0] dark:text-[#07110D] font-bold'
-                      : 'text-[#2D4A41] dark:text-[#C5D4CE] hover:bg-[#064E3B]/7 dark:hover:bg-white/[0.06] hover:text-[#0B1B16] dark:hover:text-white'
+                      ? 'text-[#F7F4EC] dark:text-[#030706] font-bold'
+                      : 'text-[#2D4A41] dark:text-[#C5D4CE] hover:bg-[#064E3B]/7 dark:hover:bg-white/[0.06] hover:text-[#091813] dark:hover:text-[#F7F4EC]'
                   }`}
                 >
                   {isActive && (
@@ -227,7 +236,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                           ? { duration: 0 }
                           : { type: 'spring', stiffness: 380, damping: 32 }
                       }
-                      className="absolute inset-0 rounded-2xl bg-[#064E3B]/92 dark:bg-[#C8A85E] shadow-[0_1px_0_rgba(255,255,255,0.28)_inset,0_10px_24px_-10px_rgba(6,78,59,0.5)] dark:shadow-[0_1px_0_rgba(255,255,255,0.45)_inset,0_10px_24px_-10px_rgba(200,168,94,0.45)]"
+                      className="absolute inset-0 rounded-2xl bg-[#064E3B]/94 dark:bg-[#C8A85E] shadow-[0_1px_0_rgba(255,255,255,0.28)_inset,0_10px_24px_-10px_rgba(6,78,59,0.5)] dark:shadow-[0_1px_0_rgba(255,255,255,0.45)_inset,0_10px_24px_-10px_rgba(200,168,94,0.45)]"
                     />
                   )}
                   <span className="relative z-10 shrink-0">{item.icon}</span>
@@ -244,10 +253,13 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           <button
             type="button"
             title="Masjid TV Tablosi"
-            onClick={onOpenTvMode}
+            onClick={() => {
+              triggerTactileHaptic(8);
+              onOpenTvMode();
+            }}
             className={`w-full flex items-center ${
               collapsed ? 'justify-center px-0' : 'gap-2.5 px-3'
-            } py-2.5 min-h-[42px] rounded-xl bg-[#064E3B]/8 dark:bg-white/[0.05] text-[#064E3B] dark:text-[#E8E4DA] border border-[#064E3B]/12 dark:border-white/[0.08] text-xs font-semibold hover:bg-[#064E3B]/14 dark:hover:bg-white/[0.1] transition-colors cursor-pointer`}
+            } py-2.5 min-h-[42px] rounded-xl bg-[#064E3B]/8 dark:bg-white/[0.05] text-[#064E3B] dark:text-[#EAE6DB] border border-[#064E3B]/12 dark:border-white/[0.08] text-xs font-semibold hover:bg-[#064E3B]/14 dark:hover:bg-white/[0.1] transition-colors cursor-pointer`}
           >
             <Tv className="w-4 h-4 text-[#064E3B] dark:text-[#C8A85E] shrink-0" />
             {!collapsed && <span>Masjid TV Tablosi</span>}

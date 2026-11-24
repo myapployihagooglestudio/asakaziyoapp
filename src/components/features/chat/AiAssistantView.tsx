@@ -35,7 +35,13 @@ import { NavigationTab, SupportedLocale } from '../../../types';
 import { auth, db } from '../../../utils/firebaseClient';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { GeometricPattern } from '../../ui/GeometricPattern';
-import { AiThinkingWave, PREMIUM_EASE } from '../../ui/MotionPrimitives';
+import {
+  AiThinkingWave,
+  MagneticWrapper,
+  MaskedSplitText,
+  PREMIUM_EASE,
+} from '../../ui/MotionPrimitives';
+import { triggerTactileHaptic } from '../../../utils/motionSystem';
 
 export type AgentRoutingMode = 'auto' | 'deep' | 'fast';
 
@@ -845,9 +851,11 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
                 {aiStatus.connected ? `${aiStatus.toolsCount} ta jonli vosita faol` : 'Oflayn holat'}
               </span>
             </div>
-            <h1 className="az-type-page text-[#F7F5F0]">
-              Yagona Aqlli Islomiy AI Agent
-            </h1>
+            <MaskedSplitText
+              as="h1"
+              text="Yagona Aqlli Islomiy AI Agent"
+              className="az-type-page text-[#F7F4EC]"
+            />
             <p className="text-xs sm:text-sm text-[#C2D1CB] leading-relaxed">
               Tabiiy tildagi murojaatni tushunadi, Asaka 8 mahal namoz taqvimi va Tafsiri Hilol bazasidan
               tekshirib javob beradi, ruxsat etilgan ilova boʻlimlarini boshqaradi hamda zarur holda Imom-xatibga yoʻnaltiradi.
@@ -910,14 +918,19 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleStartNewConversation}
-                className="min-h-[44px] flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#C8A85E] hover:bg-[#D6B974] text-[#05140F] font-bold text-xs transition-all shadow-[0_1px_0_rgba(255,255,255,0.45)_inset] cursor-pointer whitespace-nowrap"
-              >
-                <Plus size={15} />
-                <span>Yangi suhbat</span>
-              </button>
+              <MagneticWrapper strength={5}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerTactileHaptic(8);
+                    handleStartNewConversation();
+                  }}
+                  className="min-h-[44px] flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#C8A85E] hover:bg-[#D6B974] text-[#030706] font-bold text-xs transition-all shadow-[0_1px_0_rgba(255,255,255,0.45)_inset] cursor-pointer whitespace-nowrap"
+                >
+                  <Plus size={15} />
+                  <span>Yangi suhbat</span>
+                </button>
+              </MagneticWrapper>
 
               <button
                 type="button"

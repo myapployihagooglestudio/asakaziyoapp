@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { PrayerSchedule, Ayah, HadithItem, SupportedLocale } from '../../../types';
+import {
+  AudioWaveformBars,
+  SpatialTiltCard,
+  MOTION_SPRINGS,
+  PREMIUM_EASE,
+} from '../../ui/MotionPrimitives';
 import {
   CanonicalDisplayProfileId,
   buildDisplayScheduleFromMainSchedule,
@@ -56,7 +63,7 @@ const PROFILE_SWATCHES: {
   {
     id: 'emerald_royal',
     aspect: '16:9 TV',
-    swatchClass: 'bg-[#041A12] text-[#FAF7F0] border-[#DFBD69]/45',
+    swatchClass: 'bg-[#041A12] text-[#FAF7F0] border-[#C8A85E]/45',
     accentClass: 'bg-[#0E5E38] text-[#FFE498]',
   },
   {
@@ -82,7 +89,7 @@ const PHASE2_SWATCHES: {
   {
     id: 'sultan_royal',
     aspect: 'TV / 4K',
-    swatchClass: 'bg-[#042117] text-[#FDFBF4] border-[#E5C36A]/45',
+    swatchClass: 'bg-[#042117] text-[#FDFBF4] border-[#C8A85E]/45',
     accentClass: 'bg-[#0F633A] text-[#FFE69D]',
   },
   {
@@ -118,8 +125,7 @@ const PHASE2_SWATCHES: {
 ];
 
 /**
- * Unified 5-Language TV Display Launcher & Adhan Audio Console.
- * Strictly supports uz-Latn, uz-Cyrl, uz-Latn-new, ru, en with zero Arabic script.
+ * Unified 5-Language TV Display Launcher & Adhan Audio Console (NEO 2026 Liquid Glass).
  */
 export const SmartTvModal: React.FC<SmartTvModalProps> = ({
   isOpen,
@@ -127,6 +133,7 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
   schedule,
   onOpenSmartDisplay,
 }) => {
+  const prefersReduced = useReducedMotion();
   const { i18n } = useTranslation();
   const activeLocale: SupportedLocale = DISPLAY_SUPPORTED_LOCALES.includes(
     i18n.language as SupportedLocale
@@ -180,8 +187,6 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const currentTrack = ADHAN_TRACKS[selectedTrackIndex] || ADHAN_TRACKS[0];
   const isCurrentTrackPlaying =
     playerState.isPlaying && playerState.playingTrackId === currentTrack.id;
@@ -203,221 +208,250 @@ export const SmartTvModal: React.FC<SmartTvModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-3xl rounded-2xl bg-[#041A12] border border-[#DFBD69]/40 text-[#FAF7F0] shadow-2xl overflow-hidden my-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-[#DFBD69]/18 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-[#DFBD69]/12 border border-[#DFBD69]/40 flex items-center justify-center shrink-0">
-              <Tv className="w-5 h-5 text-[#DFBD69]" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-display font-extrabold text-lg text-[#FAF7F0] truncate">
-                {t.brandTitle} — Smart Mosque Display
-              </h2>
-              <p className="text-xs text-[#FAF7F0]/70 truncate">
-                {safeMosqueName} · {t.admin.headerBadge}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t.admin.cancelBtn}
-            className="p-2 rounded-xl text-[#FAF7F0]/70 hover:text-white hover:bg-white/10 cursor-pointer"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="az-smart-tv-backdrop"
+          initial={prefersReduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: PREMIUM_EASE }}
+          className="fixed inset-0 z-50 bg-[#030706]/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+          onClick={onClose}
+        >
+          <motion.div
+            key="az-smart-tv-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${t.brandTitle} — Smart Mosque Display`}
+            initial={prefersReduced ? false : { opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
+            transition={prefersReduced ? { duration: 0 } : MOTION_SPRINGS.snappy}
+            className="w-full max-w-3xl rounded-[28px] az-aurora-surface border border-white/[0.14] text-[#F7F4EC] shadow-[0_32px_96px_-16px_rgba(0,0,0,0.85)] overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Live Schedule Snapshot Strip */}
-          <div className="rounded-xl bg-[#06261B] border border-[#DFBD69]/22 px-5 py-4 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#DFBD69]">
-                {t.tashkentTimeLabel}
-              </div>
-              <div className="font-mono-numbers tabular-nums font-extrabold text-3xl text-white mt-0.5">
-                {timeline.clock.hh}:{timeline.clock.mm}
-                <span className="text-lg text-[#DFBD69] ml-0.5">:{timeline.clock.ss}</span>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#FAF7F0]/65">
-                {t.nextAzanLabel} ({nextPrayerName} · {timeline.nextAzanTime})
-              </div>
-              <div className="font-mono-numbers tabular-nums font-extrabold text-2xl text-[#FFE498] mt-0.5">
-                {timeline.nextAzanCountdown}
-              </div>
-            </div>
-          </div>
-
-          {/* 4 Official Display Profiles */}
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-[#DFBD69] mb-3">
-              {t.admin.designProfileLabel}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PROFILE_SWATCHES.map((card) => (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={() => handleLaunchProfile(card.id)}
-                  className={`group text-left rounded-xl border p-4 transition-all hover:scale-[1.01] cursor-pointer ${card.swatchClass}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-display font-extrabold text-base">
-                      {t.templates[card.id]}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${card.accentClass}`}
-                    >
-                      {card.id === 'madina_portrait' ? (
-                        <Smartphone className="w-3 h-3" />
-                      ) : (
-                        <Monitor className="w-3 h-3" />
-                      )}
-                      {card.aspect}
-                    </span>
-                  </div>
-                  <p className="text-xs opacity-75 mt-1.5">
-                    {t.admin.profileDescriptions[card.id]}
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-white/[0.1] flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-white/[0.07] border border-[#C8A85E]/40 flex items-center justify-center shrink-0">
+                  <Tv className="w-5 h-5 text-[#C8A85E]" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display font-extrabold text-lg text-[#F7F4EC] truncate">
+                    {t.brandTitle} — Smart Mosque Display
+                  </h2>
+                  <p className="text-xs text-[#C2D4CD] truncate">
+                    {safeMosqueName} · {t.admin.headerBadge}
                   </p>
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold opacity-85 group-hover:opacity-100">
-                    <span>{t.fullscreenEnter}</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+                </div>
+              </div>
 
-          {/* 6 New Phase 2 Premium Designs + Dedicated /masjid-tv Tablo */}
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#DFBD69]">
-                {t.admin.newPremiumDesignsHeading}
-              </span>
               <button
                 type="button"
-                onClick={() => {
-                  stopActiveAdhanAudio();
-                  window.location.href = '/masjid-tv';
-                }}
-                className="px-2.5 py-1 rounded-lg bg-[#1E6B38] text-white text-[11px] font-bold inline-flex items-center gap-1.5 hover:brightness-110 cursor-pointer"
+                onClick={onClose}
+                aria-label={t.admin.cancelBtn}
+                className="w-10 h-10 rounded-xl bg-white/[0.06] text-[#C2D4CD] hover:text-white hover:bg-white/[0.12] flex items-center justify-center transition-colors cursor-pointer shrink-0"
               >
-                <span>{t.admin.openMasjidTvBtn}</span>
-                <ExternalLink className="w-3 h-3" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {PHASE2_SWATCHES.map((card) => (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={() => handleLaunchProfile(card.id)}
-                  className={`group text-left rounded-xl border p-3.5 transition-all hover:scale-[1.01] cursor-pointer ${card.swatchClass}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-display font-extrabold text-sm truncate">
-                      {t.templates[card.id]}
-                    </span>
-                    <span
-                      className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${card.accentClass}`}
-                    >
-                      {card.aspect}
-                    </span>
-                  </div>
-                  <p className="text-[11px] opacity-75 mt-1 line-clamp-2">
-                    {t.admin.profileDescriptions[card.id]}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
 
-          {/* Integrated Adhan Audio Player */}
-          <div className="rounded-xl bg-[#03130D] border border-white/10 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Volume2 className="w-4 h-4 text-[#DFBD69] shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-[#FAF7F0] truncate">
-                    {t.azanColumnLabel} ·{' '}
-                    {sanitizeDisplayDynamicText(currentTrack.titleUz, activeLocale, t.azanColumnLabel)}
+            <div className="p-6 space-y-6">
+              {/* Live Schedule Snapshot Strip */}
+              <div className="rounded-2xl bg-white/[0.05] border border-white/[0.1] backdrop-blur-md px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#34D399]">
+                    {t.tashkentTimeLabel}
                   </div>
-                  <div className="text-[11px] text-[#FAF7F0]/60 truncate">
-                    {sanitizeDisplayDynamicText(currentTrack.muazzin, activeLocale)}
+                  <div className="font-mono-numbers tabular-nums font-extrabold text-3xl text-[#F7F4EC] mt-0.5">
+                    {timeline.clock.hh}:{timeline.clock.mm}
+                    <span className="text-lg text-[#C8A85E] ml-0.5">:{timeline.clock.ss}</span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#C2D4CD]">
+                    {t.nextAzanLabel} ({nextPrayerName} · {timeline.nextAzanTime})
+                  </div>
+                  <div className="font-mono-numbers tabular-nums font-extrabold text-2xl text-[#E5C97B] mt-0.5">
+                    {timeline.nextAzanCountdown}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedTrackIndex(
-                      (prev) => (prev - 1 + ADHAN_TRACKS.length) % ADHAN_TRACKS.length
-                    )
-                  }
-                  aria-label="Previous"
-                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleAdhanAudio(currentTrack.id)}
-                  className="px-3.5 py-2 rounded-lg bg-[#DFBD69] text-[#041A12] font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  {isCurrentTrackPlaying ? (
-                    <Pause className="w-3.5 h-3.5" />
-                  ) : (
-                    <Play className="w-3.5 h-3.5" />
-                  )}
-                </button>
-                {playerState.isPlaying && (
+              {/* 4 Official Display Profiles */}
+              <div>
+                <div className="az-type-overline text-[#C8A85E] mb-3">
+                  {t.admin.designProfileLabel}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {PROFILE_SWATCHES.map((card) => (
+                    <SpatialTiltCard key={card.id} maxTilt={3}>
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchProfile(card.id)}
+                        className={`w-full h-full group text-left rounded-2xl border p-4 transition-all cursor-pointer ${card.swatchClass}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-display font-extrabold text-base">
+                            {t.templates[card.id]}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${card.accentClass}`}
+                          >
+                            {card.id === 'madina_portrait' ? (
+                              <Smartphone className="w-3 h-3" />
+                            ) : (
+                              <Monitor className="w-3 h-3" />
+                            )}
+                            {card.aspect}
+                          </span>
+                        </div>
+                        <p className="text-xs opacity-75 mt-1.5">
+                          {t.admin.profileDescriptions[card.id]}
+                        </p>
+                        <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold opacity-85 group-hover:opacity-100">
+                          <span>{t.fullscreenEnter}</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </div>
+                      </button>
+                    </SpatialTiltCard>
+                  ))}
+                </div>
+              </div>
+
+              {/* 6 New Phase 2 Premium Designs + Dedicated /masjid-tv Tablo */}
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <span className="az-type-overline text-[#C8A85E]">
+                    {t.admin.newPremiumDesignsHeading}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => stopActiveAdhanAudio()}
-                    aria-label="Stop"
-                    className="p-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 cursor-pointer"
+                    onClick={() => {
+                      stopActiveAdhanAudio();
+                      window.location.href = '/masjid-tv';
+                    }}
+                    className="px-3 py-1.5 min-h-[36px] rounded-xl bg-[#10B981] text-[#04120D] text-[11px] font-bold inline-flex items-center gap-1.5 hover:brightness-110 transition-all cursor-pointer"
                   >
-                    <Square className="w-3.5 h-3.5" />
+                    <span>{t.admin.openMasjidTvBtn}</span>
+                    <ExternalLink className="w-3 h-3" />
                   </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {PHASE2_SWATCHES.map((card) => (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => handleLaunchProfile(card.id)}
+                      className={`group text-left rounded-2xl border p-3.5 transition-all hover:scale-[1.01] cursor-pointer ${card.swatchClass}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-display font-extrabold text-sm truncate">
+                          {t.templates[card.id]}
+                        </span>
+                        <span
+                          className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase ${card.accentClass}`}
+                        >
+                          {card.aspect}
+                        </span>
+                      </div>
+                      <p className="text-[11px] opacity-75 mt-1 line-clamp-2">
+                        {t.admin.profileDescriptions[card.id]}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Integrated Adhan Audio Player */}
+              <div className="rounded-2xl bg-black/35 border border-white/[0.1] p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0">
+                      {isCurrentTrackPlaying ? (
+                        <AudioWaveformBars isPlaying barCount={4} barClassName="bg-[#C8A85E]" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 text-[#C8A85E]" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[#F7F4EC] truncate">
+                        {t.azanColumnLabel} ·{' '}
+                        {sanitizeDisplayDynamicText(
+                          currentTrack.titleUz,
+                          activeLocale,
+                          t.azanColumnLabel
+                        )}
+                      </div>
+                      <div className="text-[11px] text-[#C2D4CD] truncate">
+                        {sanitizeDisplayDynamicText(currentTrack.muazzin, activeLocale)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedTrackIndex(
+                          (prev) => (prev - 1 + ADHAN_TRACKS.length) % ADHAN_TRACKS.length
+                        )
+                      }
+                      aria-label="Previous"
+                      className="w-9 h-9 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white flex items-center justify-center cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAdhanAudio(currentTrack.id)}
+                      aria-label={isCurrentTrackPlaying ? 'Pause' : 'Play'}
+                      className="px-3.5 h-9 rounded-xl bg-[#C8A85E] text-[#04120D] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer hover:brightness-105"
+                    >
+                      {isCurrentTrackPlaying ? (
+                        <Pause className="w-3.5 h-3.5" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    {playerState.isPlaying && (
+                      <button
+                        type="button"
+                        onClick={() => stopActiveAdhanAudio()}
+                        aria-label="Stop"
+                        className="w-9 h-9 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 flex items-center justify-center cursor-pointer"
+                      >
+                        <Square className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedTrackIndex((prev) => (prev + 1) % ADHAN_TRACKS.length)
+                      }
+                      aria-label="Next"
+                      className="w-9 h-9 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white flex items-center justify-center cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {playerState.progressPercent > 0 && (
+                  <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#C8A85E] to-[#10B981] transition-all duration-300"
+                      style={{ width: `${Math.min(100, playerState.progressPercent)}%` }}
+                    />
+                  </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedTrackIndex((prev) => (prev + 1) % ADHAN_TRACKS.length)
-                  }
-                  aria-label="Next"
-                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white cursor-pointer"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
             </div>
-
-            {playerState.progressPercent > 0 && (
-              <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full bg-[#DFBD69] transition-all duration-300"
-                  style={{ width: `${Math.min(100, playerState.progressPercent)}%` }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

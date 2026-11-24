@@ -49,6 +49,13 @@ import { stopActiveAdhanAudio } from '../../../utils/notificationService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
+import { PageHero } from '../../ui/PageHero';
+import {
+  AudioWaveformBars,
+  MagneticWrapper,
+  ScrollReveal,
+} from '../../ui/MotionPrimitives';
+import { triggerTactileHaptic } from '../../../utils/motionSystem';
 import {
   GeometricPattern,
   IslamicMihrabArch,
@@ -950,34 +957,19 @@ export const QuranView: React.FC<QuranViewProps> = ({
 
   return (
     <div className="space-y-7 pb-16 max-w-7xl mx-auto">
-      {/* 1. 2026 MUSHAF READING STUDIO BANNER */}
-      <div className="relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#071410] p-6 sm:p-9 text-[#F7F5F0] shadow-[0_24px_64px_-20px_rgba(3,10,8,0.6)]">
-        <img
-          src="/images/quran_illumination_art_1793634658336.jpg"
-          alt="Quran Illumination Art"
-          referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-[0.18] mix-blend-luminosity"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#060E0B]/95 via-[#091C16]/90 to-[#0C2920]/78" />
-        <GeometricPattern opacity={0.04} />
-        <div className="relative z-10 max-w-3xl space-y-3.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#9CAFA7]">
-            <span className="font-medium text-[#C8A85E]">Kalomulloh Ekotizimi</span>
-            <span aria-hidden="true" className="text-white/25">·</span>
-            <span className="tabular-nums">114 ta sura</span>
-            <span aria-hidden="true" className="text-white/25">·</span>
-            <span className="tabular-nums">{availableReciters.length} ta faol qori</span>
-            <span aria-hidden="true" className="text-white/25">·</span>
-            <span>Tafsiri Hilol</span>
-          </div>
-          <h1 className="text-2xl sm:text-4xl lg:text-[2.6rem] font-display font-bold tracking-[-0.03em] text-[#F7F5F0] text-balance leading-[1.12]">
-            Qurʼoni Karim va Tafsir Maskani
-          </h1>
-          <p className="text-xs sm:text-sm text-[#C2D1CB] leading-relaxed max-w-2xl">
-            114 ta suraning toʻliq arabcha matni, {availableReciters.length} ta mashhur va maxsus qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.
-          </p>
-        </div>
-      </div>
+      {/* 1. NEO 2026 MUSHAF READING STUDIO HERO */}
+      <PageHero
+        variant="mushaf"
+        kicker="Kalomulloh Ekotizimi"
+        title="Qurʼoni Karim va Tafsir Maskani"
+        subtitle={`114 ta suraning toʻliq arabcha matni, ${availableReciters.length} ta mashhur va maxsus qorilar audio qiroati, Shayx Muhammad Sodiq Muhammad Yusuf hazratlarining «Tafsiri Hilol» asari va audio darslari.`}
+        meta={[
+          '114 ta sura',
+          `${availableReciters.length} ta faol qori`,
+          'Tafsiri Hilol',
+        ]}
+        imageUrl="/images/quran_illumination_art_1793634658336.jpg"
+      />
 
       {/* 2. Mode Selector & Reading Studio Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#064E3B]/[0.1] dark:border-white/[0.08] pb-4">
@@ -1367,11 +1359,12 @@ export const QuranView: React.FC<QuranViewProps> = ({
 
           {/* Right Column: Surah Player & Verses Reading Pane (8 cols) */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Surah Header & Premium Audio Controller */}
-            <Card elevated className="p-6 text-center relative overflow-hidden border-[#c5a869]/40 space-y-4 bg-gradient-to-br from-stone-900 via-[#071614] to-stone-900 text-white">
-              <GeometricPattern opacity={0.05} />
+            {/* Surah Header & Apple Music-Tier Liquid Glass Audio Studio */}
+            <ScrollReveal>
+            <Card elevated className="p-6 text-center relative overflow-hidden border-[#C8A85E]/35 space-y-4 az-aurora-surface text-[#F7F4EC]">
+              <GeometricPattern opacity={0.04} />
               <div className="relative z-10 space-y-2">
-                <div className="flex items-center justify-center gap-2 text-xs text-[#c5a869] uppercase tracking-widest font-semibold">
+                <div className="flex items-center justify-center gap-2 text-xs text-[#C8A85E] uppercase tracking-widest font-semibold">
                   <span>{selectedSurah.revelationType === 'Makkah' ? 'Makkiy' : 'Madaniy'}</span>
                   <span>·</span>
                   <span>{selectedSurah.numberOfAyahs} oyat</span>
@@ -1379,32 +1372,37 @@ export const QuranView: React.FC<QuranViewProps> = ({
                   <span>{selectedSurah.pageNumber}-sahifa</span>
                 </div>
 
-                <h2 className="text-3xl font-display font-bold text-white">
+                <h2 className="text-3xl font-display font-bold text-[#F7F4EC]">
                   {getLocalizedSurahName(selectedSurah)} surasi
                 </h2>
 
-                <p className="font-arabic text-4xl text-[#c5a869] py-1">{selectedSurah.nameAr}</p>
+                <p className="font-arabic text-4xl text-[#C8A85E] py-1">{selectedSurah.nameAr}</p>
 
                 {selectedSurah.number !== 9 && (
                   <div className="pt-2">
                     <p className="font-arabic text-2xl text-amber-100/90">
                       بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                     </p>
-                    <p className="text-xs text-stone-400 italic mt-0.5">
+                    <p className="text-xs text-[#9CAFA7] italic mt-0.5">
                       Mehribon va rahmli Allohning nomi ila boshlayman
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Advanced Audio Player Bar */}
-              <div className="relative z-10 pt-4 border-t border-white/10 space-y-3 bg-black/40 p-4 rounded-2xl border border-white/10">
-                <div className="flex items-center justify-between text-xs text-stone-300">
-                  <div className="flex items-center gap-2">
-                    <Headphones className="w-3.5 h-3.5 text-[#c5a869]" />
-                    <span className="font-semibold">{activeReciter.name}</span>
+              {/* Liquid Glass Audio Studio Deck */}
+              <div className="relative z-10 pt-4 space-y-3 bg-[#030706]/55 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+                <div className="flex items-center justify-between text-xs text-[#C8D6D0]">
+                  <div className="flex items-center gap-2.5">
+                    <AudioWaveformBars
+                      isPlaying={isSurahAudioPlaying}
+                      barCount={5}
+                      barClassName="bg-[#10B981]"
+                    />
+                    <Headphones className="w-3.5 h-3.5 text-[#C8A85E]" />
+                    <span className="font-semibold text-[#F7F4EC]">{activeReciter.name}</span>
                   </div>
-                  <div className="font-mono text-[11px] text-[#c5a869]">
+                  <div className="font-mono-numbers text-[11px] text-[#C8A85E] tabular-nums">
                     {formatSeconds(currentTimeSec)} / {formatSeconds(durationSec)}
                   </div>
                 </div>
@@ -1417,7 +1415,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
                   step="0.1"
                   value={surahAudioProgress}
                   onChange={handleSeek}
-                  className="w-full h-1.5 bg-stone-700 rounded-lg appearance-none cursor-pointer accent-[#c5a869]"
+                  className="w-full h-1.5 bg-white/15 rounded-lg appearance-none cursor-pointer accent-[#10B981]"
                 />
 
                 {/* Controls row */}
@@ -1425,26 +1423,40 @@ export const QuranView: React.FC<QuranViewProps> = ({
                   {/* Prev / Play / Next */}
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => selectedSurahNumber > 1 && setSelectedSurahNumber((n) => n - 1)}
+                      type="button"
+                      onClick={() => {
+                        triggerTactileHaptic(6);
+                        if (selectedSurahNumber > 1) setSelectedSurahNumber((n) => n - 1);
+                      }}
                       disabled={selectedSurahNumber <= 1}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 transition-colors"
+                      className="p-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.16] disabled:opacity-30 transition-colors cursor-pointer"
                       title="Oldingi sura"
                     >
                       <SkipBack className="w-4 h-4" />
                     </button>
 
-                    <button
-                      onClick={handleToggleSurahAudio}
-                      className="w-11 h-11 rounded-full bg-[#c5a869] text-[#071614] flex items-center justify-center font-bold hover:scale-105 transition-all shadow-md cursor-pointer"
-                      title={isSurahAudioPlaying ? 'Pauza' : 'Qiroatni tinglash'}
-                    >
-                      {isSurahAudioPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-                    </button>
+                    <MagneticWrapper strength={5}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerTactileHaptic(10);
+                          handleToggleSurahAudio();
+                        }}
+                        className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D6B974] to-[#B59143] text-[#030706] flex items-center justify-center font-bold hover:brightness-110 active:scale-95 transition-all shadow-[0_12px_28px_rgba(200,168,94,0.34)] cursor-pointer"
+                        title={isSurahAudioPlaying ? 'Pauza' : 'Qiroatni tinglash'}
+                      >
+                        {isSurahAudioPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                      </button>
+                    </MagneticWrapper>
 
                     <button
-                      onClick={() => selectedSurahNumber < 114 && setSelectedSurahNumber((n) => n + 1)}
+                      type="button"
+                      onClick={() => {
+                        triggerTactileHaptic(6);
+                        if (selectedSurahNumber < 114) setSelectedSurahNumber((n) => n + 1);
+                      }}
                       disabled={selectedSurahNumber >= 114}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 transition-colors"
+                      className="p-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.16] disabled:opacity-30 transition-colors cursor-pointer"
                       title="Keyingi sura"
                     >
                       <SkipForward className="w-4 h-4" />
@@ -1536,6 +1548,7 @@ export const QuranView: React.FC<QuranViewProps> = ({
                 )}
               </div>
             </Card>
+            </ScrollReveal>
 
             {/* Repeat Range & Study Controller */}
             <div className="p-4 rounded-2xl border border-stone-200 dark:border-emerald-950 bg-white/70 dark:bg-stone-900/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">

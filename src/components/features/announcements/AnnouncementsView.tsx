@@ -3,14 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { SupportedLocale, AnnouncementItem } from '../../../types';
 import { getStoredAnnouncements, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import { StaggerGrid, StaggerCard } from '../../ui/MotionPrimitives';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
-import { Calendar, MapPin, Clock, User, Phone, Megaphone } from 'lucide-react';
+import { Calendar, MapPin, Clock, User } from 'lucide-react';
 
 export const AnnouncementsView: React.FC = () => {
   const { t, i18n } = useTranslation();
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
-  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() => getStoredAnnouncements().filter(isPubliclyPublished));
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() =>
+    getStoredAnnouncements().filter(isPubliclyPublished)
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
@@ -30,37 +33,20 @@ export const AnnouncementsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 2026 Luxury Architectural Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
-        <img
-          src="/images/asaka_islamic_architecture_1793634657962.jpg"
-          alt="Asaka Islamic Architecture"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
-              <Megaphone className="w-3.5 h-3.5" />
-              <span>{t('announcements:communityNews', 'Jome Masjidi Eʼlonlari')}</span>
-              <span aria-hidden="true">·</span>
-              <span>{t('announcements:mosqueLife', 'Masjid hayoti')}</span>
-            </div>
-          </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
-            {t('announcements:title', 'Rasmiy Eʼlonlar va Tadbirlar')}
-          </h1>
-          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
-            {t('announcements:subtitle', 'Asaka markaziy jome masjidi va maʼmuriyati tomonidan eʼlon qilinadigan juma maʼruzalari, darslar va muhim tadbirlar.')}
-          </p>
-        </div>
-      </div>
+      <PageHero
+        variant="editorial"
+        kicker={`${t('announcements:communityNews', 'Jome Masjidi Eʼlonlari')} · ${t('announcements:mosqueLife', 'Masjid hayoti')}`}
+        title={t('announcements:title', 'Rasmiy Eʼlonlar va Tadbirlar')}
+        subtitle={t(
+          'announcements:subtitle',
+          'Asaka markaziy jome masjidi va maʼmuriyati tomonidan eʼlon qilinadigan juma maʼruzalari, darslar va muhim tadbirlar.'
+        )}
+        imageSrc="/images/asaka_islamic_architecture_1793634657962.jpg"
+        imageAlt="Masjid eʼlonlari"
+      />
 
       {/* Announcements List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {announcements.map((item) => {
           const locTitle = getLocalizedText(item.title);
           const locDesc = getLocalizedText(item.description);
@@ -69,64 +55,67 @@ export const AnnouncementsView: React.FC = () => {
           const locLocation = item.location ? getLocalizedText(item.location) : undefined;
 
           return (
-            <Card
-              key={item.id}
-              elevated={item.isPinned}
-              className={`p-6 flex flex-col justify-between space-y-4 ${
-                item.isPinned ? 'border-[#c5a869]/60 ring-1 ring-[#c5a869]/20' : ''
-              }`}
-            >
-              <div className="space-y-3">
-                {/* Header Badge */}
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#c5a869]/15 text-[#c5a869] text-[11px] font-bold border border-[#c5a869]/30">
-                    {locType}
-                  </span>
-                  {item.isPinned && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Muhim / Qadalgan
+            <StaggerCard key={item.id}>
+              <Card
+                elevated={item.isPinned}
+                className={`p-6 h-full flex flex-col justify-between space-y-5 ${
+                  item.isPinned ? 'border-[#C8A85E]/55 ring-1 ring-[#C8A85E]/25' : ''
+                }`}
+              >
+                <div className="space-y-3">
+                  {/* Unboxed typographic metadata */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-bold text-[#8B6B2E] dark:text-[#C8A85E]">
+                      {locType}
                     </span>
+                    {item.isPinned && (
+                      <span className="font-semibold text-[#064E3B] dark:text-[#34D399]">
+                        Muhim · Qadalgan
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-base sm:text-lg font-display font-bold text-[#091813] dark:text-[#F7F4EC] leading-snug">
+                    {locTitle}
+                  </h3>
+
+                  <p className="text-sm text-[#3B554D] dark:text-[#A4B9B1] leading-relaxed">
+                    {locDesc}
+                  </p>
+                </div>
+
+                {/* Metadata */}
+                <div className="pt-4 border-t border-black/[0.06] dark:border-white/[0.08] space-y-2 text-xs text-[#587068] dark:text-[#9CAFA7]">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-[#C8A85E] shrink-0" />
+                    <span className="font-semibold font-mono-numbers text-[#091813] dark:text-[#F7F4EC]">
+                      {item.date}
+                    </span>
+                  </div>
+                  {item.time && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-[#C8A85E] shrink-0" />
+                      <span className="font-mono-numbers">{item.time}</span>
+                    </div>
+                  )}
+                  {locLocation && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-[#C8A85E] shrink-0" />
+                      <span>{locLocation}</span>
+                    </div>
+                  )}
+                  {locOrganizer && (
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-[#C8A85E] shrink-0" />
+                      <span>Masʼul: {locOrganizer}</span>
+                    </div>
                   )}
                 </div>
-
-                <h3 className="text-base font-display font-bold text-stone-900 dark:text-stone-100">
-                  {locTitle}
-                </h3>
-
-                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-                  {locDesc}
-                </p>
-              </div>
-
-              {/* Metadata */}
-              <div className="pt-4 border-t border-stone-200 dark:border-emerald-950/60 space-y-2 text-xs text-stone-500 dark:text-stone-400">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-[#c5a869]" />
-                  <span className="font-medium text-stone-800 dark:text-stone-200">{item.date}</span>
-                </div>
-                {item.time && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-[#c5a869]" />
-                    <span>{item.time}</span>
-                  </div>
-                )}
-                {locLocation && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-[#c5a869]" />
-                    <span>{locLocation}</span>
-                  </div>
-                )}
-                {locOrganizer && (
-                  <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-[#c5a869]" />
-                    <span>Mas’ul: {locOrganizer}</span>
-                  </div>
-                )}
-              </div>
-            </Card>
+              </Card>
+            </StaggerCard>
           );
         })}
-      </div>
+      </StaggerGrid>
     </div>
   );
 };

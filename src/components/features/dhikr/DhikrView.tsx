@@ -8,7 +8,14 @@ import {
   GeometricPattern,
   IslamicMihrabArch,
 } from '../../ui/GeometricPattern';
-import { AnimatedProgressRing } from '../../ui/MotionPrimitives';
+import { PageHero } from '../../ui/PageHero';
+import {
+  AnimatedProgressRing,
+  ScrollReveal,
+  StaggerCard,
+  StaggerGrid,
+} from '../../ui/MotionPrimitives';
+import { triggerTactileHaptic } from '../../../utils/motionSystem';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
   getStoredDhikrs,
@@ -196,26 +203,15 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
     : 0;
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* NEO 2026 Aurora Obsidian Header */}
-      <div className="relative rounded-[28px] overflow-hidden az-aurora-surface text-[#F7F5F0] p-6 sm:p-9">
-        <GeometricPattern opacity={0.045} />
-        <IslamicMihrabArch opacity={0.1} className="right-6 max-w-[240px] ml-auto hidden md:block" />
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[#C2D1CB]">
-            <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
-            <span className="font-semibold text-[#10B981]">{t('dhikr:bannerPretitle')}</span>
-            <span aria-hidden="true" className="text-white/25">·</span>
-            <span>{t('dhikr:bannerSource')}</span>
-          </div>
-          <h1 className="az-type-hero text-[#F7F5F0]">
-            {t('dhikr:title')}
-          </h1>
-          <p className="az-type-body text-[#C2D1CB] max-w-xl">
-            {t('dhikr:subtitle')}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-8 pb-16 max-w-7xl mx-auto">
+      {/* NEO 2026 Sanctuary Hero */}
+      <PageHero
+        variant="sanctuary"
+        kicker={t('dhikr:bannerPretitle')}
+        title={t('dhikr:title')}
+        subtitle={t('dhikr:subtitle')}
+        meta={[t('dhikr:bannerSource'), `${dhikrs.length} ta zikr`]}
+      />
 
       {/* Main Grid: Neumorphism 2.0 Tactile Counter Instrument + Dhikrs Library */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
@@ -416,50 +412,52 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
           </div>
 
           {/* List of Dhikrs */}
-          <div className="space-y-3">
+          <StaggerGrid className="space-y-3" staggerDelay={0.03}>
             {filteredDhikrs.map((dhikr) => {
               const isSelected = activeDhikr.id === dhikr.id;
               const title = getLocalizedText(dhikr.titleUz);
               const translit = getLocalizedText(dhikr.transliterationUz);
 
               return (
-                <button
-                  key={dhikr.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveDhikr(dhikr);
-                    setCount(0);
-                  }}
-                  className={`w-full text-left p-5 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-[#10B981]/60 bg-[#064E3B]/[0.06] dark:bg-[#10B981]/10 shadow-xs'
-                      : 'border-[#064E3B]/[0.09] dark:border-white/[0.08] bg-white dark:bg-[#0B1411] hover:border-[#10B981]/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-xs text-[#5F776F] dark:text-[#8FA69D] mb-2">
-                    <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E]">
-                      {getLocalizedText(dhikr.categoryTitleUz)}
-                    </span>
-                    <span className="az-type-numeric font-bold text-[#064E3B] dark:text-emerald-300">
-                      {dhikr.targetCount}×
-                    </span>
-                  </div>
+                <StaggerCard key={dhikr.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerTactileHaptic(6);
+                      setActiveDhikr(dhikr);
+                      setCount(0);
+                    }}
+                    className={`w-full text-left p-5 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-[#10B981]/60 bg-[#064E3B]/[0.06] dark:bg-[#10B981]/10 shadow-xs'
+                        : 'az-liquid-glass hover:border-[#10B981]/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs text-[#5F776F] dark:text-[#8FA69D] mb-2">
+                      <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E]">
+                        {getLocalizedText(dhikr.categoryTitleUz)}
+                      </span>
+                      <span className="az-type-numeric font-bold text-[#064E3B] dark:text-emerald-300">
+                        {dhikr.targetCount}×
+                      </span>
+                    </div>
 
-                  <h4 className="text-sm font-display font-bold text-[#0B1B16] dark:text-[#F7F5F0] mb-1">
-                    {title}
-                  </h4>
+                    <h4 className="text-sm font-display font-bold text-[#091813] dark:text-[#F7F4EC] mb-1">
+                      {title}
+                    </h4>
 
-                  <p dir="rtl" className="font-arabic text-lg text-[#0B1B16] dark:text-[#F7F5F0] text-right my-1.5">
-                    {dhikr.textAr}
-                  </p>
+                    <p dir="rtl" className="font-arabic text-lg text-[#091813] dark:text-[#F7F4EC] text-right my-1.5">
+                      {dhikr.textAr}
+                    </p>
 
-                  <p className="text-xs text-[#5F776F] dark:text-[#8FA69D] italic line-clamp-1">
-                    {translit}
-                  </p>
-                </button>
+                    <p className="text-xs text-[#5F776F] dark:text-[#8FA69D] italic line-clamp-1">
+                      {translit}
+                    </p>
+                  </button>
+                </StaggerCard>
               );
             })}
-          </div>
+          </StaggerGrid>
         </div>
       </div>
     </div>

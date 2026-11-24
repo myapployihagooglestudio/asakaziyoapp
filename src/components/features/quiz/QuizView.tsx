@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import {
+  MorphingTabs,
+  InteractiveCounter,
+  AnimatedProgressRing,
+  SpatialTiltCard,
+  MagneticWrapper,
+} from '../../ui/MotionPrimitives';
 import {
   QuizQuestionItem,
   QuizCategory,
@@ -290,93 +297,88 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
   const dailyAttemptsCount = attempts.filter((a) => !a.isArchiveAttempt).length;
   const archiveAttemptsCount = attempts.filter((a) => a.isArchiveAttempt).length;
 
+  const quizSubTabs = [
+    {
+      id: 'daily',
+      label: selectedDateStr === todayDateStr ? 'Bugungi Viktorina' : `Arxiv Test (${selectedDateStr})`,
+    },
+    { id: 'archive', label: 'Oldingi Kunlar Arxivi' },
+    { id: 'achievements', label: 'Natijalarim & Tarix', count: attempts.length },
+  ];
+
   return (
     <div className="space-y-6 pb-20 max-w-4xl mx-auto">
-      {/* Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#c5a869]/30 bg-gradient-to-r from-[#031d17] via-[#071614] to-[#04241d] p-6 sm:p-8 text-white shadow-xl">
-        <GeometricPattern opacity={0.06} />
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#c5a869] uppercase tracking-wider">
-              <Award className="w-4 h-4 text-[#c5a869]" />
-              <span>Kunlik Diniy Bilim Testi · 10 Savol</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide">
-              Islomiy Bilimlar Viktorinasi
-            </h1>
-            <p className="text-xs sm:text-sm text-stone-300 max-w-lg leading-relaxed">
-              Qurʼoni Karim, Sahih hadislar, Aqoid, Hanafiy fiqhi, Siyrat, Islom tarixi, Sahobalar va Axloq boʻyicha har kuni 10 ta moʻtabar manbali savol.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#c5a869]/15 border border-[#c5a869]/40 text-[#c5a869]">
-              <Flame className="w-5 h-5 text-amber-400 fill-amber-400" />
-              <div className="text-left">
-                <div className="text-xs font-bold leading-tight">{streakDays} kun</div>
-                <div className="text-[10px] text-stone-400 uppercase tracking-wider">Muntazamlik</div>
+      <PageHero
+        variant="studio"
+        kicker="Kunlik Diniy Bilim Testi · 10 Savol"
+        title="Islomiy Bilimlar Viktorinasi"
+        subtitle="Qurʼoni Karim, Sahih hadislar, Aqoid, Hanafiy fiqhi, Siyrat, Islom tarixi, Sahobalar va Axloq boʻyicha har kuni 10 ta moʻtabar manbali savol."
+        aside={
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white/[0.06] border border-[#C8A85E]/30 backdrop-blur-md p-4 flex items-center gap-3">
+              <Flame className="w-6 h-6 text-[#E5C97B] shrink-0" />
+              <div>
+                <div className="text-lg font-display font-extrabold text-[#F7F4EC]">
+                  <InteractiveCounter value={streakDays} suffix=" kun" />
+                </div>
+                <div className="text-[10px] text-[#C2D4CD] uppercase tracking-wider">Muntazamlik</div>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400">
-              <Trophy className="w-5 h-5 text-emerald-400" />
-              <div className="text-left">
-                <div className="text-xs font-bold leading-tight">{personalBestScore}/10</div>
-                <div className="text-[10px] text-stone-400 uppercase tracking-wider">Eng yuqori</div>
+            <div className="rounded-2xl bg-white/[0.06] border border-emerald-400/30 backdrop-blur-md p-4 flex items-center gap-3">
+              <Trophy className="w-6 h-6 text-[#34D399] shrink-0" />
+              <div>
+                <div className="text-lg font-display font-extrabold text-[#F7F4EC] font-mono-numbers">
+                  {personalBestScore}/10
+                </div>
+                <div className="text-[10px] text-[#C2D4CD] uppercase tracking-wider">Eng yuqori</div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {onOpenQuranQuiz && (
-        <div className="rounded-2xl border border-[#C6A45C]/35 bg-[#063D32]/10 dark:bg-[#06241E] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <Card elevated className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ring-1 ring-[#C8A85E]/30">
           <div className="space-y-0.5">
-            <div className="text-xs font-bold text-[#063D32] dark:text-[#DCC58C] uppercase tracking-wider">
+            <div className="az-type-overline text-[#9E7F3C] dark:text-[#C8A85E]">
               Yangi · 9:16 Audio Shorts Viktorina
             </div>
-            <p className="text-xs text-stone-600 dark:text-stone-300">
+            <p className="text-xs sm:text-sm text-[#3B554D] dark:text-[#A4B9B1]">
               Shayxlar tilovatini tinglab, oyatning yashirilgan oxirgi soʻzini 3.5 soniyada toping!
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onOpenQuranQuiz}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-[#063D32] dark:bg-[#C6A45C] text-[#F8F5EC] dark:text-[#042B25] text-xs font-bold shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
-          >
-            Kunlik Qurʼon Viktorinasini Ochish →
-          </button>
-        </div>
+          <MagneticWrapper strength={4}>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onOpenQuranQuiz}
+              className="min-h-[44px] shrink-0"
+            >
+              <span>Kunlik Qurʼon Viktorinasini Ochish →</span>
+            </Button>
+          </MagneticWrapper>
+        </Card>
       )}
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 dark:border-emerald-950/80 pb-2">
-        <div className="flex items-center gap-2 text-xs">
-          {[
-            { id: 'daily', label: selectedDateStr === todayDateStr ? 'Bugungi Viktorina' : `Arxiv Test (${selectedDateStr})` },
-            { id: 'archive', label: 'Oldingi Kunlar Arxivi' },
-            { id: 'achievements', label: `Natijalarim & Tarix (${attempts.length})` },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-[#c5a869] text-[#071614] font-semibold shadow-sm'
-                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="overflow-x-auto pb-1 no-scrollbar">
+          <MorphingTabs
+            items={quizSubTabs}
+            activeId={activeTab}
+            onChange={(id) => setActiveTab(id as 'daily' | 'archive' | 'achievements')}
+            layoutId="az-quiz-subtabs"
+          />
         </div>
 
         {activeTab === 'daily' && (
-          <div className="flex items-center gap-2 text-xs text-stone-500 font-mono-numbers">
+          <div className="flex items-center gap-2.5 text-xs text-[#587068] dark:text-[#9CAFA7] font-mono-numbers">
             {selectedDateStr !== todayDateStr && (
               <button
+                type="button"
                 onClick={() => setSelectedDateStr(todayDateStr)}
-                className="text-[#c5a869] hover:underline font-sans font-semibold cursor-pointer"
+                className="text-[#064E3B] dark:text-[#C8A85E] hover:underline font-sans font-semibold cursor-pointer"
               >
                 Bugunga qaytish
               </button>
@@ -390,40 +392,45 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
       {activeTab === 'daily' && (
         <>
           {isLoadingQuiz ? (
-            <Card elevated className="p-10 text-center text-xs text-stone-400">
+            <Card elevated className="p-10 text-center text-xs text-[#587068] dark:text-[#9CAFA7]">
               Viktorina savollari yuklanmoqda...
             </Card>
           ) : !isFinished ? (
-            <Card elevated className="p-6 sm:p-8 space-y-6 border-[#c5a869]/30 bg-white/70 dark:bg-[#071614]/80 backdrop-blur-md shadow-xl">
+            <Card elevated className="p-6 sm:p-8 space-y-6">
               {/* Question Header & Progress Bar */}
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[#c5a869] font-bold font-mono-numbers">
+                    <span className="text-[#9E7F3C] dark:text-[#C8A85E] font-bold font-mono-numbers">
                       Savol {currentIndex + 1} / {activeQuestions.length}
                     </span>
-                    <span aria-hidden="true" className="text-stone-400">·</span>
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 font-semibold">
+                    <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                      ·
+                    </span>
+                    <span className="font-semibold text-[#064E3B] dark:text-[#10B981]">
                       {currentQ.category}
                     </span>
-                    <span className="px-2 py-0.5 rounded-md bg-stone-200/70 dark:bg-white/10 text-stone-600 dark:text-stone-300 text-[11px]">
+                    <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                      ·
+                    </span>
+                    <span className="text-[#587068] dark:text-[#9CAFA7] font-medium">
                       {getDifficultyLabel(currentQ.difficulty)}
                     </span>
                     {currentQ.publishedDate && (
-                      <span className="text-[11px] text-stone-400 font-mono-numbers">
+                      <span className="text-[11px] text-[#587068] dark:text-[#9CAFA7] font-mono-numbers">
                         ({currentQ.publishedDate})
                       </span>
                     )}
                   </div>
-                  <div className="text-xs font-semibold text-emerald-500 font-mono-numbers">
+                  <div className="text-xs font-bold text-[#064E3B] dark:text-[#10B981] font-mono-numbers">
                     Ball: {score}
                   </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full h-1.5 bg-stone-200 dark:bg-emerald-950/60 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-black/[0.06] dark:bg-white/[0.08] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[#c5a869] to-emerald-500 transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-[#C8A85E] to-[#10B981] transition-all duration-300"
                     style={{ width: `${((currentIndex + 1) / activeQuestions.length) * 100}%` }}
                   />
                 </div>
@@ -431,7 +438,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
 
               {/* Question Text */}
               <div className="py-2">
-                <h2 className="text-base sm:text-xl font-bold text-stone-900 dark:text-stone-100 leading-snug">
+                <h2 className="text-base sm:text-xl font-display font-bold text-[#091813] dark:text-[#F7F4EC] leading-snug">
                   {currentQ.questionUz}
                 </h2>
               </div>
@@ -439,33 +446,37 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
               {/* 4 Options */}
               <div className="space-y-2.5">
                 {currentQ.optionsUz.map((opt, optIdx) => {
-                  let buttonStyle = 'border-stone-200 dark:border-emerald-950/60 bg-stone-50/50 dark:bg-white/5 hover:border-[#c5a869]/60';
+                  let buttonStyle =
+                    'border-black/[0.08] dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.03] hover:border-[#064E3B]/50 dark:hover:border-[#C8A85E]/55';
                   let icon = null;
 
                   if (isAnswered) {
                     if (optIdx === currentQ.correctIndex) {
-                      buttonStyle = 'border-emerald-500 bg-emerald-500/15 text-emerald-300 font-semibold';
-                      icon = <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />;
+                      buttonStyle =
+                        'border-emerald-500 bg-emerald-500/14 text-[#064E3B] dark:text-emerald-200 font-semibold';
+                      icon = <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
                     } else if (optIdx === selectedOption) {
-                      buttonStyle = 'border-rose-500 bg-rose-500/15 text-rose-300';
-                      icon = <XCircle className="w-4 h-4 text-rose-400 shrink-0" />;
+                      buttonStyle =
+                        'border-rose-500 bg-rose-500/14 text-rose-800 dark:text-rose-200';
+                      icon = <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />;
                     } else {
-                      buttonStyle = 'opacity-40 border-stone-200 dark:border-emerald-950/40';
+                      buttonStyle = 'opacity-45 border-black/[0.06] dark:border-white/[0.06]';
                     }
                   }
 
                   return (
                     <button
                       key={optIdx}
+                      type="button"
                       disabled={isAnswered}
                       onClick={() => handleSelectOption(optIdx)}
-                      className={`w-full p-4 rounded-xl border text-left text-xs sm:text-sm transition-all flex items-center justify-between gap-3 cursor-pointer ${buttonStyle}`}
+                      className={`w-full p-4 min-h-[52px] rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-center justify-between gap-3 cursor-pointer ${buttonStyle}`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-lg bg-stone-200 dark:bg-white/10 flex items-center justify-center text-xs font-bold font-mono-numbers shrink-0">
+                        <span className="w-7 h-7 rounded-xl az-liquid-glass-pill flex items-center justify-center text-xs font-bold font-mono-numbers text-[#091813] dark:text-[#F7F4EC] shrink-0">
                           {String.fromCharCode(65 + optIdx)}
                         </span>
-                        <span className="text-stone-900 dark:text-stone-100">{opt}</span>
+                        <span className="text-[#091813] dark:text-[#F7F4EC]">{opt}</span>
                       </div>
                       {icon}
                     </button>
@@ -473,30 +484,30 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
                 })}
               </div>
 
-              {/* Explanation & Verified Book Source (Appears after answer) */}
+              {/* Explanation & Verified Book Source */}
               {isAnswered && (
-                <div className="p-4 rounded-2xl bg-emerald-950/20 dark:bg-[#04241d]/40 border border-emerald-500/30 space-y-2 animate-fadeIn">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                      <BookOpen className="w-4 h-4 text-emerald-400" />
-                      <span>Javob Izohi va Moʻtabar Manba:</span>
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-[#064E3B] dark:text-[#34D399]">
+                      <BookOpen className="w-4 h-4" />
+                      <span>Javob Izohi va Moʻtabar Manba</span>
                     </div>
-                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      <ShieldCheck className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#064E3B] dark:text-[#34D399]">
+                      <ShieldCheck className="w-3.5 h-3.5" />
                       <span>Tasdiqlangan manba</span>
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-200 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#091813] dark:text-[#F7F4EC] leading-relaxed">
                     {currentQ.explanationUz}
                   </p>
-                  <div className="pt-1 text-[11px] text-stone-500 dark:text-stone-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="pt-1 text-[11px] text-[#3B554D] dark:text-[#A4B9B1] flex flex-wrap items-center gap-x-3 gap-y-1">
                     <div>
-                      <span className="font-semibold text-[#c5a869]">Kitob / Manba: </span>
+                      <span className="font-semibold text-[#9E7F3C] dark:text-[#C8A85E]">Kitob / Manba: </span>
                       <span>{currentQ.source}</span>
                     </div>
                     {currentQ.reference && (
                       <div>
-                        <span className="font-semibold text-[#c5a869]">Bob / Hadis: </span>
+                        <span className="font-semibold text-[#9E7F3C] dark:text-[#C8A85E]">Bob / Hadis: </span>
                         <span>{currentQ.reference}</span>
                       </div>
                     )}
@@ -507,7 +518,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
               {/* Next Button */}
               {isAnswered && (
                 <div className="pt-2 flex justify-end">
-                  <Button variant="primary" size="md" onClick={handleNextQuestion}>
+                  <Button variant="primary" size="md" className="min-h-[46px]" onClick={handleNextQuestion}>
                     <span>
                       {currentIndex + 1 < activeQuestions.length
                         ? 'Keyingi savol'
@@ -520,62 +531,78 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
             </Card>
           ) : (
             /* Quiz Completed Summary Card */
-            <Card elevated className="p-8 text-center space-y-6 border-[#c5a869]/40 bg-gradient-to-b from-[#071614] to-[#031d17] text-white shadow-2xl">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#c5a869] to-amber-600 mx-auto flex items-center justify-center text-[#071614] shadow-lg">
-                <Trophy className="w-8 h-8" />
+            <div className="rounded-[28px] az-aurora-surface border border-white/[0.12] p-8 text-center space-y-6 text-[#F7F4EC]">
+              <div className="flex justify-center">
+                <AnimatedProgressRing
+                  progress={Math.round((score / Math.max(1, activeQuestions.length)) * 100)}
+                  size={132}
+                  strokeWidth={8}
+                >
+                  <span className="font-mono-numbers text-2xl font-extrabold text-[#F7F4EC]">
+                    {score}/{activeQuestions.length}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wider text-[#C8A85E] font-semibold">
+                    Natija
+                  </span>
+                </AnimatedProgressRing>
               </div>
 
-              <div className="space-y-1">
-                <h2 className="text-2xl sm:text-3xl font-display font-bold text-white">
+              <div className="space-y-1.5">
+                <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#F7F4EC]">
                   MashaAlloh! Viktorina yakunlandi
                 </h2>
-                <p className="text-xs sm:text-sm text-stone-300">
+                <p className="text-xs sm:text-sm text-[#C2D4CD]">
                   {selectedDateStr === todayDateStr
                     ? 'Bugungi kunlik diniy bilim testidagi natijangiz:'
                     : `Arxivdagi (${selectedDateStr}) viktorina natijangiz:`}
                 </p>
               </div>
 
-              <div className="py-4 inline-flex flex-wrap justify-center items-center gap-6 px-8 rounded-2xl bg-white/5 border border-white/10">
+              <div className="py-4 inline-flex flex-wrap justify-center items-center gap-6 px-8 rounded-2xl bg-white/[0.06] border border-white/[0.12] backdrop-blur-md">
                 <div className="text-center">
-                  <div className="text-3xl sm:text-4xl font-bold font-mono-numbers text-[#c5a869]">
+                  <div className="text-3xl font-display font-extrabold font-mono-numbers text-[#C8A85E]">
                     {score} / {activeQuestions.length}
                   </div>
-                  <div className="text-[11px] text-stone-400 uppercase tracking-wider pt-1">
+                  <div className="text-[11px] text-[#C2D4CD] uppercase tracking-wider pt-1">
                     Toʻgʻri javoblar
                   </div>
                 </div>
                 <div className="w-px h-10 bg-white/10 hidden sm:block" />
                 <div className="text-center">
-                  <div className="text-3xl sm:text-4xl font-bold font-mono-numbers text-rose-400">
+                  <div className="text-3xl font-display font-extrabold font-mono-numbers text-rose-400">
                     {Math.max(0, activeQuestions.length - score)}
                   </div>
-                  <div className="text-[11px] text-stone-400 uppercase tracking-wider pt-1">
+                  <div className="text-[11px] text-[#C2D4CD] uppercase tracking-wider pt-1">
                     Notoʻgʻri javoblar
                   </div>
                 </div>
                 <div className="w-px h-10 bg-white/10 hidden sm:block" />
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold font-mono-numbers text-emerald-400">
+                  <div className="text-2xl sm:text-3xl font-display font-extrabold font-mono-numbers text-[#34D399]">
                     {formatDuration(lastCompletionSeconds)}
                   </div>
-                  <div className="text-[11px] text-stone-400 uppercase tracking-wider pt-1">
+                  <div className="text-[11px] text-[#C2D4CD] uppercase tracking-wider pt-1">
                     Sarflangan vaqt
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <Button variant="outline" size="sm" onClick={handleRetake} className="border-[#c5a869]/40 text-[#c5a869]">
-                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetake}
+                  className="min-h-[44px] border-[#C8A85E]/45 text-[#F7F4EC] hover:bg-[#C8A85E]/15"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 text-[#C8A85E]" />
                   <span>Qayta topshirish</span>
                 </Button>
-                <Button variant="primary" size="sm" onClick={handleShareResult}>
+                <Button variant="primary" size="sm" className="min-h-[44px]" onClick={handleShareResult}>
                   {copiedNotice ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Share2 className="w-3.5 h-3.5 mr-1.5" />}
                   <span>{copiedNotice ? 'Nusxalandi!' : 'Natijani ulashish'}</span>
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
         </>
       )}
@@ -725,105 +752,100 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
       {activeTab === 'achievements' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="p-5 text-center space-y-1">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 mx-auto flex items-center justify-center text-amber-400 mb-2">
-                <Flame className="w-5 h-5 fill-amber-400" />
+            <Card elevated className="p-5 text-center space-y-1">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 mx-auto flex items-center justify-center text-amber-600 dark:text-amber-400 mb-2">
+                <Flame className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-white">
-                {streakDays} kun
+              <div className="text-2xl font-display font-extrabold text-[#091813] dark:text-[#F7F4EC]">
+                <InteractiveCounter value={streakDays} suffix=" kun" />
               </div>
-              <div className="text-xs text-stone-500">Joriy Muntazamlik</div>
+              <div className="text-xs text-[#587068] dark:text-[#9CAFA7]">Joriy Muntazamlik</div>
             </Card>
 
-            <Card className="p-5 text-center space-y-1">
-              <div className="w-10 h-10 rounded-xl bg-[#c5a869]/15 mx-auto flex items-center justify-center text-[#c5a869] mb-2">
+            <Card elevated className="p-5 text-center space-y-1">
+              <div className="w-10 h-10 rounded-xl bg-[#C8A85E]/15 mx-auto flex items-center justify-center text-[#9E7F3C] dark:text-[#C8A85E] mb-2">
                 <Trophy className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-white">
+              <div className="text-2xl font-display font-extrabold font-mono-numbers text-[#091813] dark:text-[#F7F4EC]">
                 {personalBestScore} / 10
               </div>
-              <div className="text-xs text-stone-500">Shaxsiy Rekord</div>
+              <div className="text-xs text-[#587068] dark:text-[#9CAFA7]">Shaxsiy Rekord</div>
             </Card>
 
-            <Card className="p-5 text-center space-y-1">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 mx-auto flex items-center justify-center text-emerald-400 mb-2">
+            <Card elevated className="p-5 text-center space-y-1">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 mx-auto flex items-center justify-center text-[#064E3B] dark:text-[#10B981] mb-2">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-white">
-                {dailyAttemptsCount} ta
+              <div className="text-2xl font-display font-extrabold text-[#091813] dark:text-[#F7F4EC]">
+                <InteractiveCounter value={dailyAttemptsCount} suffix=" ta" />
               </div>
-              <div className="text-xs text-stone-500">Kunlik Urinishlar</div>
+              <div className="text-xs text-[#587068] dark:text-[#9CAFA7]">Kunlik Urinishlar</div>
             </Card>
 
-            <Card className="p-5 text-center space-y-1">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/15 mx-auto flex items-center justify-center text-purple-400 mb-2">
+            <Card elevated className="p-5 text-center space-y-1">
+              <div className="w-10 h-10 rounded-xl bg-sky-500/15 mx-auto flex items-center justify-center text-sky-600 dark:text-sky-400 mb-2">
                 <History className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold font-mono-numbers text-stone-900 dark:text-white">
-                {archiveAttemptsCount} ta
+              <div className="text-2xl font-display font-extrabold text-[#091813] dark:text-[#F7F4EC]">
+                <InteractiveCounter value={archiveAttemptsCount} suffix=" ta" />
               </div>
-              <div className="text-xs text-stone-500">Arxiv Urinishlari</div>
+              <div className="text-xs text-[#587068] dark:text-[#9CAFA7]">Arxiv Urinishlari</div>
             </Card>
           </div>
 
-          <Card className="p-6 space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#c5a869]" />
-              <span>Diniy Ilm Nishonlari (Badges)</span>
+          <Card elevated className="p-6 space-y-4">
+            <h3 className="text-sm font-bold text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#9E7F3C] dark:text-[#C8A85E]" />
+              <span>Diniy Ilm Nishonlari</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-stone-900 dark:text-white">Qurʼon Bilimdoni</div>
-                  <div className="text-stone-500 text-[11px]">Qurʼon suralari va oyatlari savollariga toʻliq javob</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-stone-900 dark:text-white">Hadis va Sahobalar Ixlosmandi</div>
-                  <div className="text-stone-500 text-[11px]">Sahihi Buxoriy, Muslim va Sahobalar tarixini yaxshi biluvchi</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-[#c5a869]/30 bg-[#c5a869]/5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#c5a869]/20 text-[#c5a869] flex items-center justify-center shrink-0">
-                  <Award className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-stone-900 dark:text-white">Fiqh va Aqoid Bilimdoni</div>
-                  <div className="text-stone-500 text-[11px]">Tahorat, namoz, roʻza va aqoid hukmlari bilimdoni</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-500/5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-                  <Flame className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-stone-900 dark:text-white">Muntazam Talaba</div>
-                  <div className="text-stone-500 text-[11px]">Ketma-ket 3 kundan ortiq viktorinada qatnashgan</div>
-                </div>
-              </div>
+              {[
+                {
+                  icon: <BookOpen className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />,
+                  title: 'Qurʼon Bilimdoni',
+                  desc: 'Qurʼon suralari va oyatlari savollariga toʻliq javob',
+                },
+                {
+                  icon: <Sparkles className="w-4 h-4 text-[#9E7F3C] dark:text-[#C8A85E]" />,
+                  title: 'Hadis va Sahobalar Ixlosmandi',
+                  desc: 'Sahihi Buxoriy, Muslim va Sahobalar tarixini yaxshi biluvchi',
+                },
+                {
+                  icon: <Award className="w-4 h-4 text-[#9E7F3C] dark:text-[#C8A85E]" />,
+                  title: 'Fiqh va Aqoid Bilimdoni',
+                  desc: 'Tahorat, namoz, roʻza va aqoid hukmlari bilimdoni',
+                },
+                {
+                  icon: <Flame className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />,
+                  title: 'Muntazam Talaba',
+                  desc: 'Ketma-ket 3 kundan ortiq viktorinada qatnashgan',
+                },
+              ].map((b) => (
+                <SpatialTiltCard key={b.title} maxTilt={3}>
+                  <div className="p-4 rounded-2xl az-liquid-glass-card flex items-center gap-3 h-full">
+                    <div className="w-9 h-9 rounded-xl az-liquid-glass-pill flex items-center justify-center shrink-0">
+                      {b.icon}
+                    </div>
+                    <div>
+                      <div className="font-bold text-[#091813] dark:text-[#F7F4EC]">{b.title}</div>
+                      <div className="text-[#587068] dark:text-[#9CAFA7] text-[11px]">{b.desc}</div>
+                    </div>
+                  </div>
+                </SpatialTiltCard>
+              ))}
             </div>
           </Card>
 
           {/* Permanent Quiz History */}
-          <Card className="p-6 space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <History className="w-4 h-4 text-[#c5a869]" />
+          <Card elevated className="p-6 space-y-4">
+            <h3 className="text-sm font-bold text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
+              <History className="w-4 h-4 text-[#9E7F3C] dark:text-[#C8A85E]" />
               <span>Doimiy Viktorina Tarixi ({attempts.length})</span>
             </h3>
 
             {attempts.length === 0 ? (
-              <p className="text-xs text-stone-500 py-4 text-center">
+              <p className="text-xs text-[#587068] dark:text-[#9CAFA7] py-4 text-center">
                 Hozircha viktorina urinishlari yoʻq. Bugungi testni ishlab koʻring!
               </p>
             ) : (
@@ -831,17 +853,20 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
                 {attempts.map((att) => (
                   <div
                     key={att.id}
-                    className="p-3 rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] flex flex-wrap items-center justify-between gap-2 text-xs"
+                    className="p-3.5 rounded-2xl az-liquid-glass-card flex flex-wrap items-center justify-between gap-2 text-xs"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-bold font-mono-numbers text-stone-900 dark:text-stone-100">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold font-mono-numbers text-[#091813] dark:text-[#F7F4EC]">
                         {att.dateStr}
                       </span>
+                      <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                        ·
+                      </span>
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        className={`text-[11px] font-semibold ${
                           att.isArchiveAttempt
-                            ? 'bg-purple-500/15 text-purple-400'
-                            : 'bg-emerald-500/15 text-emerald-400'
+                            ? 'text-sky-600 dark:text-sky-400'
+                            : 'text-[#064E3B] dark:text-[#10B981]'
                         }`}
                       >
                         {att.isArchiveAttempt ? 'Arxiv' : 'Kunlik'}
@@ -849,10 +874,10 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
                     </div>
 
                     <div className="flex items-center gap-4 text-xs">
-                      <span className="font-bold font-mono-numbers text-[#c5a869]">
+                      <span className="font-bold font-mono-numbers text-[#9E7F3C] dark:text-[#C8A85E]">
                         {att.score}/{att.total} toʻgʻri
                       </span>
-                      <span className="text-stone-500 font-mono-numbers flex items-center gap-1">
+                      <span className="text-[#587068] dark:text-[#9CAFA7] font-mono-numbers flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {formatDuration(att.completionTimeSeconds)}
                       </span>

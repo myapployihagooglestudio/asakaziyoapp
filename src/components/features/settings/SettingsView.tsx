@@ -4,7 +4,8 @@ import { AppSettings, QuranReciter, SupportedLocale, PrayerSchedule } from '../.
 import { getActiveQuranReciters } from '../../../data/quranData';
 import { subscribeToDatabase, getStoredPrayerSchedule } from '../../../utils/databaseService';
 import { Card } from '../../ui/Card';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import { Button } from '../../ui/Button';
+import { PageHero } from '../../ui/PageHero';
 import { LanguageSelector } from '../../ui/LanguageSelector';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -162,47 +163,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const getPermissionIcon = (key: AppPermissionKey) => {
+    const cls = 'w-4 h-4 text-[#064E3B] dark:text-[#C8A85E]';
     switch (key) {
       case 'notifications':
-        return <Bell className="w-4 h-4 text-[#DFBD69]" />;
+        return <Bell className={cls} />;
       case 'camera':
-        return <Camera className="w-4 h-4 text-[#DFBD69]" />;
+        return <Camera className={cls} />;
       case 'microphone':
-        return <Mic className="w-4 h-4 text-[#DFBD69]" />;
+        return <Mic className={cls} />;
       case 'phone':
-        return <Phone className="w-4 h-4 text-[#DFBD69]" />;
+        return <Phone className={cls} />;
       case 'photos_videos':
-        return <ImageIcon className="w-4 h-4 text-[#DFBD69]" />;
+        return <ImageIcon className={cls} />;
       case 'location':
-        return <MapPin className="w-4 h-4 text-[#DFBD69]" />;
+        return <MapPin className={cls} />;
       case 'music_audio':
-        return <Music className="w-4 h-4 text-[#DFBD69]" />;
+        return <Music className={cls} />;
     }
   };
 
-  const getStatusBadge = (status: PermissionStatusValue) => {
+  const getStatusLabel = (status: PermissionStatusValue) => {
     switch (status) {
       case 'granted':
         return (
-          <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">
+          <span className="text-[11px] font-semibold text-[#064E3B] dark:text-[#34D399]">
             {getLocalizedText('Ruxsat berilgan')}
           </span>
         );
       case 'limited':
         return (
-          <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/35">
+          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
             {getLocalizedText('Cheklangan')}
           </span>
         );
       case 'denied':
         return (
-          <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/35">
+          <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
             {getLocalizedText('Ruxsat berilmagan')}
           </span>
         );
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-stone-300 border border-white/15">
+          <span className="text-[11px] font-medium text-[#587068] dark:text-[#9CAFA7]">
             {getLocalizedText('Soʻralmagan')}
           </span>
         );
@@ -211,38 +213,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16 max-w-4xl mx-auto">
-      {/* 2026 Luxury Architectural Banner with Official Brand Logos */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] text-white p-6 sm:p-10 shadow-2xl">
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <CalligraphyBasmalahBadge />
-              <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
-                <SettingsIcon className="w-3.5 h-3.5" />
-                <span>{t('settings:systemCustomization')}</span>
-                <span aria-hidden="true">·</span>
-                <span>{t('settings:configuration')}</span>
+      <PageHero
+        variant="sanctuary"
+        kicker={`${t('settings:systemCustomization')} · ${t('settings:configuration')}`}
+        title={t('settings:title')}
+        subtitle={t('settings:subtitle')}
+        aside={
+          <div className="flex items-center sm:justify-end">
+            <div className="rounded-2xl bg-white/[0.06] border border-white/[0.12] backdrop-blur-md p-3.5 flex items-center gap-3.5">
+              <img
+                src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
+                alt="ASAKA ZIYO — MuhammadSolih Hoji Jome Masjidi Rasmiy Logosi"
+                referrerPolicy="no-referrer"
+                className="w-14 h-14 rounded-2xl object-cover bg-white ring-1 ring-[#C8A85E]/50 shrink-0"
+              />
+              <div className="space-y-0.5 pr-1">
+                <div className="text-xs font-bold text-[#F7F4EC]">ASAKA ZIYO v4.0.0</div>
+                <div className="text-[11px] text-[#C8A85E] font-mono-numbers">
+                  Asia/Tashkent · UTC+5
+                </div>
+                <div className="text-[11px] text-[#C2D4CD]">Build 400 · NEO 2026</div>
               </div>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
-              {t('settings:title')}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-xl">
-              {t('settings:subtitle')}
-            </p>
           </div>
-
-          <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
-            <img
-              src="/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg"
-              alt="ASAKA ZIYO — MuhammadSolih Hoji Jome Masjidi Rasmiy Logosi"
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover bg-white border-2 border-[#DFBD69] shadow-xl"
-            />
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="space-y-6">
         {/* 1. Language & Writing System (5 Distinct Locales) */}
@@ -267,22 +262,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </Card>
 
         {/* 2. COMPLETE ANDROID & WEB APP PERMISSIONS MANAGEMENT (7 CATEGORIES) */}
-        <Card elevated className="p-6 space-y-5 border-[#DFBD69]/40 bg-gradient-to-br from-[#041d13]/90 via-[#03150e]/95 to-[#010906]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DFBD69]/20 pb-4">
+        <Card elevated className="p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#DFBD69]/15 border border-[#DFBD69]/40 flex items-center justify-center text-[#DFBD69]">
+              <div className="w-10 h-10 rounded-xl az-liquid-glass-pill flex items-center justify-center text-[#064E3B] dark:text-[#C8A85E]">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-[#FFF8E8]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-bold text-[#091813] dark:text-[#F7F4EC]">
                     {getLocalizedText('Ilova Ruxsatlari (Android 10–16 & Web Permissions)')}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#DFBD69] text-[#010906]">
-                    7 TA RUXSAT
+                  <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                    ·
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#9E7F3C] dark:text-[#C8A85E]">
+                    7 ta ruxsat
                   </span>
                 </div>
-                <p className="text-xs text-[#FFF8E8]/70">
+                <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">
                   {getLocalizedText(
                     'Har bir ruxsat faqat tegishli funksiya ishlatilganda soʻraladi va real tizimga ulangan'
                   )}
@@ -290,23 +288,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => openAndroidAppSettings()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#DFBD69]/45 bg-[#DFBD69]/10 hover:bg-[#DFBD69]/20 text-[#DFBD69] text-xs font-bold transition-all cursor-pointer self-start sm:self-center"
+              className="min-h-[44px] self-start sm:self-center gap-1.5"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>{getLocalizedText('Android Sozlamalari')}</span>
-            </button>
+            </Button>
           </div>
 
           {permissionFeedback && (
-            <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between gap-2">
+            <div className="p-3.5 rounded-xl bg-emerald-500/12 border border-emerald-500/35 text-[#064E3B] dark:text-emerald-200 text-xs flex items-center justify-between gap-2">
               <span>{getLocalizedText(permissionFeedback)}</span>
               <button
                 type="button"
                 onClick={() => setPermissionFeedback(null)}
-                className="text-emerald-300 hover:text-white font-bold text-xs cursor-pointer"
+                className="text-[#064E3B] dark:text-emerald-300 font-bold text-xs cursor-pointer px-2"
               >
                 ✕
               </button>
@@ -323,30 +323,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               return (
                 <div
                   key={permKey}
-                  className="p-4 rounded-2xl border border-[#DFBD69]/20 bg-[#03170F]/80 hover:border-[#DFBD69]/45 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="p-4 rounded-2xl border border-black/[0.07] dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.025] hover:border-[#064E3B]/35 dark:hover:border-[#C8A85E]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-[#092E1F] border border-[#DFBD69]/30 flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-10 h-10 rounded-xl az-liquid-glass-pill flex items-center justify-center shrink-0 mt-0.5">
                       {getPermissionIcon(permKey)}
                     </div>
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-bold text-[#FFF8E8]">
+                        <span className="text-sm font-bold text-[#091813] dark:text-[#F7F4EC]">
                           {getLocalizedText(meta.titleUz)}
                         </span>
-                        {getStatusBadge(status)}
+                        <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                          ·
+                        </span>
+                        {getStatusLabel(status)}
                       </div>
-                      <p className="text-xs text-[#FFF8E8]/70 leading-relaxed">
+                      <p className="text-xs text-[#3B554D] dark:text-[#A4B9B1] leading-relaxed">
                         {getLocalizedText(meta.purposeUz)}
                       </p>
-                      <div className="flex flex-wrap gap-1.5 pt-1">
+                      <div className="flex flex-wrap gap-2 pt-0.5 text-[10px] font-mono text-[#587068] dark:text-[#9CAFA7]">
                         {meta.androidPermissions.map((ap) => (
-                          <span
-                            key={ap}
-                            className="px-2 py-0.5 rounded bg-black/40 border border-white/10 text-[10px] font-mono text-[#DFBD69]/90"
-                          >
-                            {ap.replace('android.permission.', '')}
-                          </span>
+                          <span key={ap}>{ap.replace('android.permission.', '')}</span>
                         ))}
                       </div>
                     </div>
@@ -354,30 +352,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                   <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                     {status === 'denied' && (
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => openAndroidAppSettings()}
-                        className="px-3 py-2 rounded-xl border border-rose-400/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 text-xs font-bold transition-all cursor-pointer"
+                        className="min-h-[42px] text-rose-600 dark:text-rose-300 border-rose-500/35"
                       >
                         {getLocalizedText('Sozlamalarni ochish')}
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
                       type="button"
+                      variant={status === 'granted' ? 'outline' : 'primary'}
+                      size="sm"
                       disabled={isRequesting}
                       onClick={() => handleRequestSinglePermission(permKey)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        status === 'granted'
-                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/30'
-                          : 'bg-gradient-to-r from-[#DFBD69] to-[#B8892E] text-[#010906] shadow-md hover:brightness-110'
-                      }`}
+                      className="min-h-[42px]"
                     >
                       {isRequesting
                         ? getLocalizedText('Tekshirilmoqda...')
                         : status === 'granted'
                         ? getLocalizedText('Qayta tekshirish')
                         : getLocalizedText('Ruxsat berish')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -386,22 +384,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </Card>
 
         {/* 3. TELEGRAM-STYLE HEADS-UP NOTIFICATIONS & SMART 7-PRAYER REMINDER ENGINE */}
-        <Card elevated className="p-6 space-y-5 border-[#DFBD69]/40 bg-gradient-to-br from-[#041d13]/90 via-[#03150e]/95 to-[#010906]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DFBD69]/20 pb-4">
+        <Card elevated className="p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#DFBD69]/15 border border-[#DFBD69]/40 flex items-center justify-center text-[#DFBD69]">
+              <div className="w-10 h-10 rounded-xl az-liquid-glass-pill flex items-center justify-center text-[#064E3B] dark:text-[#C8A85E]">
                 <Bell className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-[#FFF8E8]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-bold text-[#091813] dark:text-[#F7F4EC]">
                     {getLocalizedText('Telegram Uslubidagi Bildirishnomalar va Namoz Eslatmalari')}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">
-                    HEADS-UP BANNER
+                  <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                    ·
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#064E3B] dark:text-[#10B981]">
+                    Heads-Up
                   </span>
                 </div>
-                <p className="text-xs text-[#FFF8E8]/70">
+                <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">
                   {getLocalizedText(
                     'Har bir namoz uchun oldindan eslatma (5/10/15/30 daqiqa) va namoz vaqti kirganda Azon/Ohang/Vibratsiya'
                   )}
@@ -409,8 +410,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={() =>
                 triggerTelegramHeadsUpNotification({
                   title: 'ASAKA ZIYO — Telegram Uslubidagi Bildirishnoma',
@@ -420,11 +423,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   playChime: true,
                 })
               }
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#DFBD69] to-[#B8892E] text-[#010906] text-xs font-bold shadow-md hover:brightness-110 transition-all cursor-pointer self-start sm:self-center"
+              className="min-h-[44px] self-start sm:self-center gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
               <span>{getLocalizedText('Heads-Up Sinovi')}</span>
-            </button>
+            </Button>
           </div>
 
           {/* Notification Category Toggles */}
@@ -455,26 +458,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               return (
                 <div
                   key={item.key}
-                  className="p-3.5 rounded-xl border border-white/10 bg-[#03170F]/80 flex items-center justify-between gap-3"
+                  className="p-3.5 rounded-2xl border border-black/[0.07] dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.025] flex items-center justify-between gap-3"
                 >
                   <div>
-                    <div className="text-xs font-bold text-[#FFF8E8]">
+                    <div className="text-xs font-bold text-[#091813] dark:text-[#F7F4EC]">
                       {getLocalizedText(item.title)}
                     </div>
-                    <div className="text-[11px] text-[#FFF8E8]/60">
+                    <div className="text-[11px] text-[#587068] dark:text-[#9CAFA7]">
                       {getLocalizedText(item.desc)}
                     </div>
                   </div>
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={isChecked}
                     onClick={() => handleUpdateAlertSettings({ [item.key]: !isChecked })}
-                    className={`w-11 h-6 rounded-full transition-colors relative shrink-0 cursor-pointer ${
-                      isChecked ? 'bg-[#DFBD69]' : 'bg-stone-700'
+                    className={`w-12 h-6 rounded-full transition-colors relative shrink-0 cursor-pointer ${
+                      isChecked
+                        ? 'bg-[#064E3B] dark:bg-[#10B981]'
+                        : 'bg-black/15 dark:bg-white/15'
                     }`}
                   >
                     <div
-                      className={`w-4 h-4 rounded-full bg-[#010906] transition-transform absolute top-1 ${
-                        isChecked ? 'left-6' : 'left-1'
+                      className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform absolute top-1 ${
+                        isChecked ? 'translate-x-7' : 'translate-x-1'
                       }`}
                     />
                   </button>
@@ -485,12 +492,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Per-Prayer Pre-Reminder & Exact Entry Configuration */}
           <div className="space-y-2.5 pt-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#DFBD69] flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="az-type-overline text-[#9E7F3C] dark:text-[#C8A85E] flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
                 <span>{getLocalizedText('7 Mahal Namoz Uchun Individual Vaqt va Azon Sozlamalari')}</span>
               </h4>
-              <span className="text-[11px] text-emerald-300 font-mono">
+              <span className="text-[11px] text-[#064E3B] dark:text-[#10B981] font-mono-numbers">
                 Asia/Tashkent (UTC+5) · Avto-sinxron
               </span>
             </div>
@@ -507,13 +514,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 return (
                   <div
                     key={pItem.key}
-                    className="p-3.5 rounded-2xl border border-[#DFBD69]/20 bg-[#03170F]/90 flex flex-col md:flex-row md:items-center justify-between gap-3"
+                    className="p-3.5 rounded-2xl border border-black/[0.07] dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.025] flex flex-col md:flex-row md:items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 rounded-lg bg-[#DFBD69]/15 border border-[#DFBD69]/35 font-mono text-xs font-bold text-[#DFBD69]">
+                      <span className="px-2.5 py-1 rounded-xl az-liquid-glass-pill font-mono-numbers text-xs font-bold text-[#064E3B] dark:text-[#C8A85E]">
                         {scheduleTime}
                       </span>
-                      <span className="text-xs sm:text-sm font-bold text-[#FFF8E8]">
+                      <span className="text-xs sm:text-sm font-bold text-[#091813] dark:text-[#F7F4EC]">
                         {getLocalizedText(pItem.label)}
                       </span>
                     </div>
@@ -521,7 +528,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full md:w-auto">
                       {/* Pre-reminder offset select */}
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#FFF8E8]/65 whitespace-nowrap">
+                        <span className="text-[11px] text-[#587068] dark:text-[#9CAFA7] whitespace-nowrap">
                           {getLocalizedText('Oldindan:')}
                         </span>
                         <select
@@ -535,7 +542,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               },
                             });
                           }}
-                          className="w-full px-2.5 py-1.5 rounded-xl bg-[#010906] border border-[#DFBD69]/30 text-xs text-[#FFF8E8] font-semibold focus:border-[#DFBD69]"
+                          className="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-[#081510] border border-black/[0.1] dark:border-white/[0.12] text-xs text-[#091813] dark:text-[#F7F4EC] font-semibold focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
                         >
                           <option value={0}>{getLocalizedText('Oʻchirilgan')}</option>
                           <option value={5}>{getLocalizedText('5 daqiqa oldin')}</option>
@@ -547,7 +554,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                       {/* Exact time mode select */}
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#FFF8E8]/65 whitespace-nowrap">
+                        <span className="text-[11px] text-[#587068] dark:text-[#9CAFA7] whitespace-nowrap">
                           {getLocalizedText('Vaqt kirganda:')}
                         </span>
                         <select
@@ -561,7 +568,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               },
                             });
                           }}
-                          className="w-full px-2.5 py-1.5 rounded-xl bg-[#010906] border border-[#DFBD69]/30 text-xs text-[#FFF8E8] font-semibold focus:border-[#DFBD69]"
+                          className="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-[#081510] border border-black/[0.1] dark:border-white/[0.12] text-xs text-[#091813] dark:text-[#F7F4EC] font-semibold focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
                         >
                           <option value="sound">{getLocalizedText('Toʻliq Azon Audio')}</option>
                           <option value="chime">{getLocalizedText('Qisqa Ohang (Chime)')}</option>

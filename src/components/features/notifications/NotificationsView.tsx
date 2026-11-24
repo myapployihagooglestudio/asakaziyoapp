@@ -3,7 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import {
+  MorphingTabs,
+  StaggerGrid,
+  StaggerCard,
+  InteractiveCounter,
+  MagneticWrapper,
+} from '../../ui/MotionPrimitives';
 import {
   getStoredBroadcastNotifications,
   markAllNotificationsRead,
@@ -22,12 +29,8 @@ import {
   Trash2,
   BookOpen,
   Sparkles,
-  Calendar,
   Clock,
-  ExternalLink,
-  ShieldCheck,
   Check,
-  Info,
   Radio,
 } from 'lucide-react';
 
@@ -36,8 +39,9 @@ interface NotificationsViewProps {
 }
 
 export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate }) => {
-  const { t, i18n } = useTranslation(['common']);
-  const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
+  const { i18n } = useTranslation(['common']);
+  const _currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
+  void _currentLocale;
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     getStoredBroadcastNotifications()
@@ -52,7 +56,6 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
   const [isRequestingPush, setIsRequestingPush] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  // Synchronize with database service across tabs & broadcasts
   useEffect(() => {
     const unsubscribe = subscribeToDatabase((event) => {
       if (event.type === 'NOTIFICATIONS_UPDATED') {
@@ -96,6 +99,10 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const dailyCount = notifications.filter((n) => n.category === 'prayer' || n.category === 'system').length;
+  const announcementCount = notifications.filter(
+    (n) => n.category === 'announcement' || n.category === 'news'
+  ).length;
 
   const filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread') return !n.read;
@@ -107,85 +114,92 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'prayer':
-        return <Clock className="w-4 h-4 text-emerald-400" />;
+        return <Clock className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />;
       case 'announcement':
-        return <Radio className="w-4 h-4 text-[#C6A45C]" />;
+        return <Radio className="w-4 h-4 text-[#9E7F3C] dark:text-[#C8A85E]" />;
       case 'news':
-        return <BookOpen className="w-4 h-4 text-blue-400" />;
+        return <BookOpen className="w-4 h-4 text-sky-600 dark:text-sky-400" />;
       default:
-        return <Sparkles className="w-4 h-4 text-amber-400" />;
+        return <Sparkles className="w-4 h-4 text-[#9E7F3C] dark:text-[#C8A85E]" />;
     }
   };
 
-  const getCategoryBadge = (category: string) => {
+  const getCategoryLabel = (category: string) => {
     switch (category) {
       case 'prayer':
-        return { label: 'Namoz / Kunlik', bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' };
+        return 'Namoz / Kunlik';
       case 'announcement':
-        return { label: 'Muhim Eʼlon', bg: 'bg-[#C6A45C]/15 text-[#C6A45C] border-[#C6A45C]/30' };
+        return 'Muhim Eʼlon';
       case 'news':
-        return { label: 'Ilmiy Maqola', bg: 'bg-blue-500/15 text-blue-400 border-blue-500/30' };
+        return 'Ilmiy Maqola';
       default:
-        return { label: 'Tizim', bg: 'bg-stone-500/15 text-stone-300 border-stone-500/30' };
+        return 'Tizim';
     }
   };
+
+  const filterTabs = [
+    { id: 'all', label: 'Barchasi', count: notifications.length },
+    { id: 'unread', label: 'Oʻqilmagan', count: unreadCount },
+    { id: 'daily', label: 'Kunlik Diniy', count: dailyCount },
+    { id: 'announcements', label: 'Eʼlon va Maqola', count: announcementCount },
+  ];
 
   return (
     <div className="space-y-6 pb-16 max-w-4xl mx-auto">
-      {/* 2026 Luxury Architectural Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] p-6 sm:p-8 text-white shadow-2xl">
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[240px] ml-auto hidden md:block" />
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <CalligraphyBasmalahBadge />
-              <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] tracking-wider uppercase">
-                <Bell className="w-4 h-4" />
-                <span>ASAKA ZIYO Bildirishnomalar Markazi</span>
-                {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
-                    {unreadCount} ta yangi
-                  </span>
-                )}
-              </div>
-            </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-[#F8F5EC] tracking-wide">
-              Xabarnomalar va Kunlik Yangiliklar
-            </h1>
-            <p className="text-xs sm:text-sm text-[#DCC58C]/90 max-w-xl leading-relaxed">
-              Asaka jome masjidi eʼlonlari, tasdiqlangan namoz vaqtlari oʻzgarishi, har kunlik oyat, hadis va zikrlar bildirishnomalari.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-            {unreadCount > 0 && (
+      <PageHero
+        variant="sanctuary"
+        kicker={
+          unreadCount > 0
+            ? `ASAKA ZIYO Bildirishnomalar Markazi · ${unreadCount} ta yangi`
+            : 'ASAKA ZIYO Bildirishnomalar Markazi'
+        }
+        title="Xabarnomalar va Kunlik Yangiliklar"
+        subtitle="Asaka jome masjidi eʼlonlari, tasdiqlangan namoz vaqtlari oʻzgarishi, har kunlik oyat, hadis va zikrlar bildirishnomalari."
+        actions={
+          unreadCount > 0 ? (
+            <MagneticWrapper strength={4}>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleMarkAllRead}
-                className="text-xs border-[#C6A45C]/45 text-[#C6A45C] hover:bg-[#C6A45C]/15"
+                className="min-h-[44px] border-[#C8A85E]/45 text-[#F7F4EC] hover:bg-[#C8A85E]/15"
               >
-                <CheckCheck className="w-3.5 h-3.5 mr-1.5" />
+                <CheckCheck className="w-4 h-4 mr-1.5 text-[#C8A85E]" />
                 <span>Barchasini oʻqilgan qilish</span>
               </Button>
-            )}
+            </MagneticWrapper>
+          ) : undefined
+        }
+        aside={
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white/[0.06] border border-white/[0.12] backdrop-blur-md p-4">
+              <div className="text-[11px] uppercase tracking-wider text-[#9CAFA7]">Jami xabar</div>
+              <div className="text-2xl font-display font-extrabold text-[#F7F4EC] mt-1">
+                <InteractiveCounter value={notifications.length} />
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white/[0.06] border border-[#C8A85E]/30 backdrop-blur-md p-4">
+              <div className="text-[11px] uppercase tracking-wider text-[#C8A85E]">Oʻqilmagan</div>
+              <div className="text-2xl font-display font-extrabold text-[#C8A85E] mt-1">
+                <InteractiveCounter value={unreadCount} />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Web Push Permission Card */}
       {pushStatus !== 'granted' && (
-        <Card elevated className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#064e3b] dark:bg-[#c5a869]/15 border border-[#9e7f3c]/30 dark:border-[#c5a869]/35 flex items-center justify-center shrink-0">
-              <BellRing className="w-5 h-5 text-[#d4af37] dark:text-[#c5a869]" />
+        <Card elevated className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-[#064E3B] dark:bg-[#C8A85E]/15 border border-[#C8A85E]/30 flex items-center justify-center shrink-0">
+              <BellRing className="w-5 h-5 text-[#E5C97B] dark:text-[#C8A85E]" />
             </div>
-            <div className="text-xs space-y-0.5">
-              <div className="font-semibold text-[#14221B] dark:text-[#F4F1EA]">
+            <div className="space-y-0.5">
+              <div className="text-sm font-semibold text-[#091813] dark:text-[#F7F4EC]">
                 Brauzer va Smartfon Push Bildirishnomalari
               </div>
-              <p className="text-[#4A5B52] dark:text-[#8FA199] text-xs leading-relaxed">
+              <p className="text-[#3B554D] dark:text-[#A4B9B1] text-xs leading-relaxed">
                 Ertalabki Kun Oyati, kunduzgi Kun Hadisi va kechki Kun Zikrini oʻz vaqtida qabul qilish uchun push ruxsatini yoqing.
               </p>
             </div>
@@ -195,7 +209,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
             size="sm"
             onClick={handleRequestPush}
             disabled={isRequestingPush}
-            className="text-xs shrink-0 self-end sm:self-center"
+            className="text-xs shrink-0 self-end sm:self-center min-h-[44px]"
           >
             <BellRing className="w-3.5 h-3.5 mr-1.5" />
             <span>Push-ni Yoqish</span>
@@ -205,124 +219,109 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onNavigate
 
       {/* Action feedback toast */}
       {actionNotice && (
-        <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2 animate-fadeIn">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div
+          role="status"
+          className="p-3.5 rounded-2xl bg-emerald-500/12 border border-emerald-500/35 text-[#064E3B] dark:text-emerald-200 text-xs font-medium flex items-center gap-2.5"
+        >
+          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{actionNotice}</span>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 dark:border-emerald-950/80 pb-3">
-        <div className="flex items-center gap-1.5">
-          {[
-            { id: 'all', label: 'Barchasi', count: notifications.length },
-            { id: 'unread', label: 'Oʻqilmagan', count: unreadCount },
-            { id: 'daily', label: 'Kunlik Diniy', count: notifications.filter((n) => n.category === 'prayer' || n.category === 'system').length },
-            { id: 'announcements', label: 'Eʼlon va Maqola', count: notifications.filter((n) => n.category === 'announcement' || n.category === 'news').length },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setFilter(tab.id as any)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                filter === tab.id
-                  ? 'bg-[#c5a869] text-[#071614] shadow-sm'
-                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-white/5'
-              }`}
-            >
-              <span>{tab.label}</span>
-              {tab.count > 0 && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                  filter === tab.id ? 'bg-[#071614] text-[#c5a869]' : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-stone-300'
-                }`}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+      {/* FLIP Morphing Filter Bar */}
+      <div className="overflow-x-auto pb-1 no-scrollbar">
+        <MorphingTabs
+          items={filterTabs}
+          activeId={filter}
+          onChange={(id) => setFilter(id as 'all' | 'unread' | 'daily' | 'announcements')}
+          layoutId="az-notifications-filter"
+        />
       </div>
 
       {/* Notifications List */}
-      <div className="space-y-3">
-        {filteredNotifications.length === 0 ? (
-          <Card className="p-10 text-center space-y-3 bg-stone-50/50 dark:bg-[#071614]/40">
-            <div className="w-12 h-12 rounded-full bg-stone-200 dark:bg-emerald-950/40 mx-auto flex items-center justify-center text-stone-400">
-              <Bell className="w-6 h-6" />
-            </div>
-            <h3 className="text-sm font-bold text-stone-800 dark:text-stone-200">
-              Hech qanday bildirishnoma mavjud emas
-            </h3>
-            <p className="text-xs text-stone-500 max-w-sm mx-auto">
-              Hozircha tanlangan toifadagi xabarnomalar yoʻq. Yangi eʼlon yoki maʼlumot eʼlon qilinganda bu yerda aks etadi.
-            </p>
-          </Card>
-        ) : (
-          filteredNotifications.map((notif) => {
-            const badge = getCategoryBadge(notif.category);
-            return (
+      {filteredNotifications.length === 0 ? (
+        <Card className="p-10 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl az-liquid-glass-pill mx-auto flex items-center justify-center text-[#587068] dark:text-[#9CAFA7]">
+            <Bell className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-[#091813] dark:text-[#F7F4EC]">
+            Hech qanday bildirishnoma mavjud emas
+          </h3>
+          <p className="text-xs text-[#587068] dark:text-[#9CAFA7] max-w-sm mx-auto leading-relaxed">
+            Hozircha tanlangan toifadagi xabarnomalar yoʻq. Yangi eʼlon yoki maʼlumot eʼlon qilinganda bu yerda aks etadi.
+          </p>
+        </Card>
+      ) : (
+        <StaggerGrid className="space-y-3">
+          {filteredNotifications.map((notif) => (
+            <StaggerCard key={notif.id}>
               <Card
-                key={notif.id}
                 elevated={!notif.read}
+                interactive
                 onClick={() => {
                   handleMarkOneRead(notif.id);
                   if (notif.category === 'prayer') onNavigate('prayer');
-                  else if (notif.category === 'announcement' || notif.category === 'news') onNavigate('articles');
+                  else if (notif.category === 'announcement' || notif.category === 'news') {
+                    onNavigate('articles');
+                  }
                 }}
-                className={`p-4 sm:p-5 transition-all cursor-pointer relative overflow-hidden group ${
+                className={`p-4 sm:p-5 cursor-pointer group ${
                   !notif.read
-                    ? 'border-[#c5a869]/60 bg-gradient-to-r from-[#c5a869]/10 via-transparent to-transparent'
+                    ? 'ring-1 ring-[#C8A85E]/45 dark:ring-[#C8A85E]/40'
                     : 'opacity-85 hover:opacity-100'
                 }`}
               >
-                {!notif.read && (
-                  <span className="absolute top-0 left-0 bottom-0 w-1 bg-[#c5a869]" />
-                )}
-
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-xl bg-stone-100 dark:bg-emerald-950/60 border border-stone-200 dark:border-emerald-800/40 shrink-0 mt-0.5">
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-xl az-liquid-glass-pill flex items-center justify-center shrink-0 mt-0.5">
                       {getCategoryIcon(notif.category)}
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-semibold text-[#064e3b] dark:text-[#c5a869]">
-                          {badge.label}
+                        <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E]">
+                          {getCategoryLabel(notif.category)}
                         </span>
                         {!notif.read && (
                           <>
-                            <span aria-hidden="true">·</span>
-                            <span className="font-semibold text-amber-700 dark:text-[#e6ce8a]">Yangi</span>
+                            <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                              ·
+                            </span>
+                            <span className="font-semibold text-[#9E7F3C] dark:text-[#E5C97B]">
+                              Yangi
+                            </span>
                           </>
                         )}
-                        <span aria-hidden="true">·</span>
-                        <span className="text-[#6C7C73] dark:text-[#8FA199] font-mono-numbers">
+                        <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                          ·
+                        </span>
+                        <span className="text-[#587068] dark:text-[#9CAFA7] font-mono-numbers">
                           {notif.timestamp}
                         </span>
                       </div>
-                      <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100 group-hover:text-[#c5a869] transition-colors">
+                      <h4 className="text-sm sm:text-[15px] font-bold text-[#091813] dark:text-[#F7F4EC] group-hover:text-[#064E3B] dark:group-hover:text-[#C8A85E] transition-colors">
                         {notif.title}
                       </h4>
-                      <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                      <p className="text-xs sm:text-sm text-[#3B554D] dark:text-[#A4B9B1] leading-relaxed">
                         {notif.message}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100">
-                    <button
-                      onClick={(e) => handleDelete(notif.id, e)}
-                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
-                      title="Oʻchirish"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(notif.id, e)}
+                    className="w-10 h-10 rounded-xl text-[#587068] dark:text-[#9CAFA7] hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    title="Oʻchirish"
+                    aria-label="Bildirishnomani oʻchirish"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </Card>
-            );
-          })
-        )}
-      </div>
+            </StaggerCard>
+          ))}
+        </StaggerGrid>
+      )}
     </div>
   );
 };

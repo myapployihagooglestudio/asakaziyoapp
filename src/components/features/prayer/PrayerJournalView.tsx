@@ -1,25 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { DailyPrayerRecord, PrayerKey, PrayerStatus } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { IslamicHairlineDivider, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import {
+  AnimatedProgressRing,
+  ArchitecturalDivider,
+  ScrollReveal,
+} from '../../ui/MotionPrimitives';
 import {
   getStoredPrayerRecords,
   saveStoredPrayerRecord,
 } from '../../../utils/databaseService';
 import {
-  Clock,
-  Calendar,
   CheckCircle2,
   XCircle,
-  HelpCircle,
-  TrendingUp,
   FileText,
-  Lock,
   ChevronLeft,
   ChevronRight,
-  Shield,
+  Check,
 } from 'lucide-react';
 
 const PRAYER_KEYS: { key: PrayerKey; nameUz: string; nameAr: string }[] = [
@@ -31,7 +30,6 @@ const PRAYER_KEYS: { key: PrayerKey; nameUz: string; nameAr: string }[] = [
 ];
 
 export const PrayerJournalView: React.FC = () => {
-  const { t } = useTranslation();
   const userId = 'asaka_user_current';
 
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -41,6 +39,7 @@ export const PrayerJournalView: React.FC = () => {
     getStoredPrayerRecords(userId)
   );
   const [notes, setNotes] = useState<string>('');
+  const [savedNotice, setSavedNotice] = useState(false);
 
   useEffect(() => {
     const data = getStoredPrayerRecords(userId);
@@ -104,6 +103,8 @@ export const PrayerJournalView: React.FC = () => {
     };
     saveStoredPrayerRecord(updated);
     setRecords({ ...records, [selectedDate]: updated });
+    setSavedNotice(true);
+    setTimeout(() => setSavedNotice(false), 1800);
   };
 
   const handlePrevDay = () => {
@@ -121,154 +122,182 @@ export const PrayerJournalView: React.FC = () => {
   const completedTodayCount = PRAYER_KEYS.filter(
     (p) => currentRecord.prayers[p.key]?.status === 'completed'
   ).length;
+  const progressPercent = Math.round((completedTodayCount / 5) * 100);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8 animate-in fade-in">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#064e3b] via-[#052b22] to-[#041d18] border border-[#c5a869]/30 p-6 sm:p-8 text-white shadow-xl">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#d4af37]">
-            <Lock className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>Shaxsiy & Maxfiy Ibodat Kundaligi</span>
+    <div className="max-w-5xl mx-auto pb-16 space-y-8">
+      <PageHero
+        variant="sanctuary"
+        kicker="Shaxsiy · Maxfiy Ibodat Kundaligi"
+        title="Namoz Kundaligi"
+        subtitle="Besh vaqt farz namozlaringizni shaxsiy intizom bilan qayd qilib boring. Maʼlumotlar faqat qurilmangizda va shaxsiy profilingizda saqlanadi."
+        aside={
+          <div className="flex items-center justify-center lg:justify-end">
+            <AnimatedProgressRing
+              progress={progressPercent}
+              size={140}
+              strokeWidth={8}
+              trackClassName="stroke-white/12"
+            >
+              <div className="text-2xl font-display font-extrabold font-mono-numbers text-[#F7F4EC]">
+                {completedTodayCount}/5
+              </div>
+              <div className="text-[11px] text-[#A4B9B1]">Kunlik ado</div>
+            </AnimatedProgressRing>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-white">
-            Namoz Kundaligi (Prayer Journal)
-          </h1>
-          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed max-w-xl">
-            Besh vaqt farz namozlaringizni shaxsiy intizom bilan qayd qilib boring. Bu maʼlumotlar toʻliq maxfiy boʻlib, faqat oʻzingizga tegishlidir.
-          </p>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Date Navigation & Today's Summary */}
-      <Card elevated className="p-6 space-y-6 border-stone-200/90 dark:border-[#c5a869]/30 bg-white dark:bg-[#0B1F1C]">
-        <div className="flex items-center justify-between border-b border-stone-200/80 dark:border-white/10 pb-4">
-          <button
-            onClick={handlePrevDay}
-            className="flex items-center gap-1 px-3 py-2 min-h-[38px] rounded-lg text-xs font-bold border border-stone-200 dark:border-white/10 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Oldingi kun</span>
-          </button>
+      <ScrollReveal>
+        <Card elevated className="p-6 sm:p-8 space-y-6">
+          {/* Date navigation */}
+          <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold az-liquid-glass-pill text-[#091813] dark:text-[#F7F4EC] hover:border-emerald-500/40 cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Oldingi kun</span>
+            </button>
 
-          <div className="text-center">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#9E7F3C] dark:text-[#c5a869]">
-              Tanlangan Sana
+            <div className="text-center">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8B6B2E] dark:text-[#C8A85E] block">
+                Tanlangan sana
+              </span>
+              <div className="text-base sm:text-lg font-display font-bold font-mono-numbers text-[#091813] dark:text-[#F7F4EC]">
+                {selectedDate}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextDay}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold az-liquid-glass-pill text-[#091813] dark:text-[#F7F4EC] hover:border-emerald-500/40 cursor-pointer"
+            >
+              <span>Keyingi kun</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 5 Daily Prayers Checklist */}
+          <div className="space-y-3">
+            {PRAYER_KEYS.map((p) => {
+              const currentStatus = currentRecord.prayers[p.key]?.status || 'not_recorded';
+              return (
+                <div
+                  key={p.key}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl az-neumorphic-raised border border-black/[0.05] dark:border-white/[0.07] transition-all"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm font-arabic shrink-0 ${
+                        currentStatus === 'completed'
+                          ? 'bg-emerald-500/18 text-[#064E3B] dark:text-[#34D399] border border-emerald-500/35'
+                          : currentStatus === 'missed'
+                          ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                          : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#587068] dark:text-[#9CAFA7]'
+                      }`}
+                    >
+                      {p.nameAr.slice(0, 3)}
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-[#091813] dark:text-[#F7F4EC]">
+                        {p.nameUz} namozi
+                      </h3>
+                      <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">
+                        {currentStatus === 'completed'
+                          ? 'Ado etildi'
+                          : currentStatus === 'missed'
+                          ? 'Qazo boʻldi'
+                          : 'Qayd qilinmagan'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(p.key, 'completed')}
+                      className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer ${
+                        currentStatus === 'completed'
+                          ? 'bg-[#064E3B] dark:bg-[#10B981] text-[#F7F4EC] dark:text-[#04120D] shadow-sm'
+                          : 'az-liquid-glass-pill text-[#3B554D] dark:text-[#C2D4CD] hover:border-emerald-500/40'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Oʻqildi</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus(p.key, 'missed')}
+                      className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer ${
+                        currentStatus === 'missed'
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'az-liquid-glass-pill text-[#3B554D] dark:text-[#C2D4CD] hover:border-rose-500/40'
+                      }`}
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Qazo</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Daily Summary */}
+          <div className="p-4 rounded-2xl bg-[#F4EFE3]/70 dark:bg-[#050E0B]/80 border border-black/[0.06] dark:border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[#587068] dark:text-[#9CAFA7]">Kunlik natija:</span>
+              <span className="font-bold text-[#091813] dark:text-[#F7F4EC] font-mono-numbers">
+                {completedTodayCount} / 5 namoz ado etildi
+              </span>
+            </div>
+            <span
+              className={`font-bold ${
+                completedTodayCount === 5
+                  ? 'text-[#064E3B] dark:text-[#34D399]'
+                  : 'text-[#587068] dark:text-[#9CAFA7]'
+              }`}
+            >
+              {completedTodayCount === 5
+                ? 'Alhamdulillah, toʻliq ado etildi!'
+                : 'Ibodatda sobitqadam boʻlaylik'}
             </span>
-            <div className="text-base sm:text-lg font-bold font-mono-numbers text-stone-900 dark:text-white">
-              {selectedDate}
+          </div>
+
+          <ArchitecturalDivider />
+
+          {/* Personal Notes */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[#3B554D] dark:text-[#A4B9B1] flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-[#C8A85E]" />
+              <span>Kungi shaxsiy qaydlar va xotiralar</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Bugungi jamoat namozi, ruhiy kechinmalar yoki qazo niyatlari haqida qayd qoldiring..."
+              rows={3}
+              className="w-full p-3.5 text-sm rounded-2xl az-liquid-glass-pill text-[#091813] dark:text-[#F7F4EC] placeholder:text-[#6B827A] dark:placeholder:text-[#7E968D] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            />
+            <div className="flex justify-end">
+              <Button size="sm" variant="emerald" onClick={handleSaveNotes}>
+                {savedNotice ? (
+                  <>
+                    <Check className="w-4 h-4 mr-1.5" />
+                    <span>Saqlandi</span>
+                  </>
+                ) : (
+                  <span>Qaydni saqlash</span>
+                )}
+              </Button>
             </div>
           </div>
-
-          <button
-            onClick={handleNextDay}
-            className="flex items-center gap-1 px-3 py-2 min-h-[38px] rounded-lg text-xs font-bold border border-stone-200 dark:border-white/10 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5 cursor-pointer"
-          >
-            <span>Keyingi kun</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* 5 Daily Prayers Checklist */}
-        <div className="space-y-3">
-          {PRAYER_KEYS.map((p) => {
-            const currentStatus = currentRecord.prayers[p.key]?.status || 'not_recorded';
-            return (
-              <div
-                key={p.key}
-                className="flex items-center justify-between p-4 rounded-2xl border border-stone-200/90 dark:border-emerald-950/80 bg-[#F3EFE6]/40 dark:bg-[#071614] transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm font-arabic ${
-                      currentStatus === 'completed'
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                        : currentStatus === 'missed'
-                        ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                        : 'bg-stone-100 dark:bg-white/5 text-stone-400'
-                    }`}
-                  >
-                    {p.nameAr.slice(0, 3)}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-stone-900 dark:text-white">
-                      {p.nameUz} namozi
-                    </h3>
-                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                      Holat: {currentStatus === 'completed' ? 'Oʻqildi' : currentStatus === 'missed' ? 'Qazo boʻldi' : 'Qayd qilinmagan'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleUpdateStatus(p.key, 'completed')}
-                    className={`px-3 py-2 min-h-[38px] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      currentStatus === 'completed'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-stone-100 dark:bg-white/5 text-stone-700 dark:text-stone-300 hover:bg-emerald-500/10'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Oʻqildi</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleUpdateStatus(p.key, 'missed')}
-                    className={`px-3 py-2 min-h-[38px] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      currentStatus === 'missed'
-                        ? 'bg-rose-600 text-white shadow-xs'
-                        : 'bg-stone-100 dark:bg-white/5 text-stone-700 dark:text-stone-300 hover:bg-rose-500/10'
-                    }`}
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>Qazo</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Daily Summary */}
-        <div className="p-4 rounded-2xl bg-stone-50 dark:bg-[#071614] border border-stone-200/80 dark:border-[#c5a869]/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-stone-600 dark:text-stone-400">Kunlik natija:</span>
-            <span className="font-bold text-stone-900 dark:text-white font-mono-numbers">
-              {completedTodayCount} / 5 namoz ado etildi
-            </span>
-          </div>
-          {completedTodayCount === 5 ? (
-            <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30">
-              Alhamdulillah, toʻliq ado etildi!
-            </span>
-          ) : (
-            <span className="text-stone-500">Ibodatda sobitqadam boʻlaylik</span>
-          )}
-        </div>
-
-        <IslamicHairlineDivider />
-
-        {/* Personal Notes */}
-        <div className="space-y-2.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5 text-[#9E7F3C] dark:text-[#c5a869]" />
-            <span>Kungi Shaxsiy Qaydlar & Xotiralar:</span>
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Bugungi jamoat namozi, ruhiy kechinmalar yoki qazo niyatlari haqida qayd qoldiring..."
-            rows={3}
-            className="w-full p-3 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-stone-50 dark:bg-[#071614] text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#c5a869]"
-          />
-          <div className="flex justify-end">
-            <Button size="sm" variant="outline" onClick={handleSaveNotes} className="min-h-[38px] text-xs">
-              Qaydni Saqlash
-            </Button>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </ScrollReveal>
     </div>
   );
 };

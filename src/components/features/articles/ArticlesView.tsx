@@ -12,7 +12,8 @@ import {
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
-import { GeometricPattern, IslamicMihrabArch, CalligraphyBasmalahBadge } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import { MorphingTabs, InteractiveCounter } from '../../ui/MotionPrimitives';
 import { getLocalizedField, getLocalizedParagraphs } from '../../../utils/localizedContent';
 import {
   getStoredArticles,
@@ -385,102 +386,86 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
     return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
   };
 
+  const hubTabs = [
+    { id: 'elonlar', label: 'Eʼlonlar', count: publishedAnnouncementsCount, icon: <Radio className="w-3.5 h-3.5" /> },
+    { id: 'maqolalar', label: 'Maqolalar', count: publishedArticlesCount, icon: <BookOpen className="w-3.5 h-3.5" /> },
+    { id: 'yangiliklar', label: 'Yangiliklar', count: publishedNewsCount, icon: <Calendar className="w-3.5 h-3.5" /> },
+    { id: 'hadislar', label: 'Hadislar', count: publishedHadithsCount, icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'zikrlar', label: 'Zikrlar', count: publishedDhikrsCount, icon: <Heart className="w-3.5 h-3.5" /> },
+    { id: 'arxiv', label: 'Arxiv', count: archivedSummaries.length, icon: <Archive className="w-3.5 h-3.5" /> },
+  ];
+
+  const totalPublishedHubCount =
+    publishedAnnouncementsCount +
+    publishedArticlesCount +
+    publishedNewsCount +
+    publishedHadithsCount +
+    publishedDhikrsCount;
+
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 1. 2026 Luxury Architectural Header Banner */}
-      <div className="relative rounded-3xl overflow-hidden border border-[#C6A45C]/35 bg-gradient-to-br from-[#063D32] via-[#042B25] to-[#031814] p-6 sm:p-10 text-white shadow-2xl">
-        <img
-          src="/images/islamic_scholarship_library_1793634659800.jpg"
-          alt="Islamic Scholarship Library"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#042B25]/95 via-[#063D32]/85 to-transparent" />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[280px] ml-auto hidden md:block" />
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#C6A45C] uppercase tracking-wider">
-              <BookOpen className="w-4 h-4" />
-              <span>Asaka Ziyo Maʼrifiy Ekotizimi</span>
-              <span aria-hidden="true">·</span>
-              <span>Ilm, Axloq va Hikmat Maskani</span>
+      <PageHero
+        variant="editorial"
+        kicker="Asaka Ziyo Maʼrifiy Ekotizimi · Ilm, Axloq va Hikmat"
+        title="Maqolalar, Eʼlonlar, Manbalar va Arxiv"
+        subtitle="Asaka jome masjidi maʼmuriyati tomonidan tasdiqlangan yangiliklar, haftalik juma maʼruzalari eʼlonlari, moʻtabar maqolalar, sahih hadislar, zikrlar va sanalar boʻyicha toʻliq arxiv."
+        imageSrc="/images/islamic_scholarship_library_1793634659800.jpg"
+        imageAlt="Islamic Scholarship Library"
+        aside={
+          <div className="az-liquid-glass-card rounded-2xl p-5 grid grid-cols-2 gap-3">
+            <div>
+              <div className="az-type-overline text-[#587068] dark:text-[#9CAFA7]">Jami manba</div>
+              <div className="text-2xl font-display font-extrabold text-[#064E3B] dark:text-[#10B981] mt-1">
+                <InteractiveCounter value={totalPublishedHubCount} />
+              </div>
+            </div>
+            <div>
+              <div className="az-type-overline text-[#587068] dark:text-[#9CAFA7]">Arxiv</div>
+              <div className="text-2xl font-display font-extrabold text-[#9E7F3C] dark:text-[#C8A85E] mt-1">
+                <InteractiveCounter value={archivedSummaries.length} />
+              </div>
             </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#F8F5EC]">
-            Maqolalar, Eʼlonlar, Manbalar va Arxiv
-          </h1>
-          <p className="text-xs sm:text-sm text-[#DCC58C]/90 leading-relaxed max-w-2xl">
-            Asaka jome masjidi maʼmuriyati tomonidan tasdiqlangan yangiliklar, haftalik juma maʼruzalari eʼlonlari, moʻtabar maqolalar, sahih hadislar, zikrlar va sanalar boʻyicha toʻliq arxiv.
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {/* 2. Unified Category Navigation Bar + Date & Archive Filter */}
-      <div className="space-y-3 border-b border-stone-200 dark:border-emerald-950 pb-4">
+      <div className="space-y-3.5 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-          {/* Categories Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-emerald-950/40 border border-stone-200/80 dark:border-emerald-900/40">
-            {[
-              { id: 'elonlar', label: '1. Eʼlonlar', count: publishedAnnouncementsCount, icon: <Radio className="w-3.5 h-3.5" /> },
-              { id: 'maqolalar', label: '2. Maqolalar', count: publishedArticlesCount, icon: <BookOpen className="w-3.5 h-3.5" /> },
-              { id: 'yangiliklar', label: '3. Yangiliklar', count: publishedNewsCount, icon: <Calendar className="w-3.5 h-3.5" /> },
-              { id: 'hadislar', label: '4. Hadislar', count: publishedHadithsCount, icon: <Sparkles className="w-3.5 h-3.5" /> },
-              { id: 'zikrlar', label: '5. Zikrlar', count: publishedDhikrsCount, icon: <Heart className="w-3.5 h-3.5" /> },
-              { id: 'arxiv', label: '6. Arxiv', count: archivedSummaries.length, icon: <Archive className="w-3.5 h-3.5" /> },
-            ].map((tab) => {
-              const isActive = activeCategory === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveCategory(tab.id as ContentHubCategory);
-                    if (tab.id === 'arxiv') {
-                      setDateFilter('archive');
-                    } else if (dateFilter === 'archive') {
-                      setDateFilter('all');
-                    }
-                  }}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#c5a869] text-[#071614] shadow-md scale-[1.02]'
-                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                      isActive
-                        ? 'bg-[#071614] text-[#c5a869]'
-                        : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-stone-400'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="overflow-x-auto pb-1 no-scrollbar">
+            <MorphingTabs
+              items={hubTabs}
+              activeId={activeCategory}
+              onChange={(id) => {
+                setActiveCategory(id as ContentHubCategory);
+                if (id === 'arxiv') {
+                  setDateFilter('archive');
+                } else if (dateFilter === 'archive') {
+                  setDateFilter('all');
+                }
+              }}
+              layoutId="az-articles-hub-tabs"
+            />
           </div>
 
           {/* Search Input */}
           <div className="relative min-w-[240px]">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#587068] dark:text-[#9CAFA7] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Qidirish (mavzu, matn, muallif)..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#091a18] text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#c5a869]"
+              className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs rounded-2xl border border-black/[0.08] dark:border-white/[0.1] bg-white/75 dark:bg-white/[0.04] text-[#091813] dark:text-[#F7F4EC] placeholder-[#587068] dark:placeholder-[#9CAFA7] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
             />
           </div>
         </div>
 
-        {/* Date & Archive Filter Bar (Bugun, Kecha, Barcha sanalar, Arxiv) */}
+        {/* Date & Archive Filter Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 mr-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-[#c5a869]" />
+            <span className="text-[11px] font-semibold text-[#587068] dark:text-[#9CAFA7] mr-1 flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-[#9E7F3C] dark:text-[#C8A85E]" />
               <span>Sana va holat boʻyicha saralash:</span>
             </span>
             {[
@@ -493,6 +478,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
               return (
                 <button
                   key={df.id}
+                  type="button"
                   onClick={() => {
                     setDateFilter(df.id as DateFilterMode);
                     if (df.id === 'archive') {
@@ -501,10 +487,10 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
                       setActiveCategory('maqolalar');
                     }
                   }}
-                  className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-emerald-800 text-white border border-[#c5a869]/50 shadow-sm'
-                      : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-white/10'
+                      ? 'bg-[#064E3B] dark:bg-[#10B981] text-[#F7F4EC] dark:text-[#04120D] shadow-sm'
+                      : 'az-liquid-glass-pill text-[#3B554D] dark:text-[#A4B9B1] hover:text-[#091813] dark:hover:text-[#F7F4EC]'
                   }`}
                 >
                   {df.label}
@@ -512,7 +498,7 @@ export const ArticlesView: React.FC<ArticlesViewProps> = ({
               );
             })}
           </div>
-          <span className="text-[11px] text-stone-400">
+          <span className="text-[11px] text-[#587068] dark:text-[#9CAFA7]">
             Faqat administrator tomonidan tasdiqlangan rasmiy maʼlumotlar
           </span>
         </div>

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { PREMIUM_EASE } from './MotionPrimitives';
+import { AnimatePresence, motion, PanInfo, useReducedMotion } from 'motion/react';
+import { GESTURE_THRESHOLDS, MOTION_SPRINGS } from '../../utils/motionSystem';
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,6 +13,10 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
+/**
+ * ASAKA ZIYO NEO 2026 — Spatial Liquid Glass Modal & Gesture-Based Mobile Bottom Sheet
+ * Supports swipe-down-to-dismiss on touch sheets while preserving desktop center spatial elevation.
+ */
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -47,6 +51,15 @@ export const Modal: React.FC<ModalProps> = ({
     '2xl': 'max-w-2xl',
   };
 
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (
+      info.offset.y > GESTURE_THRESHOLDS.sheetDismissPx ||
+      info.velocity.y > 420
+    ) {
+      onClose();
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -55,33 +68,33 @@ export const Modal: React.FC<ModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: prefersReduced ? 0 : 0.18 }}
-            className="fixed inset-0 bg-[#040807]/72 backdrop-blur-md"
+            transition={{ duration: prefersReduced ? 0 : 0.2 }}
+            className="fixed inset-0 bg-[#020605]/74 backdrop-blur-md"
             onClick={onClose}
             aria-hidden="true"
           />
           <motion.div
-            initial={prefersReduced ? { opacity: 1 } : { opacity: 0, scale: 0.97, y: 24 }}
+            initial={prefersReduced ? { opacity: 1 } : { opacity: 0, scale: 0.96, y: 28 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 16 }}
-            transition={
-              prefersReduced
-                ? { duration: 0 }
-                : { duration: 0.26, ease: PREMIUM_EASE }
-            }
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 20 }}
+            transition={prefersReduced ? { duration: 0 } : MOTION_SPRINGS.spatialModal}
+            drag={prefersReduced ? false : 'y'}
+            dragConstraints={{ top: 0, bottom: 260 }}
+            dragElastic={{ top: 0.04, bottom: 0.35 }}
+            onDragEnd={handleDragEnd}
             className={`relative w-full ${maxWidthClasses[effectiveSize]} az-liquid-glass-modal rounded-t-[32px] sm:rounded-[32px] z-10 overflow-hidden sm:my-auto pb-safe`}
             role="dialog"
             aria-modal="true"
             aria-label={title}
           >
-            {/* Mobile Bottom Sheet Grabber */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-[#064E3B]/20 dark:bg-white/20" />
+            {/* Mobile Gesture Grabber */}
+            <div className="sm:hidden flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing">
+              <div className="w-11 h-1.5 rounded-full bg-[#064E3B]/22 dark:bg-white/24" />
             </div>
 
-            <div className="flex items-start justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#064E3B]/9 dark:border-white/[0.07]">
+            <div className="flex items-start justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#064E3B]/10 dark:border-white/[0.08]">
               <div className="min-w-0">
-                <h3 className="text-base sm:text-lg font-bold text-[#0B1B16] dark:text-[#F7F5F0] tracking-[-0.015em] leading-snug">
+                <h3 className="text-base sm:text-lg font-display font-bold text-[#091813] dark:text-[#F7F4EC] tracking-[-0.018em] leading-snug">
                   {title}
                 </h3>
                 {subtitle && (
@@ -93,7 +106,7 @@ export const Modal: React.FC<ModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="min-w-[40px] min-h-[40px] flex items-center justify-center text-[#4A635B] hover:text-[#0B1B16] dark:text-[#9AB0A7] dark:hover:text-white rounded-full bg-[#064E3B]/5 hover:bg-[#064E3B]/10 dark:bg-white/[0.05] dark:hover:bg-white/[0.12] transition-colors cursor-pointer shrink-0"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center text-[#4A635B] hover:text-[#091813] dark:text-[#9AB0A7] dark:hover:text-white rounded-full bg-[#064E3B]/6 hover:bg-[#064E3B]/12 dark:bg-white/[0.06] dark:hover:bg-white/[0.14] transition-colors cursor-pointer shrink-0"
                 aria-label="Yopish"
               >
                 <X className="w-4 h-4" />

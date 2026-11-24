@@ -12,7 +12,16 @@ import {
   CalligraphyBasmalahBadge,
   VolumetricGodRays,
 } from '../../ui/GeometricPattern';
-import { AnimatedProgressRing, PREMIUM_EASE } from '../../ui/MotionPrimitives';
+import {
+  AnimatedProgressRing,
+  AudioWaveformBars,
+  MaskedSplitText,
+  PREMIUM_EASE,
+  ScrollReveal,
+  StaggerCard,
+  StaggerGrid,
+} from '../../ui/MotionPrimitives';
+import { triggerTactileHaptic } from '../../../utils/motionSystem';
 import { resolveAsakaDateContext } from '../../../../telegram/services/dateCalendarService';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -387,10 +396,12 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
           </div>
 
           <div className="space-y-2 max-w-2xl">
-            <h1 className="az-type-hero text-[#F7F5F0]">
-              {t('prayer:title')}
-            </h1>
-            <p className="az-type-body text-[#C2D1CB]">
+            <MaskedSplitText
+              as="h1"
+              text={t('prayer:title')}
+              className="az-type-hero text-[#F7F4EC]"
+            />
+            <p className="az-type-body text-[#C8D6D0]">
               {t('prayer:subtitle')}
             </p>
           </div>
@@ -557,7 +568,12 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                   </button>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-[#c5a869]/20 text-[#c5a869] border border-[#c5a869]/40">
+                      <AudioWaveformBars
+                        isPlaying={playerState.isPlaying}
+                        barCount={4}
+                        barClassName="bg-[#10B981]"
+                      />
+                      <span className="az-type-overline text-[#C8A85E]">
                         {playerState.isLoading
                           ? 'Yuklanmoqda...'
                           : playerState.isPlaying
@@ -609,7 +625,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
           )}
 
           {/* Today's 8 Prayer Times Cards Grid with explicit Azon & Iqomat */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StaggerGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" staggerDelay={0.035}>
             {schedule.times.map((item) => {
               const isNext = prayerCalculation.nextPrayer?.key === item.key;
               const localizedName = getLocalizedPrayerName(item.key, item.nameUz);
@@ -622,39 +638,41 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                 (playerState.isPlaying || playerState.isLoading);
 
               return (
+                <StaggerCard key={item.key}>
                 <Card
-                  key={item.key}
                   variant={isNext ? 'emerald' : 'elevated'}
-                  ornamental={isNext}
-                  className={`p-5 space-y-4 transition-all duration-300 relative overflow-hidden ${
+                  className={`p-5 h-full space-y-4 transition-all duration-300 relative overflow-hidden ${
                     isNext
-                      ? 'border-2 border-[#DFBD69] ring-4 ring-[#DFBD69]/25 shadow-[0_24px_65px_rgba(223,189,105,0.22)] scale-[1.01]'
-                      : 'hover:border-[#DFBD69]/60 hover:shadow-xl'
+                      ? 'ring-1 ring-[#10B981]/60 shadow-[0_24px_64px_-16px_rgba(16,185,129,0.28)]'
+                      : ''
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-[#DFBD69]/15 border border-[#DFBD69]/30 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#C8A85E]/15 border border-[#C8A85E]/30 flex items-center justify-center shrink-0">
                         {getPrayerIcon(item.key)}
                       </div>
                       <div>
-                        <div className={`text-sm font-bold ${isNext ? 'text-[#FFF8E8]' : 'text-[#03170F] dark:text-[#FFF8E8]'}`}>
+                        <div className={`text-sm font-bold ${isNext ? 'text-[#F7F4EC]' : 'text-[#091813] dark:text-[#F7F4EC]'}`}>
                           {localizedName}
                         </div>
-                        <div className="text-xs font-arabic text-[#DFBD69]">{item.nameAr}</div>
+                        <div className="text-xs font-arabic text-[#C8A85E]">{item.nameAr}</div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-1.5">
                       {isAzanCapable && (
                         <button
                           type="button"
-                          onClick={() => toggleAdhanAudio(prayerTrackId, alertSettings.volume)}
+                          onClick={() => {
+                            triggerTactileHaptic(8);
+                            toggleAdhanAudio(prayerTrackId, alertSettings.volume);
+                          }}
                           title={isThisTrackPlaying ? 'Azonni toʻxtatish' : 'Ushbu namoz azonini tinglash'}
                           className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold ${
                             isThisTrackPlaying
-                              ? 'az-gold-foil-bg text-[#010906] border-[#DFBD69] shadow'
-                              : 'bg-[#DFBD69]/10 text-[#8A6621] dark:text-[#DFBD69] border-[#DFBD69]/35 hover:bg-[#DFBD69]/20'
+                              ? 'bg-[#C8A85E] text-[#030706] border-[#C8A85E] shadow'
+                              : 'bg-[#C8A85E]/12 text-[#8A6621] dark:text-[#C8A85E] border-[#C8A85E]/35 hover:bg-[#C8A85E]/22'
                           }`}
                         >
                           {isThisTrackPlaying ? (
@@ -705,34 +723,35 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                           <BellOff className="w-3.5 h-3.5" />
                         </button>
                       )}
-
-                      {isNext && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full az-gold-foil-bg text-[#010906] uppercase tracking-wider">
-                          Keyingi
-                        </span>
-                      )}
                     </div>
                   </div>
 
+                  {isNext && (
+                    <div className="az-type-overline text-[#34D399]">
+                      Keyingi namoz
+                    </div>
+                  )}
+
                   {/* Explicit Sections for Azon and Iqomat */}
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[#DFBD69]/20 text-xs">
-                    <div className={`p-2.5 rounded-xl border ${isNext ? 'bg-[#010906]/55 border-[#DFBD69]/30' : 'bg-[#F8F5EC] dark:bg-[#010906]/55 border-[#DFBD69]/25'}`}>
-                      <div className={`text-[11px] font-medium ${isNext ? 'text-[#FFF8E8]/75' : 'text-[#5C746C] dark:text-[#FFF8E8]/65'}`}>Azon vaqti</div>
-                      <div className={`text-lg sm:text-xl font-bold font-mono-numbers tracking-tight mt-0.5 ${isNext ? 'text-[#FFF8E8]' : 'text-[#03170F] dark:text-[#FFF8E8]'}`}>
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[#064E3B]/10 dark:border-white/[0.08] text-xs">
+                    <div className={`p-2.5 rounded-xl border ${isNext ? 'bg-black/35 border-white/[0.12]' : 'bg-[#F2EFE7] dark:bg-[#0B1612] border-[#064E3B]/10 dark:border-white/[0.08]'}`}>
+                      <div className={`text-[11px] font-medium ${isNext ? 'text-[#C8D6D0]' : 'text-[#5F776F] dark:text-[#8FA69D]'}`}>Azon vaqti</div>
+                      <div className={`text-lg sm:text-xl font-bold font-mono-numbers tracking-tight mt-0.5 ${isNext ? 'text-[#F7F4EC]' : 'text-[#091813] dark:text-[#F7F4EC]'}`}>
                         {item.time}
                       </div>
                     </div>
-                    <div className="bg-[#DFBD69]/12 dark:bg-[#DFBD69]/10 p-2.5 rounded-xl border border-[#DFBD69]/35 text-right">
-                      <div className="text-[10px] text-[#8A6621] dark:text-[#DFBD69] uppercase font-bold">Jamoat (Iqomat)</div>
-                      <div className="text-lg sm:text-xl font-bold font-mono-numbers text-[#8A6621] dark:text-[#FFF6C8] mt-0.5">
+                    <div className="bg-[#C8A85E]/12 dark:bg-[#C8A85E]/10 p-2.5 rounded-xl border border-[#C8A85E]/30 text-right">
+                      <div className="text-[10px] text-[#8A6621] dark:text-[#C8A85E] uppercase font-bold">Jamoat (Iqomat)</div>
+                      <div className="text-lg sm:text-xl font-bold font-mono-numbers text-[#8A6621] dark:text-[#F7F4EC] mt-0.5">
                         {item.iqamahTime || '—'}
                       </div>
                     </div>
                   </div>
                 </Card>
+                </StaggerCard>
               );
             })}
-          </div>
+          </StaggerGrid>
 
           {/* Regional Verification Disclaimer Card — Dual-Theme Light + Dark */}
           <Card className="p-5 bg-[#F2EFE9] dark:bg-[#0B1411] border-[#064E3B]/10 dark:border-white/[0.08] text-xs text-[#334F46] dark:text-[#C2D1CB] flex items-start gap-3.5">

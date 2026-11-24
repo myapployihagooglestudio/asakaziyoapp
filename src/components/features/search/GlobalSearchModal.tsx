@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, ArrowRight, Clock, Sparkles, BookOpen, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { Search, X, ArrowRight, Clock, Sparkles, Trash2 } from 'lucide-react';
 import { NavigationTab } from '../../../types';
-import { 
-  performGlobalSearch, 
-  SearchResultItem, 
-  SearchCategory, 
-  getSearchHistory, 
-  saveSearchHistoryQuery, 
-  removeSearchHistoryQuery 
+import { MOTION_SPRINGS, PREMIUM_EASE } from '../../ui/MotionPrimitives';
+import {
+  performGlobalSearch,
+  SearchResultItem,
+  getSearchHistory,
+  saveSearchHistoryQuery,
+  removeSearchHistoryQuery,
 } from '../../../utils/searchEngine';
 
 interface GlobalSearchModalProps {
@@ -16,38 +17,39 @@ interface GlobalSearchModalProps {
   onNavigate: (tab: NavigationTab) => void;
 }
 
-export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, onClose, onNavigate }) => {
+export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
+  isOpen,
+  onClose,
+  onNavigate,
+}) => {
+  const prefersReduced = useReducedMotion();
   const [query, setQuery] = useState('');
   const [history, setHistory] = useState<string[]>(getSearchHistory());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 60);
       setHistory(getSearchHistory());
     } else {
       setQuery('');
     }
   }, [isOpen]);
 
-  // Global keyboard shortcut Ctrl+K or /
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         if (isOpen) onClose();
-        else {
-          // Trigger search modal open from App if needed or handled by parent
-        }
+      } else if (e.key === 'Escape' && isOpen) {
+        onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
-  const results = performGlobalSearch(query, 'all').slice(0, 8);
+  const results = query.trim() ? performGlobalSearch(query, 'all').slice(0, 8) : [];
 
   const handleSelectResult = (item: SearchResultItem) => {
     saveSearchHistoryQuery(query || item.title);
@@ -60,123 +62,164 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div 
-        className="bg-white dark:bg-stone-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden flex flex-col max-h-[80vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Search Input Bar */}
-        <div className="flex items-center px-4 py-3.5 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/90">
-          <Search size={20} className="text-emerald-600 mr-3 shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Qurʼon, hadis, maqola yoki kalit soʻz boʻyicha izlash..."
-            className="w-full bg-transparent text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none text-base font-medium"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 mr-2"
-            >
-              <X size={16} />
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="px-2.5 py-1 rounded-lg bg-stone-200/80 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-300 transition-colors"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="az-global-search-backdrop"
+          initial={prefersReduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: PREMIUM_EASE }}
+          onClick={onClose}
+          className="fixed inset-0 z-50 flex items-start justify-center pt-14 sm:pt-24 px-4 bg-[#030706]/70 backdrop-blur-md"
+        >
+          <motion.div
+            key="az-global-search-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="ASAKA ZIYO Global Qidiruv"
+            initial={prefersReduced ? false : { opacity: 0, scale: 0.96, y: -12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -8 }}
+            transition={prefersReduced ? { duration: 0 } : MOTION_SPRINGS.snappy}
+            onClick={(e) => e.stopPropagation()}
+            className="az-liquid-glass-modal w-full max-w-2xl rounded-[28px] overflow-hidden flex flex-col max-h-[80vh]"
           >
-            ESC
-          </button>
-        </div>
-
-        {/* Results / History Container */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {!query.trim() && history.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Clock size={13} className="text-emerald-600" /> Soʻnggi qidiruvlar
-                </span>
+            {/* Search Input Bar */}
+            <div className="flex items-center px-4 sm:px-5 py-3.5 border-b border-black/[0.07] dark:border-white/[0.08]">
+              <Search className="w-5 h-5 text-[#064E3B] dark:text-[#10B981] mr-3 shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Qurʼon, hadis, maqola yoki kalit soʻz boʻyicha izlash..."
+                className="w-full bg-transparent text-[#091813] dark:text-[#F7F4EC] placeholder-[#587068] dark:placeholder-[#9CAFA7] focus:outline-none text-sm sm:text-base font-medium"
+              />
+              {query && (
                 <button
-                  onClick={() => {
-                    removeSearchHistoryQuery();
-                    setHistory([]);
-                  }}
-                  className="text-xs text-rose-600 hover:underline flex items-center gap-1"
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Tozalash"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-[#587068] dark:text-[#9CAFA7] hover:text-[#091813] dark:hover:text-[#F7F4EC] mr-1.5 cursor-pointer"
                 >
-                  <Trash2 size={12} /> Tozalash
+                  <X className="w-4 h-4" />
                 </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {history.map((h, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleHistorySelect(h)}
-                    className="text-xs bg-stone-100 dark:bg-stone-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-stone-700 dark:text-stone-300 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 transition-colors"
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-2.5 py-1.5 rounded-xl az-liquid-glass-pill text-[#091813] dark:text-[#F7F4EC] text-[11px] font-mono-numbers font-semibold hover:border-emerald-500/40 transition-colors cursor-pointer"
+              >
+                ESC
+              </button>
             </div>
-          )}
 
-          {!query.trim() && history.length === 0 && (
-            <div className="text-center py-12 text-stone-400">
-              <Sparkles size={36} className="mx-auto mb-3 text-emerald-600 opacity-60" />
-              <p className="text-sm font-medium text-stone-700 dark:text-stone-300">Qidirish uchun kalit soʻz kiriting</p>
-              <p className="text-xs text-stone-500 mt-1">Masalan: "Bomdod", "Oyatul Kursi", "Buxoriy"</p>
-            </div>
-          )}
-
-          {query.trim() && results.length === 0 && (
-            <div className="text-center py-12 text-stone-400">
-              <p className="text-sm font-medium text-stone-700 dark:text-stone-300">"{query}" boʻyicha natija topilmadi</p>
-              <p className="text-xs text-stone-500 mt-1">Boshqa soʻzlar yordamida qayta urinib koʻring</p>
-            </div>
-          )}
-
-          {results.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => handleSelectResult(item)}
-              className="group bg-stone-50 dark:bg-stone-800/60 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/30 border border-stone-200 dark:border-stone-700/80 hover:border-emerald-600 rounded-xl p-3.5 transition-all cursor-pointer flex items-center justify-between gap-3"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
-                    {item.categoryLabelUz}
-                  </span>
-                  {item.sourceOrAuthor && (
-                    <span className="text-[11px] text-stone-500 truncate">
-                      • {item.sourceOrAuthor}
+            {/* Results / History Container */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+              {!query.trim() && history.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-[#587068] dark:text-[#9CAFA7] uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#064E3B] dark:text-[#10B981]" />
+                      Soʻnggi qidiruvlar
                     </span>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeSearchHistoryQuery();
+                        setHistory([]);
+                      }}
+                      className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Tozalash
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {history.map((h, i) => (
+                      <button
+                        key={`${h}-${i}`}
+                        type="button"
+                        onClick={() => handleHistorySelect(h)}
+                        className="text-xs az-liquid-glass-pill hover:border-emerald-500/45 text-[#091813] dark:text-[#F7F4EC] px-3.5 py-2 rounded-xl transition-colors cursor-pointer"
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
-                  {item.title}
-                </h4>
-                <p className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
-                  {item.snippet}
-                </p>
-              </div>
+              )}
 
-              <div className="shrink-0 text-stone-400 group-hover:text-emerald-600 transition-colors">
-                <ArrowRight size={16} />
-              </div>
+              {!query.trim() && history.length === 0 && (
+                <div className="text-center py-12 space-y-2">
+                  <div className="w-12 h-12 rounded-2xl az-liquid-glass-pill mx-auto flex items-center justify-center text-[#064E3B] dark:text-[#10B981]">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-semibold text-[#091813] dark:text-[#F7F4EC]">
+                    Qidirish uchun kalit soʻz kiriting
+                  </p>
+                  <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">
+                    Masalan: «Bomdod», «Oyatul Kursi», «Buxoriy»
+                  </p>
+                </div>
+              )}
+
+              {query.trim() && results.length === 0 && (
+                <div className="text-center py-12 space-y-1.5">
+                  <p className="text-sm font-semibold text-[#091813] dark:text-[#F7F4EC]">
+                    «{query}» boʻyicha natija topilmadi
+                  </p>
+                  <p className="text-xs text-[#587068] dark:text-[#9CAFA7]">
+                    Boshqa soʻzlar yordamida qayta urinib koʻring
+                  </p>
+                </div>
+              )}
+
+              {results.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectResult(item)}
+                  className="w-full text-left group az-liquid-glass-card rounded-2xl p-3.5 hover:border-emerald-500/45 transition-all cursor-pointer flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="font-semibold uppercase tracking-wider text-[#064E3B] dark:text-[#10B981]">
+                        {item.categoryLabelUz}
+                      </span>
+                      {item.sourceOrAuthor && (
+                        <>
+                          <span aria-hidden="true" className="text-[#587068]/50 dark:text-[#9CAFA7]/50">
+                            ·
+                          </span>
+                          <span className="text-[#587068] dark:text-[#9CAFA7] truncate">
+                            {item.sourceOrAuthor}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-bold text-[#091813] dark:text-[#F7F4EC] truncate group-hover:text-[#064E3B] dark:group-hover:text-[#10B981] transition-colors">
+                      {item.title}
+                    </h4>
+                    <p className="text-xs text-[#587068] dark:text-[#9CAFA7] truncate">
+                      {item.snippet}
+                    </p>
+                  </div>
+
+                  <ArrowRight className="w-4 h-4 shrink-0 text-[#587068] dark:text-[#9CAFA7] group-hover:text-[#064E3B] dark:group-hover:text-[#10B981] group-hover:translate-x-0.5 transition-all" />
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Footer info */}
-        <div className="px-4 py-2.5 bg-stone-100 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between text-[11px] text-stone-500">
-          <span>ASAKA ZIYO Global Qidiruv</span>
-          <span>Barcha boʻlimlar qamrab olingan</span>
-        </div>
-      </div>
-    </div>
+            {/* Footer info */}
+            <div className="px-5 py-3 border-t border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between text-[11px] text-[#587068] dark:text-[#9CAFA7]">
+              <span className="font-medium">ASAKA ZIYO Global Qidiruv</span>
+              <span>Barcha boʻlimlar qamrab olingan</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { MosqueEventItem } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { IslamicHairlineDivider, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { PageHero } from '../../ui/PageHero';
+import {
+  MorphingTabs,
+  StaggerGrid,
+  StaggerCard,
+} from '../../ui/MotionPrimitives';
 import {
   getStoredMosqueEvents,
   toggleEventRegistration,
@@ -14,14 +18,10 @@ import {
   MapPin,
   Users,
   CheckCircle2,
-  Sparkles,
   Search,
-  Tag,
-  Share2,
 } from 'lucide-react';
 
 export const MosqueEventsView: React.FC = () => {
-  const { t } = useTranslation();
   const userId = 'asaka_user_current';
 
   const [events, setEvents] = useState<MosqueEventItem[]>(() => getStoredMosqueEvents());
@@ -42,143 +42,126 @@ export const MosqueEventsView: React.FC = () => {
 
   const filteredEvents = events.filter((ev) => {
     const matchesType = selectedType === 'all' || ev.type === selectedType;
+    const q = searchQuery.toLowerCase();
     const matchesQuery =
-      ev.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ev.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ev.instructor.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      ev.title.toLowerCase().includes(q) ||
+      ev.description.toLowerCase().includes(q) ||
+      ev.instructor.toLowerCase().includes(q);
     return matchesType && matchesQuery;
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8 animate-in fade-in">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#064e3b] via-[#052b22] to-[#041d18] border border-[#c5a869]/30 p-6 sm:p-8 text-white shadow-xl">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#d4af37]">
-            <Calendar className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>Asaka Jamoat Hayoti & Diniy Tadbirlar</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-white">
-            Masjid Tadbirlari va Maʼrifiy Darslar
-          </h1>
-          <p className="text-xs sm:text-sm text-stone-200 leading-relaxed max-w-xl">
-            Asaka shahri jome masjidlarida oʻtkaziladigan juma suhbatlari, tajvid kurslari, maʼruzalar va xayriya tadbirlaridan xabardor boʻling.
-          </p>
-        </div>
-      </div>
+    <div className="max-w-6xl mx-auto pb-16 space-y-8">
+      <PageHero
+        variant="sanctuary"
+        kicker="Asaka Jamoat Hayoti · Diniy va Maʼrifiy Tadbirlar"
+        title="Masjid Tadbirlari va Maʼrifiy Darslar"
+        subtitle="Asaka shahri jome masjidlarida oʻtkaziladigan juma suhbatlari, tajvid kurslari, maʼruzalar va xayriya tadbirlaridan xabardor boʻling."
+      />
 
       {registeredSuccessMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
+        <div className="p-4 rounded-2xl bg-emerald-500/12 border border-emerald-500/30 text-[#064E3B] dark:text-[#34D399] text-sm font-semibold flex items-center gap-2.5">
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span>{registeredSuccessMsg}</span>
         </div>
       )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {[
-            { id: 'all', label: 'Barcha tadbirlar' },
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <MorphingTabs
+          items={[
+            { id: 'all', label: 'Barcha tadbirlar', count: events.length },
             { id: 'friday_program', label: 'Juma suhbatlari' },
-            { id: 'tajwid', label: 'Tajvid & Tartil' },
+            { id: 'tajwid', label: 'Tajvid va Tartil' },
             { id: 'charity_drive', label: 'Saxovat tadbirlari' },
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedType(cat.id)}
-              className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedType === cat.id
-                  ? 'bg-[#c5a869] text-[#071614] shadow-xs'
-                  : 'bg-white dark:bg-[#0B1F1C] border border-stone-200 dark:border-emerald-950 text-stone-700 dark:text-stone-300'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+          ]}
+          activeId={selectedType}
+          onChange={setSelectedType}
+          layoutId="mosque-events-tabs"
+        />
 
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-stone-400" />
+        <div className="relative w-full lg:w-72">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#587068] dark:text-[#9CAFA7] pointer-events-none" />
           <input
             type="text"
             placeholder="Tadbirni qidirish..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#0B1F1C] text-stone-900 dark:text-white"
+            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] text-sm rounded-2xl az-liquid-glass-pill text-[#091813] dark:text-[#F7F4EC] placeholder:text-[#6B827A] dark:placeholder:text-[#7E968D] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
         </div>
       </div>
 
       {/* Events Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredEvents.map((ev) => {
           const isRegistered = ev.registeredUserIds.includes(userId);
           const spotsLeft = ev.capacity ? Math.max(0, ev.capacity - ev.registeredUserIds.length) : null;
 
           return (
-            <Card
-              key={ev.id}
-              elevated
-              className="p-6 space-y-4 border-stone-200/90 dark:border-[#c5a869]/30 bg-white dark:bg-[#0B1F1C] flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="px-3 py-1 rounded-full bg-[#c5a869]/15 text-[#9E7F3C] dark:text-[#c5a869] font-bold border border-[#c5a869]/30">
-                    {ev.type === 'friday_program'
-                      ? 'Juma Dasturi'
-                      : ev.type === 'tajwid'
-                      ? 'Tajvid Darsi'
-                      : 'Saxovat Tadbiri'}
-                  </span>
-                  <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400 font-mono-numbers">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{ev.date}</span>
-                    <span aria-hidden="true">·</span>
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{ev.time}</span>
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-bold text-stone-900 dark:text-white leading-snug">
-                  {ev.title}
-                </h3>
-
-                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-                  {ev.description}
-                </p>
-
-                <div className="space-y-1.5 pt-2 text-xs text-stone-600 dark:text-stone-300">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#9E7F3C] dark:text-[#c5a869] shrink-0" />
-                    <span>{ev.location}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Ustoz/Tashkilotchi: <strong>{ev.instructor}</strong></span>
-                  </div>
-                  {spotsLeft !== null && (
-                    <div className="text-[11px] text-stone-500 font-mono-numbers">
-                      Qolgan oʻrinlar: {spotsLeft} ta / {ev.capacity} ta
+            <StaggerCard key={ev.id}>
+              <Card elevated className="p-6 h-full flex flex-col justify-between space-y-5">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-black/[0.06] dark:border-white/[0.08] pb-3">
+                    <span className="font-bold text-[#8B6B2E] dark:text-[#C8A85E]">
+                      {ev.type === 'friday_program'
+                        ? 'Juma dasturi'
+                        : ev.type === 'tajwid'
+                        ? 'Tajvid darsi'
+                        : 'Saxovat tadbiri'}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-[#587068] dark:text-[#9CAFA7] font-mono-numbers">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{ev.date}</span>
+                      <span aria-hidden="true">·</span>
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{ev.time}</span>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              <div className="pt-4 border-t border-stone-200/80 dark:border-white/10 flex items-center justify-between">
-                <Button
-                  size="sm"
-                  variant={isRegistered ? 'outline' : 'emerald'}
-                  onClick={() => handleRegister(ev.id)}
-                  className="min-h-[40px] text-xs font-bold"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                  <span>{isRegistered ? 'Roʻyxatdan oʻtildi (Bekor qilish)' : 'Roʻyxatdan oʻtish'}</span>
-                </Button>
-              </div>
-            </Card>
+                  <h3 className="text-lg font-display font-bold text-[#091813] dark:text-[#F7F4EC] leading-snug">
+                    {ev.title}
+                  </h3>
+
+                  <p className="text-sm text-[#3B554D] dark:text-[#A4B9B1] leading-relaxed">
+                    {ev.description}
+                  </p>
+
+                  <div className="space-y-1.5 pt-2 text-xs text-[#3B554D] dark:text-[#A4B9B1]">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-[#C8A85E] shrink-0" />
+                      <span>{ev.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-[#064E3B] dark:text-[#34D399] shrink-0" />
+                      <span>
+                        Ustoz / Tashkilotchi: <strong className="text-[#091813] dark:text-[#F7F4EC]">{ev.instructor}</strong>
+                      </span>
+                    </div>
+                    {spotsLeft !== null && (
+                      <div className="text-xs text-[#587068] dark:text-[#9CAFA7] font-mono-numbers">
+                        Qolgan oʻrinlar: {spotsLeft} / {ev.capacity}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-black/[0.06] dark:border-white/[0.08]">
+                  <Button
+                    size="sm"
+                    variant={isRegistered ? 'outline' : 'emerald'}
+                    onClick={() => handleRegister(ev.id)}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                    <span>{isRegistered ? 'Roʻyxatdan oʻtildi (Bekor qilish)' : 'Roʻyxatdan oʻtish'}</span>
+                  </Button>
+                </div>
+              </Card>
+            </StaggerCard>
           );
         })}
-      </div>
+      </StaggerGrid>
     </div>
   );
 };

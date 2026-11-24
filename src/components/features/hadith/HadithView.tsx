@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HadithItem, NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
+import { PageHero } from '../../ui/PageHero';
+import { RubElHizbBadge } from '../../ui/GeometricPattern';
 import {
-  GeometricPattern,
-  IslamicMihrabArch,
-  CalligraphyBasmalahBadge,
-  ArabesqueCornerOrnaments,
-  RubElHizbBadge,
-  VolumetricGodRays,
-} from '../../ui/GeometricPattern';
+  MorphingTabs,
+  StaggerGrid,
+  StaggerCard,
+  InteractiveCounter,
+} from '../../ui/MotionPrimitives';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import { getStoredHadiths, subscribeToDatabase, isPubliclyPublished } from '../../../utils/databaseService';
 import { Search, Bookmark, Check, Share2, BookMarked } from 'lucide-react';
@@ -49,7 +49,7 @@ export const HadithView: React.FC<HadithViewProps> = ({
   }, []);
 
   const collections = [
-    { id: 'all', label: t('hadith:allHadiths') },
+    { id: 'all', label: t('hadith:allHadiths'), count: hadiths.length },
     { id: 'bukhari', label: t('hadith:sahihBukhari') },
     { id: 'muslim', label: t('hadith:sahihMuslim') },
     { id: 'nawawi', label: t('hadith:nawawi40') },
@@ -65,11 +65,13 @@ export const HadithView: React.FC<HadithViewProps> = ({
   const filteredHadiths = hadiths.filter((hadith) => {
     const matchesCollection =
       activeCollection === 'all' || hadith.collection === activeCollection;
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      hadith.translationUz.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hadith.narratorUz.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hadith.chapterUz.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hadith.keywords.some((k) => k.toLowerCase().includes(searchQuery.toLowerCase()));
+      !q ||
+      hadith.translationUz.toLowerCase().includes(q) ||
+      hadith.narratorUz.toLowerCase().includes(q) ||
+      hadith.chapterUz.toLowerCase().includes(q) ||
+      hadith.keywords.some((k) => k.toLowerCase().includes(q));
     return matchesCollection && matchesSearch;
   });
 
@@ -91,168 +93,178 @@ export const HadithView: React.FC<HadithViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Luxury Sacred Cinema Banner */}
-      <div className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary text-[#FFF8E8] p-6 sm:p-10 shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
-        <img
-          src="/images/islamic_scholarship_library_1793634659800.jpg"
-          alt="Islamic Scholarship Library"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#010906]/95 via-[#041D13]/88 to-[#063D32]/75" />
-        <VolumetricGodRays />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
-        <ArabesqueCornerOrnaments size={28} />
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#DFBD69] uppercase tracking-wider bg-[#010906]/70 px-3.5 py-1.5 rounded-xl border border-[#DFBD69]/40">
-              <BookMarked className="w-3.5 h-3.5 text-[#DFBD69]" />
-              <span>{t('hadith:sunnah')}</span>
-              <span aria-hidden="true">·</span>
-              <span>{t('hadith:sources')}</span>
+      <PageHero
+        variant="mushaf"
+        kicker={`${t('hadith:sunnah')} · ${t('hadith:sources')}`}
+        title={t('hadith:title')}
+        subtitle={t('hadith:subtitle')}
+        imageSrc="/images/islamic_scholarship_library_1793634659800.jpg"
+        imageAlt="Hadislar toʻplami"
+        aside={
+          <div className="rounded-2xl bg-white/[0.06] border border-white/[0.12] p-5 backdrop-blur-md space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#C8A85E]">
+              <BookMarked className="w-4 h-4" />
+              <span>Tasdiqlangan Sahih Manbalar</span>
             </div>
+            <div className="text-3xl font-display font-extrabold text-[#F7F4EC] font-mono-numbers">
+              <InteractiveCounter value={filteredHadiths.length} />
+              <span className="text-sm font-normal text-[#A4B9B1] ml-2">hadis</span>
+            </div>
+            <p className="text-xs text-[#9CAFA7]">
+              Sahih al-Buxoriy · Sahih Muslim · Imom Navaviy 40 hadisi
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8]">
-            {t('hadith:title')}
-          </h1>
-          <p className="text-xs sm:text-sm text-[#FFF8E8]/85 leading-relaxed max-w-xl">
-            {t('hadith:subtitle')}
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       {/* Collection filter tabs + Search */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          {collections.map((c) => {
-            const isSelected = activeCollection === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setActiveCollection(c.id)}
-                className={`px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border transition-all cursor-pointer ${
-                  isSelected
-                    ? 'border-[#DFBD69] az-gold-foil-bg text-[#010906] font-bold shadow-md'
-                    : 'border-[#DFBD69]/30 bg-[#FFF8E8] dark:bg-[#041D13]/90 text-[#03170F] dark:text-[#FFF8E8]/85 hover:border-[#DFBD69]/65'
-                }`}
-              >
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+        <MorphingTabs
+          items={collections}
+          activeId={activeCollection}
+          onChange={setActiveCollection}
+          layoutId="hadith-collection-tabs"
+        />
 
-        <div className="relative min-w-[260px]">
-          <Search className="w-4 h-4 text-[#8A6621] dark:text-[#DFBD69] absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <div className="relative min-w-[260px] lg:w-80">
+          <Search className="w-4 h-4 text-[#587068] dark:text-[#9CAFA7] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder={t('hadith:searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl border border-[#DFBD69]/35 bg-[#FFF8E8] dark:bg-[#03170F] text-[#03170F] dark:text-[#FFF8E8] placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-[#DFBD69]"
+            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] text-sm rounded-2xl az-liquid-glass-pill text-[#091813] dark:text-[#F7F4EC] placeholder:text-[#6B827A] dark:placeholder:text-[#7E968D] focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
         </div>
       </div>
 
       {/* Hadith list */}
-      <div className="space-y-6">
-        {filteredHadiths.map((hadith) => {
-          const isSaved = isFavorited(hadith.id);
-          const locTranslation = getLocalizedText(hadith.translationUz);
-          const locCollection = getLocalizedText(hadith.collectionNameUz);
-          const locNarrator = getLocalizedText(hadith.narratorUz);
-          const locChapter = getLocalizedText(hadith.chapterUz);
+      {filteredHadiths.length === 0 ? (
+        <Card className="p-12 text-center space-y-2">
+          <p className="text-base font-semibold text-[#091813] dark:text-[#F7F4EC]">
+            Mos hadis topilmadi
+          </p>
+          <p className="text-sm text-[#587068] dark:text-[#9CAFA7]">
+            Qidiruv soʻzini oʻzgartiring yoki barcha toʻplamlarni tanlang.
+          </p>
+        </Card>
+      ) : (
+        <StaggerGrid className="space-y-5">
+          {filteredHadiths.map((hadith) => {
+            const isSaved = isFavorited(hadith.id);
+            const locTranslation = getLocalizedText(hadith.translationUz);
+            const locCollection = getLocalizedText(hadith.collectionNameUz);
+            const locNarrator = getLocalizedText(hadith.narratorUz);
+            const locChapter = getLocalizedText(hadith.chapterUz);
 
-          return (
-            <Card key={hadith.id} elevated ornamental className="p-6 sm:p-8 space-y-5">
-              {/* Top metadata row */}
-              <div className="flex items-center justify-between text-xs text-stone-500 dark:text-[#FFF8E8]/70 border-b border-[#DFBD69]/20 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <RubElHizbBadge size="md">{hadith.number}</RubElHizbBadge>
-                  <div>
-                    <span className="font-bold text-[#8A6621] dark:text-[#DFBD69] block">{locCollection}</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">
-                        {hadith.grade}
+            return (
+              <StaggerCard key={hadith.id}>
+                <Card elevated className="p-6 sm:p-8 space-y-5">
+                  {/* Top metadata row — clean unboxed typography */}
+                  <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
+                    <div className="flex items-center gap-3">
+                      <RubElHizbBadge size="md">{hadith.number}</RubElHizbBadge>
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-bold text-[#091813] dark:text-[#F7F4EC]">
+                          {locCollection}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#587068] dark:text-[#9CAFA7]">
+                          <span className="font-semibold text-[#064E3B] dark:text-[#34D399]">
+                            {hadith.grade}
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <span className="text-[#8B6B2E] dark:text-[#C8A85E] font-medium">
+                            Tasdiqlangan manba
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onToggleFavorite({
+                            id: hadith.id,
+                            type: 'hadith',
+                            title: `${locCollection}, #${hadith.number}`,
+                            subtitle: `${locNarrator} ${t('hadith:narratedBy')}`,
+                            snippet: locTranslation,
+                            routeTab: 'hadith',
+                            routeId: hadith.id,
+                          })
+                        }
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
+                          isSaved
+                            ? 'bg-[#C8A85E] text-[#04120D] border-[#C8A85E] shadow-sm'
+                            : 'az-liquid-glass-pill text-[#3B554D] dark:text-[#C2D4CD] hover:border-[#C8A85E]/50'
+                        }`}
+                        title={t('common:save')}
+                        aria-label={t('common:save')}
+                      >
+                        <Bookmark className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyHadith(hadith)}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center az-liquid-glass-pill text-[#3B554D] dark:text-[#C2D4CD] hover:border-emerald-500/40 transition-all cursor-pointer"
+                        title={t('common:copy')}
+                        aria-label={t('common:copy')}
+                      >
+                        {copiedId === hadith.id ? (
+                          <Check className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <Share2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Arabic text (Authentic source, strictly never altered) */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-[#F4EFE3]/75 dark:bg-[#050E0B]/80 border border-[#C8A85E]/20">
+                    <p
+                      dir="rtl"
+                      className="font-arabic text-[#091813] dark:text-[#F7F4EC] text-right text-xl sm:text-2xl leading-[2.25]"
+                    >
+                      {hadith.textAr}
+                    </p>
+                  </div>
+
+                  {/* Translation */}
+                  <div className="space-y-3">
+                    <p className="text-[15px] sm:text-base text-[#091813] dark:text-[#F7F4EC]/92 font-editorial leading-[1.85]">
+                      «{locTranslation}»
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#587068] dark:text-[#9CAFA7] pt-3 border-t border-black/[0.06] dark:border-white/[0.07]">
+                      <span>
+                        <strong className="text-[#8B6B2E] dark:text-[#C8A85E] font-semibold">
+                          {t('hadith:narrator')}:
+                        </strong>{' '}
+                        {locNarrator}
                       </span>
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                        Tasdiqlangan Manba
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        <strong className="text-[#8B6B2E] dark:text-[#C8A85E] font-semibold">
+                          {t('hadith:chapter')}:
+                        </strong>{' '}
+                        {locChapter}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono-numbers">
+                        <strong className="text-[#8B6B2E] dark:text-[#C8A85E] font-semibold">
+                          {t('hadith:reference')}:
+                        </strong>{' '}
+                        {hadith.reference}
                       </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() =>
-                      onToggleFavorite({
-                        id: hadith.id,
-                        type: 'hadith',
-                        title: `${locCollection}, #${hadith.number}`,
-                        subtitle: `${locNarrator} ${t('hadith:narratedBy')}`,
-                        snippet: locTranslation,
-                        routeTab: 'hadith',
-                        routeId: hadith.id,
-                      })
-                    }
-                    className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                      isSaved
-                        ? 'az-gold-foil-bg text-[#010906] border-[#DFBD69]'
-                        : 'text-[#8A6621] dark:text-[#DFBD69] hover:border-[#DFBD69] border-[#DFBD69]/30'
-                    }`}
-                    title={t('common:save')}
-                  >
-                    <Bookmark className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => handleCopyHadith(hadith)}
-                    className="p-2 rounded-xl border border-[#DFBD69]/30 text-[#8A6621] dark:text-[#DFBD69] hover:border-[#DFBD69] transition-colors cursor-pointer"
-                    title={t('common:copy')}
-                  >
-                    {copiedId === hadith.id ? (
-                      <Check className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <Share2 className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Arabic text (Authentic source, strictly never changed by translation) */}
-              <div className="p-5 rounded-2xl bg-[#F1EBDD]/75 dark:bg-[#010906]/70 border border-[#DFBD69]/25">
-                <p
-                  dir="rtl"
-                  className="font-arabic text-[#03170F] dark:text-[#FFF8E8] text-right text-xl sm:text-2xl leading-loose"
-                >
-                  {hadith.textAr}
-                </p>
-              </div>
-
-              {/* Translation */}
-              <div className="space-y-2 pt-1">
-                <p className="text-sm sm:text-base text-[#03170F] dark:text-[#FFF8E8]/90 font-editorial leading-relaxed">
-                  «{locTranslation}»
-                </p>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[#5C746C] dark:text-[#FFF8E8]/65 pt-2 border-t border-[#DFBD69]/15">
-                  <span>
-                    <strong className="text-[#8A6621] dark:text-[#DFBD69]">{t('hadith:narrator')}:</strong> {locNarrator}
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span>
-                    <strong className="text-[#8A6621] dark:text-[#DFBD69]">{t('hadith:chapter')}:</strong> {locChapter}
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span className="font-mono-numbers">
-                    <strong className="text-[#8A6621] dark:text-[#DFBD69]">{t('hadith:reference')}:</strong> {hadith.reference}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                </Card>
+              </StaggerCard>
+            );
+          })}
+        </StaggerGrid>
+      )}
     </div>
   );
 };

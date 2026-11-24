@@ -12,6 +12,8 @@ import {
   stopActiveAdhanAudio,
 } from '../../utils/notificationService';
 import { Globe, Sun, Moon, Bell, Volume2, CheckCircle2, Sparkles, ArrowRight } from 'lucide-react';
+import { AudioWaveformBars } from './MotionPrimitives';
+import { triggerTactileHaptic } from '../../utils/motionSystem';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -86,13 +88,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     >
       <div className="space-y-6">
         {/* Brand Identity Banner */}
-        <div className="p-4 rounded-2xl bg-[#071410] border border-white/[0.1] flex items-center gap-4 text-[#F7F5F0]">
-          <div className="w-12 h-12 rounded-2xl bg-[#10B981]/15 border border-[#10B981]/30 flex items-center justify-center shrink-0">
+        <div className="p-4 sm:p-5 rounded-2xl az-aurora-surface border border-white/[0.12] flex items-center gap-4 text-[#F7F4EC]">
+          <div className="w-12 h-12 rounded-2xl bg-[#10B981]/15 border border-[#10B981]/35 flex items-center justify-center shrink-0">
             <IslamicStarEmblem size={22} className="text-[#10B981]" />
           </div>
           <div className="text-xs leading-relaxed text-[#C2D1CB]">
-            <div className="font-semibold text-sm text-[#F7F5F0] mb-0.5">
-              Asaka Markaziy Jome Masjidi raqamli ekotizimi
+            <div className="font-semibold text-sm text-[#F7F4EC] mb-0.5">
+              «MuhammadSolih Hoji» Jomeʼ Masjidi raqamli ekotizimi
             </div>
             Aniq namoz vaqtlari, Shayx Mishari Roshid Al-Afosiy azoni, Qurʼoni Karim (Tafsiri Hilol bilan), sahih hadislar va kunlik viktorina.
           </div>
@@ -100,7 +102,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* 1. 5-Language Selector */}
         <div className="space-y-2.5">
-          <label className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+          <label className="text-xs font-semibold text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
             <Globe className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />
             <span>1. Ilova tilini tanlang (5 xil alifbo va til)</span>
           </label>
@@ -111,11 +113,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <button
                   key={l.code}
                   type="button"
-                  onClick={() => handleSelectLanguage(l.code)}
+                  onClick={() => {
+                    triggerTactileHaptic(6);
+                    handleSelectLanguage(l.code);
+                  }}
                   className={`min-h-[48px] p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
                     active
-                      ? 'bg-[#064E3B]/[0.08] dark:bg-[#10B981]/15 border-[#064E3B] dark:border-[#10B981] text-[#064E3B] dark:text-[#F7F5F0]'
-                      : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#0B1B16] dark:text-[#E5ECE9] hover:border-[#064E3B]/30 dark:hover:border-white/20'
+                      ? 'bg-[#064E3B]/[0.09] dark:bg-[#10B981]/15 border-[#064E3B] dark:border-[#10B981] text-[#064E3B] dark:text-[#F7F4EC] shadow-sm'
+                      : 'bg-[#F7F4EC] dark:bg-[#0D1613] border-[#064E3B]/[0.09] dark:border-white/[0.08] text-[#091813] dark:text-[#E5ECE9] hover:border-[#064E3B]/30 dark:hover:border-white/20'
                   }`}
                 >
                   <div>
@@ -131,18 +136,21 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* 2. Theme Mode Selector (Light, Dark, System) */}
         <div className="space-y-2.5">
-          <label className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+          <label className="text-xs font-semibold text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
             <Sun className="w-4 h-4 text-[#C8A85E]" />
             <span>2. Koʻrinish mavzusi</span>
           </label>
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => onUpdateSettings({ theme: 'light' })}
+              onClick={() => {
+                triggerTactileHaptic(6);
+                onUpdateSettings({ theme: 'light' });
+              }}
               className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 settings.theme === 'light'
-                  ? 'bg-[#064E3B] text-white border-[#064E3B]'
-                  : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
+                  ? 'bg-[#064E3B] text-[#F7F4EC] border-[#064E3B]'
+                  : 'bg-[#F7F4EC] dark:bg-[#0D1613] border-[#064E3B]/[0.09] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
               }`}
             >
               <Sun className="w-4 h-4" />
@@ -150,11 +158,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onUpdateSettings({ theme: 'dark' })}
+              onClick={() => {
+                triggerTactileHaptic(6);
+                onUpdateSettings({ theme: 'dark' });
+              }}
               className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 settings.theme === 'dark'
-                  ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] border-[#064E3B] dark:border-[#10B981]'
-                  : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
+                  ? 'bg-[#064E3B] dark:bg-[#10B981] text-[#F7F4EC] dark:text-[#030706] border-[#064E3B] dark:border-[#10B981]'
+                  : 'bg-[#F7F4EC] dark:bg-[#0D1613] border-[#064E3B]/[0.09] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
               }`}
             >
               <Moon className="w-4 h-4" />
@@ -162,11 +173,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onUpdateSettings({ theme: 'system' })}
+              onClick={() => {
+                triggerTactileHaptic(6);
+                onUpdateSettings({ theme: 'system' });
+              }}
               className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 settings.theme === 'system'
-                  ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] border-[#064E3B] dark:border-[#10B981]'
-                  : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
+                  ? 'bg-[#064E3B] dark:bg-[#10B981] text-[#F7F4EC] dark:text-[#030706] border-[#064E3B] dark:border-[#10B981]'
+                  : 'bg-[#F7F4EC] dark:bg-[#0D1613] border-[#064E3B]/[0.09] dark:border-white/[0.08] text-[#4B635B] dark:text-[#C2D1CB]'
               }`}
             >
               <Sparkles className="w-4 h-4" />
@@ -176,12 +190,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         </div>
 
         {/* 3. Adhan Audio & Notification Permission */}
-        <div className="p-4 rounded-2xl bg-[#F7F5F0] dark:bg-[#0F1A16] border border-[#064E3B]/[0.08] dark:border-white/[0.08] space-y-3">
+        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/[0.09] dark:border-white/[0.08] space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-1.5">
+              <div className="text-xs font-semibold text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
                 <Bell className="w-4 h-4 text-[#064E3B] dark:text-[#10B981]" />
                 <span>3. Azon ovozi va namoz eslatmalari</span>
+                {isTestingAdhan && (
+                  <AudioWaveformBars isPlaying={true} barCount={4} barClassName="bg-[#10B981]" />
+                )}
               </div>
               <p className="text-[11px] text-[#5F736C] dark:text-[#8EA39B] mt-0.5">
                 Namoz vaqti kirganda Shayx Mishari Roshid Al-Afosiy azonini eshitish
@@ -214,7 +231,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           <button
             type="button"
             onClick={handleFinish}
-            className="text-xs text-[#5F736C] dark:text-[#8EA39B] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0] underline cursor-pointer"
+            className="text-xs text-[#5F736C] dark:text-[#8EA39B] hover:text-[#091813] dark:hover:text-[#F7F4EC] underline cursor-pointer"
           >
             Oʻtkazib yuborish (Mehmon rejimi)
           </button>

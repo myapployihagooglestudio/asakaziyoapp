@@ -74,7 +74,19 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t } = useTranslation(['navigation', 'common']);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { isInstallable, isInstalled, isIOS, promptInstall } = usePWAInstall();
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onScroll = () => {
+      const scrolled = window.scrollY > 24;
+      setIsScrolled((prev) => (prev === scrolled ? prev : scrolled));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const handleNavClick = (tab: NavigationTab) => {
     onSelectTab(tab);
@@ -90,7 +102,11 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full az-liquid-glass border-x-0 border-t-0 rounded-none pt-safe transition-colors">
+    <header
+      className={`sticky top-0 z-40 w-full az-liquid-glass border-x-0 border-t-0 rounded-none pt-safe transition-all duration-300 ${
+        isScrolled ? 'az-glass-scrolled' : ''
+      }`}
+    >
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-2.5 sm:gap-4 h-16">
           {/* Zone 1: Minimalist Brand Identity + Live Active Section Context */}

@@ -115,10 +115,22 @@ export const PersistentAudioPlayer: React.FC = () => {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="fixed bottom-[86px] lg:bottom-5 right-3 left-3 sm:left-auto sm:w-[436px] z-40 rounded-[26px] az-liquid-glass-elevated !bg-[#0B1411]/90 text-[#F7F5F0] border border-white/[0.14] shadow-[0_26px_64px_-14px_rgba(0,0,0,0.82)] overflow-hidden"
+        className="fixed bottom-[86px] lg:bottom-5 right-3 left-3 sm:left-auto sm:w-[444px] z-40 rounded-[28px] az-liquid-glass-elevated !bg-[#07120E]/92 text-[#F7F4EC] border border-white/[0.15] shadow-[0_28px_72px_-14px_rgba(0,0,0,0.88)] overflow-hidden"
         role="region"
         aria-label="Global Azon va Audio Pleyer"
       >
+        {/* Ambient Active Audio Bloom */}
+        {playerState.isPlaying && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full blur-3xl opacity-35"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(16, 185, 129, 0.7) 0%, rgba(200, 168, 94, 0.35) 55%, transparent 75%)',
+            }}
+          />
+        )}
+
         {/* Specular Top Edge Highlight + Progress Strip */}
         <div className="h-[3px] w-full bg-white/[0.08] overflow-hidden">
           <div
@@ -127,17 +139,18 @@ export const PersistentAudioPlayer: React.FC = () => {
           />
         </div>
 
-        <div className="p-3.5 space-y-3">
+        <div className="relative z-10 p-3.5 space-y-3">
           {/* Compact Mini-Player Row */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.92 }}
                 onClick={() =>
                   playerState.playingTrackId &&
                   toggleAdhanAudio(playerState.playingTrackId, playerState.volume)
                 }
-                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#D6B974] to-[#B89444] text-[#07110D] flex items-center justify-center shrink-0 shadow-[0_6px_18px_rgba(200,168,94,0.32)] hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#DFC37E] to-[#B69142] text-[#050C09] flex items-center justify-center shrink-0 shadow-[0_8px_22px_rgba(200,168,94,0.38)] hover:brightness-110 transition-all cursor-pointer"
                 aria-label={playerState.isPlaying ? 'Toʻxtatib turish' : 'Davom ettirish'}
               >
                 {playerState.isLoading ? (
@@ -147,23 +160,24 @@ export const PersistentAudioPlayer: React.FC = () => {
                 ) : (
                   <Play className="w-5 h-5 fill-current ml-0.5" />
                 )}
-              </button>
+              </motion.button>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <AudioWaveformBars
                     isPlaying={playerState.isPlaying}
+                    barCount={6}
                     className="h-3.5 shrink-0"
                     barClassName="bg-emerald-400"
                   />
-                  <span className="text-xs font-display font-bold text-[#F7F5F0] truncate">
+                  <span className="text-xs font-display font-bold text-[#F7F4EC] truncate">
                     {playerState.track?.titleUz || 'Azon Audio'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-stone-300 truncate">
                   <span className="truncate">{playerState.track?.muezzinUz}</span>
                   <span>·</span>
-                  <span className="font-mono-numbers text-[#c5a869]">
+                  <span className="font-mono-numbers text-[#D8BC78]">
                     {formatSeconds(playerState.currentTime)} / {formatSeconds(playerState.duration)}
                   </span>
                 </div>
