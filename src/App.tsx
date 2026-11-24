@@ -38,6 +38,7 @@ import { Footer } from './components/layout/Footer';
 import { MobileNav } from './components/layout/MobileNav';
 import { DesktopSidebar } from './components/layout/DesktopSidebar';
 import { Modal } from './components/ui/Modal';
+import { ScrollProgressBar } from './components/ui/MotionPrimitives';
 import { AppInstallModal } from './components/features/install/AppInstallModal';
 import { AppInstallBanner } from './components/features/install/AppInstallBanner';
 import { SupportChatModal } from './components/features/chat/SupportChatModal';
@@ -548,15 +549,35 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="relative min-h-screen flex flex-col bg-[#F7F5F0] text-[#0B1B16] dark:bg-[#060B09] dark:text-[#F7F5F0] transition-colors duration-200 overflow-x-hidden max-w-full">
-        {/* Restrained 2026 Ambient Obsidian-Emerald Top Glow */}
+        {/* NEO 2026 Scroll-Linked Reading Progress Hairline */}
+        <ScrollProgressBar />
+        {/* Apple 2026/2027 Liquid Glass Optical Ambient Light Canvas */}
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-x-0 top-0 h-[380px] opacity-30 dark:opacity-100 -z-10"
-          style={{
-            background:
-              'radial-gradient(ellipse 70% 50% at 50% -15%, rgba(16, 185, 129, 0.14) 0%, rgba(200, 168, 94, 0.04) 45%, transparent 80%)',
-          }}
-        />
+          className="pointer-events-none fixed inset-0 overflow-hidden -z-10"
+        >
+          <div
+            className="absolute -top-32 -left-24 w-[520px] h-[520px] rounded-full blur-[110px] opacity-45 dark:opacity-55"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(16, 185, 129, 0.28) 0%, rgba(6, 78, 59, 0.08) 55%, transparent 75%)',
+            }}
+          />
+          <div
+            className="absolute top-[18%] -right-28 w-[460px] h-[460px] rounded-full blur-[120px] opacity-40 dark:opacity-45"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(200, 168, 94, 0.28) 0%, rgba(200, 168, 94, 0.06) 55%, transparent 75%)',
+            }}
+          />
+          <div
+            className="absolute bottom-[-120px] left-[32%] w-[560px] h-[420px] rounded-full blur-[130px] opacity-30 dark:opacity-40"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(200, 168, 94, 0.08) 52%, transparent 75%)',
+            }}
+          />
+        </div>
 
         {/* Top Header conforming to Top Bar Contract */}
         <Header
@@ -744,7 +765,14 @@ export default function App() {
 
         {activeTab === 'ask_imam' && <AskImamView />}
 
-        {activeTab === 'ai_assistant' && <AiAssistantView />}
+        {activeTab === 'ai_assistant' && (
+          <AiAssistantView
+            onNavigate={handleNavigate}
+            onOpenSearch={() => setIsSearchModalOpen(true)}
+            onOpenTvMode={() => setIsTvModalOpen(true)}
+            onToggleTheme={handleCycleTheme}
+          />
+        )}
 
         {activeTab === 'search' && <GlobalSearchView onNavigate={handleNavigate} />}
 

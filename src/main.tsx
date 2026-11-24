@@ -128,7 +128,9 @@ function handleOfflineNativeApiRequest(path: string): Response {
     return createJsonResponse({
       success: true,
       configured: false,
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-4-hydrogen',
+      primaryModel: 'gemini-4-hydrogen',
+      fastModel: 'gemini-3.1-flash-lite',
       status: 'offline',
     });
   }

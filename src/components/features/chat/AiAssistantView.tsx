@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Bot,
   Send,
@@ -9,7 +10,6 @@ import {
   Globe,
   ShieldAlert,
   User,
-  RefreshCw,
   Check,
   Copy,
   Square,
@@ -21,11 +21,55 @@ import {
   Heart,
   CheckCircle2,
   AlertTriangle,
+  Zap,
+  Brain,
+  ArrowUpRight,
+  Wrench,
+  UserCheck,
+  ShieldCheck,
+  X,
+  Activity,
+  Loader2,
 } from 'lucide-react';
-import { SupportedLocale } from '../../../types';
+import { NavigationTab, SupportedLocale } from '../../../types';
 import { auth, db } from '../../../utils/firebaseClient';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { GeometricPattern, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { GeometricPattern } from '../../ui/GeometricPattern';
+import { AiThinkingWave, PREMIUM_EASE } from '../../ui/MotionPrimitives';
+
+export type AgentRoutingMode = 'auto' | 'deep' | 'fast';
+
+export interface AgentToolTraceItem {
+  id: string;
+  name: string;
+  labelUz: string;
+  status: 'running' | 'completed' | 'failed';
+  summary?: string;
+  durationMs?: number;
+}
+
+export interface AgentActionDirective {
+  id: string;
+  type: 'navigate' | 'open_imam_form' | 'open_search' | 'open_tv_mode' | 'toggle_theme';
+  targetTab?: string;
+  label: string;
+  subtitle?: string;
+}
+
+export interface AgentSourceCitation {
+  type: 'quran' | 'tafsir' | 'hadith' | 'dhikr' | 'prayer' | 'article' | 'mosque';
+  title: string;
+  reference: string;
+}
+
+export interface AgentEscalationRecord {
+  created: boolean;
+  ticketId: string;
+  target: 'imam' | 'admin';
+  category: string;
+  summary: string;
+  createdAt: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -33,6 +77,12 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   isError?: boolean;
+  modelUsed?: string;
+  reasoningTier?: 'fast' | 'intelligent' | 'deep';
+  toolTrace?: AgentToolTraceItem[];
+  actions?: AgentActionDirective[];
+  sources?: AgentSourceCitation[];
+  escalation?: AgentEscalationRecord | null;
 }
 
 export interface AiConversationRecord {
@@ -45,8 +95,24 @@ export interface AiConversationRecord {
   updatedAt: string;
 }
 
+export interface AiAssistantViewProps {
+  onNavigate?: (tab: NavigationTab) => void;
+  onOpenSearch?: () => void;
+  onOpenTvMode?: () => void;
+  onToggleTheme?: () => void;
+}
+
 const LOCAL_CONVERSATIONS_KEY = 'asaka_ziyo_ai_conversations_v2';
 const GUEST_USER_ID_KEY = 'asaka_ziyo_guest_uid_v1';
+
+function detectClientChannel(): 'web' | 'android' {
+  if (typeof window === 'undefined') return 'web';
+  const cap = (window as any).Capacitor;
+  if (cap?.isNativePlatform?.() || window.location.hostname === 'appassets.androidplatform.net') {
+    return 'android';
+  }
+  return 'web';
+}
 
 function getActiveConversationOwnerId(): string {
   if (auth.currentUser?.uid) {
@@ -70,13 +136,13 @@ function getActiveConversationOwnerId(): string {
 function getWelcomeMessage(locale: SupportedLocale): ChatMessage {
   const textMap: Record<SupportedLocale, string> = {
     'uz-Latn':
-      'Assalomu alaykum va rahmatullohi va barakatuh! Men ASAKA ZIYO rasmiy sunʼiy intellekt yordamchisiman (Google Gemini AI). Qurʼoni Karim oyatlari, Tafsiri Hilol sharhlari, sahih hadislar, Asaka 8 mahal namoz taqvimi hamda kundalik duolar boʻyicha savollaringizga ishonchli manbalar asosida javob berishga tayyorman.',
+      'Assalomu alaykum va rahmatullohi va barakatuh! Men ASAKA ZIYO AI AGENT — yagona aqlli islomiy ekotizim yordamchisiman. Men Asaka 8 mahal namoz taqvimini jonli tekshiraman, Qurʼoni Karim va Tafsiri Hilol manbalaridan izlayman, sahih hadis va duolarni topaman, ilova boʻlimlarini ochib beraman hamda murakkab sharʼiy masalalarda sizni Imom-xatib yoki maʼmuriyatga yoʻnaltiraman.',
     'uz-Cyrl':
-      'Ассалому алайкум ва раҳматуллоҳи ва баракатуҳ! Мен АСАКА ЗИЁ расмий сунъий интеллект ёрдамчисиман (Google Gemini AI). Қуръони Карим оятлари, Тафсири Ҳилол шарҳлари, саҳиҳ ҳадислар, Асака 8 маҳал намоз тақвими ҳамда кундалик дуолар бўйича саволларингизга ишончли манбалар асосида жавоб беришга тайёрман.',
+      'Ассалому алайкум ва раҳматуллоҳи ва баракатуҳ! Мен АСАКА ЗИЁ AI AGENT — ягона ақлли исломий экотизим ёрдамчисиман. Асака 8 маҳал намоз тақвимини жонли текшираман, Қуръони Карим ва Тафсири Ҳилолдан излайман, саҳиҳ ҳадис ва дуоларни топаман, илова бўлимларини очиб бераман ҳамда зарур ҳолда Имом-хатибга йўналтираман.',
     'uz-Latn-new':
-      'Assalomu alaykum va rahmatullohi va barakatuh! Men ASAKA ZIYO rasmiy sunʼiy intellekt yordamchisiman (Google Gemini AI). Qurʼoni Karim oyatlari, Tafsiri Hilol sharhlari, sahih hadislar, Asaka 8 mahal namoz taqvimi hamda kundalik duolar boʻyicha savollaringizga ishonchli manbalar asosida javob berishga tayyorman.',
-    ru: 'Ассаляму алейкум ва рахматуллахи ва баракатух! Я официальный ИИ-ассистент ASAKA ZIYO на базе Google Gemini AI. Готов ответить на ваши вопросы по аятам Священного Корана (Тафсири Хилал), достоверным хадисам, расписанию намазов города Асака и ежедневным дуа.',
-    en: 'Assalamu Alaikum wa Rahmatullahi wa Barakatuh! I am the official ASAKA ZIYO Intelligent Islamic AI Assistant powered by Google Gemini AI. How can I assist you with Quranic verses (Tafsiri Hilol), authentic Hadiths, Asaka prayer schedules, and daily Duas today?',
+      'Assalomu alaykum va rahmatullohi va barakatuh! Men ASAKA ZIYO AI AGENT — yagona aqlli islomiy ekotizim yordamchisiman. Men Asaka 8 mahal namoz taqvimini jonli tekshiraman, Qurʼoni Karim va Tafsiri Hilol manbalaridan izlayman, sahih hadis va duolarni topaman, ilova boʻlimlarini ochib beraman hamda zarur holda Imom-xatibga yoʻnaltiraman.',
+    ru: 'Ассаляму алейкум ва рахматуллахи ва баракатух! Я — ASAKA ZIYO AI AGENT. Проверяю актуальное расписание намазов Асаки, ищу по Корану (Тафсири Хилал), достоверным хадисам и дуа, открываю нужные разделы приложения и при необходимости направляю обращение имаму или администратору.',
+    en: 'Assalamu Alaikum wa Rahmatullahi wa Barakatuh! I am ASAKA ZIYO AI AGENT — your unified intelligent Islamic ecosystem agent. I verify live Asaka prayer schedules, search Quran & Tafsiri Hilol, authentic Hadiths and Duas, launch permitted app sections, and escalate personal Shariah inquiries to our Imam or Mosque Administration when needed.',
   };
 
   return {
@@ -87,96 +153,131 @@ function getWelcomeMessage(locale: SupportedLocale): ChatMessage {
   };
 }
 
-interface TopicCategory {
+interface AgentStarter {
   id: string;
   labelUz: string;
+  badgeUz: string;
   icon: React.ReactNode;
   prompt: Record<SupportedLocale, string>;
 }
 
-const TOPIC_CATEGORIES: TopicCategory[] = [
+const AGENT_STARTERS: AgentStarter[] = [
   {
     id: 'prayer',
-    labelUz: 'Namoz vaqtlari va tartibi',
-    icon: <Clock className="w-3.5 h-3.5 text-[#c9a84c]" />,
+    labelUz: 'Bugungi Asaka namoz vaqtlari',
+    badgeUz: 'Jonli jadval',
+    icon: <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
     prompt: {
-      'uz-Latn': 'Asaka shahri uchun bugungi 8 mahal namoz vaqtlari qanday va Bomdod namozi qanday oʻqiladi?',
-      'uz-Cyrl': 'Асака шаҳри учун бугунги 8 маҳал намоз вақтлари қандай ва Бомдод намози қандай ўқилади?',
-      'uz-Latn-new': 'Asaka shahri uchun bugungi 8 mahal namoz vaqtlari qanday va Bomdod namozi qanday oʻqiladi?',
-      ru: 'Каково сегодняшнее расписание 8 намазов в городе Асака и как совершается утренний намаз (Фаджр)?',
-      en: 'What is today’s 8-time prayer schedule for Asaka and how is the Fajr prayer performed?',
+      'uz-Latn': 'Asaka shahri uchun bugungi 8 mahal namoz vaqtlarini tekshirib bering va Namoz vaqtlari boʻlimini ochish tugmasini tayyorlang.',
+      'uz-Cyrl': 'Асака шаҳри учун бугунги 8 маҳал намоз вақтларини текшириб беринг ва Намоз вақтлари бўлимини очиш тугмасини тайёрланг.',
+      'uz-Latn-new': 'Asaka shahri uchun bugungi 8 mahal namoz vaqtlarini tekshirib bering va Namoz vaqtlari boʻlimini ochish tugmasini tayyorlang.',
+      ru: 'Проверь сегодняшнее расписание 8 намазов в Асаке и подготовь переход в раздел расписания.',
+      en: 'Check today’s verified 8-time prayer schedule for Asaka and provide quick navigation to Prayer Times.',
     },
   },
   {
     id: 'quran',
-    labelUz: 'Qurʼon va Tafsiri Hilol',
-    icon: <BookOpen className="w-3.5 h-3.5 text-[#c9a84c]" />,
+    labelUz: 'Yosin surasi va Tafsiri Hilol',
+    badgeUz: 'Qurʼon + Tafsir',
+    icon: <BookOpen className="w-4 h-4 text-[#C8A85E]" />,
     prompt: {
-      'uz-Latn': 'Baqara surasi 255-oyat (Oyatul Kursiy) arabcha matni, maʼnosi va fazilati haqida Tafsiri Hilol asosida maʼlumot bering.',
-      'uz-Cyrl': 'Бақара сураси 255-оят (Оятул Курсий) арабча матни, маъноси ва фазилати ҳақида Тафсири Ҳилол асосида маълумот беринг.',
-      'uz-Latn-new': 'Baqara surasi 255-oyat (Oyatul Kursiy) arabcha matni, maʼnosi va fazilati haqida Tafsiri Hilol asosida maʼlumot bering.',
-      ru: 'Расскажите об Аятуль Курси (Сура Аль-Бакара, 255): арабский текст, перевод смысла и достоинства.',
-      en: 'Explain Ayat al-Kursi (Surah Al-Baqarah 2:255) with its Arabic text, translation, and virtues.',
+      'uz-Latn': 'Yosin surasi (36-sura) haqida Tafsiri Hilol asosida qisqacha maʼlumot bering va Qurʼoni Karim boʻlimiga oʻtishni taklif qiling.',
+      'uz-Cyrl': 'Ёсин сураси (36-сура) ҳақида Тафсири Ҳилол асосида қисқача маълумот беринг ва Қуръони Карим бўлимига ўтишни таклиф қилинг.',
+      'uz-Latn-new': 'Yosin surasi (36-sura) haqida Tafsiri Hilol asosida qisqacha maʼlumot bering va Qurʼoni Karim boʻlimiga oʻtishni taklif qiling.',
+      ru: 'Дай краткий обзор суры Ясин (36) на основе Тафсири Хилал и открой раздел Корана.',
+      en: 'Provide an overview of Surah Yasin (36) from Tafsiri Hilol and link me to the Quran section.',
     },
   },
   {
     id: 'hadith',
-    labelUz: 'Sahih Hadislar',
-    icon: <Sparkles className="w-3.5 h-3.5 text-[#c9a84c]" />,
+    labelUz: 'Ilm va sabr haqida Sahih hadislar',
+    badgeUz: 'Buxoriy & Muslim',
+    icon: <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
     prompt: {
-      'uz-Latn': 'Ilm olish va ota-onaga yaxshilik qilish haqida Imom Buxoriy va Imom Muslim rivoyat qilgan sahih hadislardan keltiring.',
-      'uz-Cyrl': 'Илм олиш ва ота-онага яхшилик қилиш ҳақида Имом Бухорий ва Имом Муслим ривоят қилган саҳиҳ ҳадислардан келтиринг.',
-      'uz-Latn-new': 'Ilm olish va ota-onaga yaxshilik qilish haqida Imom Buxoriy va Imom Muslim rivoyat qilgan sahih hadislardan keltiring.',
-      ru: 'Приведите достоверные хадисы из Сахих аль-Бухари о получении знаний и благочестии к родителям.',
-      en: 'Share authentic Hadiths from Sahih al-Bukhari and Sahih Muslim about seeking knowledge and kindness to parents.',
+      'uz-Latn': 'Ilm olish va sabr fazilati haqida bazamizdagi sahih hadislarni izlab keltiring.',
+      'uz-Cyrl': 'Илм олиш ва сабр фазилати ҳақида базамиздаги саҳиҳ ҳадисларни излаб келтиринг.',
+      'uz-Latn-new': 'Ilm olish va sabr fazilati haqida bazamizdagi sahih hadislarni izlab keltiring.',
+      ru: 'Найди достоверные хадисы из нашей базы о поиске знаний и терпении.',
+      en: 'Search our verified database for authentic Hadiths about seeking knowledge and patience.',
     },
   },
   {
     id: 'dua',
-    labelUz: 'Kunlik Zikr va Duolar',
-    icon: <Heart className="w-3.5 h-3.5 text-[#c9a84c]" />,
+    labelUz: 'Tonggi zikrlar va Raqamli Tasbeh',
+    badgeUz: 'Zikr + Tasbeh',
+    icon: <Heart className="w-4 h-4 text-[#C8A85E]" />,
     prompt: {
-      'uz-Latn': 'Tonggi va kechki zikrlar hamda namozdan keyin oʻqiladigan eng muhim duolarni arabcha matni va maʼnosi bilan yozib bering.',
-      'uz-Cyrl': 'Тонгги ва кечки зикрлар ҳамда намоздан кейин ўқиладиган энг муҳим дуоларни арабча матни ва маъноси билан ёзиб беринг.',
-      'uz-Latn-new': 'Tonggi va kechki zikrlar hamda namozdan keyin oʻqiladigan eng muhim duolarni arabcha matni va maʼnosi bilan yozib bering.',
-      ru: 'Напишите утренние и вечерние азкары и дуа после намаза с арабским текстом и переводом.',
-      en: 'Provide the authentic morning and evening adhkar and post-prayer duas with Arabic text and meaning.',
+      'uz-Latn': 'Tonggi zikr va duolardan eng muhimlarini arabcha matni bilan topib bering va Tasbeh boʻlimini ochish imkonini bering.',
+      'uz-Cyrl': 'Тонгги зикр ва дуолардан энг муҳимларини арабча матни билан топиб беринг ва Тасбеҳ бўлимини очиш имконини беринг.',
+      'uz-Latn-new': 'Tonggi zikr va duolardan eng muhimlarini arabcha matni bilan topib bering va Tasbeh boʻlimini ochish imkonini bering.',
+      ru: 'Найди важные утренние азкары с арабским текстом и открой раздел цифрового тасбиха.',
+      en: 'Find authentic morning adhkar with Arabic text and open the Digital Tasbih section.',
     },
   },
   {
-    id: 'fasting',
-    labelUz: 'Roʻza va Zakot ilmi',
-    icon: <Compass className="w-3.5 h-3.5 text-[#c9a84c]" />,
+    id: 'qibla',
+    labelUz: 'Qibla yoʻnalishi va Asaka masjidi',
+    badgeUz: '241° WSW',
+    icon: <Compass className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
     prompt: {
-      'uz-Latn': 'Hanafiy mazhabida roʻza tutish shartlari, saharlik va iftorlik duolari hamda roʻzani buzadigan amallar qaysilar?',
-      'uz-Cyrl': 'Ҳанафий мазҳабида рўза тутиш шартлари, саҳарлик ва ифторлик дуолари ҳамда рўзани бузадиган амаллар қайсилар?',
-      'uz-Latn-new': 'Hanafiy mazhabida roʻza tutish shartlari, saharlik va iftorlik duolari hamda roʻzani buzadigan amallar qaysilar?',
-      ru: 'Каковы условия поста по ханафитскому мазхабу, дуа сухура и ифтара, а также действия, нарушающие пост?',
-      en: 'What are the rules of fasting in the Hanafi school, suhoor and iftar duas, and actions that invalidate fasting?',
+      'uz-Latn': 'Asaka shahrida Qibla yoʻnalishi necha gradus va «MuhammadSolih Hoji» jomeʼ masjidi haqida maʼlumot bering.',
+      'uz-Cyrl': 'Асака шаҳрида Қибла йўналиши неча градус ва «МуҳаммадСолиҳ Ҳожи» жомеъ масжиди ҳақида маълумот беринг.',
+      'uz-Latn-new': 'Asaka shahrida Qibla yoʻnalishi necha gradus va «MuhammadSolih Hoji» jomeʼ masjidi haqida maʼlumot bering.',
+      ru: 'Какой угол Киблы в городе Асака и какая информация есть о мечети МухаммадСолих Ходжи?',
+      en: 'What is the Qibla direction in Asaka and details about MuhammadSolih Hoji Mosque?',
     },
   },
 ];
 
-export const AiAssistantView: React.FC = () => {
+export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
+  onNavigate,
+  onOpenSearch,
+  onOpenTvMode,
+  onToggleTheme,
+}) => {
   const [locale, setLocale] = useState<SupportedLocale>('uz-Latn');
+  const [routingMode, setRoutingMode] = useState<AgentRoutingMode>('auto');
   const [conversations, setConversations] = useState<AiConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage('uz-Latn')]);
   const [inputVal, setInputVal] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [liveToolStatus, setLiveToolStatus] = useState<AgentToolTraceItem[]>([]);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [aiStatus, setAiStatus] = useState<{ connected: boolean; model: string; checked?: boolean }>({
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalateTarget, setEscalateTarget] = useState<'imam' | 'admin'>('imam');
+  const [escalateCategory, setEscalateCategory] = useState('Fiqh va Sharʼiy savol');
+  const [escalateText, setEscalateText] = useState('');
+  const [escalateSubmitting, setEscalateSubmitting] = useState(false);
+  const [escalateFeedback, setEscalateFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const [showProbeModal, setShowProbeModal] = useState(false);
+  const [probeLoading, setProbeLoading] = useState(false);
+  const [probeResults, setProbeResults] = useState<
+    Array<{ model: string; available: boolean; latencyMs: number; detail: string; checkedAt: string }>
+  >([]);
+
+  const [aiStatus, setAiStatus] = useState<{
+    connected: boolean;
+    model: string;
+    primaryModel: string;
+    fastModel: string;
+    toolsCount: number;
+    checked?: boolean;
+  }>({
     connected: false,
-    model: 'gemini-3.8-flash',
+    model: 'gemini-4-hydrogen',
+    primaryModel: 'gemini-4-hydrogen',
+    fastModel: 'gemini-3.1-flash-lite',
+    toolsCount: 8,
     checked: false,
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check backend Gemini AI status on mount — never fake connected: true
   useEffect(() => {
     let mounted = true;
     fetch('/api/ai/status')
@@ -185,18 +286,17 @@ export const AiAssistantView: React.FC = () => {
         if (mounted && data) {
           setAiStatus({
             connected: Boolean(data.connected),
-            model: data.model || 'gemini-3.8-flash',
+            model: data.model || 'gemini-4-hydrogen',
+            primaryModel: data.primaryModel || 'gemini-4-hydrogen',
+            fastModel: data.fastModel || 'gemini-3.1-flash-lite',
+            toolsCount: Number(data.toolsCount || 8),
             checked: true,
           });
         }
       })
       .catch(() => {
         if (mounted) {
-          setAiStatus({
-            connected: false,
-            model: 'gemini-3.8-flash',
-            checked: true,
-          });
+          setAiStatus((prev) => ({ ...prev, connected: false, checked: true }));
         }
       });
     return () => {
@@ -204,7 +304,6 @@ export const AiAssistantView: React.FC = () => {
     };
   }, []);
 
-  // Load user's saved conversations from local storage + backend
   const loadSavedConversations = useCallback(async () => {
     const userId = getActiveConversationOwnerId();
     let loaded: AiConversationRecord[] = [];
@@ -247,7 +346,7 @@ export const AiAssistantView: React.FC = () => {
       const initialConv: AiConversationRecord = {
         id: initialId,
         userId,
-        title: 'Yangi ilmiy suhbat',
+        title: 'Yangi agent suhbati',
         locale,
         messages: [getWelcomeMessage(locale)],
         createdAt: new Date().toISOString(),
@@ -265,7 +364,7 @@ export const AiAssistantView: React.FC = () => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, liveToolStatus]);
 
   const persistConversation = useCallback(
     async (convId: string, updatedMessages: ChatMessage[], currentLocale: SupportedLocale) => {
@@ -273,7 +372,7 @@ export const AiAssistantView: React.FC = () => {
       const firstUserMsg = updatedMessages.find((m) => m.role === 'user');
       const derivedTitle = firstUserMsg
         ? firstUserMsg.content.slice(0, 52) + (firstUserMsg.content.length > 52 ? '...' : '')
-        : 'Yangi ilmiy suhbat';
+        : 'Yangi agent suhbati';
 
       const nowIso = new Date().toISOString();
       const updatedRecord: AiConversationRecord = {
@@ -301,7 +400,6 @@ export const AiAssistantView: React.FC = () => {
         return next;
       });
 
-      // Persist to backend API
       try {
         await fetch('/api/ai/conversations', {
           method: 'POST',
@@ -312,7 +410,6 @@ export const AiAssistantView: React.FC = () => {
         // ignore offline
       }
 
-      // Persist to Firestore if authenticated Firebase user
       if (auth.currentUser?.uid) {
         try {
           await setDoc(
@@ -339,7 +436,7 @@ export const AiAssistantView: React.FC = () => {
     const newConv: AiConversationRecord = {
       id: newId,
       userId,
-      title: 'Yangi ilmiy suhbat',
+      title: 'Yangi agent suhbati',
       locale,
       messages: [welcome],
       createdAt: new Date().toISOString(),
@@ -397,6 +494,22 @@ export const AiAssistantView: React.FC = () => {
     }
     setIsLoading(false);
     setIsStreaming(false);
+    setLiveToolStatus([]);
+  };
+
+  const executeDirective = (action: AgentActionDirective) => {
+    if (action.type === 'navigate' && action.targetTab && onNavigate) {
+      onNavigate(action.targetTab as NavigationTab);
+    } else if (action.type === 'open_imam_form') {
+      setEscalateTarget('imam');
+      setShowEscalateModal(true);
+    } else if (action.type === 'open_search' && onOpenSearch) {
+      onOpenSearch();
+    } else if (action.type === 'open_tv_mode' && onOpenTvMode) {
+      onOpenTvMode();
+    } else if (action.type === 'toggle_theme' && onToggleTheme) {
+      onToggleTheme();
+    }
   };
 
   const handleSend = async (textToSend?: string, overrideHistory?: ChatMessage[]) => {
@@ -421,6 +534,7 @@ export const AiAssistantView: React.FC = () => {
     if (!textToSend) setInputVal('');
     setIsLoading(true);
     setIsStreaming(true);
+    setLiveToolStatus([]);
 
     const streamingModelId = `mod-${Date.now()}`;
     const controller = new AbortController();
@@ -435,12 +549,16 @@ export const AiAssistantView: React.FC = () => {
           content: m.content,
         }));
 
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch('/api/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: historyPayload,
           locale,
+          routingMode,
+          channel: detectClientChannel(),
+          userId: getActiveConversationOwnerId(),
+          userName: auth.currentUser?.displayName || 'ASAKA ZIYO Foydalanuvchisi',
           stream: true,
         }),
         signal: controller.signal,
@@ -454,6 +572,9 @@ export const AiAssistantView: React.FC = () => {
           role: 'model',
           content: '',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          toolTrace: [],
+          actions: [],
+          sources: [],
         };
         setMessages((prev) => [...prev, placeholderMsg]);
 
@@ -461,6 +582,12 @@ export const AiAssistantView: React.FC = () => {
         const decoder = new TextDecoder('utf-8');
         let buffer = '';
         let accumulated = '';
+        let finalModelUsed = aiStatus.primaryModel;
+        let finalTier: 'fast' | 'intelligent' | 'deep' = 'intelligent';
+        let collectedTools: AgentToolTraceItem[] = [];
+        let collectedActions: AgentActionDirective[] = [];
+        let collectedSources: AgentSourceCitation[] = [];
+        let collectedEscalation: AgentEscalationRecord | null = null;
 
         while (true) {
           const { value, done } = await reader.read();
@@ -479,14 +606,71 @@ export const AiAssistantView: React.FC = () => {
               if (parsed.error) {
                 throw new Error(parsed.error);
               }
-              if (parsed.text) {
+              if (parsed.type === 'meta') {
+                finalModelUsed = parsed.modelUsed || finalModelUsed;
+                finalTier = parsed.reasoningTier || finalTier;
+              } else if (parsed.type === 'tool_start') {
+                const runningItem: AgentToolTraceItem = {
+                  id: parsed.id,
+                  name: parsed.name,
+                  labelUz: parsed.labelUz || parsed.name,
+                  status: 'running',
+                };
+                setLiveToolStatus((prev) => [...prev.filter((t) => t.id !== parsed.id), runningItem]);
+              } else if (parsed.type === 'tool_done' && parsed.item) {
+                collectedTools = [
+                  ...collectedTools.filter((t) => t.id !== parsed.item.id),
+                  parsed.item,
+                ];
+                setLiveToolStatus((prev) =>
+                  prev.map((t) => (t.id === parsed.item.id ? parsed.item : t))
+                );
+              } else if (parsed.type === 'action' && parsed.action) {
+                if (!collectedActions.some((a) => a.id === parsed.action.id)) {
+                  collectedActions = [...collectedActions, parsed.action];
+                }
+              } else if (parsed.type === 'escalation' && parsed.escalation) {
+                collectedEscalation = parsed.escalation;
+              } else if (parsed.text) {
                 accumulated += parsed.text;
                 setMessages((prev) =>
-                  prev.map((m) => (m.id === streamingModelId ? { ...m, content: accumulated } : m))
+                  prev.map((m) =>
+                    m.id === streamingModelId
+                      ? {
+                          ...m,
+                          content: accumulated,
+                          modelUsed: finalModelUsed,
+                          reasoningTier: finalTier,
+                          toolTrace: collectedTools,
+                          actions: collectedActions,
+                          escalation: collectedEscalation,
+                        }
+                      : m
+                  )
                 );
               }
-              if (parsed.done && parsed.fullText && !accumulated) {
-                accumulated = parsed.fullText;
+              if (parsed.done) {
+                if (parsed.fullText && !accumulated) {
+                  accumulated = parsed.fullText;
+                }
+                if (parsed.modelUsed || parsed.model) {
+                  finalModelUsed = parsed.modelUsed || parsed.model;
+                }
+                if (parsed.reasoningTier) {
+                  finalTier = parsed.reasoningTier;
+                }
+                if (Array.isArray(parsed.toolTrace)) {
+                  collectedTools = parsed.toolTrace;
+                }
+                if (Array.isArray(parsed.actions)) {
+                  collectedActions = parsed.actions;
+                }
+                if (Array.isArray(parsed.sources)) {
+                  collectedSources = parsed.sources;
+                }
+                if (parsed.escalation) {
+                  collectedEscalation = parsed.escalation;
+                }
               }
             } catch (parseErr: any) {
               if (parseErr?.message && !parseErr.message.includes('JSON')) {
@@ -502,15 +686,20 @@ export const AiAssistantView: React.FC = () => {
           role: 'model',
           content: finalContent,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          modelUsed: finalModelUsed,
+          reasoningTier: finalTier,
+          toolTrace: collectedTools,
+          actions: collectedActions,
+          sources: collectedSources,
+          escalation: collectedEscalation,
         };
         const finalHistory = [...updatedWithUser, finalMsg];
         setMessages(finalHistory);
         await persistConversation(convId, finalHistory, locale);
       } else {
-        // Fallback to standard JSON response
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
-          throw new Error(data.error || 'AI xizmatida xatolik yuz berdi.');
+          throw new Error(data.error || 'AI Agent xizmatida xatolik yuz berdi.');
         }
 
         const modelMsg: ChatMessage = {
@@ -518,6 +707,12 @@ export const AiAssistantView: React.FC = () => {
           role: 'model',
           content: data.reply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          modelUsed: data.modelUsed || data.model,
+          reasoningTier: data.reasoningTier,
+          toolTrace: data.toolTrace || [],
+          actions: data.actions || [],
+          sources: data.sources || [],
+          escalation: data.escalation || null,
         };
         const finalHistory = [...updatedWithUser, modelMsg];
         setMessages(finalHistory);
@@ -533,9 +728,9 @@ export const AiAssistantView: React.FC = () => {
         isError: true,
         content:
           locale === 'uz-Latn' || locale === 'uz-Latn-new'
-            ? `Kechirasiz, soʻrovni bajarishda xatolik yuz berdi: ${err?.message || 'Tarmoq xatosi'}. Iltimos, qayta urinib koʻring.`
+            ? `Kechirasiz, soʻrovni bajarishda xatolik yuz berdi: ${err?.message || 'Tarmoq xatosi'}. Qaytadan urinib koʻring yoki Imomga murojaat qiling.`
             : locale === 'uz-Cyrl'
-            ? `Кечирасиз, сўровни бажаришда хатолик юз берди: ${err?.message || 'Тармоқ хатоси'}. Илтимос, қайта уриниб кўринг.`
+            ? `Кечирасиз, сўровни бажаришда хатолик юз берди: ${err?.message || 'Тармоқ хатоси'}. Қайтадан уриниб кўринг.`
             : `Sorry, an error occurred while processing your request: ${err?.message || 'Network error'}.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -543,6 +738,7 @@ export const AiAssistantView: React.FC = () => {
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
+      setLiveToolStatus([]);
       abortControllerRef.current = null;
     }
   };
@@ -575,101 +771,225 @@ export const AiAssistantView: React.FC = () => {
     }
   };
 
+  const handleSubmitEscalation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!escalateText.trim() || escalateSubmitting) return;
+    setEscalateSubmitting(true);
+    setEscalateFeedback(null);
+
+    try {
+      const resp = await fetch('/api/agent/escalate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target: escalateTarget,
+          category: escalateCategory,
+          questionSummary: escalateText.trim(),
+          userId: getActiveConversationOwnerId(),
+          userName: auth.currentUser?.displayName || 'ASAKA ZIYO Foydalanuvchisi',
+          channel: detectClientChannel(),
+          locale,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) {
+        throw new Error(data.error || 'Murojaatni yuborib boʻlmadi.');
+      }
+      setEscalateFeedback({
+        ok: true,
+        msg: data.message || `Murojaat yuborildi (${data.escalation?.ticketId})`,
+      });
+      setEscalateText('');
+    } catch (err: any) {
+      setEscalateFeedback({
+        ok: false,
+        msg: err?.message || 'Tarmoq xatoligi yuz berdi.',
+      });
+    } finally {
+      setEscalateSubmitting(false);
+    }
+  };
+
+  const handleRunLiveModelProbe = async () => {
+    setProbeLoading(true);
+    try {
+      const resp = await fetch('/api/agent/probe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: [aiStatus.primaryModel, aiStatus.fastModel] }),
+      });
+      const data = await resp.json();
+      if (data?.results && Array.isArray(data.results)) {
+        setProbeResults(data.results);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setProbeLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-1 sm:px-2 py-2 space-y-6">
-      {/* 2026 Architectural AI Workspace Header */}
-      <div className="relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#071410] text-[#F7F5F0] p-6 sm:p-8 shadow-[0_24px_64px_-20px_rgba(3,10,8,0.55)]">
+      {/* Apple 2026/2027 Liquid Glass + Aurora Obsidian AI Agent Hero */}
+      <div className="relative rounded-[32px] overflow-hidden az-aurora-surface text-[#F7F5F0] p-6 sm:p-8">
         <GeometricPattern opacity={0.04} />
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#9CAFA7]">
-              <span className="font-medium text-[#10B981]">ASAKA ZIYO</span>
+              <span className="font-bold text-[#10B981] tracking-wide">ASAKA ZIYO AI AGENT</span>
               <span aria-hidden="true" className="text-white/25">·</span>
-              <span>Islomiy ilmiy suhbat</span>
+              <span>Web · Android · Telegram</span>
               <span aria-hidden="true" className="text-white/25">·</span>
-              <span className="text-[#C8A85E]">{aiStatus.connected ? 'Faol ulanish' : 'Mahalliy rejim'}</span>
+              <span className="text-[#C8A85E] font-medium">
+                {aiStatus.connected ? `${aiStatus.toolsCount} ta jonli vosita faol` : 'Oflayn holat'}
+              </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-[-0.03em] text-[#F7F5F0] text-balance leading-[1.12]">
-              Ilmiy va Maʼrifiy Islomiy AI Yordamchi
+            <h1 className="az-type-page text-[#F7F5F0]">
+              Yagona Aqlli Islomiy AI Agent
             </h1>
             <p className="text-xs sm:text-sm text-[#C2D1CB] leading-relaxed">
-              Qurʼoni Karim oyatlari, Shayx Muhammad Sodiq Muhammad Yusufning «Tafsiri Hilol» va «Hadis va Hayot»
-              asarlari, sahih hadislar hamda Asaka shahri 8 mahal namoz taqvimi asosida jonli ilmiy suhbat.
+              Tabiiy tildagi murojaatni tushunadi, Asaka 8 mahal namoz taqvimi va Tafsiri Hilol bazasidan
+              tekshirib javob beradi, ruxsat etilgan ilova boʻlimlarini boshqaradi hamda zarur holda Imom-xatibga yoʻnaltiradi.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Language Switcher */}
-            <div className="min-h-[44px] flex items-center gap-2 bg-white/[0.06] px-3.5 py-2 rounded-xl border border-white/[0.1] text-xs text-[#F7F5F0]">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
+            {/* Apple 2026 Liquid Glass Segmented Model Mode Selector */}
+            <div
+              role="group"
+              aria-label="AI Agent fikrlash rejimi"
+              className="inline-flex items-center p-1 rounded-2xl bg-white/[0.08] backdrop-blur-xl border border-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+            >
+              {(
+                [
+                  { id: 'auto', label: 'Avto', icon: <Sparkles className="w-3.5 h-3.5" /> },
+                  { id: 'deep', label: 'Chuqur', icon: <Brain className="w-3.5 h-3.5" /> },
+                  { id: 'fast', label: 'Tezkor', icon: <Zap className="w-3.5 h-3.5" /> },
+                ] as { id: AgentRoutingMode; label: string; icon: React.ReactNode }[]
+              ).map((opt) => {
+                const active = routingMode === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setRoutingMode(opt.id)}
+                    className={`relative min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      active ? 'text-[#05140F]' : 'text-[#C2D1CB] hover:text-white'
+                    }`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="agent-mode-pill"
+                        transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                        className="absolute inset-0 rounded-xl bg-[#10B981] shadow-[0_1px_0_rgba(255,255,255,0.35)_inset]"
+                      />
+                    )}
+                    <span className="relative z-10">{opt.icon}</span>
+                    <span className="relative z-10">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Language Selector */}
+            <div className="min-h-[44px] flex items-center gap-2 bg-white/[0.08] backdrop-blur-xl px-3.5 py-2 rounded-2xl border border-white/[0.14] text-xs text-[#F7F5F0]">
               <Globe size={15} className="text-[#10B981] shrink-0" />
               <select
                 value={locale}
-                onChange={(e) => {
-                  const nextLoc = e.target.value as SupportedLocale;
-                  setLocale(nextLoc);
-                }}
+                onChange={(e) => setLocale(e.target.value as SupportedLocale)}
                 aria-label="Muloqot tilini tanlash"
                 className="bg-transparent text-[#F7F5F0] font-semibold focus:outline-none cursor-pointer"
               >
-                <option value="uz-Latn" className="bg-[#0B1411] text-[#F7F5F0]">
-                  Oʻzbekcha (Lotin)
-                </option>
-                <option value="uz-Cyrl" className="bg-[#0B1411] text-[#F7F5F0]">
-                  Ўзбекча (Кирилл)
-                </option>
-                <option value="uz-Latn-new" className="bg-[#0B1411] text-[#F7F5F0]">
-                  Oʻzbekcha (Yangi alifbo)
-                </option>
-                <option value="ru" className="bg-[#0B1411] text-[#F7F5F0]">
-                  Русский
-                </option>
-                <option value="en" className="bg-[#0B1411] text-[#F7F5F0]">
-                  English
-                </option>
+                <option value="uz-Latn" className="bg-[#0B1411] text-[#F7F5F0]">Oʻzbekcha (Lotin)</option>
+                <option value="uz-Cyrl" className="bg-[#0B1411] text-[#F7F5F0]">Ўзбекча (Кирилл)</option>
+                <option value="uz-Latn-new" className="bg-[#0B1411] text-[#F7F5F0]">Oʻzbekcha (Yangi alifbo)</option>
+                <option value="ru" className="bg-[#0B1411] text-[#F7F5F0]">Русский</option>
+                <option value="en" className="bg-[#0B1411] text-[#F7F5F0]">English</option>
               </select>
             </div>
 
-            <button
-              type="button"
-              onClick={handleStartNewConversation}
-              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-[#04120D] font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <Plus size={15} />
-              <span>Yangi suhbat</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleStartNewConversation}
+                className="min-h-[44px] flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#C8A85E] hover:bg-[#D6B974] text-[#05140F] font-bold text-xs transition-all shadow-[0_1px_0_rgba(255,255,255,0.45)_inset] cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={15} />
+                <span>Yangi suhbat</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setShowClearConfirm(true)}
-              title="Suhbat tarixini tozalash"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/[0.06] hover:bg-rose-500/20 text-[#C2D1CB] hover:text-rose-200 border border-white/[0.1] hover:border-rose-500/40 transition-colors cursor-pointer"
-            >
-              <Trash2 size={16} />
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEscalateFeedback(null);
+                  setShowEscalateModal(true);
+                }}
+                title="Imom yoki Administratorga yoʻnaltirish"
+                className="min-h-[44px] px-3.5 inline-flex items-center gap-1.5 rounded-2xl bg-white/[0.08] hover:bg-white/[0.15] text-[#F7F5F0] border border-white/[0.14] text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <UserCheck size={15} className="text-[#C8A85E]" />
+                <span className="hidden sm:inline">Imom / Admin</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProbeModal(true);
+                  if (probeResults.length === 0) handleRunLiveModelProbe();
+                }}
+                title="Gemini Model holatini tekshirish"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-2xl bg-white/[0.08] hover:bg-white/[0.15] text-[#C2D1CB] hover:text-white border border-white/[0.14] transition-colors cursor-pointer"
+              >
+                <Activity size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(true)}
+                title="Suhbat tarixini tozalash"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-2xl bg-white/[0.08] hover:bg-rose-500/25 text-[#C2D1CB] hover:text-rose-200 border border-white/[0.14] hover:border-rose-400/40 transition-colors cursor-pointer"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Religious Scholarly Advisory Note */}
-      <div className="rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] p-4 text-xs text-[#4B635B] dark:text-[#9CAFA7] flex items-start gap-3">
-        <ShieldAlert size={18} className="text-[#C8A85E] shrink-0 mt-0.5" />
-        <div className="leading-relaxed">
-          <span className="font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">Fiqhiy va ilmiy eslatma:</span> Ushbu sunʼiy intellekt
-          yordamchisi ishonchli islomiy manbalar asosida maʼrifiy maʼlumot beradi. Nikoh, taloq, meros taqsimoti va
-          shaxsiy sharʼiy fatvolar boʻyicha Oʻzbekiston musulmonlari idorasi yoki Asaka Jome masjidi imom-xatiblariga
-          murojaat qiling.
+      {/* Scholarly Advisory Bar — Liquid Glass */}
+      <div className="rounded-[22px] az-liquid-glass-card p-4 text-xs text-[#334F46] dark:text-[#9CAFA7] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <ShieldAlert size={18} className="text-[#C8A85E] shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <span className="font-bold text-[#0B1B16] dark:text-[#F7F5F0]">Ilmiy va sharʼiy xavfsizlik:</span>{' '}
+            AI Agent ishonchli manbalar (Qurʼoni Karim, Tafsiri Hilol, Sahih hadislar va Asaka jadvali) asosida ishlaydi.
+            Nikoh, taloq va meros kabi shaxsiy fatvo masalalarida sizni bevosita Imom-xatibga yoʻnaltiradi.
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setEscalateTarget('imam');
+            setEscalateFeedback(null);
+            setShowEscalateModal(true);
+          }}
+          className="shrink-0 self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#064E3B]/10 dark:bg-[#C8A85E]/15 text-[#064E3B] dark:text-[#F4E6C1] border border-[#064E3B]/15 dark:border-[#C8A85E]/30 font-semibold hover:brightness-110 transition-all cursor-pointer"
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          <span>Imomga yuborish</span>
+        </button>
       </div>
 
-      {/* Main Workspace: Sidebar Conversations + Chat Stream */}
+      {/* Main Liquid Glass Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar: Saved Conversations & Topic Starters */}
+        {/* Left Column: Conversations + Agentic Missions */}
         <div className="lg:col-span-4 xl:col-span-3 space-y-4">
-          <div className="rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] p-4 space-y-3">
+          <div className="rounded-[26px] az-liquid-glass-card p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+              <h2 className="text-xs font-bold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
                 <MessageSquare className="w-3.5 h-3.5 text-[#064E3B] dark:text-[#10B981]" />
-                <span className="tabular-nums">Suhbatlar tarixi ({conversations.length})</span>
+                <span className="tabular-nums">Suhbatlar ({conversations.length})</span>
               </h2>
               <button
                 type="button"
@@ -680,21 +1000,21 @@ export const AiAssistantView: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
               {conversations.map((conv) => {
                 const isActive = conv.id === activeConversationId;
                 return (
                   <div
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv)}
-                    className={`group flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer border ${
+                    className={`group flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-xs transition-all cursor-pointer border ${
                       isActive
-                        ? 'bg-[#064E3B]/[0.08] dark:bg-[#10B981]/15 border-[#064E3B]/25 dark:border-[#10B981]/35 text-[#064E3B] dark:text-[#F7F5F0] font-semibold'
-                        : 'bg-[#F7F5F0] dark:bg-[#0F1A16] border-transparent text-[#4B635B] dark:text-[#9CAFA7] hover:border-[#064E3B]/15 dark:hover:border-white/15'
+                        ? 'bg-[#064E3B]/12 dark:bg-[#10B981]/18 border-[#064E3B]/28 dark:border-[#10B981]/40 text-[#064E3B] dark:text-[#F7F5F0] font-semibold shadow-xs'
+                        : 'bg-white/45 dark:bg-white/[0.03] border-transparent text-[#334F46] dark:text-[#9CAFA7] hover:bg-white/75 dark:hover:bg-white/[0.07]'
                     }`}
                   >
                     <div className="truncate flex-1">
-                      <div className="truncate">{conv.title || 'Yangi ilmiy suhbat'}</div>
+                      <div className="truncate">{conv.title || 'Yangi agent suhbati'}</div>
                       <div className="text-[11px] text-[#5F736C] dark:text-[#7A9088] mt-0.5 tabular-nums">
                         {conv.messages?.length || 1} ta xabar
                       </div>
@@ -715,91 +1035,177 @@ export const AiAssistantView: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Islamic Knowledge Categories */}
-          <div className="rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] p-4 space-y-3">
-            <h2 className="text-xs font-semibold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+          {/* Agentic Quick Missions */}
+          <div className="rounded-[26px] az-liquid-glass-card p-4 space-y-3">
+            <h2 className="text-xs font-bold text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
               <HelpCircle className="w-3.5 h-3.5 text-[#C8A85E]" />
-              <span>Ilmiy mavzular</span>
+              <span>Agent tezkor vazifalari</span>
             </h2>
             <div className="space-y-2">
-              {TOPIC_CATEGORIES.map((topic) => (
+              {AGENT_STARTERS.map((starter) => (
                 <button
-                  key={topic.id}
+                  key={starter.id}
                   type="button"
                   disabled={isLoading}
-                  onClick={() => handleSend(topic.prompt[locale] || topic.prompt['uz-Latn'])}
-                  className="w-full min-h-[42px] text-left px-3.5 py-2.5 rounded-xl bg-[#F7F5F0] dark:bg-[#0F1A16] hover:bg-[#ECE8DF] dark:hover:bg-[#14241E] border border-[#064E3B]/[0.08] dark:border-white/[0.07] transition-colors flex items-center gap-2.5 text-xs text-[#0B1B16] dark:text-[#E5ECE9] cursor-pointer disabled:opacity-50"
+                  onClick={() => handleSend(starter.prompt[locale] || starter.prompt['uz-Latn'])}
+                  className="w-full text-left px-3.5 py-2.5 rounded-2xl bg-white/55 dark:bg-white/[0.04] hover:bg-white/85 dark:hover:bg-white/[0.09] border border-[#064E3B]/[0.09] dark:border-white/[0.09] transition-all flex items-center justify-between gap-2 text-xs text-[#0B1B16] dark:text-[#E5ECE9] cursor-pointer disabled:opacity-50"
                 >
-                  {topic.icon}
-                  <span className="font-medium">{topic.labelUz}</span>
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <span className="shrink-0">{starter.icon}</span>
+                    <span className="font-semibold truncate">{starter.labelUz}</span>
+                  </span>
+                  <span className="text-[10px] font-semibold text-[#5F776F] dark:text-[#8FA69D] shrink-0">
+                    {starter.badgeUz}
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Live Conversational Stream */}
+        {/* Right Column: Live Agentic Liquid Glass Stream */}
         <div className="lg:col-span-8 xl:col-span-9">
-          <div className="rounded-3xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.08] flex flex-col h-[640px] overflow-hidden shadow-xs">
+          <div className="rounded-[30px] az-liquid-glass-elevated flex flex-col h-[670px] overflow-hidden">
             {/* Messages Scroll Area */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
               {messages.map((m) => (
                 <div
                   key={m.id}
-                  className={`flex gap-3 max-w-[92%] sm:max-w-[82%] ${
+                  className={`flex gap-3 max-w-[94%] sm:max-w-[85%] ${
                     m.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
                       m.role === 'user'
-                        ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D]'
-                        : 'bg-[#F2EFE9] dark:bg-[#14241E] text-[#064E3B] dark:text-[#10B981] border border-[#064E3B]/[0.1] dark:border-white/[0.08]'
+                        ? 'bg-[#064E3B] dark:bg-[#C8A85E] text-white dark:text-[#04120D]'
+                        : 'az-liquid-glass-pill text-[#064E3B] dark:text-[#10B981]'
                     }`}
                   >
                     {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                   </div>
 
-                  <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="space-y-2 min-w-0 flex-1">
+                    {/* Tool Trace Chips (when agent invoked verified ASAKA ZIYO tools) */}
+                    {m.role === 'model' && Array.isArray(m.toolTrace) && m.toolTrace.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {m.toolTrace.map((t) => (
+                          <span
+                            key={t.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full az-liquid-glass-pill text-[11px] font-medium text-[#064E3B] dark:text-emerald-300"
+                          >
+                            <Wrench className="w-3 h-3 shrink-0" />
+                            <span>{t.labelUz}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Message Bubble */}
                     <div
-                      className={`p-4 rounded-2xl text-sm leading-relaxed ${
+                      className={`p-4 rounded-[22px] text-sm leading-relaxed ${
                         m.role === 'user'
-                          ? 'bg-[#064E3B] dark:bg-[#14241E] text-[#F7F5F0] rounded-tr-sm border border-[#064E3B] dark:border-[#10B981]/25'
+                          ? 'bg-[#064E3B]/94 dark:bg-[#142922]/90 text-[#F7F5F0] rounded-tr-md border border-white/15 shadow-[0_12px_28px_-12px_rgba(6,78,59,0.5)]'
                           : m.isError
-                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 rounded-tl-sm border border-rose-200 dark:border-rose-500/30'
-                          : 'bg-[#F7F5F0] dark:bg-[#0F1A16] text-[#0B1B16] dark:text-[#EEF3F1] rounded-tl-sm border border-[#064E3B]/[0.08] dark:border-white/[0.07]'
+                          ? 'bg-rose-50/90 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 rounded-tl-md border border-rose-300/60 dark:border-rose-500/35'
+                          : 'az-liquid-glass-card text-[#0B1B16] dark:text-[#EEF3F1] rounded-tl-md'
                       }`}
                     >
                       <div className="whitespace-pre-wrap break-words">{m.content}</div>
+
+                      {/* Official Escalation Ticket Card */}
+                      {m.escalation?.created && (
+                        <div className="mt-3.5 p-3.5 rounded-2xl bg-[#C8A85E]/15 border border-[#C8A85E]/40 flex items-start gap-3 text-xs">
+                          <ShieldCheck className="w-4 h-4 text-[#9A7A3A] dark:text-[#F4E6C1] shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <div className="font-bold text-[#0B1B16] dark:text-[#F7F5F0]">
+                              {m.escalation.target === 'imam'
+                                ? 'Imom-xatibga rasmiy murojaat yuborildi'
+                                : 'Administratorga rasmiy murojaat yuborildi'}
+                            </div>
+                            <div className="text-[#334F46] dark:text-[#C2D1CB]">
+                              Murojaat raqami:{' '}
+                              <span className="font-mono-numbers font-bold text-[#064E3B] dark:text-[#F4E6C1]">
+                                {m.escalation.ticketId}
+                              </span>{' '}
+                              · Boʻlim: {m.escalation.category}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Interactive Permitted App Action Buttons */}
+                      {m.role === 'model' && Array.isArray(m.actions) && m.actions.length > 0 && (
+                        <div className="mt-3.5 pt-3 border-t border-[#064E3B]/10 dark:border-white/[0.09] flex flex-wrap gap-2">
+                          {m.actions.map((act) => (
+                            <button
+                              key={act.id}
+                              type="button"
+                              onClick={() => executeDirective(act)}
+                              className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#064E3B] hover:bg-[#053E2F] dark:bg-[#C8A85E] dark:hover:bg-[#D6B974] text-[#F7F5F0] dark:text-[#05140F] text-xs font-bold shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                            >
+                              <span>{act.label}</span>
+                              <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Verified Sources Strip */}
+                      {m.role === 'model' && Array.isArray(m.sources) && m.sources.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-[#064E3B]/10 dark:border-white/[0.08] space-y-1">
+                          <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#5F776F] dark:text-[#8FA69D]">
+                            Tekshirilgan manbalar
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {m.sources.map((src, idx) => (
+                              <span
+                                key={`${src.title}-${idx}`}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/60 dark:bg-white/[0.06] border border-[#064E3B]/10 dark:border-white/[0.09] text-[11px] text-[#334F46] dark:text-[#C2D1CB]"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span className="font-semibold">{src.title}</span>
+                                <span className="opacity-70">· {src.reference}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
+                    {/* Message Meta Footer */}
                     <div
                       className={`flex items-center gap-3 text-[11px] text-[#5F736C] dark:text-[#7A9088] px-1 ${
                         m.role === 'user' ? 'justify-end' : 'justify-between'
                       }`}
                     >
-                      <span className="tabular-nums">{m.timestamp}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="tabular-nums">{m.timestamp}</span>
+                        {m.modelUsed && (
+                          <span className="font-mono-numbers text-[10px] px-2 py-0.5 rounded-full bg-white/50 dark:bg-white/[0.06] border border-[#064E3B]/10 dark:border-white/[0.08]">
+                            {m.modelUsed === 'gemini-4-hydrogen' ? 'Gemini 4' : 'Flash-Lite'}
+                          </span>
+                        )}
+                      </div>
                       {m.role === 'model' && m.content && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyMessage(m)}
-                            className="inline-flex items-center gap-1 text-[#5F736C] dark:text-[#8EA39B] hover:text-[#064E3B] dark:hover:text-[#10B981] transition-colors cursor-pointer"
-                            title="Javobdan nusxa olish"
-                          >
-                            {copiedMsgId === m.id ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-[#10B981]" />
-                                <span className="text-[#064E3B] dark:text-[#10B981]">Nusxalandi</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>Nusxa olish</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(m)}
+                          className="inline-flex items-center gap-1 text-[#5F736C] dark:text-[#8EA39B] hover:text-[#064E3B] dark:hover:text-[#10B981] transition-colors cursor-pointer"
+                          title="Javobdan nusxa olish"
+                        >
+                          {copiedMsgId === m.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-[#10B981]" />
+                              <span className="text-[#064E3B] dark:text-[#10B981]">Nusxalandi</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Nusxa olish</span>
+                            </>
+                          )}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -807,24 +1213,47 @@ export const AiAssistantView: React.FC = () => {
               ))}
 
               {isLoading && (
-                <div className="flex gap-3 max-w-[80%] mr-auto items-center">
-                  <div className="w-9 h-9 rounded-xl bg-[#F2EFE9] dark:bg-[#14241E] text-[#064E3B] dark:text-[#10B981] border border-[#064E3B]/[0.1] dark:border-white/[0.08] flex items-center justify-center shrink-0">
-                    <RefreshCw size={15} className="animate-spin" />
+                <div className="flex gap-3 max-w-[88%] mr-auto items-start">
+                  <div className="w-9 h-9 rounded-2xl az-liquid-glass-pill text-[#064E3B] dark:text-[#10B981] flex items-center justify-center shrink-0">
+                    <Bot size={16} />
                   </div>
-                  <div className="bg-[#F7F5F0] dark:bg-[#0F1A16] px-4 py-3 rounded-2xl rounded-tl-sm border border-[#064E3B]/[0.1] dark:border-white/[0.08] text-xs text-[#4B635B] dark:text-[#C2D1CB] flex items-center gap-3">
-                    <span>
-                      {isStreaming
-                        ? 'Jonli javob tayyorlanmoqda...'
-                        : 'ASAKA ZIYO manbalarni tahlil qilmoqda...'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleStopGeneration}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-semibold cursor-pointer"
-                    >
-                      <Square className="w-3 h-3" />
-                      <span>Toʻxtatish</span>
-                    </button>
+                  <div className="az-liquid-glass-card px-4 py-3 rounded-[22px] rounded-tl-md space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <AiThinkingWave
+                        label={
+                          liveToolStatus.length > 0
+                            ? liveToolStatus[liveToolStatus.length - 1].labelUz
+                            : isStreaming
+                            ? 'ASAKA ZIYO AI Agent tahlil qilmoqda...'
+                            : 'Manbalar tekshirilmoqda...'
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={handleStopGeneration}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-semibold cursor-pointer"
+                      >
+                        <Square className="w-3 h-3" />
+                        <span>Toʻxtatish</span>
+                      </button>
+                    </div>
+                    {liveToolStatus.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {liveToolStatus.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/12 text-emerald-800 dark:text-emerald-300 text-[11px] font-medium"
+                          >
+                            {item.status === 'running' ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3 h-3" />
+                            )}
+                            <span>{item.labelUz}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -832,46 +1261,46 @@ export const AiAssistantView: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Action Bar: Regenerate & Sources */}
-            <div className="px-4 py-2.5 bg-[#F7F5F0] dark:bg-[#08100D] border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] flex items-center justify-between gap-2 text-xs">
+            {/* Action Bar */}
+            <div className="px-4 py-2.5 bg-white/35 dark:bg-black/20 backdrop-blur-md border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] flex items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2 text-[#5F736C] dark:text-[#8EA39B] min-w-0">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
                 <span className="truncate">
-                  Manba: Qurʼoni Karim, Tafsiri Hilol, Sahih al-Buxoriy va Asaka 8 namoz taqvimi
+                  Faol rejim: {routingMode === 'deep' ? 'Chuqur (Gemini 4)' : routingMode === 'fast' ? 'Tezkor (Flash-Lite)' : 'Avto (Gemini 4 + Flash-Lite)'}
                 </span>
               </div>
               {messages.some((m) => m.role === 'user') && !isLoading && (
                 <button
                   type="button"
                   onClick={handleRegenerateLast}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#14241E] hover:bg-[#ECE8DF] dark:hover:bg-[#1B2F27] text-[#0B1B16] dark:text-[#E5ECE9] border border-[#064E3B]/[0.1] dark:border-white/[0.08] transition-colors shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl az-liquid-glass-pill text-[#0B1B16] dark:text-[#E5ECE9] transition-colors shrink-0 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Qayta javob olish</span>
+                  <span>Qayta javob</span>
                 </button>
               )}
             </div>
 
-            {/* Input Form */}
+            {/* Apple 2026 Liquid Glass Composer */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="p-3.5 bg-white dark:bg-[#0B1411] border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] flex items-center gap-2.5"
+              className="p-3.5 bg-white/50 dark:bg-black/25 backdrop-blur-2xl border-t border-[#064E3B]/[0.09] dark:border-white/[0.09] flex items-center gap-2.5"
             >
               <input
                 type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Diniy savolingizni yozing (masalan: Bomdod namozi, Oyatul Kursiy, Asaka namoz vaqti)..."
-                className="flex-1 min-h-[46px] bg-[#F7F5F0] dark:bg-[#0F1A16] text-[#0B1B16] dark:text-[#F7F5F0] placeholder-[#5F736C] dark:placeholder-[#7A9088] px-4 py-3 rounded-xl border border-[#064E3B]/[0.12] dark:border-white/[0.1] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981] text-sm"
+                placeholder="Savol bering yoki vazifa ayting (masalan: Asaka namoz vaqtlari, Yosin surasi, Tasbehni och)..."
+                className="flex-1 min-h-[48px] bg-white/75 dark:bg-white/[0.06] backdrop-blur-xl text-[#0B1B16] dark:text-[#F7F5F0] placeholder-[#5F736C] dark:placeholder-[#7A9088] px-4 py-3 rounded-2xl border border-[#064E3B]/[0.14] dark:border-white/[0.12] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981] text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:shadow-none"
               />
               {isLoading ? (
                 <button
                   type="button"
                   onClick={handleStopGeneration}
-                  className="min-h-[46px] bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors shrink-0 text-xs cursor-pointer"
+                  className="min-h-[48px] bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-colors shrink-0 text-xs cursor-pointer"
                 >
                   <Square size={15} />
                   <span>Toʻxtatish</span>
@@ -880,7 +1309,7 @@ export const AiAssistantView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!inputVal.trim()}
-                  className="min-h-[46px] bg-[#064E3B] hover:bg-[#04392B] dark:bg-[#10B981] dark:hover:bg-[#059669] disabled:opacity-40 text-white dark:text-[#04120D] px-5 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors shrink-0 text-xs cursor-pointer"
+                  className="min-h-[48px] bg-[#064E3B] hover:bg-[#04392B] dark:bg-[#C8A85E] dark:hover:bg-[#D6B974] disabled:opacity-40 text-white dark:text-[#04120D] px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-[0_1px_0_rgba(255,255,255,0.3)_inset] shrink-0 text-xs cursor-pointer"
                 >
                   <span>Yuborish</span>
                   <Send size={15} />
@@ -891,36 +1320,232 @@ export const AiAssistantView: React.FC = () => {
         </div>
       </div>
 
-      {/* Clear Conversation Confirmation Modal */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.12] dark:border-white/[0.12] p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="w-5 h-5 shrink-0" />
-              <h3 className="text-base font-bold text-[#0B1B16] dark:text-[#F7F5F0]">Suhbat tarixini tozalash</h3>
-            </div>
-            <p className="text-xs text-[#4B635B] dark:text-[#9CAFA7] leading-relaxed">
-              Joriy suhbatdagi barcha savol va javoblarni oʻchirib, yangi sahifadan boshlashni tasdiqlaysizmi?
-            </p>
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowClearConfirm(false)}
-                className="min-h-[40px] px-4 py-2 rounded-xl bg-[#F2EFE9] dark:bg-white/[0.08] hover:bg-[#E6E1D6] dark:hover:bg-white/[0.14] text-[#0B1B16] dark:text-[#E5ECE9] text-xs font-semibold cursor-pointer"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="button"
-                onClick={confirmClearHistory}
-                className="min-h-[40px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
-              >
-                Ha, tozalash
-              </button>
-            </div>
+      {/* Clear History Confirmation Modal — Liquid Glass */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ duration: 0.2, ease: PREMIUM_EASE }}
+              className="w-full max-w-md rounded-[28px] az-liquid-glass-modal p-6 space-y-4"
+            >
+              <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <h3 className="text-base font-bold text-[#0B1B16] dark:text-[#F7F5F0]">Suhbat tarixini tozalash</h3>
+              </div>
+              <p className="text-xs text-[#334F46] dark:text-[#9CAFA7] leading-relaxed">
+                Joriy suhbatdagi barcha savol va javoblarni oʻchirib, yangi sahifadan boshlashni tasdiqlaysizmi?
+              </p>
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(false)}
+                  className="min-h-[40px] px-4 py-2 rounded-xl az-liquid-glass-pill text-[#0B1B16] dark:text-[#E5ECE9] text-xs font-semibold cursor-pointer"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmClearHistory}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+                >
+                  Ha, tozalash
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* Direct Imam / Administrator Escalation Modal — Liquid Glass */}
+      <AnimatePresence>
+        {showEscalateModal && (
+          <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ duration: 0.22, ease: PREMIUM_EASE }}
+              className="w-full max-w-lg rounded-[30px] az-liquid-glass-modal p-6 space-y-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-[#0B1B16] dark:text-[#F7F5F0]">
+                    Imom-xatib yoki Administratorga yoʻnaltirish
+                  </h3>
+                  <p className="text-xs text-[#4A635B] dark:text-[#9CAFA7] mt-0.5">
+                    Murojaatingiz rasmiy raqam bilan saqlanadi va masʼul shaxsga yetkaziladi.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEscalateModal(false)}
+                  className="min-w-[36px] min-h-[36px] rounded-full az-liquid-glass-pill flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitEscalation} className="space-y-3.5">
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { id: 'imam', label: 'Imom-xatib (Sharʼiy savol)' },
+                      { id: 'admin', label: 'Administrator (Yordam)' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setEscalateTarget(opt.id);
+                        setEscalateCategory(opt.id === 'imam' ? 'Fiqh va Sharʼiy savol' : 'Texnik va platforma yordami');
+                      }}
+                      className={`min-h-[42px] px-3 py-2 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
+                        escalateTarget === opt.id
+                          ? 'bg-[#064E3B] dark:bg-[#C8A85E] text-white dark:text-[#05140F] border-transparent'
+                          : 'az-liquid-glass-pill text-[#334F46] dark:text-[#C2D1CB]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  type="text"
+                  value={escalateCategory}
+                  onChange={(e) => setEscalateCategory(e.target.value)}
+                  placeholder="Mavzu toifasi"
+                  className="w-full min-h-[42px] px-3.5 py-2 rounded-2xl bg-white/70 dark:bg-white/[0.06] border border-[#064E3B]/15 dark:border-white/[0.12] text-xs text-[#0B1B16] dark:text-[#F7F5F0] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
+                />
+
+                <textarea
+                  rows={4}
+                  value={escalateText}
+                  onChange={(e) => setEscalateText(e.target.value)}
+                  placeholder="Savolingiz yoki murojaatingizni batafsil yozing..."
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-white/70 dark:bg-white/[0.06] border border-[#064E3B]/15 dark:border-white/[0.12] text-xs text-[#0B1B16] dark:text-[#F7F5F0] focus:outline-none focus:border-[#064E3B] dark:focus:border-[#10B981]"
+                />
+
+                {escalateFeedback && (
+                  <div
+                    className={`p-3 rounded-2xl text-xs font-semibold ${
+                      escalateFeedback.ok
+                        ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30'
+                        : 'bg-rose-500/15 text-rose-700 dark:text-rose-200 border border-rose-500/30'
+                    }`}
+                  >
+                    {escalateFeedback.msg}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowEscalateModal(false)}
+                    className="min-h-[42px] px-4 py-2 rounded-2xl az-liquid-glass-pill text-xs font-semibold cursor-pointer"
+                  >
+                    Yopish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={escalateSubmitting || escalateText.trim().length < 5}
+                    className="min-h-[42px] px-5 py-2 rounded-2xl bg-[#064E3B] dark:bg-[#C8A85E] text-white dark:text-[#05140F] text-xs font-bold disabled:opacity-45 cursor-pointer"
+                  >
+                    {escalateSubmitting ? 'Yuborilmoqda...' : 'Rasmiy yuborish'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Live Gemini Model Availability Probe Modal — Liquid Glass */}
+      <AnimatePresence>
+        {showProbeModal && (
+          <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ duration: 0.22, ease: PREMIUM_EASE }}
+              className="w-full max-w-lg rounded-[30px] az-liquid-glass-modal p-6 space-y-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-[#0B1B16] dark:text-[#F7F5F0]">
+                    Gemini AI Agent Model Arxitekturasi
+                  </h3>
+                  <p className="text-xs text-[#4A635B] dark:text-[#9CAFA7] mt-0.5">
+                    Asosiy va tezkor modellarning jonli server tekshiruvi
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowProbeModal(false)}
+                  className="min-w-[36px] min-h-[36px] rounded-full az-liquid-glass-pill flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {probeLoading ? (
+                  <div className="p-6 flex items-center justify-center gap-2.5 text-xs text-[#4A635B] dark:text-[#9CAFA7]">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                    <span>Modellar jonli tekshirilmoqda...</span>
+                  </div>
+                ) : (
+                  probeResults.map((r) => (
+                    <div
+                      key={r.model}
+                      className="p-3.5 rounded-2xl az-liquid-glass-card flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-mono-numbers font-bold text-[#0B1B16] dark:text-[#F7F5F0]">
+                          {r.model}
+                        </div>
+                        <div className="text-[11px] text-[#4A635B] dark:text-[#9CAFA7] truncate mt-0.5">
+                          {r.detail}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            r.available
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                          }`}
+                        >
+                          {r.available ? 'Faol' : 'Mavjud emas'}
+                        </span>
+                        <div className="text-[10px] font-mono-numbers text-[#5F776F] dark:text-[#8FA69D] mt-1">
+                          {r.latencyMs} ms
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={probeLoading}
+                  onClick={handleRunLiveModelProbe}
+                  className="min-h-[40px] px-4 py-2 rounded-2xl bg-[#064E3B] dark:bg-[#C8A85E] text-white dark:text-[#05140F] text-xs font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  Qayta tekshirish
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

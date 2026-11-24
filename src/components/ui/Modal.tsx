@@ -69,7 +69,7 @@ export const Modal: React.FC<ModalProps> = ({
                 ? { duration: 0 }
                 : { duration: 0.26, ease: PREMIUM_EASE }
             }
-            className={`relative w-full ${maxWidthClasses[effectiveSize]} bg-[#FAF8F4] dark:bg-[#0B1411] border border-[#064E3B]/12 dark:border-white/[0.1] rounded-t-[28px] sm:rounded-[28px] shadow-[0_32px_90px_-16px_rgba(0,0,0,0.65)] z-10 overflow-hidden sm:my-auto pb-safe`}
+            className={`relative w-full ${maxWidthClasses[effectiveSize]} az-liquid-glass-modal rounded-t-[32px] sm:rounded-[32px] z-10 overflow-hidden sm:my-auto pb-safe`}
             role="dialog"
             aria-modal="true"
             aria-label={title}

@@ -34,6 +34,20 @@ import { createTelegramPlatformRouter } from './telegram/bot/router';
 import { AppReleaseService } from './telegram/services/appReleaseService';
 import { resolveAsakaDateContext } from './telegram/services/dateCalendarService';
 import type { SyncActionType, SyncEntityType } from './telegram/sync/syncEngine';
+import {
+  AGENT_FAST_MODEL,
+  AGENT_MODEL_CATALOG,
+  AGENT_PRIMARY_MODEL,
+  AGENT_TOOL_DECLARATIONS,
+  PERMITTED_AGENT_TABS,
+  probeAgentModels,
+  resolveConfiguredPrimaryModel,
+  runAsakaZiyoAgent,
+  type AgentChannel,
+  type AgentEscalationRecord,
+  type AgentHostDependencies,
+  type AgentRoutingMode,
+} from './server/asakaZiyoAgent';
 
 
 // Force IPv4 resolution first to prevent 10s IPv6 AAAA timeout delays on outbound API calls
@@ -4660,12 +4674,79 @@ function normalizeGeminiContents(messages: any[]): Array<{ role: 'user' | 'model
 }
 
 function resolveActiveGeminiModel(): string {
-  const raw = (process.env.GEMINI_MODEL || '').trim();
-  if (!raw || raw === 'gemini-2.5-flash' || raw === 'gemini-2.0-flash' || raw === 'gemini-1.5-flash') {
-    return 'gemini-3.8-flash';
-  }
-  return raw;
+  return resolveConfiguredPrimaryModel();
 }
+
+async function createAgentEscalationTicketRecord(payload: {
+  target: 'imam' | 'admin';
+  category: string;
+  questionSummary: string;
+  userName: string;
+  userId: string;
+  channel: AgentChannel;
+  locale: string;
+}): Promise<AgentEscalationRecord> {
+  const db = readDatabase();
+  const nowIso = new Date().toISOString();
+  const prefix = payload.target === 'imam' ? 'AZ-IMAM' : 'AZ-ADM';
+  const ticketId = `${prefix}-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+
+  if (payload.target === 'imam') {
+    if (!Array.isArray(db.imamQuestions)) db.imamQuestions = [];
+    const imamDocId = `imam_${ticketId.toLowerCase()}`;
+    const imamRecord = {
+      id: imamDocId,
+      ticketId,
+      userId: payload.userId,
+      userName: payload.userName || 'ASAKA ZIYO Foydalanuvchisi',
+      title: `${payload.category} (AI Agent murojaati)`,
+      category: payload.category,
+      questionText: payload.questionSummary,
+      status: 'pending',
+      isPubliclyVisible: false,
+      sourceChannel: payload.channel,
+      locale: payload.locale,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    db.imamQuestions.unshift(imamRecord);
+    writeDatabase(db);
+    await serverWriteFirestoreDoc('imamQuestions', imamDocId, imamRecord).catch(() => {});
+  } else {
+    if (!Array.isArray(db.inquiries)) db.inquiries = [];
+    const inqDocId = `inq_${ticketId.toLowerCase()}`;
+    const inqRecord = {
+      id: inqDocId,
+      ticketId,
+      userId: payload.userId,
+      userName: payload.userName || 'ASAKA ZIYO Foydalanuvchisi',
+      topic: payload.category,
+      message: payload.questionSummary,
+      status: 'new',
+      sourceChannel: payload.channel,
+      locale: payload.locale,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    db.inquiries.unshift(inqRecord);
+    writeDatabase(db);
+    await serverWriteFirestoreDoc('inquiries', inqDocId, inqRecord).catch(() => {});
+  }
+
+  return {
+    created: true,
+    ticketId,
+    target: payload.target,
+    category: payload.category,
+    summary: payload.questionSummary,
+    createdAt: nowIso,
+  };
+}
+
+const unifiedAgentHostDeps: AgentHostDependencies = {
+  readDatabase,
+  createEscalationTicket: createAgentEscalationTicketRecord,
+};
 
 app.get('/api/ai/status', (_req: Request, res: Response) => {
   const apiKeyConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 5);
@@ -4674,27 +4755,132 @@ app.get('/api/ai/status', (_req: Request, res: Response) => {
     success: true,
     connected: apiKeyConfigured,
     model: configuredModel,
+    primaryModel: AGENT_PRIMARY_MODEL,
+    fastModel: AGENT_FAST_MODEL,
     sdk: '@google/genai',
-    features: ['multi-turn', 'streaming-sse', 'asaka-ziyo-grounding', '5-locales', 'conversation-history'],
+    agentVersion: '2026.1',
+    channels: ['web', 'android', 'telegram'],
+    toolsCount: AGENT_TOOL_DECLARATIONS.length,
+    tools: AGENT_TOOL_DECLARATIONS.map((t) => t.name),
+    models: AGENT_MODEL_CATALOG,
+    features: [
+      'agentic-function-calling',
+      'multi-tier-model-routing',
+      'multi-turn',
+      'streaming-sse',
+      'asaka-ziyo-grounding',
+      'safe-app-navigation',
+      'imam-admin-escalation',
+      '5-locales',
+      'conversation-history',
+    ],
     checkedAt: new Date().toISOString(),
   });
 });
 
-app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
+app.get('/api/agent/models', (_req: Request, res: Response) => {
+  const apiKeyConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 5);
+  return res.json({
+    success: true,
+    connected: apiKeyConfigured,
+    primaryModel: resolveActiveGeminiModel(),
+    fastModel: AGENT_FAST_MODEL,
+    models: AGENT_MODEL_CATALOG,
+    tools: AGENT_TOOL_DECLARATIONS.map((t) => ({ name: t.name, description: t.description })),
+    permittedTabs: Object.keys(PERMITTED_AGENT_TABS),
+  });
+});
+
+app.post('/api/agent/probe', aiRateLimiter, async (req: Request, res: Response) => {
   try {
-    const { messages, locale = 'uz-Latn', stream = false } = req.body || {};
+    const requested = Array.isArray(req.body?.models)
+      ? req.body.models
+          .map((m: any) => String(m || '').trim())
+          .filter((m: string) => m === AGENT_PRIMARY_MODEL || m === AGENT_FAST_MODEL)
+      : [AGENT_PRIMARY_MODEL, AGENT_FAST_MODEL];
+    const probeResults = await probeAgentModels(
+      requested.length > 0 ? requested : [AGENT_PRIMARY_MODEL, AGENT_FAST_MODEL]
+    );
+    return res.json({
+      success: true,
+      results: probeResults,
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Model holatini tekshirishda xatolik.',
+    });
+  }
+});
+
+app.post('/api/agent/escalate', aiRateLimiter, async (req: Request, res: Response) => {
+  try {
+    const {
+      target = 'imam',
+      category = 'Fiqh va Sharʼiy savol',
+      questionSummary = '',
+      userName = 'ASAKA ZIYO Foydalanuvchisi',
+      userId = 'guest_agent_user',
+      channel = 'web',
+      locale = 'uz-Latn',
+    } = req.body || {};
+
+    const cleanSummary = String(questionSummary || '').trim();
+    if (cleanSummary.length < 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Murojaat matni kamida 5 ta belgidan iborat boʻlishi kerak.',
+      });
+    }
+
+    const safeTarget: 'imam' | 'admin' = target === 'admin' ? 'admin' : 'imam';
+    const safeChannel: AgentChannel =
+      channel === 'android' || channel === 'telegram' ? channel : 'web';
+
+    const escalation = await createAgentEscalationTicketRecord({
+      target: safeTarget,
+      category: String(category || '').slice(0, 80) || 'Rasmiy murojaat',
+      questionSummary: cleanSummary.slice(0, 1500),
+      userName: String(userName || 'Foydalanuvchi').slice(0, 100),
+      userId: String(userId || 'guest_agent_user').slice(0, 80),
+      channel: safeChannel,
+      locale: String(locale || 'uz-Latn'),
+    });
+
+    return res.json({
+      success: true,
+      escalation,
+      message:
+        safeTarget === 'imam'
+          ? `Savolingiz Imom-xatibga yuborildi (Raqam: ${escalation.ticketId}).`
+          : `Murojaatingiz Administratorga yuborildi (Raqam: ${escalation.ticketId}).`,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Murojaatni saqlashda xatolik yuz berdi.',
+    });
+  }
+});
+
+async function handleUnifiedAgentChatRequest(req: Request, res: Response) {
+  try {
+    const {
+      messages,
+      locale = 'uz-Latn',
+      stream = false,
+      routingMode = 'auto',
+      channel = 'web',
+      userId = 'guest_agent_user',
+      userName = 'ASAKA ZIYO Foydalanuvchisi',
+      preferredModel,
+    } = req.body || {};
+
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Savol matni kiritilmadi. Iltimos, savolingizni yozing.',
-      });
-    }
-
-    const contents = normalizeGeminiContents(messages);
-    if (contents.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Foydalanuvchi xabari topilmadi.',
       });
     }
 
@@ -4707,16 +4893,10 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
       });
     }
 
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    });
-
-    const configuredModel = resolveActiveGeminiModel();
-    const systemInstruction = buildAsakaZiyoKnowledgeContext(String(locale));
-    const generationConfig: any = {
-      systemInstruction,
-    };
+    const safeMode: AgentRoutingMode =
+      routingMode === 'deep' || routingMode === 'fast' ? routingMode : 'auto';
+    const safeChannel: AgentChannel =
+      channel === 'android' || channel === 'telegram' ? channel : 'web';
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -4725,54 +4905,61 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
       res.setHeader('X-Accel-Buffering', 'no');
 
       try {
-        const streamResp = await Promise.race([
-          ai.models.generateContentStream({
-            model: configuredModel,
-            contents,
-            config: generationConfig,
-          }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('UPSTREAM_GEMINI_TIMEOUT')), 20000)
-          ),
-        ]);
-
-        let fullText = '';
-        for await (const chunk of streamResp) {
-          const chunkText = chunk.text || '';
-          if (chunkText) {
-            fullText += chunkText;
-            res.write(`data: ${JSON.stringify({ text: chunkText, done: false })}\n\n`);
+        const result = await runAsakaZiyoAgent(
+          {
+            messages,
+            locale: String(locale),
+            channel: safeChannel,
+            routingMode: safeMode,
+            userId: String(userId || 'guest_agent_user'),
+            userName: String(userName || 'Foydalanuvchi'),
+            preferredModel: preferredModel ? String(preferredModel) : undefined,
+          },
+          unifiedAgentHostDeps,
+          (ev) => {
+            if (ev.type === 'text') {
+              res.write(`data: ${JSON.stringify({ type: 'text', text: ev.text, done: false })}\n\n`);
+            } else if (ev.type === 'meta') {
+              res.write(`data: ${JSON.stringify({ ...ev, done: false })}\n\n`);
+            } else if (ev.type === 'tool_start') {
+              res.write(`data: ${JSON.stringify({ ...ev, done: false })}\n\n`);
+            } else if (ev.type === 'tool_done') {
+              res.write(`data: ${JSON.stringify({ ...ev, done: false })}\n\n`);
+            } else if (ev.type === 'action') {
+              res.write(`data: ${JSON.stringify({ ...ev, done: false })}\n\n`);
+            } else if (ev.type === 'escalation') {
+              res.write(`data: ${JSON.stringify({ ...ev, done: false })}\n\n`);
+            }
           }
-        }
-
-        if (!fullText.trim()) {
-          res.write(
-            `data: ${JSON.stringify({
-              error: 'AI modelidan boʻsh javob qaytdi. Iltimos, qaytadan urinib koʻring.',
-              aiUnavailable: true,
-              model: configuredModel,
-              done: true,
-            })}\n\n`
-          );
-          return res.end();
-        }
+        );
 
         res.write(
           `data: ${JSON.stringify({
+            type: 'done',
             text: '',
-            fullText,
-            model: configuredModel,
+            fullText: result.reply,
+            model: result.modelUsed,
+            modelUsed: result.modelUsed,
+            routingMode: result.routingMode,
+            reasoningTier: result.reasoningTier,
+            toolTrace: result.toolTrace,
+            actions: result.actions,
+            sources: result.sources,
+            escalation: result.escalation || null,
+            sensitiveFatwaDetected: result.sensitiveFatwaDetected,
+            latencyMs: result.latencyMs,
             done: true,
           })}\n\n`
         );
         return res.end();
       } catch (streamErr: any) {
-        const errMsg = streamErr?.message || 'AI xizmati bilan bogʻlanib boʻlmadi.';
+        const errMsg = streamErr?.message || 'AI Agent bilan bogʻlanib boʻlmadi.';
         res.write(
           `data: ${JSON.stringify({
-            error: `AI xizmati vaqtincha javob bermadi (${errMsg}). Murakkab diniy savollar uchun «Imomga savol» boʻlimidan foydalaning.`,
+            type: 'error',
+            error: `AI Agent vaqtincha javob bermadi (${errMsg}). Murakkab diniy savollar uchun «Imomga savol» boʻlimidan foydalaning.`,
             aiUnavailable: true,
-            model: configuredModel,
+            model: resolveActiveGeminiModel(),
             done: true,
           })}\n\n`
         );
@@ -4781,48 +4968,54 @@ app.post('/api/ai/chat', aiRateLimiter, async (req: Request, res: Response) => {
     }
 
     try {
-      const response = await Promise.race([
-        ai.models.generateContent({
-          model: configuredModel,
-          contents,
-          config: generationConfig,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('UPSTREAM_GEMINI_TIMEOUT')), 20000)
-        ),
-      ]);
+      const result = await runAsakaZiyoAgent(
+        {
+          messages,
+          locale: String(locale),
+          channel: safeChannel,
+          routingMode: safeMode,
+          userId: String(userId || 'guest_agent_user'),
+          userName: String(userName || 'Foydalanuvchi'),
+          preferredModel: preferredModel ? String(preferredModel) : undefined,
+        },
+        unifiedAgentHostDeps
+      );
 
-      const reply = (response.text || '').trim();
-      if (!reply) {
-        return res.status(502).json({
-          success: false,
-          aiUnavailable: true,
-          model: configuredModel,
-          error: 'AI modelidan javob olinmadi. Iltimos, qaytadan urinib koʻring.',
-        });
-      }
       return res.json({
         success: true,
-        reply,
-        model: configuredModel,
-        timestamp: new Date().toISOString(),
+        reply: result.reply,
+        model: result.modelUsed,
+        modelUsed: result.modelUsed,
+        routingMode: result.routingMode,
+        reasoningTier: result.reasoningTier,
+        channel: result.channel,
+        toolTrace: result.toolTrace,
+        actions: result.actions,
+        sources: result.sources,
+        escalation: result.escalation || null,
+        sensitiveFatwaDetected: result.sensitiveFatwaDetected,
+        latencyMs: result.latencyMs,
+        timestamp: result.timestamp,
       });
     } catch (upstreamErr: any) {
       return res.status(502).json({
         success: false,
         aiUnavailable: true,
-        model: configuredModel,
-        error: `AI xizmati vaqtincha mavjud emas: ${upstreamErr?.message || 'upstream error'}`,
+        model: resolveActiveGeminiModel(),
+        error: `AI Agent xizmati vaqtincha mavjud emas: ${upstreamErr?.message || 'upstream error'}`,
       });
     }
   } catch (err: any) {
-    console.error('[Gemini AI Chat Error]:', err);
+    console.error('[ASAKA ZIYO AI Agent Error]:', err);
     return res.status(500).json({
       success: false,
-      error: err?.message || 'AI xizmatida vaqtinchalik xatolik yuz berdi.',
+      error: err?.message || 'AI Agent xizmatida vaqtinchalik xatolik yuz berdi.',
     });
   }
-});
+}
+
+app.post('/api/ai/chat', aiRateLimiter, handleUnifiedAgentChatRequest);
+app.post('/api/agent/chat', aiRateLimiter, handleUnifiedAgentChatRequest);
 
 // Per-user AI Conversation History Persistence Endpoints (Scoped & Firestore-backed)
 function isAuthorizedConversationOwner(req: Request, requestedUserId: string): boolean {

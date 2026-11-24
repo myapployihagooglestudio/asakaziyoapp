@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'motion/react';
 import { PrayerSchedule, PrayerTimeEntry, SupportedLocale } from '../../../types';
 import { MONTHLY_CALENDAR_PREVIEW } from '../../../data/prayerTimesData';
 import { Card } from '../../ui/Card';
@@ -9,10 +10,9 @@ import {
   GeometricPattern,
   IslamicMihrabArch,
   CalligraphyBasmalahBadge,
-  ArabesqueCornerOrnaments,
   VolumetricGodRays,
 } from '../../ui/GeometricPattern';
-import { AnimatedProgressRing } from '../../ui/MotionPrimitives';
+import { AnimatedProgressRing, PREMIUM_EASE } from '../../ui/MotionPrimitives';
 import { resolveAsakaDateContext } from '../../../../telegram/services/dateCalendarService';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
@@ -128,6 +128,68 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
       unsubPlayer();
     };
   }, []);
+
+  // Real DeviceOrientationEvent Qibla Compass Sensor (241° WSW for Asaka, Andijan)
+  const ASAKA_QIBLA_BEARING = 241;
+  const [compassHeading, setCompassHeading] = useState<number | null>(null);
+  const [compassStatus, setCompassStatus] = useState<'idle' | 'active' | 'unsupported' | 'denied'>('idle');
+
+  const handleEnableCompass = useCallback(async () => {
+    if (typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) {
+      setCompassStatus('unsupported');
+      return;
+    }
+    try {
+      const OrientationCtor = window.DeviceOrientationEvent as unknown as {
+        requestPermission?: () => Promise<'granted' | 'denied'>;
+      };
+      if (typeof OrientationCtor?.requestPermission === 'function') {
+        const perm = await OrientationCtor.requestPermission();
+        if (perm !== 'granted') {
+          setCompassStatus('denied');
+          return;
+        }
+      }
+      setCompassStatus('active');
+    } catch {
+      setCompassStatus('denied');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'qibla' || compassStatus !== 'active') return;
+    if (typeof window === 'undefined') return;
+
+    let receivedReading = false;
+    const onOrientation = (ev: DeviceOrientationEvent) => {
+      const webkitHeading = (ev as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
+      let heading: number | null = null;
+      if (typeof webkitHeading === 'number' && Number.isFinite(webkitHeading)) {
+        heading = webkitHeading;
+      } else if (typeof ev.alpha === 'number' && Number.isFinite(ev.alpha)) {
+        heading = (360 - ev.alpha) % 360;
+      }
+      if (heading !== null) {
+        receivedReading = true;
+        setCompassHeading(Math.round(((heading % 360) + 360) % 360));
+      }
+    };
+
+    window.addEventListener('deviceorientationabsolute', onOrientation as EventListener, true);
+    window.addEventListener('deviceorientation', onOrientation as EventListener, true);
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (!receivedReading) {
+        setCompassStatus('unsupported');
+      }
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener('deviceorientationabsolute', onOrientation as EventListener, true);
+      window.removeEventListener('deviceorientation', onOrientation as EventListener, true);
+    };
+  }, [activeTab, compassStatus]);
 
   // Live dynamic countdown calculation for the actual next prayer
   useEffect(() => {
@@ -265,35 +327,30 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto">
-      {/* 1. LUXURY SACRED CINEMA HERO BANNER */}
-      <div className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary text-[#FFF8E8] p-6 sm:p-10 shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
+      {/* 1. NEO 2026 AURORA OBSIDIAN HERO BANNER */}
+      <div className="relative rounded-[28px] overflow-hidden az-aurora-surface text-[#F7F5F0] p-6 sm:p-9">
         <img
           src="/images/asaka_dawn_spiritual_1793634658872.jpg"
           alt="Asaka Dawn Spiritual"
-          className="absolute inset-0 w-full h-full object-cover object-center opacity-25 mix-blend-luminosity scale-105 transition-transform duration-1000"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-18 mix-blend-luminosity scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#010906]/95 via-[#041D13]/88 to-[#063D32]/75" />
-        <VolumetricGodRays />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.15} className="right-6 max-w-[280px] ml-auto hidden md:block" />
-        <ArabesqueCornerOrnaments size={28} />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#050C0A]/92 via-[#071813]/82 to-[#09241C]/65" />
+        <GeometricPattern opacity={0.045} />
+        <IslamicMihrabArch opacity={0.1} className="right-6 max-w-[260px] ml-auto hidden md:block" />
 
-        <div className="relative z-10 max-w-4xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-2 border-b border-[#DFBD69]/20">
-              <CalligraphyBasmalahBadge />
-              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#DFBD69] tracking-wide">
-                <MapPin className="w-3.5 h-3.5 text-[#DFBD69] shrink-0" />
-                <span>{t('prayer:regionCity')}</span>
-                <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
-                <span>{t('prayer:regionProvince')}</span>
-                <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
-                <span className="text-[#FFF8E8] font-bold">{liveDateContext.gregorian.formatted}</span>
-                <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
-                <span className="font-mono-numbers text-emerald-300 font-bold">
-                  {liveDateContext.hijri.formatted}
-                </span>
-              </div>
+        <div className="relative z-10 max-w-5xl space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-[#C2D1CB]">
+              <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+              <span className="font-semibold text-[#F7F5F0]">{t('prayer:regionCity')}</span>
+              <span className="text-white/25" aria-hidden="true">·</span>
+              <span>{t('prayer:regionProvince')}</span>
+              <span className="text-white/25" aria-hidden="true">·</span>
+              <span className="text-[#F7F5F0] font-semibold">{liveDateContext.gregorian.formatted}</span>
+              <span className="text-white/25" aria-hidden="true">·</span>
+              <span className="az-type-numeric text-emerald-300 font-semibold">
+                {liveDateContext.hijri.formatted}
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -302,7 +359,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                   variant="primary"
                   size="sm"
                   onClick={onOpenTvMode}
-                  className="gap-2 text-xs shadow-lg"
+                  className="gap-2 text-xs"
                 >
                   <Tv className="w-4 h-4" />
                   <span>Masjid Jamoat Ekrani (TV)</span>
@@ -312,30 +369,31 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={onOpenReminderDashboard}
-                className="gap-2 bg-[#010906]/70 backdrop-blur-md border-[#DFBD69]/60 text-[#DFBD69] hover:bg-[#DFBD69]/20 text-xs shadow-md"
+                className="gap-2 bg-white/[0.06] backdrop-blur-md border-white/[0.16] text-[#F7F5F0] hover:bg-white/[0.12] text-xs"
               >
-                <Sliders className="w-4 h-4 text-[#DFBD69]" />
+                <Sliders className="w-4 h-4 text-[#10B981]" />
                 <span>Eslatma Dashboardi</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowAzanModal(true)}
-                className="gap-2 bg-[#010906]/70 backdrop-blur-md border-[#DFBD69]/60 text-[#DFBD69] hover:bg-[#DFBD69]/20 text-xs shadow-md"
+                className="gap-2 bg-white/[0.06] backdrop-blur-md border-white/[0.16] text-[#F7F5F0] hover:bg-white/[0.12] text-xs"
               >
-                <Bell className="w-4 h-4 text-[#DFBD69]" />
+                <Bell className="w-4 h-4 text-[#C8A85E]" />
                 <span>Azon Bildirishnomalari</span>
               </Button>
             </div>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8] leading-tight">
-            {t('prayer:title')}
-          </h1>
-
-          <p className="text-xs sm:text-sm text-[#FFF8E8]/85 max-w-2xl leading-relaxed">
-            {t('prayer:subtitle')}
-          </p>
+          <div className="space-y-2 max-w-2xl">
+            <h1 className="az-type-hero text-[#F7F5F0]">
+              {t('prayer:title')}
+            </h1>
+            <p className="az-type-body text-[#C2D1CB]">
+              {t('prayer:subtitle')}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -385,55 +443,45 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
         </Button>
       </div>
 
-      {/* 3. TABS */}
-      <div className="flex border-b border-stone-200 dark:border-emerald-950/80 gap-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('daily')}
-          className={`pb-3.5 px-5 text-xs sm:text-sm font-bold transition-all border-b-2 cursor-pointer flex items-center gap-2.5 whitespace-nowrap ${
-            activeTab === 'daily'
-              ? 'border-[#c5a869] text-[#c5a869] bg-[#c5a869]/5 rounded-t-xl'
-              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>{t('prayer:tabDaily')}</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('monthly')}
-          className={`pb-3.5 px-5 text-xs sm:text-sm font-bold transition-all border-b-2 cursor-pointer flex items-center gap-2.5 whitespace-nowrap ${
-            activeTab === 'monthly'
-              ? 'border-[#c5a869] text-[#c5a869] bg-[#c5a869]/5 rounded-t-xl'
-              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>{t('prayer:tabMonthly')}</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('qibla')}
-          className={`pb-3.5 px-5 text-xs sm:text-sm font-bold transition-all border-b-2 cursor-pointer flex items-center gap-2.5 whitespace-nowrap ${
-            activeTab === 'qibla'
-              ? 'border-[#c5a869] text-[#c5a869] bg-[#c5a869]/5 rounded-t-xl'
-              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
-          }`}
-        >
-          <Compass className="w-4 h-4" />
-          <span>{t('prayer:tabQibla')}</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`pb-3.5 px-5 text-xs sm:text-sm font-bold transition-all border-b-2 cursor-pointer flex items-center gap-2.5 whitespace-nowrap ${
-            activeTab === 'history'
-              ? 'border-[#c5a869] text-[#c5a869] bg-[#c5a869]/5 rounded-t-xl'
-              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Rasmiy Eʼlonlar Tarixi ({schedule.publicationHistory?.length || 0})</span>
-        </button>
+      {/* 3. FLUID SEGMENTED TABS (APPLE-INSPIRED SPRING INDICATOR) */}
+      <div className="inline-flex max-w-full overflow-x-auto p-1.5 rounded-2xl bg-[#EFECE5] dark:bg-[#0B1411] border border-[#064E3B]/[0.08] dark:border-white/[0.08] gap-1">
+        {(
+          [
+            { id: 'daily' as const, icon: Clock, label: t('prayer:tabDaily') },
+            { id: 'monthly' as const, icon: Calendar, label: t('prayer:tabMonthly') },
+            { id: 'qibla' as const, icon: Compass, label: t('prayer:tabQibla') },
+            {
+              id: 'history' as const,
+              icon: History,
+              label: `Rasmiy Eʼlonlar (${schedule.publicationHistory?.length || 0})`,
+            },
+          ]
+        ).map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                isActive
+                  ? 'text-[#0B1B16] dark:text-[#F7F5F0]'
+                  : 'text-[#5F776F] dark:text-[#8FA69D] hover:text-[#0B1B16] dark:hover:text-[#F7F5F0]'
+              }`}
+            >
+              {isActive && (
+                <motion.span
+                  layoutId="prayerActiveTabPill"
+                  transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                  className="absolute inset-0 rounded-xl bg-white dark:bg-[#14241E] border border-[#064E3B]/[0.1] dark:border-white/[0.1] shadow-xs"
+                />
+              )}
+              <Icon className={`relative z-10 w-4 h-4 ${isActive ? 'text-[#064E3B] dark:text-[#10B981]' : ''}`} />
+              <span className="relative z-10">{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB 1: DAILY PRAYER SCHEDULE & ANIMATED CIRCULAR COUNTDOWN */}
@@ -686,9 +734,9 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
             })}
           </div>
 
-          {/* Regional Verification Disclaimer Card */}
-          <Card className="p-5 bg-stone-900/60 dark:bg-[#071614]/80 border-[#c5a869]/30 text-xs text-stone-300 flex items-start gap-3.5 shadow-lg">
-            <Info className="w-5 h-5 text-[#c5a869] shrink-0 mt-0.5" />
+          {/* Regional Verification Disclaimer Card — Dual-Theme Light + Dark */}
+          <Card className="p-5 bg-[#F2EFE9] dark:bg-[#0B1411] border-[#064E3B]/10 dark:border-white/[0.08] text-xs text-[#334F46] dark:text-[#C2D1CB] flex items-start gap-3.5">
+            <Info className="w-5 h-5 text-[#064E3B] dark:text-[#C8A85E] shrink-0 mt-0.5" />
             <p className="leading-relaxed">
               {getLocalizedText(schedule.disclaimer)}
             </p>
@@ -696,53 +744,55 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: MONTHLY CALENDAR PREVIEW */}
+      {/* TAB 2: MONTHLY CALENDAR PREVIEW — FULL DUAL-THEME CONTRAST */}
       {activeTab === 'monthly' && (
-        <Card elevated className="p-6 sm:p-8 space-y-6 shadow-2xl bg-stone-950/60 backdrop-blur-md border-[#c5a869]/30">
+        <Card elevated className="p-6 sm:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-display font-bold text-white">
+              <h3 className="az-type-section text-[#0B1B16] dark:text-[#F7F5F0]">
                 {t('prayer:monthlyTitle')}
               </h3>
-              <p className="text-xs text-stone-400">Asaka shahri va tumanlar uchun tasdiqlangan oylik jadval</p>
+              <p className="az-type-caption text-[#5F776F] dark:text-[#8FA69D]">
+                Asaka shahri va tumanlar uchun tasdiqlangan oylik jadval
+              </p>
             </div>
-            <span className="px-3 py-1.5 rounded-xl bg-[#c5a869]/20 text-[#c5a869] text-xs font-bold font-mono-numbers w-fit">
+            <span className="az-type-numeric text-xs font-bold text-[#064E3B] dark:text-[#C8A85E]">
               {t('prayer:monthlyHijri')}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-2xl border border-[#064E3B]/[0.1] dark:border-white/[0.08]">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>
-                <tr className="bg-[#051d18] text-[#c5a869] text-xs uppercase tracking-wider font-semibold border-b border-white/10">
-                  <th className="py-3 px-3.5">{t('prayer:tableDay')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:tableDate')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:tahajjud')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:subh')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:bomdod')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:quyosh')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:peshin')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:asr')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:shom')}</th>
-                  <th className="py-3 px-3.5">{t('prayer:xufton')}</th>
+                <tr className="bg-[#F2EFE9] dark:bg-[#0F1A16] text-[#064E3B] dark:text-[#C8A85E] text-[11px] uppercase tracking-wider font-bold border-b border-[#064E3B]/[0.1] dark:border-white/[0.08]">
+                  <th className="py-3.5 px-3.5">{t('prayer:tableDay')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:tableDate')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:tahajjud')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:subh')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:bomdod')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:quyosh')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:peshin')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:asr')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:shom')}</th>
+                  <th className="py-3.5 px-3.5">{t('prayer:xufton')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5 font-mono-numbers text-stone-200">
+              <tbody className="divide-y divide-[#064E3B]/[0.07] dark:divide-white/[0.06] az-type-numeric text-[#1F3A32] dark:text-[#D4DDD8]">
                 {MONTHLY_CALENDAR_PREVIEW.map((row) => (
                   <tr
                     key={row.day}
-                    className="hover:bg-[#c5a869]/10 transition-colors"
+                    className="hover:bg-[#064E3B]/[0.04] dark:hover:bg-white/[0.04] transition-colors"
                   >
-                    <td className="py-3 px-3.5 font-bold text-[#c5a869]">{row.day}</td>
-                    <td className="py-3 px-3.5 text-stone-400">2026-11-{String(row.day).padStart(2, '0')}</td>
-                    <td className="py-3 px-3.5 text-emerald-400 font-semibold">{row.tahajjud}</td>
-                    <td className="py-3 px-3.5 text-teal-300">{row.subh}</td>
-                    <td className="py-3 px-3.5 font-bold">{row.bomdod}</td>
-                    <td className="py-3 px-3.5 text-stone-400">{row.quyosh}</td>
-                    <td className="py-3 px-3.5 font-semibold text-white">{row.peshin}</td>
+                    <td className="py-3 px-3.5 font-bold text-[#064E3B] dark:text-[#C8A85E]">{row.day}</td>
+                    <td className="py-3 px-3.5 text-[#5F776F] dark:text-[#8FA69D]">2026-11-{String(row.day).padStart(2, '0')}</td>
+                    <td className="py-3 px-3.5 text-emerald-700 dark:text-emerald-400 font-semibold">{row.tahajjud}</td>
+                    <td className="py-3 px-3.5 text-teal-700 dark:text-teal-300">{row.subh}</td>
+                    <td className="py-3 px-3.5 font-bold text-[#0B1B16] dark:text-[#F7F5F0]">{row.bomdod}</td>
+                    <td className="py-3 px-3.5 text-[#5F776F] dark:text-[#8FA69D]">{row.quyosh}</td>
+                    <td className="py-3 px-3.5 font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">{row.peshin}</td>
                     <td className="py-3 px-3.5">{row.asr}</td>
-                    <td className="py-3 px-3.5 font-semibold text-white">{row.shom}</td>
-                    <td className="py-3 px-3.5 text-indigo-300">{row.xufton}</td>
+                    <td className="py-3 px-3.5 font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">{row.shom}</td>
+                    <td className="py-3 px-3.5 text-indigo-700 dark:text-indigo-300">{row.xufton}</td>
                   </tr>
                 ))}
               </tbody>
@@ -751,84 +801,174 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
         </Card>
       )}
 
-      {/* TAB 3: QIBLA COMPASS */}
-      {activeTab === 'qibla' && (
-        <Card elevated className="p-8 sm:p-12 text-center max-w-xl mx-auto space-y-8 shadow-2xl bg-gradient-to-br from-[#051d18] via-[#071614] to-black border-[#c5a869]/50 relative overflow-hidden">
-          <GeometricPattern opacity={0.05} />
-          
-          <div className="relative z-10 space-y-2">
-            <span className="text-xs font-semibold text-[#c5a869] uppercase tracking-widest bg-[#c5a869]/20 px-3.5 py-1 rounded-full border border-[#c5a869]/30">
-              {t('prayer:qiblaDirectionTitle')}
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-display font-bold text-white">
-              {t('prayer:qiblaFromAsaka')}
-            </h3>
-            <p className="text-xs sm:text-sm text-stone-300">
-              {t('prayer:qiblaCoordinates')}
-            </p>
-          </div>
+      {/* TAB 3: SPATIAL 3D QIBLA COMPASS (LIVE DEVICE ORIENTATION + HONEST CALIBRATION FALLBACK) */}
+      {activeTab === 'qibla' && (() => {
+        const isLiveCompass = compassStatus === 'active' && compassHeading !== null;
+        const needleAngle = isLiveCompass
+          ? (ASAKA_QIBLA_BEARING - compassHeading + 360) % 360
+          : ASAKA_QIBLA_BEARING;
+        const dialRotation = isLiveCompass ? -compassHeading : 0;
+        const angularDelta = isLiveCompass
+          ? Math.min(needleAngle, 360 - needleAngle)
+          : null;
+        const isAligned = angularDelta !== null && angularDelta <= 5;
 
-          {/* Compass Visual Instrument */}
-          <div className="relative w-68 h-68 sm:w-72 sm:h-72 mx-auto rounded-full border-4 border-[#c5a869]/45 bg-gradient-to-b from-[#071614] to-[#02110e] flex items-center justify-center shadow-xl">
-            <div className="absolute inset-3 rounded-full border border-dashed border-[#c5a869]/30" />
+        return (
+          <div className="rounded-[28px] az-aurora-surface p-7 sm:p-11 text-center max-w-xl mx-auto space-y-7 relative overflow-hidden">
+            <GeometricPattern opacity={0.04} />
 
-            {/* Cardinal marks */}
-            <span className="absolute top-3 text-xs font-bold text-[#c5a869] tracking-widest">N (0°)</span>
-            <span className="absolute right-3 text-xs font-bold text-stone-400 tracking-widest">E (90°)</span>
-            <span className="absolute bottom-3 text-xs font-bold text-stone-400 tracking-widest">S (180°)</span>
-            <span className="absolute left-3 text-xs font-bold text-stone-400 tracking-widest">W (270°)</span>
-
-            {/* Qibla Needle pointing at 241 degrees */}
-            <div
-              className="absolute w-1.5 h-36 origin-bottom transition-transform duration-1000 ease-out"
-              style={{ transform: 'rotate(241deg)' }}
-            >
-              <div className="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-16 border-b-[#c5a869] mx-auto filter drop-shadow-[0_0_8px_#c5a869]" />
-              <div className="w-1.5 h-24 bg-gradient-to-t from-stone-500 via-[#c5a869] to-[#c5a869] mx-auto rounded-full shadow-lg" />
+            <div className="relative z-10 space-y-2">
+              <span className="az-type-overline text-[#10B981] block">
+                {t('prayer:qiblaDirectionTitle')}
+              </span>
+              <h3 className="az-type-page text-[#F7F5F0]">
+                {t('prayer:qiblaFromAsaka')}
+              </h3>
+              <p className="az-type-caption text-[#C2D1CB]">
+                {t('prayer:qiblaCoordinates')}
+              </p>
             </div>
 
-            {/* Center Dial */}
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#c5a869] to-[#9e7f3c] text-[#071614] flex items-center justify-center font-bold text-xs shadow-2xl z-10 border-2 border-white/30">
-              <Compass className="w-6 h-6 animate-spin duration-1000" />
+            {/* Spatial 3D Calibrated Qibla Instrument */}
+            <div className="relative z-10 py-2" style={{ perspective: '900px' }}>
+              <motion.div
+                animate={{
+                  boxShadow: isAligned
+                    ? '0 0 46px rgba(16, 185, 129, 0.42), inset 0 1px 0 rgba(255,255,255,0.18)'
+                    : '0 24px 60px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.12)',
+                }}
+                transition={{ duration: 0.35, ease: PREMIUM_EASE }}
+                className={`relative w-68 h-68 sm:w-76 sm:h-76 mx-auto rounded-full border-2 flex items-center justify-center bg-gradient-to-b from-[#0B1E18] via-[#071410] to-[#040A08] ${
+                  isAligned ? 'border-[#10B981]' : 'border-white/[0.16]'
+                }`}
+              >
+                {/* Rotating Compass Dial Ring */}
+                <motion.div
+                  animate={{ rotate: dialRotation }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                  className="absolute inset-0 rounded-full"
+                >
+                  <div className="absolute inset-3 rounded-full border border-dashed border-white/[0.14]" />
+                  <div className="absolute inset-8 rounded-full border border-white/[0.06]" />
+                  <span className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-[#C8A85E] tracking-widest">N</span>
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#8FA69D]">E</span>
+                  <span className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-[#8FA69D]">S</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#8FA69D]">W</span>
+                </motion.div>
+
+                {/* Calibrated Qibla Pointer Needle */}
+                <motion.div
+                  animate={{ rotate: needleAngle }}
+                  transition={{ type: 'spring', stiffness: 140, damping: 22 }}
+                  className="absolute w-3 h-36 origin-bottom bottom-1/2 flex flex-col items-center"
+                >
+                  <div
+                    className={`w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-b-[18px] transition-colors ${
+                      isAligned
+                        ? 'border-b-[#10B981] drop-shadow-[0_0_12px_rgba(16,185,129,0.9)]'
+                        : 'border-b-[#C8A85E] drop-shadow-[0_0_10px_rgba(200,168,94,0.75)]'
+                    }`}
+                  />
+                  <div
+                    className={`w-1.5 flex-1 rounded-full ${
+                      isAligned
+                        ? 'bg-gradient-to-t from-white/30 to-[#10B981]'
+                        : 'bg-gradient-to-t from-white/25 to-[#C8A85E]'
+                    }`}
+                  />
+                </motion.div>
+
+                {/* Center Bearing Hub */}
+                <div
+                  className={`relative z-10 w-16 h-16 rounded-full flex flex-col items-center justify-center border transition-colors ${
+                    isAligned
+                      ? 'bg-[#10B981] text-[#04140F] border-emerald-200/70 shadow-[0_0_24px_rgba(16,185,129,0.5)]'
+                      : 'bg-[#0D1E18] text-[#F7F5F0] border-white/[0.16] shadow-xl'
+                  }`}
+                >
+                  <Navigation className="w-5 h-5" />
+                  <span className="az-type-numeric text-[10px] font-bold mt-0.5">
+                    {isLiveCompass ? `${compassHeading}°` : '241°'}
+                  </span>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Live Bearing Readout + Sensor Activation Control */}
+            <div className="relative z-10 space-y-3">
+              <div className="az-type-numeric text-3xl sm:text-4xl font-extrabold text-[#F7F5F0] tracking-tight">
+                {ASAKA_QIBLA_BEARING}° <span className="text-[#C8A85E]">WSW</span>
+              </div>
+
+              {isAligned ? (
+                <div className="text-xs font-semibold text-emerald-300">
+                  Qibla yoʻnalishi aniq topildi (Kaʼba tomoni ±5°)
+                </div>
+              ) : isLiveCompass ? (
+                <div className="text-xs text-[#C2D1CB] az-type-numeric">
+                  Jonli kompas faol · Qurilma burchagi: {compassHeading}° · Farq: {angularDelta}°
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2.5">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleEnableCompass}
+                    className="gap-2 text-xs"
+                  >
+                    <Compass className="w-4 h-4" />
+                    <span>
+                      {compassStatus === 'active'
+                        ? 'Kompas sensori kutilmoqda...'
+                        : 'Jonli Kompas Sensorini Yoqish'}
+                    </span>
+                  </Button>
+                  {compassStatus === 'unsupported' && (
+                    <p className="text-[11px] text-amber-200/90 max-w-sm">
+                      Ushbu qurilmada magnit kompas sensori aniqlanmadi. Yuqoridagi statik 241° (Janubi-gʻarb) azimut koʻrsatkichidan foydalaning.
+                    </p>
+                  )}
+                  {compassStatus === 'denied' && (
+                    <p className="text-[11px] text-amber-200/90 max-w-sm">
+                      Kompas ruxsati berilmadi. Brauzer sozlamalaridan ruxsat bering yoki 241° WSW azimutidan foydalaning.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <p className="az-type-caption text-[#9CAFA7] max-w-md mx-auto">
+                {t('prayer:qiblaCompassTip')}
+              </p>
             </div>
           </div>
+        );
+      })()}
 
-          <div className="relative z-10 space-y-2">
-            <div className="text-4xl font-extrabold font-mono-numbers text-[#c5a869] tracking-wider">
-              241° WSW
-            </div>
-            <p className="text-xs sm:text-sm text-stone-300 max-w-md mx-auto leading-relaxed">
-              {t('prayer:qiblaCompassTip')}
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {/* TAB 4: OFFICIAL SCHEDULE PUBLICATION HISTORY */}
+      {/* TAB 4: OFFICIAL SCHEDULE PUBLICATION HISTORY — DUAL-THEME LIGHT + DARK */}
       {activeTab === 'history' && (
-        <Card elevated className="p-6 sm:p-8 space-y-6 shadow-2xl bg-stone-950/60 backdrop-blur-md border-[#c5a869]/30">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <Card elevated className="p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#064E3B]/[0.1] dark:border-white/[0.08] pb-4">
             <div>
-              <h3 className="text-lg font-display font-bold text-white flex items-center gap-2">
-                <History className="w-5 h-5 text-[#c5a869]" />
+              <h3 className="az-type-section text-[#0B1B16] dark:text-[#F7F5F0] flex items-center gap-2">
+                <History className="w-5 h-5 text-[#064E3B] dark:text-[#C8A85E]" />
                 <span>Rasmiy Namoz Taqvimi Nashr Tarixi</span>
               </h3>
-              <p className="text-xs text-stone-400">
+              <p className="az-type-caption text-[#5F776F] dark:text-[#8FA69D]">
                 Asaka jome masjidi maʼmuriyati tomonidan rasmiy tasdiqlangan va oʻzgartirilgan barcha vaqtlar tarixi
               </p>
             </div>
-            <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold font-mono-numbers w-fit">
+            <span className="az-type-numeric text-xs font-bold text-[#064E3B] dark:text-emerald-300">
               Versiya: v{schedule.version || 1}
             </span>
           </div>
 
           {(!schedule.publicationHistory || schedule.publicationHistory.length === 0) ? (
-            <div className="p-8 text-center rounded-2xl border border-white/5 bg-stone-900/40 space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-[#c5a869] mx-auto opacity-70" />
-              <p className="text-stone-300 text-sm font-semibold">
+            <div className="p-8 text-center rounded-2xl border border-[#064E3B]/[0.08] dark:border-white/[0.08] bg-[#F7F5F0] dark:bg-[#0F1A16] space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-[#064E3B] dark:text-[#10B981] mx-auto" />
+              <p className="text-[#0B1B16] dark:text-[#F7F5F0] text-sm font-semibold">
                 Joriy jadval boshlangʻich nashr sifatida amal qilmoqda.
               </p>
-              <p className="text-stone-400 text-xs">
+              <p className="text-[#5F776F] dark:text-[#8FA69D] text-xs max-w-md mx-auto">
                 Maʼmuriyat jadvalga har safar rasmiy tuzatish yoki yangi vaqtlar kiritganida ushbu boʻlimda toʻliq arxiv saqlanib boradi.
               </p>
             </div>
@@ -837,19 +977,19 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
               {schedule.publicationHistory.map((rec, idx) => (
                 <div
                   key={rec.id || idx}
-                  className="p-5 rounded-2xl border border-white/10 bg-black/40 space-y-3 hover:border-[#c5a869]/40 transition-all"
+                  className="p-5 rounded-2xl border border-[#064E3B]/[0.1] dark:border-white/[0.08] bg-[#F7F5F0] dark:bg-[#0F1A16] space-y-3 hover:border-[#10B981]/40 transition-colors"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-[#c5a869]/20 text-[#c5a869] text-xs font-bold flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#064E3B]/[0.08] dark:border-white/[0.08] pb-2.5">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="w-6 h-6 rounded-lg bg-[#064E3B]/10 dark:bg-[#10B981]/20 text-[#064E3B] dark:text-emerald-300 text-xs font-bold flex items-center justify-center">
                         #{idx + 1}
                       </span>
-                      <span className="text-xs font-bold text-white">{rec.formattedDateUz}</span>
-                      <span className="text-[10px] text-emerald-400 font-mono-numbers px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30">
-                        {rec.publishedBy}
+                      <span className="text-xs font-bold text-[#0B1B16] dark:text-[#F7F5F0]">{rec.formattedDateUz}</span>
+                      <span className="text-[11px] text-[#064E3B] dark:text-emerald-400 az-type-numeric font-semibold">
+                        · {rec.publishedBy}
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono-numbers text-stone-400">
+                    <span className="text-[11px] az-type-numeric text-[#5F776F] dark:text-[#8FA69D]">
                       {new Date(rec.publishedAt).toLocaleString('uz-UZ', {
                         timeZone: 'Asia/Tashkent',
                         year: 'numeric',
@@ -863,13 +1003,13 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center">
                     {rec.times.map((t) => (
-                      <div key={t.key} className="p-2 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-[10px] text-stone-400 uppercase">{t.nameUz}</div>
-                        <div className="text-xs font-bold font-mono-numbers text-[#c5a869] mt-0.5">
+                      <div key={t.key} className="p-2.5 rounded-xl bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.07] dark:border-white/[0.06]">
+                        <div className="text-[10px] text-[#5F776F] dark:text-[#8FA69D] uppercase font-semibold">{t.nameUz}</div>
+                        <div className="text-xs font-bold az-type-numeric text-[#064E3B] dark:text-[#C8A85E] mt-0.5">
                           {t.time}
                         </div>
                         {t.iqamahTime && (
-                          <div className="text-[9px] text-stone-400 font-mono-numbers">
+                          <div className="text-[9px] text-[#5F776F] dark:text-[#8FA69D] az-type-numeric">
                             Iq: {t.iqamahTime}
                           </div>
                         )}

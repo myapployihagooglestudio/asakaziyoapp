@@ -11,7 +11,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
   const { t } = useTranslation(['navigation', 'common', 'home']);
 
   return (
-    <footer className="relative w-full border-t border-[#064E3B]/10 dark:border-white/[0.07] bg-[#F2EFE9]/80 dark:bg-[#050908] text-[#334F46] dark:text-[#8FA69D] py-14 pb-28 lg:pb-14 transition-colors overflow-hidden">
+    <footer className="relative w-full az-liquid-glass border-x-0 border-b-0 rounded-none text-[#334F46] dark:text-[#8FA69D] py-14 pb-28 lg:pb-14 transition-colors overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           {/* Col 1: Brand & Regional Identity */}

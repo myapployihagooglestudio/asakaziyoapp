@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#064E3B]/10 dark:border-white/[0.07] bg-[#F7F5F0]/86 dark:bg-[#060B09]/84 backdrop-blur-2xl pt-safe transition-colors">
+    <header className="sticky top-0 z-40 w-full az-liquid-glass border-x-0 border-t-0 rounded-none pt-safe transition-colors">
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-2.5 sm:gap-4 h-16">
           {/* Zone 1: Minimalist Brand Identity + Live Active Section Context */}
@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenSearch}
-              className="hidden md:flex items-center justify-between gap-3 flex-1 max-w-md h-10 px-3.5 rounded-2xl border border-[#064E3B]/12 dark:border-white/[0.09] bg-white/80 dark:bg-white/[0.04] hover:bg-white dark:hover:bg-white/[0.07] hover:border-[#064E3B]/25 dark:hover:border-white/[0.18] text-left transition-all cursor-pointer group"
+              className="hidden md:flex items-center justify-between gap-3 flex-1 max-w-md h-10 px-4 rounded-full az-liquid-glass-pill hover:border-[#064E3B]/28 dark:hover:border-white/[0.24] text-left transition-all cursor-pointer group"
               aria-label="Global Qidiruv (Ctrl+K)"
             >
               <span className="flex items-center gap-2.5 text-xs text-[#5F776F] dark:text-[#8FA69D] group-hover:text-[#0B1B16] dark:group-hover:text-[#E8E4DA] truncate">
@@ -242,7 +242,7 @@ export const Header: React.FC<HeaderProps> = ({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.98 }}
                       transition={{ duration: 0.18, ease: PREMIUM_EASE }}
-                      className="absolute right-0 mt-2.5 w-72 rounded-3xl bg-[#FAF8F4] dark:bg-[#0D1714] border border-[#064E3B]/12 dark:border-white/[0.1] shadow-[0_28px_70px_-14px_rgba(0,0,0,0.55)] p-3 z-40 space-y-2"
+                      className="absolute right-0 mt-2.5 w-72 rounded-[28px] az-liquid-glass-modal p-3 z-40 space-y-2"
                     >
                       <div className="px-2.5 pt-1 pb-2 border-b border-[#064E3B]/8 dark:border-white/[0.07] flex items-center justify-between">
                         <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5F776F] dark:text-[#8FA69D]">

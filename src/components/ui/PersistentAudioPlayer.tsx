@@ -115,14 +115,14 @@ export const PersistentAudioPlayer: React.FC = () => {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="fixed bottom-[86px] lg:bottom-5 right-3 left-3 sm:left-auto sm:w-[430px] z-40 rounded-[26px] bg-[#0B1411]/94 backdrop-blur-2xl border border-white/[0.12] text-[#F7F5F0] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.78)] overflow-hidden"
+        className="fixed bottom-[86px] lg:bottom-5 right-3 left-3 sm:left-auto sm:w-[436px] z-40 rounded-[26px] az-liquid-glass-elevated !bg-[#0B1411]/90 text-[#F7F5F0] border border-white/[0.14] shadow-[0_26px_64px_-14px_rgba(0,0,0,0.82)] overflow-hidden"
         role="region"
         aria-label="Global Azon va Audio Pleyer"
       >
-        {/* Top Progress Strip */}
+        {/* Specular Top Edge Highlight + Progress Strip */}
         <div className="h-[3px] w-full bg-white/[0.08] overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-emerald-400 to-[#C8A85E] transition-all duration-200"
+            className="h-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-[#C8A85E] transition-all duration-200"
             style={{ width: `${Math.min(100, Math.max(0, playerState.progressPercent || 0))}%` }}
           />
         </div>
@@ -137,7 +137,7 @@ export const PersistentAudioPlayer: React.FC = () => {
                   playerState.playingTrackId &&
                   toggleAdhanAudio(playerState.playingTrackId, playerState.volume)
                 }
-                className="w-10 h-10 rounded-2xl bg-[#C8A85E] text-[#07110D] flex items-center justify-center shrink-0 shadow-xs hover:bg-[#D6B974] transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#D6B974] to-[#B89444] text-[#07110D] flex items-center justify-center shrink-0 shadow-[0_6px_18px_rgba(200,168,94,0.32)] hover:brightness-110 active:scale-95 transition-all cursor-pointer"
                 aria-label={playerState.isPlaying ? 'Toʻxtatib turish' : 'Davom ettirish'}
               >
                 {playerState.isLoading ? (
@@ -154,9 +154,9 @@ export const PersistentAudioPlayer: React.FC = () => {
                   <AudioWaveformBars
                     isPlaying={playerState.isPlaying}
                     className="h-3.5 shrink-0"
-                    barClassName="bg-[#c5a869]"
+                    barClassName="bg-emerald-400"
                   />
-                  <span className="text-xs font-bold text-white truncate">
+                  <span className="text-xs font-display font-bold text-[#F7F5F0] truncate">
                     {playerState.track?.titleUz || 'Azon Audio'}
                   </span>
                 </div>

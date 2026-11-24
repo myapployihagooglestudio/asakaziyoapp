@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'motion/react';
 import { DhikrItem, NavigationTab, SupportedLocale } from '../../../types';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import {
   GeometricPattern,
   IslamicMihrabArch,
-  CalligraphyBasmalahBadge,
-  ArabesqueCornerOrnaments,
-  VolumetricGodRays,
 } from '../../ui/GeometricPattern';
+import { AnimatedProgressRing } from '../../ui/MotionPrimitives';
 import { toNewUzbekAlphabet } from '../../../utils/newUzbekAlphabet';
 import {
   getStoredDhikrs,
@@ -192,140 +191,165 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
   const activeTranslation = getLocalizedText(activeDhikr.translationUz);
   const activeVirtue = getLocalizedText(activeDhikr.virtueUz);
 
+  const progressPercent = activeDhikr.targetCount > 0
+    ? Math.min(100, Math.round((count / activeDhikr.targetCount) * 100))
+    : 0;
+
   return (
     <div className="space-y-8 pb-16">
-      {/* Luxury Sacred Cinema Banner */}
-      <div className="relative rounded-[32px] overflow-hidden border border-[#DFBD69]/55 az-hero-sanctuary text-[#FFF8E8] p-6 sm:p-10 shadow-[0_32px_90px_-15px_rgba(1,9,6,0.75)]">
-        <VolumetricGodRays />
-        <GeometricPattern opacity={0.07} />
-        <IslamicMihrabArch opacity={0.14} className="right-6 max-w-[260px] ml-auto hidden md:block" />
-        <ArabesqueCornerOrnaments size={28} />
+      {/* NEO 2026 Aurora Obsidian Header */}
+      <div className="relative rounded-[28px] overflow-hidden az-aurora-surface text-[#F7F5F0] p-6 sm:p-9">
+        <GeometricPattern opacity={0.045} />
+        <IslamicMihrabArch opacity={0.1} className="right-6 max-w-[240px] ml-auto hidden md:block" />
         <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CalligraphyBasmalahBadge />
-            <div className="flex items-center gap-2 text-xs font-bold text-[#DFBD69] uppercase tracking-wider bg-[#010906]/70 px-3.5 py-1.5 rounded-xl border border-[#DFBD69]/40">
-              <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
-              <span>{t('dhikr:bannerPretitle')}</span>
-              <span aria-hidden="true">·</span>
-              <span>{t('dhikr:bannerSource')}</span>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[#C2D1CB]">
+            <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
+            <span className="font-semibold text-[#10B981]">{t('dhikr:bannerPretitle')}</span>
+            <span aria-hidden="true" className="text-white/25">·</span>
+            <span>{t('dhikr:bannerSource')}</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold tracking-tight text-[#FFF8E8]">
+          <h1 className="az-type-hero text-[#F7F5F0]">
             {t('dhikr:title')}
           </h1>
-          <p className="text-xs sm:text-sm text-[#FFF8E8]/85 leading-relaxed max-w-xl">
+          <p className="az-type-body text-[#C2D1CB] max-w-xl">
             {t('dhikr:subtitle')}
           </p>
         </div>
       </div>
 
-      {/* Main Grid: Counter Instrument + Dhikrs Library */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Interactive Counter (5 cols) */}
+      {/* Main Grid: Neumorphism 2.0 Tactile Counter Instrument + Dhikrs Library */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+        {/* Left Column: Tactile Neumorphic Tasbih Counter (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          <Card elevated ornamental className="p-6 text-center space-y-6 border-[#DFBD69]/45 relative overflow-hidden">
-            <GeometricPattern opacity={0.04} />
-
+          <Card elevated className="p-6 text-center space-y-6 relative overflow-hidden">
             {/* Instrument Header */}
-            <div className="relative z-10 flex items-center justify-between text-xs text-stone-500 dark:text-[#FFF8E8]/70">
-              <span className="font-bold uppercase tracking-wider text-[#8A6621] dark:text-[#DFBD69]">
+            <div className="flex items-center justify-between text-xs text-[#5F776F] dark:text-[#8FA69D]">
+              <span className="az-type-overline text-[#064E3B] dark:text-[#C8A85E]">
                 {t('dhikr:counterTitle')}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={() => setSoundActive(!soundActive)}
                   className={`p-2 rounded-xl border cursor-pointer transition-colors ${
                     soundActive
-                      ? 'border-[#DFBD69] text-[#8A6621] dark:text-[#DFBD69] bg-[#DFBD69]/15'
-                      : 'border-[#DFBD69]/25 text-stone-400'
+                      ? 'border-[#10B981]/50 text-[#064E3B] dark:text-[#10B981] bg-[#10B981]/12'
+                      : 'border-[#064E3B]/10 dark:border-white/[0.1] text-[#5F776F] dark:text-[#8FA69D]'
                   }`}
                   title={t('dhikr:soundToggle')}
+                  aria-label={t('dhikr:soundToggle')}
                 >
                   {soundActive ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setHapticActive(!hapticActive)}
                   className={`p-2 rounded-xl border cursor-pointer transition-colors ${
                     hapticActive
-                      ? 'border-[#DFBD69] text-[#8A6621] dark:text-[#DFBD69] bg-[#DFBD69]/15'
-                      : 'border-[#DFBD69]/25 text-stone-400'
+                      ? 'border-[#10B981]/50 text-[#064E3B] dark:text-[#10B981] bg-[#10B981]/12'
+                      : 'border-[#064E3B]/10 dark:border-white/[0.1] text-[#5F776F] dark:text-[#8FA69D]'
                   }`}
                   title={t('dhikr:hapticToggle')}
+                  aria-label={t('dhikr:hapticToggle')}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  type="button"
                   onClick={handleReset}
-                  className="p-2 rounded-xl border border-[#DFBD69]/25 text-stone-400 hover:text-[#DFBD69] cursor-pointer"
+                  className="p-2 rounded-xl border border-[#064E3B]/10 dark:border-white/[0.1] text-[#5F776F] dark:text-[#8FA69D] hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                   title={t('dhikr:reset')}
+                  aria-label={t('dhikr:reset')}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Primary Tap Area */}
-            <div className="relative z-10 py-4">
-              <button
-                onClick={handleIncrement}
-                className="w-48 h-48 sm:w-56 sm:h-56 mx-auto rounded-full bg-gradient-to-b from-[#063D32] via-[#041D13] to-[#010906] border-4 border-[#DFBD69] shadow-[0_24px_70px_rgba(223,189,105,0.28)] flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-all group select-none ring-8 ring-[#DFBD69]/15"
+            {/* Primary Tactile Neumorphism 2.0 Tap Ring */}
+            <div className="py-3 flex items-center justify-center">
+              <AnimatedProgressRing
+                progress={progressPercent}
+                size={236}
+                strokeWidth={8}
+                trackClassName="stroke-[#064E3B]/10 dark:stroke-white/[0.08]"
+                strokeColor="#10B981"
+                secondaryStrokeColor="#C8A85E"
               >
-                <span className="text-5xl sm:text-6xl font-mono-numbers font-bold az-gold-foil-text group-hover:scale-105 transition-transform">
-                  {count}
-                </span>
-                <span className="text-xs font-mono-numbers text-[#FFF8E8]/70 mt-1">
-                  / {activeDhikr.targetCount} {t('dhikr:countTargetSuffix')}
-                </span>
-                <span className="text-[11px] font-bold text-[#DFBD69] uppercase tracking-widest mt-2">
-                  {t('dhikr:tapToCount')}
-                </span>
-              </button>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.94 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                  onClick={handleIncrement}
+                  className="w-[196px] h-[196px] rounded-full az-neumorphic-raised flex flex-col items-center justify-center cursor-pointer select-none focus:outline-none group"
+                >
+                  <motion.span
+                    key={count}
+                    initial={{ scale: 0.92, opacity: 0.7 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.16 }}
+                    className="text-5xl sm:text-6xl az-type-numeric font-extrabold text-[#064E3B] dark:text-[#F7F5F0]"
+                  >
+                    {count}
+                  </motion.span>
+                  <span className="text-xs az-type-numeric text-[#5F776F] dark:text-[#8FA69D] mt-1">
+                    / {activeDhikr.targetCount} {t('dhikr:countTargetSuffix')}
+                  </span>
+                  <span className="az-type-overline text-[#10B981] dark:text-[#C8A85E] mt-2.5">
+                    {t('dhikr:tapToCount')}
+                  </span>
+                </motion.button>
+              </AnimatedProgressRing>
             </div>
 
-            {/* Total Rounds Finished & Smart Tasbih Persistent Stats */}
-            <div className="relative z-10 grid grid-cols-2 gap-2 pt-2 border-t border-[#DFBD69]/20 text-center">
-              <div className="p-2.5 rounded-xl bg-[#F8F5EC] dark:bg-[#010906]/65 border border-[#DFBD69]/25">
-                <span className="text-[10px] text-stone-500 dark:text-[#FFF8E8]/60 block">Bugungi Jami Zikr:</span>
-                <span className="text-xs font-bold font-mono-numbers text-[#8A6621] dark:text-[#DFBD69]">
+            {/* Persistent Tasbih Stats */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] text-center">
+              <div className="p-3 rounded-2xl az-neumorphic-inset">
+                <span className="text-[11px] text-[#5F776F] dark:text-[#8FA69D] block">Bugungi Jami Zikr</span>
+                <span className="text-sm font-bold az-type-numeric text-[#064E3B] dark:text-[#C8A85E]">
                   {stats?.todayTotal || 0} marta
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#F8F5EC] dark:bg-[#010906]/65 border border-[#DFBD69]/25">
-                <span className="text-[10px] text-stone-500 dark:text-[#FFF8E8]/60 block">Barcha Vaqtlar:</span>
-                <span className="text-xs font-bold font-mono-numbers text-emerald-600 dark:text-emerald-400">
+              <div className="p-3 rounded-2xl az-neumorphic-inset">
+                <span className="text-[11px] text-[#5F776F] dark:text-[#8FA69D] block">Barcha Vaqtlar</span>
+                <span className="text-sm font-bold az-type-numeric text-emerald-700 dark:text-emerald-400">
                   {stats?.allTimeTotal || 0} marta
                 </span>
               </div>
             </div>
 
             {/* Total Rounds Finished */}
-            <div className="relative z-10 flex items-center justify-center gap-2 text-xs text-stone-500 dark:text-[#FFF8E8]/70 font-mono-numbers">
-              <Award className="w-4 h-4 text-[#DFBD69]" />
-              <span>{t('dhikr:roundsCompleted')}: <strong className="text-[#03170F] dark:text-[#FFF8E8]">{totalCompletedRounds}</strong></span>
+            <div className="flex items-center justify-center gap-2 text-xs text-[#5F776F] dark:text-[#8FA69D] az-type-numeric">
+              <Award className="w-4 h-4 text-[#C8A85E]" />
+              <span>
+                {t('dhikr:roundsCompleted')}:{' '}
+                <strong className="text-[#0B1B16] dark:text-[#F7F5F0]">{totalCompletedRounds}</strong>
+              </span>
             </div>
 
             {/* Reset Confirmation Dialog */}
             {showResetConfirm && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 text-stone-800 dark:text-stone-200">
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2.5 text-[#0B1B16] dark:text-[#F7F5F0]">
                 <p className="font-semibold text-center">Hisoblagichni nolga tushirishni tasdiqlaysizmi?</p>
                 <div className="flex justify-center gap-2">
                   <Button size="sm" variant="outline" onClick={() => setShowResetConfirm(false)} className="text-xs">
                     Bekor qilish
                   </Button>
-                  <Button size="sm" variant="primary" onClick={confirmReset} className="text-xs bg-rose-600 hover:bg-rose-700 text-white">
+                  <Button size="sm" variant="primary" onClick={confirmReset} className="text-xs !bg-rose-600 hover:!bg-rose-700 !text-white">
                     Nollash
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Active Dhikr Summary */}
-            <div className="pt-4 border-t border-stone-100 dark:border-emerald-950/60 text-left space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+            {/* Active Dhikr Summary (clean Arabic readability) */}
+            <div className="pt-4 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] text-left space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-display font-bold text-[#0B1B16] dark:text-[#F7F5F0]">
                   {activeTitle}
                 </span>
                 <button
+                  type="button"
                   onClick={() =>
                     onToggleFavorite({
                       id: activeDhikr.id,
@@ -337,10 +361,10 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
                       routeId: activeDhikr.id,
                     })
                   }
-                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                  className={`p-2 rounded-xl border transition-colors cursor-pointer ${
                     isCurrentSaved
-                      ? 'bg-[#c5a869]/20 text-[#c5a869] border-[#c5a869]'
-                      : 'text-stone-500 hover:text-[#c5a869] border-stone-200 dark:border-emerald-950'
+                      ? 'bg-[#C8A85E]/20 text-[#9A7A3A] dark:text-[#C8A85E] border-[#C8A85E]/50'
+                      : 'text-[#5F776F] hover:text-[#064E3B] dark:hover:text-[#C8A85E] border-[#064E3B]/10 dark:border-white/[0.1]'
                   }`}
                   title={t('common:save')}
                 >
@@ -348,20 +372,20 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
                 </button>
               </div>
 
-              <p dir="rtl" className="font-arabic text-xl text-stone-900 dark:text-amber-100/95 text-right">
+              <p dir="rtl" className="font-arabic text-2xl text-[#0B1B16] dark:text-[#F7F5F0] text-right">
                 {activeDhikr.textAr}
               </p>
 
-              <p className="text-xs text-stone-500 dark:text-stone-400 italic">
+              <p className="text-xs text-[#5F776F] dark:text-[#8FA69D] italic">
                 {activeTranslit}
               </p>
 
-              <p className="text-xs text-stone-700 dark:text-stone-300">
+              <p className="text-xs text-[#253C35] dark:text-[#D4DDD8] leading-relaxed">
                 «{activeTranslation}»
               </p>
 
-              <div className="p-3 rounded-xl bg-stone-50 dark:bg-[#071614] border border-stone-200/60 dark:border-emerald-950/60 text-[11px] text-stone-500 dark:text-stone-400">
-                <strong className="text-[#c5a869]">{t('dhikr:virtue')}: </strong>
+              <div className="p-3.5 rounded-xl bg-[#F7F5F0] dark:bg-[#0F1A16] border border-[#064E3B]/[0.08] dark:border-white/[0.07] text-[11px] text-[#4B635B] dark:text-[#9CAFA7]">
+                <strong className="text-[#064E3B] dark:text-[#C8A85E]">{t('dhikr:virtue')}: </strong>
                 {activeVirtue}
               </div>
             </div>
@@ -377,11 +401,12 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
               return (
                 <button
                   key={c.id}
+                  type="button"
                   onClick={() => setSelectedCategory(c.id)}
-                  className={`px-3.5 py-2 text-xs sm:text-sm font-medium rounded-xl border transition-all cursor-pointer ${
+                  className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition-all cursor-pointer ${
                     isSelected
-                      ? 'border-[#c5a869] bg-[#c5a869] text-[#071614] font-semibold shadow-sm'
-                      : 'border-stone-200/80 dark:border-emerald-950 bg-white dark:bg-[#0d211e]/70 text-stone-700 dark:text-stone-300 hover:border-[#c5a869]/40'
+                      ? 'border-[#064E3B] dark:border-[#10B981] bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04140F]'
+                      : 'border-[#064E3B]/[0.1] dark:border-white/[0.08] bg-white dark:bg-[#0B1411] text-[#334F46] dark:text-[#D4DDD8] hover:border-[#10B981]/45'
                   }`}
                 >
                   {c.label}
@@ -396,39 +421,39 @@ export const DhikrView: React.FC<DhikrViewProps> = ({
               const isSelected = activeDhikr.id === dhikr.id;
               const title = getLocalizedText(dhikr.titleUz);
               const translit = getLocalizedText(dhikr.transliterationUz);
-              const translation = getLocalizedText(dhikr.translationUz);
 
               return (
                 <button
                   key={dhikr.id}
+                  type="button"
                   onClick={() => {
                     setActiveDhikr(dhikr);
                     setCount(0);
                   }}
-                  className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${
+                  className={`w-full text-left p-5 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
-                      ? 'border-[#c5a869] bg-[#c5a869]/10 shadow-sm'
-                      : 'border-stone-200 dark:border-emerald-950 bg-white dark:bg-[#0d211e]/60 hover:border-[#c5a869]/40'
+                      ? 'border-[#10B981]/60 bg-[#064E3B]/[0.06] dark:bg-[#10B981]/10 shadow-xs'
+                      : 'border-[#064E3B]/[0.09] dark:border-white/[0.08] bg-white dark:bg-[#0B1411] hover:border-[#10B981]/40'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 mb-2">
-                    <span className="font-semibold text-[#c5a869]">
+                  <div className="flex items-center justify-between text-xs text-[#5F776F] dark:text-[#8FA69D] mb-2">
+                    <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E]">
                       {getLocalizedText(dhikr.categoryTitleUz)}
                     </span>
-                    <span className="font-mono-numbers bg-stone-100 dark:bg-emerald-950 px-2 py-0.5 rounded text-stone-600 dark:text-stone-300 font-bold">
-                      {dhikr.targetCount}x
+                    <span className="az-type-numeric font-bold text-[#064E3B] dark:text-emerald-300">
+                      {dhikr.targetCount}×
                     </span>
                   </div>
 
-                  <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-1">
+                  <h4 className="text-sm font-display font-bold text-[#0B1B16] dark:text-[#F7F5F0] mb-1">
                     {title}
                   </h4>
 
-                  <p dir="rtl" className="font-arabic text-base text-stone-900 dark:text-amber-100/90 text-right my-1">
+                  <p dir="rtl" className="font-arabic text-lg text-[#0B1B16] dark:text-[#F7F5F0] text-right my-1.5">
                     {dhikr.textAr}
                   </p>
 
-                  <p className="text-xs text-stone-400 dark:text-stone-500 italic line-clamp-1">
+                  <p className="text-xs text-[#5F776F] dark:text-[#8FA69D] italic line-clamp-1">
                     {translit}
                   </p>
                 </button>

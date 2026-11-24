@@ -20,6 +20,7 @@ import { AUTHENTIC_HADITHS } from '../../src/data/hadithData';
 import { AUTHENTIC_DHIKRS } from '../../src/data/dhikrData';
 import { EDITORIAL_ARTICLES } from '../../src/data/articlesData';
 import { TAFSIRI_HILOL_ENTRIES } from '../../src/data/tafsirHilolData';
+import { AGENT_PRIMARY_MODEL, isSensitiveFatwaTopic } from '../../server/asakaZiyoAgent';
 import { DEFAULT_TELEGRAM_AI_MODEL } from '../config';
 import {
   TELEGRAM_SUPPORTED_LOCALES,
@@ -204,7 +205,7 @@ export function detectIntentRoute(
   if (/(dars|akadem|lesson|academy|tahorat|академия|урок)/i.test(q)) {
     return 'academy';
   }
-  if (/(imom|imam|murojaat|shikoyat|yordam|support|поддержк|помощ|имам)/i.test(q)) {
+  if (isSensitiveFatwaTopic(q) || /(imom|imam|murojaat|shikoyat|yordam|support|поддержк|помощ|имам)/i.test(q)) {
     return 'support';
   }
   if (/(masjid|qibla|manzil|adres|location|мечеть|кибла)/i.test(q)) {
@@ -212,6 +213,8 @@ export function detectIntentRoute(
   }
   return null;
 }
+
+export const UNIFIED_AGENT_PRIMARY_MODEL = AGENT_PRIMARY_MODEL;
 
 export function searchGroundedIslamicSnippets(query: string): string {
   const q = query.trim().toLowerCase();

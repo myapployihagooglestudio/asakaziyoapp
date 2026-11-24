@@ -537,7 +537,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           if (isMounted) {
             setAiStatusInfo({
               connected: Boolean(aiJson.connected),
-              model: aiJson.model || 'gemini-3.8-flash',
+              model: aiJson.model || 'gemini-4-hydrogen',
             });
           }
         }

@@ -136,8 +136,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   return (
     <aside
       aria-label="Asosiy yon navigatsiya"
-      className={`hidden lg:flex flex-col shrink-0 border-r border-[#064E3B]/10 dark:border-white/[0.07] bg-[#FAF8F4]/75 dark:bg-[#08100D]/85 backdrop-blur-xl py-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto transition-[width,padding] duration-200 ${
-        collapsed ? 'w-[76px] px-2.5' : 'w-[262px] px-3.5'
+      className={`hidden lg:flex flex-col shrink-0 az-liquid-glass border-y-0 border-l-0 rounded-none py-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto transition-[width,padding] duration-200 ${
+        collapsed ? 'w-[76px] px-2.5' : 'w-[266px] px-3.5'
       }`}
     >
       {/* Top Row: Live Asaka Next-Prayer Compact Card + Collapse Toggle */}
@@ -227,7 +227,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                           ? { duration: 0 }
                           : { type: 'spring', stiffness: 380, damping: 32 }
                       }
-                      className="absolute inset-0 rounded-xl bg-[#064E3B] dark:bg-[#C8A85E] shadow-xs"
+                      className="absolute inset-0 rounded-2xl bg-[#064E3B]/92 dark:bg-[#C8A85E] shadow-[0_1px_0_rgba(255,255,255,0.28)_inset,0_10px_24px_-10px_rgba(6,78,59,0.5)] dark:shadow-[0_1px_0_rgba(255,255,255,0.45)_inset,0_10px_24px_-10px_rgba(200,168,94,0.45)]"
                     />
                   )}
                   <span className="relative z-10 shrink-0">{item.icon}</span>

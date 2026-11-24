@@ -26,6 +26,10 @@ import {
 } from '../../ui/GeometricPattern';
 import {
   AnimatedProgressRing,
+  AudioWaveformBars,
+  MagneticWrapper,
+  ScrollReveal,
+  SpatialTiltCard,
   StaggerGrid,
   StaggerCard,
 } from '../../ui/MotionPrimitives';
@@ -739,26 +743,26 @@ export const HomeView: React.FC<HomeViewProps> = ({
           })}
         </StaggerGrid>
 
-        {/* Daily 5-Prayer Completion Tracker Bar */}
+        {/* Daily 5-Prayer Completion Tracker Bar — Neumorphism 2.0 Tactile Switches */}
         <Card elevated className="p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#063D32] dark:text-[#DCC58C] tracking-wide">
-              <CheckCircle className="w-4 h-4 text-[#C6A45C] shrink-0" />
+            <div className="flex items-center gap-2.5 text-xs font-semibold text-[#064E3B] dark:text-[#D6B974] tracking-wide">
+              <CheckCircle className="w-4 h-4 text-[#10B981] shrink-0" />
               <span>Bugungi 5 Vaqt Farz Namozlari Hisoblagichi</span>
             </div>
-            <span className="text-xs font-mono-numbers text-[#063D32] dark:text-[#C6A45C] font-bold">
+            <span className="az-type-numeric text-xs font-bold text-[#064E3B] dark:text-[#10B981]">
               {completedCount} / 5 ado etildi ({completionPercent}%)
             </span>
           </div>
 
-          <div className="w-full h-2.5 rounded-full bg-[#F1EBDD] dark:bg-[#041D18] overflow-hidden p-0.5 border border-[#063D32]/10 dark:border-[#C6A45C]/20">
+          <div className="w-full h-2.5 rounded-full az-neumorphic-inset overflow-hidden p-0.5">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#063D32] via-[#075747] to-[#C6A45C] transition-all duration-500 ease-out"
+              className="h-full rounded-full bg-gradient-to-r from-[#064E3B] via-[#10B981] to-[#C8A85E] transition-all duration-500 ease-out"
               style={{ width: `${completionPercent}%` }}
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
             {[
               { key: 'bomdod', label: 'Bomdod' },
               { key: 'peshin', label: 'Peshin' },
@@ -768,265 +772,308 @@ export const HomeView: React.FC<HomeViewProps> = ({
             ].map((item) => {
               const isDone = completedPrayers[item.key];
               return (
-                <button
+                <motion.button
                   key={item.key}
+                  type="button"
+                  whileTap={{ scale: 0.96 }}
                   onClick={() => togglePrayerCompleted(item.key)}
-                  className={`px-3.5 min-h-[44px] rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                  aria-pressed={isDone}
+                  className={`px-3.5 min-h-[46px] rounded-2xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-between gap-2 ${
                     isDone
-                      ? 'bg-[#063D32] text-[#F8F5EC] border-[#C6A45C]'
-                      : 'bg-[#F8F5EC] dark:bg-[#041D18] border-[#063D32]/15 dark:border-[#C6A45C]/20 text-[#2C4A42] dark:text-[#D4CFC3] hover:border-[#C6A45C]'
+                      ? 'bg-[#064E3B] dark:bg-[#10B981]/20 text-[#F7F5F0] dark:text-emerald-200 border border-[#10B981]/60 shadow-[0_8px_22px_-8px_rgba(16,185,129,0.45)]'
+                      : 'az-neumorphic-raised text-[#253C35] dark:text-[#D4DDD8] hover:border-[#10B981]/40'
                   }`}
                 >
                   <span>{item.label}</span>
                   <span
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition-colors ${
                       isDone
-                        ? 'bg-[#C6A45C] text-[#042B25] font-bold'
-                        : 'border border-[#5C746C]'
+                        ? 'bg-[#10B981] text-[#04140F] font-extrabold'
+                        : 'border border-[#5F776F]/50 dark:border-white/20'
                     }`}
                   >
                     {isDone ? '✓' : ''}
                   </span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
         </Card>
       </section>
 
-      {/* 4. QUICK-ACCESS SUPER APP BENTO NAVIGATION GRID */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-[#063D32] dark:text-[#C6A45C] block">
-              ASAKA ZIYO — Super App Xizmatlari
+      {/* 4. ADAPTIVE BENTO GRID 2.0 — ASYMMETRIC SUPER APP ARCHITECTURE */}
+      <ScrollReveal className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div className="space-y-1">
+            <span className="az-type-overline text-[#064E3B] dark:text-[#10B981] block">
+              ASAKA ZIYO · Ekotizim Boʻlimlari
             </span>
-            <h2 className="text-2xl font-display font-bold text-[#042B25] dark:text-[#F8F5EC]">
+            <h2 className="az-type-page text-[#0B1B16] dark:text-[#F7F5F0]">
               Tezkor Boʻlimlar va Ilmiy Manbalar
             </h2>
           </div>
+          <span className="az-type-caption text-[#5F776F] dark:text-[#8FA69D]">
+            8 asosiy xizmat · Bitta uygʻun interfeysda
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+          {/* Featured Large Tile 1: Qur'oni Karim Mushaf Studio (6 cols) */}
+          <div className="sm:col-span-2 lg:col-span-6">
+            <SpatialTiltCard
+              onClick={() => onNavigate('quran')}
+              glowColor="rgba(16, 185, 129, 0.22)"
+              className="rounded-[24px] az-aurora-surface p-6 sm:p-7 flex flex-col justify-between gap-6 cursor-pointer group min-h-[208px]"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.08] border border-white/[0.12] flex items-center justify-center text-[#10B981] group-hover:scale-105 transition-transform">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <span className="az-type-overline text-[#C8A85E]">
+                  114 Sura · 8 Qori · Tafsiri Hilol
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="az-type-section text-[#F7F5F0] group-hover:text-emerald-300 transition-colors">
+                  Qurʼoni Karim Mushaf Studiyasi
+                </h3>
+                <p className="az-type-body text-[#C2D1CB] max-w-md">
+                  Tajvid rangli arabcha matn, Shayx Muhammad Sodiq Muhammad Yusuf tafsiri va oyatma-oyat audio tilovat.
+                </p>
+              </div>
+            </SpatialTiltCard>
+          </div>
+
+          {/* Featured Large Tile 2: Islomiy AI Yordamchi (6 cols) */}
+          <div className="sm:col-span-2 lg:col-span-6">
+            <SpatialTiltCard
+              onClick={() => onNavigate('ai_assistant')}
+              glowColor="rgba(200, 168, 94, 0.2)"
+              className="rounded-[24px] bg-white dark:bg-[#0B1411] border border-[#064E3B]/[0.1] dark:border-white/[0.09] shadow-[var(--shadow-card)] hover:border-[#10B981]/45 p-6 sm:p-7 flex flex-col justify-between gap-6 cursor-pointer group min-h-[208px] transition-colors"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#064E3B]/10 dark:bg-[#10B981]/15 border border-[#064E3B]/15 dark:border-[#10B981]/25 flex items-center justify-center text-[#064E3B] dark:text-[#10B981] group-hover:scale-105 transition-transform">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <span className="az-type-overline text-[#064E3B] dark:text-[#C8A85E]">
+                  Manbali Jonli AI Suhbat
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="az-type-section text-[#0B1B16] dark:text-[#F7F5F0] group-hover:text-[#064E3B] dark:group-hover:text-emerald-300 transition-colors">
+                  Islomiy AI Ilmiy Yordamchi
+                </h3>
+                <p className="az-type-body text-[#4B635B] dark:text-[#9CAFA7] max-w-md">
+                  Qurʼon, sahih hadislar va Asaka namoz taqvimiga tayangan tezkor, tushunarli savol-javob maydoni.
+                </p>
+              </div>
+            </SpatialTiltCard>
+          </div>
+
+          {/* Secondary Modular Bento Tiles (6 balanced 4-col tiles on desktop) */}
           {[
-            {
-              tab: 'quran' as NavigationTab,
-              title: 'Qurʼoni Karim',
-              subtitle: '114 sura · Tafsiri Hilol · 8 qori',
-              badge: 'Mushaf',
-              icon: <BookOpen className="w-5 h-5 text-[#C6A45C]" />,
-              featured: true,
-            },
             {
               tab: 'hadith' as NavigationTab,
               title: 'Sahih Hadislar',
-              subtitle: 'Buxoriy, Muslim va Navaviy',
-              badge: 'Sunnat',
-              icon: <Sparkles className="w-5 h-5 text-[#C6A45C]" />,
+              subtitle: 'Buxoriy, Muslim va Imom Navaviy toʻplamlari',
+              meta: 'Sunnat',
+              icon: <Sparkles className="w-5 h-5" />,
             },
             {
               tab: 'dhikr' as NavigationTab,
-              title: 'Zikr va Duolar',
-              subtitle: 'Tonggi-kechki zikrlar va Tasbeh',
-              badge: 'Tasbeh',
-              icon: <Award className="w-5 h-5 text-[#C6A45C]" />,
-            },
-            {
-              tab: 'ai_assistant' as NavigationTab,
-              title: 'Islomiy AI Yordamchi',
-              subtitle: 'Manbali ilmiy savol-javob',
-              badge: '2026 AI',
-              icon: <Bot className="w-5 h-5 text-[#C6A45C]" />,
+              title: 'Zikr va Raqamli Tasbeh',
+              subtitle: 'Tonggi-kechki zikrlar va taktil tasbeh hisoblagichi',
+              meta: 'Tasbeh',
+              icon: <Award className="w-5 h-5" />,
             },
             {
               tab: 'khatm_planner' as NavigationTab,
               title: 'Qurʼon Xatmi Rejasi',
-              subtitle: 'Kunlik juz va oyat hisobi',
-              badge: 'Reja',
-              icon: <Calendar className="w-5 h-5 text-[#C6A45C]" />,
+              subtitle: 'Kunlik juz, sahifa va shaxsiy mutolaa nazorati',
+              meta: 'Reja',
+              icon: <Calendar className="w-5 h-5" />,
             },
             {
               tab: 'library' as NavigationTab,
               title: 'Raqamli Kutubxona',
-              subtitle: 'Moʻtabar kitoblar va ilmiy asarlar',
-              badge: 'Mutolaa',
-              icon: <Library className="w-5 h-5 text-[#C6A45C]" />,
+              subtitle: 'Moʻtabar kitoblar va ilmiy-maʼrifiy asarlar',
+              meta: 'Mutolaa',
+              icon: <Library className="w-5 h-5" />,
             },
             {
               tab: 'ask_imam' as NavigationTab,
               title: 'Imomga Savol',
-              subtitle: 'Rasmiy ilmiy javoblar',
-              badge: 'Fatvo/Ilm',
-              icon: <MessageCircleQuestion className="w-5 h-5 text-[#C6A45C]" />,
+              subtitle: 'Asaka masjidi imomlaridan rasmiy ilmiy javoblar',
+              meta: 'Ilmiy Javob',
+              icon: <MessageCircleQuestion className="w-5 h-5" />,
             },
             {
               tab: 'quiz' as NavigationTab,
               title: 'Kunlik Viktorina',
-              subtitle: '10 ta ilmiy savol va reyting',
-              badge: 'Sinov',
-              icon: <CheckCircle className="w-5 h-5 text-[#C6A45C]" />,
+              subtitle: '10 ta sinov savoli, ballar va haftalik reyting',
+              meta: 'Sinov',
+              icon: <CheckCircle className="w-5 h-5" />,
             },
           ].map((card) => (
-            <Card
-              key={card.tab}
-              variant={card.featured ? 'emerald' : 'elevated'}
-              interactive
-              onClick={() => onNavigate(card.tab)}
-              className="p-5 flex flex-col justify-between gap-4 group"
-            >
-              <div className="flex items-center justify-between">
-                <div
-                  className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${
-                    card.featured
-                      ? 'bg-[#042B25]/70 border-[#C6A45C]/45'
-                      : 'bg-[#F1EBDD] dark:bg-[#082E26] border-[#C6A45C]/30'
-                  }`}
-                >
-                  {card.icon}
+            <div key={card.tab} className="lg:col-span-4">
+              <Card
+                variant="elevated"
+                interactive
+                onClick={() => onNavigate(card.tab)}
+                className="p-5 sm:p-6 h-full flex flex-col justify-between gap-4 group"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#F2EFE9] dark:bg-[#14241E] border border-[#064E3B]/[0.08] dark:border-white/[0.08] text-[#064E3B] dark:text-[#C8A85E] flex items-center justify-center group-hover:bg-[#064E3B] group-hover:text-white dark:group-hover:bg-[#10B981] dark:group-hover:text-[#04140F] transition-colors">
+                    {card.icon}
+                  </div>
+                  <span className="az-type-overline text-[#5F776F] dark:text-[#8FA69D]">
+                    {card.meta}
+                  </span>
                 </div>
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                    card.featured
-                      ? 'bg-[#C6A45C]/20 text-[#DCC58C] border-[#C6A45C]/40'
-                      : 'bg-[#063D32]/8 dark:bg-[#C6A45C]/15 text-[#063D32] dark:text-[#DCC58C] border-[#C6A45C]/25'
-                  }`}
-                >
-                  {card.badge}
-                </span>
-              </div>
 
-              <div>
-                <h3
-                  className={`text-base font-display font-bold group-hover:text-[#C6A45C] transition-colors ${
-                    card.featured ? 'text-[#F8F5EC]' : 'text-[#042B25] dark:text-[#F8F5EC]'
-                  }`}
-                >
-                  {card.title}
-                </h3>
-                <p
-                  className={`text-xs mt-1 leading-relaxed ${
-                    card.featured ? 'text-[#F1EBDD]/85' : 'text-[#5C746C] dark:text-[#8FA69E]'
-                  }`}
-                >
-                  {card.subtitle}
-                </p>
-              </div>
-            </Card>
+                <div>
+                  <h3 className="az-type-card text-[#0B1B16] dark:text-[#F7F5F0] group-hover:text-[#064E3B] dark:group-hover:text-emerald-300 transition-colors">
+                    {card.title}
+                  </h3>
+                  <p className="az-type-caption text-[#5F776F] dark:text-[#8FA69D] mt-1">
+                    {card.subtitle}
+                  </p>
+                </div>
+              </Card>
+            </div>
           ))}
         </div>
-      </section>
+      </ScrollReveal>
 
-      {/* 5. FEATURED AUDIO & QURAN RECITATION STUDIO SHOWCASE */}
-      <Card variant="emerald" className="p-6 sm:p-8 relative overflow-hidden">
-        <GeometricPattern opacity={0.06} />
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div className="lg:col-span-7 space-y-3">
-            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#DCC58C]">
-              <Headphones className="w-4 h-4 text-[#C6A45C]" />
-              <span>Premium Audio va Qurʼon Tilovati Xazinasi</span>
+      {/* 5. FEATURED AUDIO & QURAN RECITATION STUDIO SHOWCASE — LIQUID GLASS 2026 */}
+      <ScrollReveal>
+        <div className="rounded-[28px] az-aurora-surface p-6 sm:p-8 relative overflow-hidden">
+          <GeometricPattern opacity={0.045} />
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-7 space-y-3.5">
+              <div className="flex items-center gap-2.5 az-type-overline text-[#C8A85E]">
+                <Headphones className="w-4 h-4 text-[#10B981]" />
+                <span>Audio va Qurʼon Tilovati Studiyasi</span>
+              </div>
+              <h2 className="az-type-page text-[#F7F5F0]">
+                114 Sura Doimiy Qiroat va Azon Tinglash
+              </h2>
+              <p className="az-type-body text-[#C2D1CB] max-w-xl">
+                Jahonning yetakchi qorilari — Shayx Mishariy al-Afosiy, Shayx Ayman Rushdiy Suvayd va Shayx Mahmud Xalil al-Husariy ijrosidagi tilovatlarni yuqori sifatda tinglang.
+              </p>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {availableReciters.slice(0, 8).map((reciter) => (
+                  <button
+                    key={reciter.id}
+                    type="button"
+                    onClick={() => {
+                      setFeaturedReciterId(reciter.id);
+                      if (isRecitationPlaying && recitationAudioEl) {
+                        recitationAudioEl.pause();
+                        setIsRecitationPlaying(false);
+                      }
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      featuredReciterId === reciter.id
+                        ? 'bg-[#10B981] text-[#04140F] border-emerald-300/60 font-bold shadow-[0_8px_20px_-6px_rgba(16,185,129,0.5)]'
+                        : 'bg-white/[0.06] text-[#EEF3F1] border-white/[0.12] hover:bg-white/[0.12]'
+                    }`}
+                  >
+                    {reciter.name}
+                  </button>
+                ))}
+              </div>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#F8F5EC]">
-              114 Sura Doimiy Qiroat va Azon Tinglash
-            </h2>
-            <p className="text-xs sm:text-sm text-[#F1EBDD]/85 max-w-xl leading-relaxed">
-              Jahonning yetakchi qorilari — Shayx Mishariy al-Afosiy, Shayx Ayman Rushdiy Suvayd va Shayx Mahmud Xalil al-Husariy ijrosidagi tilovatlarni yuqori sifatda tinglang.
-            </p>
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              {availableReciters.slice(0, 8).map((reciter) => (
-                <button
-                  key={reciter.id}
-                  onClick={() => {
-                    setFeaturedReciterId(reciter.id);
-                    if (isRecitationPlaying && recitationAudioEl) {
-                      recitationAudioEl.pause();
-                      setIsRecitationPlaying(false);
-                    }
-                  }}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                    featuredReciterId === reciter.id
-                      ? 'bg-[#C6A45C] text-[#042B25] border-[#DCC58C] font-bold'
-                      : 'bg-[#042B25]/70 text-[#F8F5EC] border-[#C6A45C]/30 hover:border-[#C6A45C]'
-                  }`}
-                >
-                  {reciter.name}
-                </button>
-              ))}
-            </div>
-          </div>
+            <div className="lg:col-span-5 az-liquid-glass-elevated !bg-[#081612]/78 border border-white/[0.14] rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AudioWaveformBars
+                      isPlaying={isRecitationPlaying}
+                      className="h-3.5"
+                      barClassName="bg-emerald-400"
+                    />
+                    <span className="az-type-overline text-[#C8A85E]">
+                      Tanlangan sura
+                    </span>
+                  </div>
+                  <select
+                    value={featuredSurahNum}
+                    onChange={(e) => {
+                      setFeaturedSurahNum(Number(e.target.value));
+                      if (isRecitationPlaying && recitationAudioEl) {
+                        recitationAudioEl.pause();
+                        setIsRecitationPlaying(false);
+                      }
+                    }}
+                    className="w-full mt-1 bg-[#0B1F19] text-[#F7F5F0] text-xs font-semibold px-3 py-2.5 rounded-xl border border-white/[0.14] focus:outline-none focus:border-[#10B981]"
+                  >
+                    <option value={1}>1. Al-Fotiha surasi</option>
+                    <option value={36}>36. Yosin surasi</option>
+                    <option value={55}>55. Ar-Rahmon surasi</option>
+                    <option value={67}>67. Al-Mulk surasi</option>
+                    <option value={112}>112. Al-Ixlos surasi</option>
+                    <option value={114}>114. An-Nos surasi</option>
+                  </select>
+                </div>
 
-          <div className="lg:col-span-5 bg-[#031814]/85 border border-[#C6A45C]/40 rounded-2xl p-5 space-y-4 backdrop-blur-md">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-[#DCC58C] block">
-                  Tanlangan sura
+                <MagneticWrapper strength={5}>
+                  <button
+                    type="button"
+                    onClick={handleToggleFeaturedRecitation}
+                    className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#D6B974] to-[#B59143] text-[#05120E] flex items-center justify-center shadow-[0_12px_28px_rgba(200,168,94,0.34)] hover:brightness-110 active:scale-95 transition-all cursor-pointer shrink-0"
+                    title={isRecitationPlaying ? 'Toʻxtatish' : 'Tilovatni tinglash'}
+                    aria-label={isRecitationPlaying ? 'Tilovatni toʻxtatish' : 'Tilovatni tinglash'}
+                  >
+                    {isRecitationPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                  </button>
+                </MagneticWrapper>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-[#C2D1CB] pt-3 border-t border-white/[0.1]">
+                <span className="truncate pr-2">
+                  Qori:{' '}
+                  <strong className="text-[#F7F5F0]">
+                    {(availableReciters.find((r) => r.id === featuredReciterId) || QURAN_RECITERS[0])?.name}
+                  </strong>
                 </span>
-                <select
-                  value={featuredSurahNum}
-                  onChange={(e) => {
-                    setFeaturedSurahNum(Number(e.target.value));
-                    if (isRecitationPlaying && recitationAudioEl) {
-                      recitationAudioEl.pause();
-                      setIsRecitationPlaying(false);
-                    }
-                  }}
-                  className="mt-1 bg-[#063D32] text-[#F8F5EC] text-xs font-bold px-3 py-2 rounded-xl border border-[#C6A45C]/40 focus:outline-none"
+                <button
+                  type="button"
+                  onClick={() => onNavigate('quran')}
+                  className="text-emerald-300 font-semibold hover:text-emerald-200 transition-colors shrink-0 cursor-pointer"
                 >
-                  <option value={1}>1. Al-Fotiha surasi</option>
-                  <option value={36}>36. Yosin surasi</option>
-                  <option value={55}>55. Ar-Rahmon surasi</option>
-                  <option value={67}>67. Al-Mulk surasi</option>
-                  <option value={112}>112. Al-Ixlos surasi</option>
-                  <option value={114}>114. An-Nos surasi</option>
-                </select>
+                  Toʻliq Mushaf →
+                </button>
               </div>
 
               <button
-                onClick={handleToggleFeaturedRecitation}
-                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#C6A45C] to-[#B38F45] text-[#042B25] flex items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer shrink-0"
-                title={isRecitationPlaying ? 'Toʻxtatish' : 'Tilovatni tinglash'}
+                type="button"
+                onClick={() => onNavigate('quran_quiz')}
+                className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-white/[0.07] hover:bg-white/[0.13] border border-white/[0.12] text-[#F7F5F0] text-xs font-semibold flex items-center justify-between transition-all cursor-pointer"
               >
-                {isRecitationPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                <span>Kunlik Qurʼon Viktorinasi (9:16 Audio Shorts)</span>
+                <span className="text-[#C8A85E]">Boshlash →</span>
               </button>
             </div>
-
-            <div className="flex items-center justify-between text-xs text-[#D4CFC3] pt-2 border-t border-[#C6A45C]/20">
-              <span>
-                Qori:{' '}
-                <strong className="text-[#DCC58C]">
-                  {(availableReciters.find((r) => r.id === featuredReciterId) || QURAN_RECITERS[0])?.name}
-                </strong>
-              </span>
-              <button
-                onClick={() => onNavigate('quran')}
-                className="text-[#C6A45C] font-bold hover:underline cursor-pointer"
-              >
-                Toʻliq Mushaf →
-              </button>
-            </div>
-
-            <button
-              onClick={() => onNavigate('quran_quiz')}
-              className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C6A45C]/25 to-[#DCC58C]/20 hover:from-[#C6A45C]/35 hover:to-[#DCC58C]/30 border border-[#C6A45C]/50 text-[#DCC58C] text-xs font-bold flex items-center justify-between transition-all cursor-pointer"
-            >
-              <span>Kunlik Qurʼon Viktorinasi (9:16 Audio Shorts)</span>
-              <span>Boshlash →</span>
-            </button>
           </div>
         </div>
-      </Card>
+      </ScrollReveal>
 
       {/* 6. ASYMMETRIC DAILY ISLAMIC WISDOM SUITE (KUN OYATI, KUN HADISI, KUN ZIKRI) */}
-      <section className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#063D32]/12 dark:border-[#C6A45C]/20 pb-3">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#063D32] dark:text-[#C6A45C] uppercase tracking-widest">
-              <Sparkles className="w-4 h-4" />
+      <ScrollReveal className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#064E3B]/[0.1] dark:border-white/[0.08] pb-3.5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 az-type-overline text-[#064E3B] dark:text-[#10B981]">
+              <Sparkles className="w-3.5 h-3.5" />
               <span>Har Kunlik Islomiy Maʼrifat</span>
-              <span>·</span>
-              <span className="font-mono-numbers">{dailyBundle.formattedDateUz}</span>
+              <span aria-hidden="true">·</span>
+              <span className="az-type-numeric text-[#5F776F] dark:text-[#C8A85E]">{dailyBundle.formattedDateUz}</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#042B25] dark:text-[#F8F5EC]">
+            <h2 className="az-type-page text-[#0B1B16] dark:text-[#F7F5F0]">
               Kun Oyati, Sahih Hadisi va Zikri
             </h2>
           </div>
@@ -1042,34 +1089,34 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </Button>
         </div>
 
-        {/* Asymmetric Layout: Left 7 Cols Illuminated Kun Oyati, Right 5 Cols Stacked Hadith & Dhikr */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Asymmetric Layout: Left 7 Cols Illuminated Kun Oyati (pure Arabic clarity), Right 5 Cols Stacked Hadith & Dhikr */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* Kun Oyati (7 Cols) */}
           <Card
             elevated
-            ornamental
-            className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden space-y-6 border-[#DFBD69]/45"
+            className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden space-y-6"
           >
-            <GeometricPattern opacity={0.04} />
             <div className="relative z-10 space-y-5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#063D32]/10 dark:bg-[#DFBD69]/15 border border-[#DFBD69]/35 text-xs font-bold text-[#063D32] dark:text-[#FFF6C8]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#064E3B] dark:text-[#C8A85E]">
                   <IslamicStarEmblem size={12} />
                   <span>Kun Oyati · {dailyBundle.ayah.surahNameUz} surasi, {dailyBundle.ayah.numberInSurah}-oyat</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    type="button"
                     onClick={() => handlePlayAudio(dailyBundle.ayah.audioUrl)}
-                    className={`min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border transition-colors cursor-pointer ${
+                    className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border transition-colors cursor-pointer ${
                       playingAudio
-                        ? 'az-gold-foil-bg text-[#010906] border-[#DFBD69]'
-                        : 'text-[#063D32] dark:text-[#DFBD69] border-[#063D32]/20 dark:border-[#DFBD69]/35 hover:border-[#DFBD69]'
+                        ? 'bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04140F] border-transparent'
+                        : 'text-[#064E3B] dark:text-[#D6B974] border-[#064E3B]/15 dark:border-white/[0.12] hover:border-[#10B981]'
                     }`}
                     title="Qiroatni tinglash"
                   >
                     <Volume2 className="w-4 h-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={() =>
                       onToggleFavorite({
                         id: dailyBundle.ayah.id,
@@ -1081,37 +1128,39 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         routeId: dailyBundle.ayah.id,
                       })
                     }
-                    className="min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border text-[#063D32] dark:text-[#DFBD69] border-[#063D32]/20 dark:border-[#DFBD69]/35 hover:border-[#DFBD69] transition-colors cursor-pointer"
+                    className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border text-[#064E3B] dark:text-[#D6B974] border-[#064E3B]/15 dark:border-white/[0.12] hover:border-[#10B981] transition-colors cursor-pointer"
                     title="Saqlash"
                   >
                     <Bookmark
                       className={`w-4 h-4 ${
-                        isFavorited(dailyBundle.ayah.id) ? 'fill-[#DFBD69] text-[#DFBD69]' : ''
+                        isFavorited(dailyBundle.ayah.id) ? 'fill-[#C8A85E] text-[#C8A85E]' : ''
                       }`}
                     />
                   </button>
                 </div>
               </div>
 
-              <div className="p-5 sm:p-6 rounded-2xl bg-[#F1EBDD]/80 dark:bg-[#010906]/75 border border-[#DFBD69]/35 shadow-inner">
+              {/* Clean, distraction-free Arabic Mushaf reading surface (zero effects over text) */}
+              <div className="p-5 sm:p-7 rounded-2xl bg-[#F7F5F0] dark:bg-[#07110E] border border-[#064E3B]/[0.08] dark:border-white/[0.08]">
                 <p
                   dir="rtl"
-                  className="font-arabic text-2xl sm:text-3xl text-[#03170F] dark:text-[#FFF8E8] leading-[2.3] text-right"
+                  className="font-arabic text-2xl sm:text-3xl text-[#0B1B16] dark:text-[#F7F5F0] leading-[2.35] text-right"
                 >
                   {dailyBundle.ayah.textAr}
                 </p>
               </div>
 
-              <p className="text-base sm:text-lg text-[#03170F] dark:text-[#FFF8E8]/90 leading-relaxed font-editorial italic">
+              <p className="az-type-body-lg text-[#1F3A32] dark:text-[#DCE4E0]">
                 «{ayahTranslation}»
               </p>
             </div>
 
-            <div className="relative z-10 pt-4 border-t border-[#063D32]/12 dark:border-[#DFBD69]/20 text-xs text-[#5C746C] dark:text-[#FFF8E8]/65 flex items-center justify-between gap-2">
+            <div className="relative z-10 pt-4 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] text-xs text-[#5F776F] dark:text-[#8FA69D] flex items-center justify-between gap-2">
               <span className="truncate">Tafsiri Hilol · Shayx Muhammad Sodiq Muhammad Yusuf</span>
               <button
+                type="button"
                 onClick={() => onNavigate('quran')}
-                className="text-[#063D32] dark:text-[#DFBD69] font-bold hover:underline shrink-0 cursor-pointer"
+                className="text-[#064E3B] dark:text-[#10B981] font-semibold hover:underline shrink-0 cursor-pointer"
               >
                 Qurʼoni Karimga oʻtish →
               </button>
@@ -1119,36 +1168,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </Card>
 
           {/* Right 5 Cols: Stacked Kun Hadisi & Kun Zikri */}
-          <div className="lg:col-span-5 flex flex-col gap-6">
+          <div className="lg:col-span-5 flex flex-col gap-5">
             {/* Kun Hadisi */}
-            <Card elevated ornamental className="p-6 flex-1 flex flex-col justify-between space-y-4">
+            <Card elevated className="p-6 flex-1 flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-bold text-[#063D32] dark:text-[#C6A45C]">
+                  <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E]">
                     Kun Hadisi · {dailyBundle.hadith.collectionNameUz}
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#063D32]/10 dark:bg-[#C6A45C]/20 text-[#063D32] dark:text-[#DCC58C] font-bold">
+                  <span className="az-type-overline text-emerald-700 dark:text-emerald-400">
                     {dailyBundle.hadith.grade}
                   </span>
                 </div>
 
                 <p
                   dir="rtl"
-                  className="font-arabic text-xl text-[#042B25] dark:text-[#F8F5EC] leading-relaxed text-right"
+                  className="font-arabic text-xl text-[#0B1B16] dark:text-[#F7F5F0] leading-relaxed text-right"
                 >
                   {dailyBundle.hadith.textAr}
                 </p>
 
-                <p className="text-sm text-[#2C4A42] dark:text-[#D4CFC3] leading-relaxed font-editorial italic">
+                <p className="az-type-body text-[#334F46] dark:text-[#D4DDD8]">
                   «{hadithTranslation}»
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#C6A45C]/20 text-xs text-[#5C746C] dark:text-[#8FA69E] flex items-center justify-between">
+              <div className="pt-3 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] text-xs text-[#5F776F] dark:text-[#8FA69D] flex items-center justify-between">
                 <span>Roviy: {dailyBundle.hadith.narratorUz}</span>
                 <button
+                  type="button"
                   onClick={() => onNavigate('hadith')}
-                  className="text-[#063D32] dark:text-[#C6A45C] font-bold hover:underline cursor-pointer"
+                  className="text-[#064E3B] dark:text-[#10B981] font-semibold hover:underline cursor-pointer"
                 >
                   Hadislar →
                 </button>
@@ -1159,31 +1209,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <Card elevated className="p-6 flex-1 flex flex-col justify-between space-y-4">
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-bold text-[#063D32] dark:text-[#C6A45C]">
+                  <span className="font-semibold text-[#064E3B] dark:text-[#C8A85E]">
                     Kun Zikri · {dailyBundle.dhikr.titleUz}
                   </span>
-                  <span className="font-mono-numbers font-bold text-[#063D32] dark:text-[#DCC58C]">
+                  <span className="az-type-numeric font-bold text-[#064E3B] dark:text-[#10B981]">
                     {dailyBundle.dhikr.targetCount} marta
                   </span>
                 </div>
 
                 <p
                   dir="rtl"
-                  className="font-arabic text-xl text-[#042B25] dark:text-[#F8F5EC] leading-relaxed text-right"
+                  className="font-arabic text-xl text-[#0B1B16] dark:text-[#F7F5F0] leading-relaxed text-right"
                 >
                   {dailyBundle.dhikr.textAr}
                 </p>
 
-                <p className="text-xs text-[#2C4A42] dark:text-[#D4CFC3] leading-relaxed">
+                <p className="az-type-body text-[#334F46] dark:text-[#D4DDD8]">
                   «{dhikrTranslation}»
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-[#063D32]/10 dark:border-[#C6A45C]/20 text-xs text-[#5C746C] dark:text-[#8FA69E] flex items-center justify-between">
+              <div className="pt-3 border-t border-[#064E3B]/[0.08] dark:border-white/[0.08] text-xs text-[#5F776F] dark:text-[#8FA69D] flex items-center justify-between">
                 <span>{dailyBundle.dhikr.source}</span>
                 <button
+                  type="button"
                   onClick={() => onNavigate('dhikr')}
-                  className="text-[#063D32] dark:text-[#C6A45C] font-bold hover:underline cursor-pointer"
+                  className="text-[#064E3B] dark:text-[#10B981] font-semibold hover:underline cursor-pointer"
                 >
                   Raqamli Tasbeh →
                 </button>
@@ -1191,7 +1242,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </Card>
           </div>
         </div>
-      </section>
+      </ScrollReveal>
 
       {/* 7. EDITORIAL MAGAZINE SPLIT: FEATURED ARTICLES (LEFT) & ANNOUNCEMENTS + NEWS (RIGHT) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
