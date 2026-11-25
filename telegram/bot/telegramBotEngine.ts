@@ -54,6 +54,9 @@ import { AiGenerateFn, AiTranscribeFn, AiTtsFn, TelegramAiBridge } from '../ai/a
 import { TelegramIslamicContentAdapter } from '../content/islamicContentAdapter';
 import { CentralContentProvider, CentralDatabaseReader } from '../content/centralContentProvider';
 import { AppReleaseService } from '../services/appReleaseService';
+import type { GlobalPrayerEcosystemService } from '../../src/services/globalPrayerEcosystemServer';
+import type { QuranEcosystemService } from '../../src/services/quranEcosystemServer';
+import type { SubscriptionEcosystemService } from '../../src/services/subscriptionEcosystemServer';
 import { UnifiedSyncEngine } from '../sync/syncEngine';
 import { TelegramAcademyQuizService } from '../services/academyQuizService';
 import { TelegramSupportService } from '../support/supportService';
@@ -121,6 +124,9 @@ export interface TelegramBotEngineOptions {
   centralContentReader?: CentralDatabaseReader;
   centralAdminWriter?: TelegramCentralAdminWriter;
   appReleaseService?: AppReleaseService;
+  globalPrayerEcosystem?: GlobalPrayerEcosystemService;
+  quranEcosystem?: QuranEcosystemService;
+  subscriptionEcosystem?: SubscriptionEcosystemService;
   serverWriteFirestoreDoc?: (
     collectionName: string,
     docId: string,
@@ -262,6 +268,9 @@ export class TelegramBotEngine {
   public readonly quranMp3Service: TelegramQuranMp3Service;
   public readonly styleManager: TelegramStyleManager;
   public readonly jobScheduler: TelegramJobScheduler;
+  public readonly globalPrayerEcosystem?: GlobalPrayerEcosystemService;
+  public readonly quranEcosystem?: QuranEcosystemService;
+  public readonly subscriptionEcosystem?: SubscriptionEcosystemService;
 
   public readonly instanceId: string = `tg_${process.env.K_REVISION || os.hostname() || 'node'}_${process.pid}_${crypto.randomBytes(3).toString('hex')}`;
   public readonly deploymentId: string =
@@ -309,6 +318,9 @@ export class TelegramBotEngine {
   constructor(options: TelegramBotEngineOptions = {}) {
     this.hasCustomAiGenerator = Boolean(options.aiGenerator);
     this.centralAdminWriter = options.centralAdminWriter;
+    this.globalPrayerEcosystem = options.globalPrayerEcosystem;
+    this.quranEcosystem = options.quranEcosystem;
+    this.subscriptionEcosystem = options.subscriptionEcosystem;
     this.config = options.config || loadTelegramPlatformConfig();
     this.logger = createTelegramLogger('TelegramPlatform', Boolean(options.silentLogger));
     this.apiClient = new TelegramApiClient(this.config, this.logger, options.fetchImpl);
@@ -1094,6 +1106,8 @@ export class TelegramBotEngine {
       { command: 'daily', description: dict.commands.daily },
       { command: 'hifz', description: dict.commands.hifz },
       { command: 'prayer', description: dict.commands.prayer },
+      { command: 'obhavo', description: 'Ob-havo (7 kunlik prognoz)' },
+      { command: 'hudud', description: 'Hudud va shahar tanlash' },
       { command: 'qibla', description: dict.commands.qibla },
       { command: 'ramadan', description: dict.commands.ramadan },
       { command: 'calendar', description: dict.commands.calendar },
@@ -2565,6 +2579,9 @@ export class TelegramBotEngine {
           hifzService: this.hifzService,
           quranMp3Service: this.quranMp3Service,
           styleManager: this.styleManager,
+          globalPrayerEcosystem: this.globalPrayerEcosystem,
+          quranEcosystem: this.quranEcosystem,
+          subscriptionEcosystem: this.subscriptionEcosystem,
           centralAdminWriter: this.centralAdminWriter,
           runDiagnostics: () => this.runLiveDiagnostics(),
         });
@@ -2630,6 +2647,9 @@ export class TelegramBotEngine {
             hifzService: this.hifzService,
             quranMp3Service: this.quranMp3Service,
             styleManager: this.styleManager,
+            globalPrayerEcosystem: this.globalPrayerEcosystem,
+            quranEcosystem: this.quranEcosystem,
+            subscriptionEcosystem: this.subscriptionEcosystem,
           });
           return {
             ok: true,
@@ -2668,6 +2688,9 @@ export class TelegramBotEngine {
               hifzService: this.hifzService,
               quranMp3Service: this.quranMp3Service,
               styleManager: this.styleManager,
+              globalPrayerEcosystem: this.globalPrayerEcosystem,
+              quranEcosystem: this.quranEcosystem,
+              subscriptionEcosystem: this.subscriptionEcosystem,
             }
           );
           return {

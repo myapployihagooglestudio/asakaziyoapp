@@ -388,14 +388,33 @@ export function buildPrayerKeyboard(
         emoji.buildKeyboardButton(
           'prayer',
           locale === 'ru'
-            ? 'Регионы (Таквим)'
+            ? 'Выбрать регион / город'
             : locale === 'en'
-              ? 'Regional Taqvim'
+              ? 'Select Region / City'
               : locale === 'uz-Cyrl'
-                ? 'Ҳудудий тақвим'
-                : 'Hududiy taqvim',
-          { callback_data: 'tools:regions' }
+                ? 'Ҳудуд ва шаҳар танлаш'
+                : 'Hudud / Shahar tanlash',
+          { callback_data: 'gpray:regions:uz1' }
         ),
+        emoji.buildKeyboardButton(
+          'brand.star',
+          locale === 'ru'
+            ? 'Погода (7 дней)'
+            : locale === 'en'
+              ? 'Weather (7-day)'
+              : locale === 'uz-Cyrl'
+                ? 'Об-ҳаво (7 кун)'
+                : 'Ob-havo (7 kun)',
+          { callback_data: 'gpray:weather:current' }
+        ),
+      ],
+      [
+        emoji.buildKeyboardButton('brand.crescent', 'Makka', {
+          callback_data: 'gpray:select:sa-makkah',
+        }),
+        emoji.buildKeyboardButton('brand.crescent', 'Madina', {
+          callback_data: 'gpray:select:sa-madinah',
+        }),
         emoji.buildKeyboardButton('nav.settings', b.togglePrayerAlerts, {
           callback_data: 'nav:settings',
         }),

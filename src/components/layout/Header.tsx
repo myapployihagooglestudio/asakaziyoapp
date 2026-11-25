@@ -57,6 +57,7 @@ const SECTION_META: Partial<Record<NavigationTab, { labelKey: string; fallback: 
   admin: { labelKey: 'admin', fallback: 'Admin Konsol' },
   settings: { labelKey: 'settings', fallback: 'Sozlamalar' },
   profile: { labelKey: 'profile', fallback: 'Profil' },
+  premium: { labelKey: 'premium', fallback: 'Premium Obuna' },
 };
 
 export const Header: React.FC<HeaderProps> = ({

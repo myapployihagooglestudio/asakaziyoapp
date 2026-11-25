@@ -1009,6 +1009,50 @@
     "/appConfig/{configId}": {
       "schema": "AppConfigEmojiRegistry",
       "description": "Backward-compatible unified appConfig/emojiRegistry catalog synchronized atomically with app_config/premium_emojis"
+    },
+    "/asakaManualArchives/{archiveId}": {
+      "schema": "PrayerSchedule",
+      "description": "Strictly isolated Asaka MANUAL_ADMIN version snapshots, future date schedules, and rollback history (never written by AUTO jobs)"
+    },
+    "/globalPrayerConfigs/{configId}": {
+      "schema": "PrayerSchedule",
+      "description": "Strictly isolated Global AUTO prayer calculation preferences, custom global cities, and Uzbekistan 14-region official verification reports"
+    },
+    "/userLocationPrefs/{prefId}": {
+      "schema": "UserProfile",
+      "description": "Cross-platform per-user selected city, district, and calculation preference synced across Web, Android, and Telegram"
+    },
+    "/qariProfiles/{qariId}": {
+      "schema": "UserProfile",
+      "description": "Admin-managed persistent Quran reciter profiles with verified metadata and published surah counters"
+    },
+    "/quranAudioFiles/{audioId}": {
+      "schema": "MediaPost",
+      "description": "Persistent 114-surah audio metadata with SHA-256 checksums and DRAFT/VERIFIED/PUBLISHED gating"
+    },
+    "/quranPlaylists/{playlistId}": {
+      "schema": "UserProfile",
+      "description": "Official admin and personal user Quran playlists synced across Web, Android, and Telegram"
+    },
+    "/userQuranProfiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "Cross-platform user Mushaf reading progress, notes, bookmarks, Hifz ranges, Tajweed lessons, and certificates"
+    },
+    "/subscriptionPlans/{planId}": {
+      "schema": "AppRelease",
+      "description": "Admin-configurable Free and Premium 1m/3m/6m subscription plans and dynamic pricing"
+    },
+    "/subscriptionConfig/{configId}": {
+      "schema": "AppRelease",
+      "description": "Admin-managed manual card payment display settings and gateway flags"
+    },
+    "/paymentOrders/{orderId}": {
+      "schema": "UserInquiry",
+      "description": "Manual card payment orders with PENDING/APPROVED/REJECTED lifecycle (never stores PIN/CVV/OTP)"
+    },
+    "/userSubscriptions/{userId}": {
+      "schema": "UserProfile",
+      "description": "Server-verified user subscription statuses (FREE, PENDING, ACTIVE, EXPIRED, CANCELLED, SUSPENDED, GIFTED)"
     }
   }
 }

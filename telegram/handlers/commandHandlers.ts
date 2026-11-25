@@ -22,6 +22,25 @@ import { AppReleaseService } from '../services/appReleaseService';
 import { TelegramHifzService } from '../hifz/hifzService';
 import { TelegramQuranMp3Service } from '../services/quranMp3Service';
 import { TelegramStyleManager } from '../style/styleManager';
+import type { GlobalPrayerEcosystemService } from '../../src/services/globalPrayerEcosystemServer';
+import type { QuranEcosystemService } from '../../src/services/quranEcosystemServer';
+import type { SubscriptionEcosystemService } from '../../src/services/subscriptionEcosystemServer';
+import {
+  buildGlobalRegionPickerKeyboard,
+  buildWeatherInlineKeyboard,
+  formatTelegramUnifiedPrayerMessage,
+  formatTelegramWeatherMessage,
+  getTelegramUserPrefKey,
+  resolveLocationFromQueryOrGeocoding,
+} from '../services/globalPrayerWeatherBotHelper';
+import {
+  appendDeveloperAttributionEntity,
+  formatTelegramAboutMessage,
+  formatTelegramPremiumMessage,
+  formatTelegramQarisLibraryMessage,
+  formatTelegramRandomDrawsMessage,
+  getTelegramCanonicalUserKey,
+} from '../services/quranPremiumBotHelper';
 import {
   buildHifzHomeKeyboard,
   formatHifzHomeText,
@@ -102,6 +121,9 @@ export interface CommandHandlerContext {
   hifzService?: TelegramHifzService;
   quranMp3Service?: TelegramQuranMp3Service;
   styleManager?: TelegramStyleManager;
+  globalPrayerEcosystem?: GlobalPrayerEcosystemService;
+  quranEcosystem?: QuranEcosystemService;
+  subscriptionEcosystem?: SubscriptionEcosystemService;
 }
 
 export function parseBotCommand(text: string | undefined): { command: string; args: string } | null {
@@ -475,8 +497,8 @@ export async function handleBotCommand(
       }
 
       // Returning registered user -> go directly to Main Menu (never re-prompt registration)
-      const menuMsg = ctx.emojiRegistry.formatMessage(
-        `${dict.mainMenuTitle}\n\n${dict.mainMenuPrompt}`
+      const menuMsg = appendDeveloperAttributionEntity(
+        ctx.emojiRegistry.formatMessage(`${dict.mainMenuTitle}\n\n${dict.mainMenuPrompt}`)
       );
       const mainKb = buildMainMenuKeyboard(user.language, ctx.emojiRegistry, ctx.config, menuOpts);
       await ctx.apiClient.sendMessage({
@@ -507,10 +529,6 @@ export async function handleBotCommand(
 
     case '/prayer':
     case '/namoz': {
-      const formatted = ctx.prayerAdapter.formatPrayerScheduleMessage(
-        user.language,
-        ctx.emojiRegistry
-      );
       const rawPrayerKb = buildPrayerKeyboard(
         user.language,
         ctx.emojiRegistry,
@@ -525,7 +543,7 @@ export async function handleBotCommand(
             inline_keyboard: [
               ...rawPrayerKb.inline_keyboard.slice(0, -1),
               [
- ctx.emojiRegistry.buildKeyboardButton('calendar', 'Interaktiv Namoz Kartasi', {
+                ctx.emojiRegistry.buildKeyboardButton('calendar', 'Interaktiv Namoz Kartasi', {
                   callback_data: 'widget:prayer',
                 }),
               ],
@@ -535,6 +553,35 @@ export async function handleBotCommand(
         : rawPrayerKb;
       const styledKb = ctx.styleManager ? ctx.styleManager.decorateInlineMarkup(prayerKb) : prayerKb;
 
+      if (ctx.globalPrayerEcosystem) {
+        let overrideLoc = undefined;
+        if (parsed.args.trim()) {
+          overrideLoc =
+            (await resolveLocationFromQueryOrGeocoding(ctx.globalPrayerEcosystem, parsed.args)) ||
+            undefined;
+        }
+        const unified = await formatTelegramUnifiedPrayerMessage({
+          ecosystem: ctx.globalPrayerEcosystem,
+          telegramId: user.telegramId,
+          locale: user.language,
+          emojiRegistry: ctx.emojiRegistry,
+          overrideCityId: overrideLoc?.id,
+          overrideCustomLocation: overrideLoc,
+        });
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: unified.formatted.text,
+          ...(unified.formatted.entities.length > 0 ? { entities: unified.formatted.entities } : {}),
+          reply_markup: styledKb,
+          disable_web_page_preview: true,
+        });
+        return { handled: true, command: '/prayer' };
+      }
+
+      const formatted = ctx.prayerAdapter.formatPrayerScheduleMessage(
+        user.language,
+        ctx.emojiRegistry
+      );
       if (ctx.styleManager && settings.richMessagesEnabled) {
         const rich = ctx.styleManager.buildPrayerRichMessage(
           ctx.prayerAdapter,
@@ -561,6 +608,40 @@ export async function handleBotCommand(
         });
       }
       return { handled: true, command: '/prayer' };
+    }
+
+    case '/obhavo':
+    case '/weather': {
+      if (!ctx.globalPrayerEcosystem) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: 'Ob-havo xizmati vaqtincha mavjud emas.',
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        });
+        return { handled: true, command: '/obhavo' };
+      }
+      try {
+        const res = await formatTelegramWeatherMessage({
+          ecosystem: ctx.globalPrayerEcosystem,
+          telegramId: user.telegramId,
+          emojiRegistry: ctx.emojiRegistry,
+          cityQuery: parsed.args.trim() || undefined,
+        });
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: res.formatted.text,
+          ...(res.formatted.entities.length > 0 ? { entities: res.formatted.entities } : {}),
+          reply_markup: buildWeatherInlineKeyboard(res.cityId, ctx.emojiRegistry),
+          disable_web_page_preview: true,
+        });
+      } catch (err: any) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `Ob-havo ma'lumotini yuklashda xatolik: ${err?.message || 'tarmoq xatosi'}. Keyinroq qayta urinib ko‘ring.`,
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        });
+      }
+      return { handled: true, command: '/obhavo' };
     }
 
     case '/ramadan': {
@@ -1434,8 +1515,62 @@ export async function handleBotCommand(
       return { handled: true, command: '/cybersafety' };
     }
 
+    case '/hudud':
+    case '/region':
     case '/regions':
     case '/hududlar': {
+      if (ctx.globalPrayerEcosystem) {
+        const query = parsed.args.trim();
+        if (query) {
+          const found = await resolveLocationFromQueryOrGeocoding(ctx.globalPrayerEcosystem, query);
+          if (found) {
+            await ctx.globalPrayerEcosystem.saveUserLocationPref({
+              userId: getTelegramUserPrefKey(user.telegramId),
+              cityId: found.id,
+              districtId: found.districtId,
+              customLocation: found.regionId === 'global-geocoded' ? found : null,
+              syncAcrossDevices: true,
+              platformSource: 'telegram',
+              updatedAt: new Date().toISOString(),
+            });
+            const unified = await formatTelegramUnifiedPrayerMessage({
+              ecosystem: ctx.globalPrayerEcosystem,
+              telegramId: user.telegramId,
+              locale: user.language,
+              emojiRegistry: ctx.emojiRegistry,
+              overrideCityId: found.id,
+              overrideCustomLocation: found,
+            });
+            await ctx.apiClient.sendMessage({
+              chat_id: chatId,
+              text: `Hudud saqlandi: ${found.cityName} (${found.countryName})\n\n${unified.formatted.text}`,
+              ...(unified.formatted.entities.length > 0 ? { entities: unified.formatted.entities } : {}),
+              reply_markup: buildPrayerKeyboard(
+                user.language,
+                ctx.emojiRegistry,
+                ctx.config,
+                menuOpts.miniAppEnabled
+              ),
+              disable_web_page_preview: true,
+            });
+            return { handled: true, command: '/hudud' };
+          }
+        }
+        const formatted = ctx.emojiRegistry.formatMessage(
+          '{{emoji:prayer}} HUDUD VA SHAHAR TANLASH\n\n' +
+            'Asaka (Admin MANUAL rasmiy jadval), O‘zbekistonning barcha 14 hududi, Makka/Madina yoki istalgan dunyo shahrini tanlang.\n' +
+            'Masalan: /hudud Toshkent, /hudud Makka, /hudud Istanbul'
+        );
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: formatted.text,
+          ...(formatted.entities.length > 0 ? { entities: formatted.entities } : {}),
+          reply_markup: buildGlobalRegionPickerKeyboard(ctx.emojiRegistry, 'uz1'),
+          disable_web_page_preview: true,
+        });
+        return { handled: true, command: '/hudud' };
+      }
+
       const formatted = ctx.emojiRegistry.formatMessage(
         formatRegionalTaqvimNotice(user.language)
       );
@@ -1469,9 +1604,198 @@ export async function handleBotCommand(
       return { handled: true, command: '/services' };
     }
 
+    case '/premium':
+    case '/obuna':
+    case '/tarif': {
+      if (!ctx.subscriptionEcosystem) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '👑 Premium obuna markazi hozir yuklanmoqda. Iltimos, birozdan keyin urinib koʻring.',
+        });
+        return { handled: true, command: '/premium' };
+      }
+      const view = formatTelegramPremiumMessage({
+        subscriptionService: ctx.subscriptionEcosystem,
+        telegramId: user.telegramId,
+        config: ctx.config,
+        miniAppEnabled: menuOpts.miniAppEnabled,
+      });
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: view.html,
+        parse_mode: 'HTML',
+        reply_markup: view.reply_markup,
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/premium' };
+    }
+
+    case '/promo': {
+      if (!ctx.subscriptionEcosystem) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '🎟 Promokod tizimi hozir yuklanmoqda.',
+        });
+        return { handled: true, command: '/promo' };
+      }
+      const code = parsed.args.trim().toUpperCase();
+      if (!code) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '🎟 Promokod kiritish uchun quyidagicha yozing:\n<code>/promo RAMAZON2026</code>',
+          parse_mode: 'HTML',
+        });
+        return { handled: true, command: '/promo' };
+      }
+      const tgKey = getTelegramCanonicalUserKey(user.telegramId);
+      const res = await ctx.subscriptionEcosystem.redeemFreeDaysPromo(code, tgKey);
+      if (!res.ok) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `⚠️ ${res.error || 'Promokod qabul qilinmadi.'}`,
+        });
+        return { handled: true, command: '/promo' };
+      }
+      if (res.subscription) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text:
+            `✅ <b>Promokod faollashtirildi!</b>\n\n` +
+            `🎟 Kod: <code>${code}</code>\n` +
+            `👑 Holat: <b>${res.subscription.status}</b>\n` +
+            `⏳ Muddati: <b>${(res.subscription.expiresAt || '—').slice(0, 10)}</b>\n\n` +
+            `Barcha platformalarda (Web, Android, Telegram Mini App) Premium huquqlaringiz avtomatik yangilandi.`,
+          parse_mode: 'HTML',
+        });
+      } else {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `ℹ️ <b>${code}</b> — chegirma promokodi tasdiqlandi! ${res.error || 'Mini App Premium boʻlimida tarif tanlashda kiriting.'}`,
+          parse_mode: 'HTML',
+        });
+      }
+      return { handled: true, command: '/promo' };
+    }
+
+    case '/tanlov':
+    case '/draw':
+    case '/hadya': {
+      if (!ctx.subscriptionEcosystem) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '🎁 Tanlovlar boʻlimi hozir yuklanmoqda.',
+        });
+        return { handled: true, command: '/tanlov' };
+      }
+      const view = formatTelegramRandomDrawsMessage({
+        subscriptionService: ctx.subscriptionEcosystem,
+        telegramId: user.telegramId,
+        config: ctx.config,
+        miniAppEnabled: menuOpts.miniAppEnabled,
+      });
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: view.html,
+        parse_mode: 'HTML',
+        reply_markup: view.reply_markup,
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/tanlov' };
+    }
+
+    case '/link': {
+      if (!ctx.subscriptionEcosystem) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '🔗 Hisob bogʻlash xizmati hozir yuklanmoqda.',
+        });
+        return { handled: true, command: '/link' };
+      }
+      const code = parsed.args.trim().replace(/\s+/g, '');
+      if (!code || !/^\d{6}$/.test(code)) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text:
+            `🔗 <b>Hisobni Web / Android ilova bilan bogʻlash</b>\n\n` +
+            `1. Websayt yoki Android ilovada <b>Premium</b> boʻlimini oching.\n` +
+            `2. «Telegram bilan bogʻlash kodi» tugmasini bosib 6 xonali kod oling.\n` +
+            `3. Shu yerga <code>/link 123456</code> shaklida yuboring.\n\n` +
+            `Natijada barcha qurilmalarda yagona Premium obuna va Qurʼon progressi sinxronlanadi.`,
+          parse_mode: 'HTML',
+        });
+        return { handled: true, command: '/link' };
+      }
+      const tgKey = getTelegramCanonicalUserKey(user.telegramId);
+      const linked = ctx.subscriptionEcosystem.redeemAccountLinkCode(code, tgKey);
+      if (!linked.ok) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: `⚠️ ${linked.error || 'Kod yaroqsiz yoki muddati tugagan.'}`,
+        });
+        return { handled: true, command: '/link' };
+      }
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text:
+          `✅ <b>Hisoblar muvaffaqiyatli bogʻlandi!</b>\n\n` +
+          `🔗 Yagona hisob ID: <code>${linked.canonicalUserId}</code>\n` +
+          `Endi Web App, Android APK, Telegram Bot va Mini App bitta Premium obuna hamda Qurʼon profilidan foydalanadi.`,
+        parse_mode: 'HTML',
+      });
+      return { handled: true, command: '/link' };
+    }
+
+    case '/qorilar':
+    case '/quran_pro': {
+      if (!ctx.quranEcosystem) {
+        await ctx.apiClient.sendMessage({
+          chat_id: chatId,
+          text: '🎙 Qorilar kutubxonasi hozir yuklanmoqda.',
+        });
+        return { handled: true, command: '/qorilar' };
+      }
+      const view = formatTelegramQarisLibraryMessage({
+        quranService: ctx.quranEcosystem,
+        config: ctx.config,
+        miniAppEnabled: menuOpts.miniAppEnabled,
+      });
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: view.html,
+        parse_mode: 'HTML',
+        reply_markup: view.reply_markup,
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/qorilar' };
+    }
+
+    case '/about':
+    case '/info': {
+      const view = formatTelegramAboutMessage({
+        config: ctx.config,
+        miniAppEnabled: menuOpts.miniAppEnabled,
+      });
+      await ctx.apiClient.sendMessage({
+        chat_id: chatId,
+        text: view.html,
+        parse_mode: 'HTML',
+        reply_markup: view.reply_markup,
+        disable_web_page_preview: true,
+      });
+      return { handled: true, command: '/about' };
+    }
+
     case '/help': {
-      const formatted = ctx.emojiRegistry.formatMessage(
-        `${dict.helpTitle}\n\n${dict.helpBody}`
+      const formatted = appendDeveloperAttributionEntity(
+        ctx.emojiRegistry.formatMessage(
+          `${dict.helpTitle}\n\n${dict.helpBody}\n\n` +
+            `• /qorilar — Qorilar audio kutubxonasi & Tajvid\n` +
+            `• /premium — Premium obuna va tariflar\n` +
+            `• /promo KOD — Promokod faollashtirish\n` +
+            `• /tanlov — Bepul hadya tanlovlari\n` +
+            `• /link KOD — Web/Android hisobini bogʻlash\n` +
+            `• /about — Loyiha haqida`
+        )
       );
       await ctx.apiClient.sendMessage({
         chat_id: chatId,

@@ -135,6 +135,10 @@ const TAB_ALIAS_MAP: Record<string, NavigationTab> = {
   masjidtv: 'masjid_tv',
   display: 'display',
   tv: 'masjid_tv',
+  premium: 'premium',
+  obuna: 'premium',
+  tarif: 'premium',
+  tanlov: 'premium',
 };
 
 let activeBackHandler: (() => void) | null = null;

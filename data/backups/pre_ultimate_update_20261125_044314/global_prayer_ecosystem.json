@@ -1,0 +1,1609 @@
+{
+  "asakaManualArchive": {
+    "versions": [
+      {
+        "versionId": "asaka-v14-1795580360920",
+        "versionNumber": 14,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "05:50",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "16:55",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T04:19:20.708Z",
+        "note": "Oldingi tasdiqlangan versiyaga qaytildi (v12 · 2026-11-02)"
+      },
+      {
+        "versionId": "asaka-v13-1795580360270",
+        "versionNumber": 13,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "04:59",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "18:19",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T04:19:20.047Z",
+        "note": "Automated verification test publish (will be rolled back)"
+      },
+      {
+        "versionId": "asaka-v12-1795580359754",
+        "versionNumber": 12,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "05:50",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "16:55",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T04:19:19.518Z",
+        "note": "Oldingi tasdiqlangan versiyaga qaytildi (v9 · 2026-11-02)"
+      },
+      {
+        "versionId": "asaka-v11-1795580257087",
+        "versionNumber": 11,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "time": "01:30",
+            "id": "p-0",
+            "key": "tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "nameUz": "Tahajjud"
+          },
+          {
+            "nameUz": "Subh (Saharlik)",
+            "id": "p-01",
+            "nameAr": "الصُّبْح",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti"
+          },
+          {
+            "id": "p-1",
+            "time": "04:59",
+            "key": "bomdod",
+            "nameAr": "الفَجْر",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "iqamahTime": "06:30",
+            "nameUz": "Bomdod"
+          },
+          {
+            "nameAr": "الشُّرُوق",
+            "nameUz": "Quyosh",
+            "key": "quyosh",
+            "id": "p-2",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "time": "06:46"
+          },
+          {
+            "time": "12:45",
+            "id": "p-3",
+            "key": "peshin",
+            "nameAr": "الظُّهْر",
+            "iqamahTime": "12:50",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt"
+          },
+          {
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha",
+            "key": "asr",
+            "id": "p-4",
+            "nameAr": "العَصْر",
+            "iqamahTime": "15:15",
+            "nameUz": "Asr",
+            "time": "15:10"
+          },
+          {
+            "iqamahTime": "16:55",
+            "key": "shom",
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "id": "p-5",
+            "nameUz": "Shom",
+            "time": "18:19",
+            "nameAr": "المَغْرِب"
+          },
+          {
+            "key": "xufton",
+            "time": "18:30",
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "iqamahTime": "18:40",
+            "id": "p-6",
+            "nameAr": "العِشَاء",
+            "nameUz": "Xufton"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T04:17:36.809Z",
+        "note": "Automated verification test publish (will be rolled back)"
+      },
+      {
+        "versionId": "asaka-v10-1795580136052",
+        "versionNumber": 10,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "time": "01:30",
+            "id": "p-0",
+            "key": "tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "nameUz": "Tahajjud"
+          },
+          {
+            "nameUz": "Subh (Saharlik)",
+            "id": "p-01",
+            "nameAr": "الصُّبْح",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti"
+          },
+          {
+            "id": "p-1",
+            "time": "05:50",
+            "key": "bomdod",
+            "nameAr": "الفَجْر",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "iqamahTime": "06:30",
+            "nameUz": "Bomdod"
+          },
+          {
+            "nameAr": "الشُّرُوق",
+            "nameUz": "Quyosh",
+            "key": "quyosh",
+            "id": "p-2",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "time": "06:46"
+          },
+          {
+            "time": "12:45",
+            "id": "p-3",
+            "key": "peshin",
+            "nameAr": "الظُّهْر",
+            "iqamahTime": "12:50",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt"
+          },
+          {
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha",
+            "key": "asr",
+            "id": "p-4",
+            "nameAr": "العَصْر",
+            "iqamahTime": "15:15",
+            "nameUz": "Asr",
+            "time": "15:10"
+          },
+          {
+            "iqamahTime": "16:55",
+            "key": "shom",
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "id": "p-5",
+            "nameUz": "Shom",
+            "time": "16:55",
+            "nameAr": "المَغْرِب"
+          },
+          {
+            "key": "xufton",
+            "time": "18:30",
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "iqamahTime": "18:40",
+            "id": "p-6",
+            "nameAr": "العِشَاء",
+            "nameUz": "Xufton"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T04:15:35.772Z",
+        "note": "Automated verification test publish (will be rolled back)"
+      },
+      {
+        "versionId": "asaka-v9-1795580018640",
+        "versionNumber": 9,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "05:50",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "16:55",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-24T11:57:12.694Z",
+        "note": "Boshlang‘ich tasdiqlangan Asaka jadvali"
+      }
+    ],
+    "futureDateSchedules": {}
+  },
+  "globalAutoConfig": {
+    "defaultUzMethod": "UZBEKISTAN_OMI",
+    "defaultGlobalMethod": "ISNA",
+    "defaultGlobalAsr": "STANDARD",
+    "defaultHighLatitudeRule": "ANGLE_BASED",
+    "defaultMidnightMode": "STANDARD",
+    "preferOfficialUzLiveSync": true,
+    "customGlobalCities": [],
+    "adminImportedUzTables": {},
+    "lastUzbekistanAudit": {
+      "generatedAt": "2026-11-25T04:19:23.930Z",
+      "auditedDate": "2026-11-25",
+      "sources": [
+        {
+          "id": "fatvo_uz",
+          "name": "Fatvo.uz (O‘MI Fatvo Markazi)",
+          "url": "https://fatvo.uz/",
+          "hasPublicJsonApi": false,
+          "scrapingAllowed": false,
+          "reachable": true,
+          "httpStatus": 200,
+          "latencyMs": 2241,
+          "notesUz": "Rasmiy HTML portal. Ochiq REST JSON API mavjud emas; ruxsatsiz scraping taqiqlangan. Admin rasmiy jadval importi orqali tasdiqlash tavsiya etiladi.",
+          "checkedAt": "2026-11-25T04:19:23.930Z"
+        },
+        {
+          "id": "muslim_uz",
+          "name": "Muslim.uz (O‘zbekiston Musulmonlari Idorasi)",
+          "url": "https://muslim.uz/",
+          "hasPublicJsonApi": false,
+          "scrapingAllowed": false,
+          "reachable": true,
+          "httpStatus": 200,
+          "latencyMs": 2295,
+          "notesUz": "O‘MI rasmiy veb-portali. Ochiq JSON API taqdim etilmagan; ruxsatsiz scraping qo‘llanilmaydi. Rasmiy oylik taqvim Admin Import mexanizmi orqali kiritiladi.",
+          "checkedAt": "2026-11-25T04:19:23.930Z"
+        },
+        {
+          "id": "namoz_vaqti_uz",
+          "name": "Namoz-vaqti.uz (O‘MI hududiy taqvim JSON)",
+          "url": "https://namoz-vaqti.uz/?format=json",
+          "hasPublicJsonApi": true,
+          "scrapingAllowed": true,
+          "reachable": true,
+          "httpStatus": 200,
+          "latencyMs": 349,
+          "notesUz": "Ochiq ?format=json endpointi faol va 14 hudud markazlari bo‘yicha O‘MI taqvimi bilan daqiqalik taqqoslash uchun foydalanilmoqda.",
+          "checkedAt": "2026-11-25T04:19:23.930Z"
+        },
+        {
+          "id": "islomapi_uz",
+          "name": "Islomapi.uz (Uchinchi tomon API)",
+          "url": "https://islomapi.uz/",
+          "hasPublicJsonApi": true,
+          "scrapingAllowed": true,
+          "reachable": false,
+          "httpStatus": 502,
+          "latencyMs": 935,
+          "notesUz": "Uchinchi tomon API hozirda barqaror emas (HTTP 502) — asosiy manba sifatida tayanilmaydi.",
+          "checkedAt": "2026-11-25T04:19:23.930Z"
+        }
+      ],
+      "regionResults": [
+        {
+          "regionId": "uz-karakalpakstan",
+          "regionName": "Qoraqalpog‘iston Respublikasi",
+          "cityId": "uz-karakalpakstan-nukus",
+          "cityName": "Nukus",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 39,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:39",
+              "referenceTime": "06:39",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "08:04",
+              "referenceTime": "08:04",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:51",
+              "referenceTime": "12:48",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:51",
+              "referenceTime": "15:50",
+              "diffMinutes": 1
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:35",
+              "referenceTime": "17:36",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:49",
+              "referenceTime": "18:58",
+              "diffMinutes": -9
+            }
+          ],
+          "maxAbsDiffMinutes": 9,
+          "meanAbsDiffMinutes": 2.3,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:39",
+            "sunrise": "08:04",
+            "dhuhr": "12:48",
+            "asr": "15:50",
+            "maghrib": "17:36",
+            "isha": "18:58"
+          }
+        },
+        {
+          "regionId": "uz-andijan",
+          "regionName": "Andijon viloyati",
+          "cityId": "uz-andijan-city",
+          "cityName": "Andijon",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": -12,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "05:46",
+              "referenceTime": "05:46",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:09",
+              "referenceTime": "07:09",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:01",
+              "referenceTime": "11:58",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:05",
+              "referenceTime": "15:05",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "16:49",
+              "referenceTime": "16:50",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:01",
+              "referenceTime": "18:09",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "05:46",
+            "sunrise": "07:09",
+            "dhuhr": "11:58",
+            "asr": "15:05",
+            "maghrib": "16:50",
+            "isha": "18:09"
+          }
+        },
+        {
+          "regionId": "uz-bukhara",
+          "regionName": "Buxoro viloyati",
+          "cityId": "uz-bukhara-city",
+          "cityName": "Buxoro",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 19,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:16",
+              "referenceTime": "06:16",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:38",
+              "referenceTime": "07:38",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:32",
+              "referenceTime": "12:29",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:40",
+              "referenceTime": "15:40",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:23",
+              "referenceTime": "17:24",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:34",
+              "referenceTime": "18:42",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:16",
+            "sunrise": "07:38",
+            "dhuhr": "12:29",
+            "asr": "15:40",
+            "maghrib": "17:24",
+            "isha": "18:42"
+          }
+        },
+        {
+          "regionId": "uz-fergana",
+          "regionName": "Farg‘ona viloyati",
+          "cityId": "uz-fergana-city",
+          "cityName": "Farg‘ona",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": -10,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "05:47",
+              "referenceTime": "05:47",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:10",
+              "referenceTime": "07:10",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:03",
+              "referenceTime": "12:00",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:09",
+              "referenceTime": "15:09",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "16:52",
+              "referenceTime": "16:53",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:04",
+              "referenceTime": "18:12",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "05:47",
+            "sunrise": "07:10",
+            "dhuhr": "12:00",
+            "asr": "15:09",
+            "maghrib": "16:53",
+            "isha": "18:12"
+          }
+        },
+        {
+          "regionId": "uz-jizzakh",
+          "regionName": "Jizzax viloyati",
+          "cityId": "uz-jizzakh-city",
+          "cityName": "Jizzax",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 6,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:03",
+              "referenceTime": "06:03",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:25",
+              "referenceTime": "07:25",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:19",
+              "referenceTime": "12:15",
+              "diffMinutes": 4
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:25",
+              "referenceTime": "15:25",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:09",
+              "referenceTime": "17:10",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:20",
+              "referenceTime": "18:28",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:03",
+            "sunrise": "07:25",
+            "dhuhr": "12:15",
+            "asr": "15:25",
+            "maghrib": "17:10",
+            "isha": "18:28"
+          }
+        },
+        {
+          "regionId": "uz-kashkadarya",
+          "regionName": "Qashqadaryo viloyati",
+          "cityId": "uz-kashkadarya-qarshi",
+          "cityName": "Qarshi",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 14,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:09",
+              "referenceTime": "06:09",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:30",
+              "referenceTime": "07:30",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:27",
+              "referenceTime": "12:24",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:38",
+              "referenceTime": "15:37",
+              "diffMinutes": 1
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:20",
+              "referenceTime": "17:21",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:30",
+              "referenceTime": "18:38",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:09",
+            "sunrise": "07:30",
+            "dhuhr": "12:24",
+            "asr": "15:37",
+            "maghrib": "17:21",
+            "isha": "18:38"
+          }
+        },
+        {
+          "regionId": "uz-navoi",
+          "regionName": "Navoiy viloyati",
+          "cityId": "uz-navoi-city",
+          "cityName": "Navoiy",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 15,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:13",
+              "referenceTime": "06:13",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:35",
+              "referenceTime": "07:35",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:28",
+              "referenceTime": "12:25",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:35",
+              "referenceTime": "15:35",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:19",
+              "referenceTime": "17:20",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:30",
+              "referenceTime": "18:38",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:13",
+            "sunrise": "07:35",
+            "dhuhr": "12:25",
+            "asr": "15:35",
+            "maghrib": "17:20",
+            "isha": "18:38"
+          }
+        },
+        {
+          "regionId": "uz-namangan",
+          "regionName": "Namangan viloyati",
+          "cityId": "uz-namangan-city",
+          "cityName": "Namangan",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": -10,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "05:49",
+              "referenceTime": "05:49",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:12",
+              "referenceTime": "07:12",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:03",
+              "referenceTime": "12:00",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:07",
+              "referenceTime": "15:07",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "16:51",
+              "referenceTime": "16:52",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:03",
+              "referenceTime": "18:12",
+              "diffMinutes": -9
+            }
+          ],
+          "maxAbsDiffMinutes": 9,
+          "meanAbsDiffMinutes": 2.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "05:49",
+            "sunrise": "07:12",
+            "dhuhr": "12:00",
+            "asr": "15:07",
+            "maghrib": "16:52",
+            "isha": "18:12"
+          }
+        },
+        {
+          "regionId": "uz-samarkand",
+          "regionName": "Samarqand viloyati",
+          "cityId": "uz-samarkand-city",
+          "cityName": "Samarqand",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 9,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:06",
+              "referenceTime": "06:06",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:27",
+              "referenceTime": "07:27",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:22",
+              "referenceTime": "12:19",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:30",
+              "referenceTime": "15:30",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:14",
+              "referenceTime": "17:15",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:24",
+              "referenceTime": "18:32",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:06",
+            "sunrise": "07:27",
+            "dhuhr": "12:19",
+            "asr": "15:30",
+            "maghrib": "17:15",
+            "isha": "18:32"
+          }
+        },
+        {
+          "regionId": "uz-surkhandarya",
+          "regionName": "Surxondaryo viloyati",
+          "cityId": "uz-surkhandarya-termez",
+          "cityName": "Termiz",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 8,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:01",
+              "referenceTime": "06:01",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:20",
+              "referenceTime": "07:20",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:21",
+              "referenceTime": "12:18",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:36",
+              "referenceTime": "15:36",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:18",
+              "referenceTime": "17:19",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:26",
+              "referenceTime": "18:34",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:01",
+            "sunrise": "07:20",
+            "dhuhr": "12:18",
+            "asr": "15:36",
+            "maghrib": "17:19",
+            "isha": "18:34"
+          }
+        },
+        {
+          "regionId": "uz-syrdarya",
+          "regionName": "Sirdaryo viloyati",
+          "cityId": "uz-syrdarya-guliston",
+          "cityName": "Guliston",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 2,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:00",
+              "referenceTime": "06:00",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:22",
+              "referenceTime": "07:22",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:15",
+              "referenceTime": "12:12",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:20",
+              "referenceTime": "15:20",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:04",
+              "referenceTime": "17:05",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:15",
+              "referenceTime": "18:24",
+              "diffMinutes": -9
+            }
+          ],
+          "maxAbsDiffMinutes": 9,
+          "meanAbsDiffMinutes": 2.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:00",
+            "sunrise": "07:22",
+            "dhuhr": "12:12",
+            "asr": "15:20",
+            "maghrib": "17:05",
+            "isha": "18:24"
+          }
+        },
+        {
+          "regionId": "uz-tashkent-region",
+          "regionName": "Toshkent viloyati",
+          "cityId": "uz-tashkent-region-nurafshon",
+          "cityName": "Nurafshon",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 0,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "05:58",
+              "referenceTime": "05:56",
+              "diffMinutes": 2
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:21",
+              "referenceTime": "07:20",
+              "diffMinutes": 1
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:12",
+              "referenceTime": "12:07",
+              "diffMinutes": 5
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:16",
+              "referenceTime": "15:13",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:00",
+              "referenceTime": "16:58",
+              "diffMinutes": 2
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:12",
+              "referenceTime": "18:18",
+              "diffMinutes": -6
+            }
+          ],
+          "maxAbsDiffMinutes": 6,
+          "meanAbsDiffMinutes": 3.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 6 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "05:56",
+            "sunrise": "07:20",
+            "dhuhr": "12:07",
+            "asr": "15:13",
+            "maghrib": "16:58",
+            "isha": "18:18"
+          }
+        },
+        {
+          "regionId": "uz-khorezm",
+          "regionName": "Xorazm viloyati",
+          "cityId": "uz-khorezm-urgench",
+          "cityName": "Urganch",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 34,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "06:34",
+              "referenceTime": "06:34",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:58",
+              "referenceTime": "07:58",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:47",
+              "referenceTime": "12:44",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:50",
+              "referenceTime": "15:49",
+              "diffMinutes": 1
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:34",
+              "referenceTime": "17:35",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:47",
+              "referenceTime": "18:55",
+              "diffMinutes": -8
+            }
+          ],
+          "maxAbsDiffMinutes": 8,
+          "meanAbsDiffMinutes": 2.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "06:34",
+            "sunrise": "07:58",
+            "dhuhr": "12:44",
+            "asr": "15:49",
+            "maghrib": "17:35",
+            "isha": "18:55"
+          }
+        },
+        {
+          "regionId": "uz-tashkent-city",
+          "regionName": "Toshkent shahri",
+          "cityId": "uz-tashkent-city-main",
+          "cityName": "Toshkent",
+          "date": "2026-11-25",
+          "referenceSource": "Namoz-vaqti.uz (O‘MI taqvim JSON)",
+          "referenceAvailable": true,
+          "offsetMinFromTashkent": 0,
+          "comparisons": [
+            {
+              "prayerKey": "bomdod",
+              "engineTime": "05:59",
+              "referenceTime": "05:59",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "quyosh",
+              "engineTime": "07:23",
+              "referenceTime": "07:23",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "peshin",
+              "engineTime": "12:13",
+              "referenceTime": "12:10",
+              "diffMinutes": 3
+            },
+            {
+              "prayerKey": "asr",
+              "engineTime": "15:16",
+              "referenceTime": "15:16",
+              "diffMinutes": 0
+            },
+            {
+              "prayerKey": "shom",
+              "engineTime": "17:00",
+              "referenceTime": "17:01",
+              "diffMinutes": -1
+            },
+            {
+              "prayerKey": "xufton",
+              "engineTime": "18:12",
+              "referenceTime": "18:21",
+              "diffMinutes": -9
+            }
+          ],
+          "maxAbsDiffMinutes": 9,
+          "meanAbsDiffMinutes": 2.2,
+          "verified": true,
+          "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
+          "checkedAt": "2026-11-25T04:19:23.930Z",
+          "referenceTimes": {
+            "fajr": "05:59",
+            "sunrise": "07:23",
+            "dhuhr": "12:10",
+            "asr": "15:16",
+            "maghrib": "17:01",
+            "isha": "18:21"
+          }
+        }
+      ],
+      "verifiedRegionsCount": 14,
+      "totalRegionsCount": 14,
+      "seasonal30DaySummary": {
+        "sampleCity": "Toshkent shahri",
+        "daysChecked": 30,
+        "seasonsCovered": [
+          "Qish",
+          "Bahor",
+          "Yoz",
+          "Kuz"
+        ],
+        "maxObservedEngineDriftNotesUz": "30 kunlik ketma-ket kalendar va 4 fasl bo‘yicha astronomik tartib (Bomdod < Quyosh < Peshin < Asr < Shom < Xufton) 100% tekshirildi; jonli O‘MI taqvim mavjud bo‘lganda aniq farqlar jadvalda ko‘rsatiladi.",
+        "sampleDates": [
+          {
+            "date": "2026-01-15",
+            "season": "Qish (Yanvar)",
+            "fajr": "06:23",
+            "sunrise": "07:47",
+            "dhuhr": "12:35",
+            "asr": "15:37",
+            "maghrib": "17:21",
+            "isha": "18:34"
+          },
+          {
+            "date": "2026-03-21",
+            "season": "Bahor tengkunligi (Mart)",
+            "fajr": "05:06",
+            "sunrise": "06:25",
+            "dhuhr": "12:33",
+            "asr": "16:48",
+            "maghrib": "18:39",
+            "isha": "19:47"
+          },
+          {
+            "date": "2026-06-21",
+            "season": "Yozgi quyosh turishi (Iyun)",
+            "fajr": "03:04",
+            "sunrise": "04:50",
+            "dhuhr": "12:28",
+            "asr": "17:40",
+            "maghrib": "20:03",
+            "isha": "21:33"
+          },
+          {
+            "date": "2026-09-22",
+            "season": "Kuzgi tengkunlik (Sentabr)",
+            "fajr": "04:51",
+            "sunrise": "06:10",
+            "dhuhr": "12:19",
+            "asr": "16:33",
+            "maghrib": "18:24",
+            "isha": "19:31"
+          },
+          {
+            "date": "2026-11-25",
+            "season": "Kech kuz (Noyabr)",
+            "fajr": "05:59",
+            "sunrise": "07:23",
+            "dhuhr": "12:13",
+            "asr": "15:16",
+            "maghrib": "17:00",
+            "isha": "18:12"
+          }
+        ]
+      }
+    },
+    "updatedAt": "2026-11-25T04:19:20.565Z",
+    "updatedBy": "asakaziyo0@gmail.com"
+  },
+  "userLocationPrefs": {
+    "verify-cross-platform-user": {
+      "userId": "verify-cross-platform-user",
+      "cityId": "uz-samarkand-city",
+      "districtId": "samarkand-center",
+      "customLocation": null,
+      "syncAcrossDevices": true,
+      "platformSource": "android",
+      "updatedAt": "2026-11-25T04:19:31.280Z"
+    },
+    "web-836ebnka": {
+      "userId": "web-836ebnka",
+      "cityId": "uz-andijan-city",
+      "districtId": "andijan-center",
+      "customLocation": null,
+      "calculationMethod": "UZBEKISTAN_OMI",
+      "asrMethod": "HANAFI",
+      "syncAcrossDevices": true,
+      "platformSource": "web",
+      "updatedAt": "2026-11-25T04:40:54.572Z"
+    }
+  },
+  "auditLogs": [
+    {
+      "id": "aud-1795580369115-bzqrg",
+      "timestamp": "2026-11-25T04:19:29.115Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "UZBEKISTAN_AUTO",
+      "action": "VERIFICATION_AUDIT_RUN",
+      "details": "14 hudud tekshirildi: 14/14 tasdiqlangan (2026-11-25)"
+    },
+    {
+      "id": "aud-1795580360921-nqx38",
+      "timestamp": "2026-11-25T04:19:20.921Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "ROLLBACK",
+      "details": "Asaka jadvali v12 (asaka-v12-1795580359754) versiyasiga qaytarildi"
+    },
+    {
+      "id": "aud-1795580360920-6kxl2",
+      "timestamp": "2026-11-25T04:19:20.920Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v14 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795580360565-ccmrs",
+      "timestamp": "2026-11-25T04:19:20.565Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "GLOBAL_AUTO",
+      "action": "CONFIG_UPDATED",
+      "details": "Global AUTO sozlamalari yangilandi (Method: ISNA, Asr: STANDARD). Asaka MANUAL o‘zgarmadi."
+    },
+    {
+      "id": "aud-1795580360421-ujukd",
+      "timestamp": "2026-11-25T04:19:20.421Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "GLOBAL_AUTO",
+      "action": "CONFIG_UPDATED",
+      "details": "Global AUTO sozlamalari yangilandi (Method: ISNA, Asr: STANDARD). Asaka MANUAL o‘zgarmadi."
+    },
+    {
+      "id": "aud-1795580360270-ov573",
+      "timestamp": "2026-11-25T04:19:20.270Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v13 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795580359754-3xv1l",
+      "timestamp": "2026-11-25T04:19:19.754Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "ROLLBACK",
+      "details": "Asaka jadvali v9 (asaka-v9-1795580018640) versiyasiga qaytarildi"
+    },
+    {
+      "id": "aud-1795580359754-j43j9",
+      "timestamp": "2026-11-25T04:19:19.754Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v12 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795580259966-svikb",
+      "timestamp": "2026-11-25T04:17:39.966Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "UZBEKISTAN_AUTO",
+      "action": "VERIFICATION_AUDIT_RUN",
+      "details": "14 hudud tekshirildi: 14/14 tasdiqlangan (2026-11-25)"
+    },
+    {
+      "id": "aud-1795580257244-nrq72",
+      "timestamp": "2026-11-25T04:17:37.244Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "GLOBAL_AUTO",
+      "action": "CONFIG_UPDATED",
+      "details": "Global AUTO sozlamalari yangilandi (Method: ISNA, Asr: STANDARD). Asaka MANUAL o‘zgarmadi."
+    },
+    {
+      "id": "aud-1795580257087-9tvfl",
+      "timestamp": "2026-11-25T04:17:37.087Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v11 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795580145467-r08e8",
+      "timestamp": "2026-11-25T04:15:45.467Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "UZBEKISTAN_AUTO",
+      "action": "VERIFICATION_AUDIT_RUN",
+      "details": "14 hudud tekshirildi: 14/14 tasdiqlangan (2026-11-25)"
+    },
+    {
+      "id": "aud-1795580136052-6afow",
+      "timestamp": "2026-11-25T04:15:36.052Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v10 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    }
+  ],
+  "errorLogs": []
+}

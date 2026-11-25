@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NavigationTab } from '../../types';
 import { MapPin, Shield, ExternalLink } from 'lucide-react';
 import { ArchitecturalDivider, ScrollReveal } from '../ui/MotionPrimitives';
+import { DeveloperAttribution } from './DeveloperAttribution';
 
 interface FooterProps {
   onSelectTab: (tab: NavigationTab) => void;
@@ -181,6 +182,8 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
               <span>{t('common:appTagline')}</span>
             </div>
           </div>
+
+          <DeveloperAttribution className="mt-3 border-t border-[#064E3B]/[0.07] dark:border-white/[0.06]" />
         </ScrollReveal>
       </div>
     </footer>

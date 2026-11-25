@@ -98,5 +98,31 @@
                 <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>
         </receiver>
+
+        <!-- Global Prayer Times & Weather Home Screen AppWidget -->
+        <receiver
+            android:name=".AsakaPrayerWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Namoz &amp; Ob-havo">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_prayer_widget_info" />
+        </receiver>
+
+        <!-- Qur'on Continue Reading & Daily Dhikr Home Screen AppWidget -->
+        <receiver
+            android:name=".AsakaQuranWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Qurʼon &amp; Kunlik Zikr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_quran_widget_info" />
+        </receiver>
     </application>
 </manifest>

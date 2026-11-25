@@ -1195,6 +1195,120 @@ service cloud.firestore {
         (isSignedIn() && resource.data.userId == request.auth.uid)
       );
     }
+
+    // 46. Global Prayer Times & Weather Ecosystem — Strict MANUAL vs AUTO Isolation Rules
+    function isValidAsakaManualArchive(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.sourceMode == 'MANUAL_ADMIN' &&
+        data.date is string && data.date.size() >= 8 && data.date.size() <= 32 &&
+        data.times is list && data.times.size() >= 5 && data.times.size() <= 16;
+    }
+
+    function isValidGlobalPrayerConfig(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.sourceMode == 'AUTO_CALCULATED';
+    }
+
+    function isValidUserLocationPref(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.cityId is string && data.cityId.size() >= 1 && data.cityId.size() <= 128 &&
+        data.syncAcrossDevices is bool;
+    }
+
+    // 46A. Asaka MANUAL_ADMIN Version Snapshots & Future Dates (Public read, Admin/ServerGate write only)
+    match /asakaManualArchives/{archiveId} {
+      allow read: if true;
+      allow create, update: if isValidId(archiveId) &&
+        isValidAsakaManualArchive(incoming()) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('asakaManualArchives', archiveId));
+      allow delete: if isValidId(archiveId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('asakaManualArchives', archiveId));
+    }
+
+    // 46B. Global AUTO Prayer Settings & Uzbekistan Verification Reports (Strictly separated from Asaka)
+    match /globalPrayerConfigs/{configId} {
+      allow read: if true;
+      allow create, update: if isValidId(configId) &&
+        isValidGlobalPrayerConfig(incoming()) &&
+        (isPrayerAdmin() || isVerifiedServerWrite('globalPrayerConfigs', configId));
+      allow delete: if isValidId(configId) &&
+        (isSuperAdmin() || isVerifiedServerWrite('globalPrayerConfigs', configId));
+    }
+
+    // 46C. Cross-Platform User Location Preferences (Strict owner-only isolation)
+    match /userLocationPrefs/{prefId} {
+      allow get: if isValidId(prefId) && (isSuperAdmin() || (isSignedIn() && request.auth.uid == prefId));
+      allow list: if isSuperAdmin();
+      allow create, update: if isValidId(prefId) &&
+        isValidUserLocationPref(incoming()) &&
+        (
+          isVerifiedServerWrite('userLocationPrefs', prefId) ||
+          (isSignedIn() && request.auth.uid == prefId && incoming().userId == request.auth.uid)
+        );
+      allow delete: if isValidId(prefId) && (
+        isSuperAdmin() ||
+        isVerifiedServerWrite('userLocationPrefs', prefId) ||
+        (isSignedIn() && request.auth.uid == prefId)
+      );
+    }
+
+    // 47. Ultimate Qur'on Ecosystem, Persistent Audio & Unified Premium Subscriptions (2026)
+    match /qariProfiles/{qariId} {
+      allow read: if true;
+      allow write: if isValidId(qariId) && (isContentAdmin() || isVerifiedServerWrite('qariProfiles', qariId));
+    }
+
+    match /quranAudioFiles/{audioId} {
+      allow read: if true;
+      allow write: if isValidId(audioId) && (isContentAdmin() || isVerifiedServerWrite('quranAudioFiles', audioId));
+    }
+
+    match /quranPlaylists/{playlistId} {
+      allow read: if resource.data.isPublic == true || resource.data.isOfficial == true ||
+        isAnyAdmin() || (isSignedIn() && resource.data.ownerUserId == request.auth.uid);
+      allow create: if isValidId(playlistId) && (
+        isContentAdmin() ||
+        isVerifiedServerWrite('quranPlaylists', playlistId) ||
+        (isSignedIn() && incoming().ownerUserId == request.auth.uid && incoming().isOfficial == false)
+      );
+      allow update, delete: if isValidId(playlistId) && (
+        isContentAdmin() ||
+        isVerifiedServerWrite('quranPlaylists', playlistId) ||
+        (isSignedIn() && existing().ownerUserId == request.auth.uid && existing().isOfficial == false)
+      );
+    }
+
+    match /userQuranProfiles/{userId} {
+      allow get: if isValidId(userId) && (isSuperAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow list: if isSuperAdmin();
+      allow create, update: if isValidId(userId) && (
+        isVerifiedServerWrite('userQuranProfiles', userId) ||
+        (isSignedIn() && request.auth.uid == userId)
+      );
+      allow delete: if isValidId(userId) && (isSuperAdmin() || isVerifiedServerWrite('userQuranProfiles', userId));
+    }
+
+    match /subscriptionPlans/{planId} {
+      allow read: if true;
+      allow write: if isValidId(planId) && (isSuperAdmin() || isVerifiedServerWrite('subscriptionPlans', planId));
+    }
+
+    match /subscriptionConfig/{configId} {
+      allow read: if true;
+      allow write: if isValidId(configId) && (isSuperAdmin() || isVerifiedServerWrite('subscriptionConfig', configId));
+    }
+
+    match /paymentOrders/{orderId} {
+      allow get: if isValidId(orderId) && (isSuperAdmin() || isAnyAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
+      allow list: if isSuperAdmin() || isAnyAdmin();
+      allow write: if isValidId(orderId) && (isSuperAdmin() || isVerifiedServerWrite('paymentOrders', orderId));
+    }
+
+    match /userSubscriptions/{userId} {
+      allow get: if isValidId(userId) && (isSuperAdmin() || isAnyAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow list: if isSuperAdmin() || isAnyAdmin();
+      allow write: if isValidId(userId) && (isSuperAdmin() || isVerifiedServerWrite('userSubscriptions', userId));
+    }
   }
 }
 

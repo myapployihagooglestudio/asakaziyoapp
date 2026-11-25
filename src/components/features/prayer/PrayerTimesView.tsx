@@ -53,6 +53,7 @@ import {
   Calendar,
   CheckCircle2,
   ShieldAlert,
+  ShieldCheck,
   Info,
   MapPin,
   Navigation,
@@ -63,9 +64,7 @@ import {
   Sunset,
   Bell,
   Volume2,
-  VolumeX,
   BellOff,
-  Check,
   Sliders,
   History,
   Play,
@@ -74,7 +73,35 @@ import {
   Music,
   Loader2,
   Tv,
+  Globe,
+  Cloud,
+  LocateFixed,
+  ChevronDown,
 } from 'lucide-react';
+import {
+  ASAKA_CANONICAL_CITY_ID,
+  AsrMethodId,
+  CalculationMethodId,
+  findBuiltInLocationById,
+} from '../../../data/globalLocationsData';
+import type { UnifiedPrayerRecord } from '../../../services/globalPrayerEngine';
+import {
+  buildAsakaManualUnifiedRecord,
+  computeNextPrayerInTimezone,
+  getLocalDateTimeInTimezone,
+} from '../../../services/globalPrayerEngine';
+import type { GlobalWeatherResponse } from '../../../services/globalWeatherService';
+import {
+  UserLocationPreference,
+  fetchGlobalWeatherClient,
+  fetchMonthlyPrayerCalendarClient,
+  fetchUnifiedPrayerScheduleClient,
+  loadLocalLocationPreference,
+  resolveGpsLocationClient,
+  syncLocationPreferenceToServer,
+} from '../../../utils/globalPrayerClient';
+import { GlobalLocationPickerModal } from './GlobalLocationPickerModal';
+import { WeatherCenterPanel } from './WeatherCenterPanel';
 
 interface PrayerTimesViewProps {
   schedule: PrayerSchedule;
@@ -102,6 +129,51 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
   const currentLocale = (i18n.language as SupportedLocale) || 'uz-Latn';
 
   const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'qibla' | 'history'>('daily');
+  const [locationPref, setLocationPref] = useState<UserLocationPreference>(() =>
+    loadLocalLocationPreference()
+  );
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [isGpsLoading, setIsGpsLoading] = useState(false);
+  const [gpsBanner, setGpsBanner] = useState<string | null>(null);
+
+  const [activeRecord, setActiveRecord] = useState<UnifiedPrayerRecord>(() => {
+    const asakaLoc = findBuiltInLocationById(ASAKA_CANONICAL_CITY_ID)!;
+    return buildAsakaManualUnifiedRecord(schedule, asakaLoc);
+  });
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
+
+  // Visually separated Global Weather state
+  const [weather, setWeather] = useState<GlobalWeatherResponse | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  // Real API-driven Monthly Calendar rows
+  const [monthlyRows, setMonthlyRows] = useState<
+    Array<{
+      day: number;
+      localDate: string;
+      hijriDate: string;
+      tahajjud: string;
+      subh: string;
+      fajr: string;
+      sunrise: string;
+      dhuhr: string;
+      asr: string;
+      maghrib: string;
+      isha: string;
+      isDstActive?: boolean;
+      sourceMode?: string;
+    }>
+  >([]);
+  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
+
+  // Live timezone clock & countdown
+  const [liveLocalClock, setLiveLocalClock] = useState<string>('');
+  const [liveCountdownText, setLiveCountdownText] = useState<string>('--:--:--');
+  const [liveNextPrayerName, setLiveNextPrayerName] = useState<string>('');
+  const [liveNextPrayerKey, setLiveNextPrayerKey] = useState<string>('');
+  const [liveIsTomorrow, setLiveIsTomorrow] = useState<boolean>(false);
+
   const [prayerCalculation, setPrayerCalculation] = useState<NextPrayerInfo>(() =>
     getNextPrayerCalculation(schedule.times)
   );
@@ -138,8 +210,170 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
     };
   }, []);
 
-  // Real DeviceOrientationEvent Qibla Compass Sensor (241° WSW for Asaka, Andijan)
-  const ASAKA_QIBLA_BEARING = 241;
+  // Fetch Unified Prayer Schedule (Asaka MANUAL_ADMIN or any AUTO city)
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingSchedule(true);
+    fetchUnifiedPrayerScheduleClient({
+      pref: locationPref,
+      asakaFallbackSchedule: schedule,
+    })
+      .then(({ record }) => {
+        if (!cancelled) {
+          setActiveRecord(record);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingSchedule(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locationPref, schedule]);
+
+  // Fetch Weather whenever activeRecord coordinates change
+  const loadWeatherForActiveCity = useCallback(
+    async (forceRefresh = false) => {
+      setIsLoadingWeather(true);
+      setWeatherError(null);
+      try {
+        const res = await fetchGlobalWeatherClient({
+          cityId: activeRecord.cityId,
+          districtId: activeRecord.districtId,
+          latitude: activeRecord.latitude,
+          longitude: activeRecord.longitude,
+          timezone: activeRecord.timezone,
+          locationLabel: `${activeRecord.cityName}, ${activeRecord.countryName}`,
+          forceRefresh,
+        });
+        setWeather(res.weather);
+        if (res.error) setWeatherError(res.error);
+      } finally {
+        setIsLoadingWeather(false);
+      }
+    },
+    [
+      activeRecord.cityId,
+      activeRecord.districtId,
+      activeRecord.latitude,
+      activeRecord.longitude,
+      activeRecord.timezone,
+      activeRecord.cityName,
+      activeRecord.countryName,
+    ]
+  );
+
+  useEffect(() => {
+    loadWeatherForActiveCity(false);
+  }, [loadWeatherForActiveCity]);
+
+  // Sync snapshot to Android Home Screen Widget if running inside Android WebView
+  useEffect(() => {
+    try {
+      const win = window as any;
+      if (win?.AsakaAndroidBridge?.syncPrayerWidgetSnapshot) {
+        win.AsakaAndroidBridge.syncPrayerWidgetSnapshot(
+          JSON.stringify({
+            cityId: activeRecord.cityId,
+            cityName: activeRecord.cityName,
+            sourceMode: activeRecord.sourceMode,
+            localDate: activeRecord.localDate,
+            fajr: activeRecord.fajr,
+            dhuhr: activeRecord.dhuhr,
+            asr: activeRecord.asr,
+            maghrib: activeRecord.maghrib,
+            isha: activeRecord.isha,
+            nextPrayerName: liveNextPrayerName || activeRecord.nextPrayer?.nameUz || '',
+            nextPrayerTime: activeRecord.nextPrayer?.time || '',
+            weatherTempC: weather?.current?.temperatureC ?? null,
+            weatherCondition: weather?.current?.conditionUz ?? '',
+          })
+        );
+      }
+    } catch {
+      // ignore outside Android
+    }
+  }, [activeRecord, liveNextPrayerName, weather]);
+
+  // Fetch real monthly calendar when monthly tab is open
+  useEffect(() => {
+    if (activeTab !== 'monthly') return;
+    let cancelled = false;
+    const nowParts = activeRecord.localDate.split('-').map(Number);
+    const year = nowParts[0] || new Date().getFullYear();
+    const month = nowParts[1] || new Date().getMonth() + 1;
+    setIsLoadingMonthly(true);
+    fetchMonthlyPrayerCalendarClient({ pref: locationPref, year, month })
+      .then((res) => {
+        if (!cancelled) setMonthlyRows(res.rows);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingMonthly(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, locationPref, activeRecord.localDate]);
+
+  const handleSelectLocationPref = useCallback((nextPref: UserLocationPreference) => {
+    setLocationPref(nextPref);
+    let userId: string | null = null;
+    try {
+      const storedUser = window.localStorage.getItem('asaka_ziyo_device_id');
+      if (storedUser) {
+        userId = storedUser;
+      } else {
+        userId = `web-${Math.random().toString(36).slice(2, 10)}`;
+        window.localStorage.setItem('asaka_ziyo_device_id', userId);
+      }
+    } catch {
+      userId = null;
+    }
+    syncLocationPreferenceToServer(userId, nextPref);
+  }, []);
+
+  const handleQuickCitySwitch = (cityId: string) => {
+    const loc = findBuiltInLocationById(cityId);
+    if (!loc) return;
+    handleSelectLocationPref({
+      ...locationPref,
+      cityId: loc.id,
+      districtId: loc.districtId,
+      customLocation: null,
+      calculationMethod: loc.id === ASAKA_CANONICAL_CITY_ID ? undefined : loc.defaultMethod,
+      asrMethod: loc.id === ASAKA_CANONICAL_CITY_ID ? undefined : loc.defaultAsr,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleQuickGps = async () => {
+    setIsGpsLoading(true);
+    setGpsBanner(null);
+    try {
+      const res = await resolveGpsLocationClient();
+      if (res.ok && res.location) {
+        handleSelectLocationPref({
+          ...locationPref,
+          cityId: res.location.id,
+          districtId: res.location.districtId,
+          customLocation: null,
+          calculationMethod:
+            res.location.id === ASAKA_CANONICAL_CITY_ID ? undefined : res.location.defaultMethod,
+          asrMethod:
+            res.location.id === ASAKA_CANONICAL_CITY_ID ? undefined : res.location.defaultAsr,
+          updatedAt: new Date().toISOString(),
+        });
+        setGpsBanner(`GPS aniqlandi: ${res.location.cityName}, ${res.location.regionName}`);
+      } else {
+        setGpsBanner(res.error || 'GPS ruxsati berilmadi — shaharni qo‘lda tanlang.');
+      }
+    } finally {
+      setIsGpsLoading(false);
+    }
+  };
+
+  // Real DeviceOrientationEvent Qibla Compass Sensor (Dynamic per selected city!)
+  const ACTIVE_QIBLA_BEARING = Math.round(activeRecord.qiblaAngleDeg || 241);
   const [compassHeading, setCompassHeading] = useState<number | null>(null);
   const [compassStatus, setCompassStatus] = useState<'idle' | 'active' | 'unsupported' | 'denied'>('idle');
 
@@ -200,16 +434,39 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
     };
   }, [activeTab, compassStatus]);
 
-  // Live dynamic countdown calculation for the actual next prayer
+  // Build active display PrayerTimeEntry[] from activeRecord (preserving iqamah times for Asaka MANUAL!)
+  const isAsakaManual = activeRecord.sourceMode === 'MANUAL_ADMIN';
+  const activePrayerTimes: PrayerTimeEntry[] = isAsakaManual
+    ? schedule.times
+    : activeRecord.times;
+
+  // Live dynamic countdown calculation in the SELECTED CITY'S IANA timezone
   useEffect(() => {
     const updateCountdown = () => {
-      setPrayerCalculation(getNextPrayerCalculation(schedule.times));
-      setLiveDateContext(resolveAsakaDateContext(new Date(), currentLocale));
+      const now = new Date();
+      setPrayerCalculation(getNextPrayerCalculation(activePrayerTimes));
+      setLiveDateContext(resolveAsakaDateContext(now, currentLocale));
+
+      const tzNow = getLocalDateTimeInTimezone(activeRecord.timezone, now);
+      setLiveLocalClock(tzNow.localTimeNow);
+      const nextInfo = computeNextPrayerInTimezone(
+        activePrayerTimes,
+        activeRecord.timezone,
+        now
+      );
+      const sec = Math.max(0, nextInfo.secondsRemaining || 0);
+      const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+      const ss = String(sec % 60).padStart(2, '0');
+      setLiveCountdownText(`${hh}:${mm}:${ss}`);
+      setLiveNextPrayerName(nextInfo.nameUz || 'Bomdod');
+      setLiveNextPrayerKey(nextInfo.key || 'bomdod');
+      setLiveIsTomorrow(nextInfo.isTomorrow);
     };
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [schedule.times, currentLocale]);
+  }, [activeRecord, currentLocale, activePrayerTimes]);
 
   const getLocalizedPrayerName = (key: string, defaultName: string) => {
     return t(`prayer:${key}`, { defaultValue: defaultName });
@@ -351,14 +608,28 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-[#C2D1CB]">
               <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
-              <span className="font-semibold text-[#F7F5F0]">{t('prayer:regionCity')}</span>
+              <span className="font-semibold text-[#F7F5F0]">
+                {activeRecord.cityName}
+                {activeRecord.districtName && activeRecord.districtName !== activeRecord.cityName
+                  ? ` (${activeRecord.districtName})`
+                  : ''}
+              </span>
               <span className="text-white/25" aria-hidden="true">·</span>
-              <span>{t('prayer:regionProvince')}</span>
+              <span>
+                {activeRecord.regionName}, {activeRecord.countryName}
+              </span>
               <span className="text-white/25" aria-hidden="true">·</span>
-              <span className="text-[#F7F5F0] font-semibold">{liveDateContext.gregorian.formatted}</span>
+              <span className="text-[#F7F5F0] font-semibold font-mono-numbers">
+                {activeRecord.localDate} ({liveLocalClock || activeRecord.localTimeNow})
+              </span>
               <span className="text-white/25" aria-hidden="true">·</span>
               <span className="az-type-numeric text-emerald-300 font-semibold">
-                {liveDateContext.hijri.formatted}
+                {isAsakaManual ? liveDateContext.hijri.formatted : activeRecord.hijriDate}
+              </span>
+              <span className="text-white/25" aria-hidden="true">·</span>
+              <span className="font-mono-numbers text-[#C8A85E]">
+                {activeRecord.timezone}
+                {activeRecord.isDstActive ? ' (DST)' : ''}
               </span>
             </div>
 
@@ -398,33 +669,125 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
           <div className="space-y-2 max-w-2xl">
             <MaskedSplitText
               as="h1"
-              text={t('prayer:title')}
+              text={`${t('prayer:title')} — ${activeRecord.cityName}`}
               className="az-type-hero text-[#F7F4EC]"
             />
             <p className="az-type-body text-[#C8D6D0]">
-              {t('prayer:subtitle')}
+              {isAsakaManual
+                ? t('prayer:subtitle')
+                : `${activeRecord.regionName}, ${activeRecord.countryName} uchun global namoz taqvimi va jonli ob-havo markazi`}
             </p>
           </div>
+
+          {/* TOP SECTION: GLOBAL LOCATION SWITCHER BAR */}
+          <div className="pt-3 border-t border-white/10 flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowLocationModal(true)}
+              className="gap-2 text-xs"
+            >
+              <Globe className="w-4 h-4" />
+              <span>Hudud / Shahar tanlash</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickCitySwitch(ASAKA_CANONICAL_CITY_ID)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                activeRecord.cityId === ASAKA_CANONICAL_CITY_ID
+                  ? 'bg-emerald-500/25 border-emerald-400 text-white'
+                  : 'bg-white/[0.06] border-white/[0.14] text-[#C8D6D0] hover:bg-white/[0.12]'
+              }`}
+            >
+              Asaka (MANUAL)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickCitySwitch('uz-tashkent-city-main')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                activeRecord.cityId === 'uz-tashkent-city-main'
+                  ? 'bg-emerald-500/25 border-emerald-400 text-white'
+                  : 'bg-white/[0.06] border-white/[0.14] text-[#C8D6D0] hover:bg-white/[0.12]'
+              }`}
+            >
+              Toshkent
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickCitySwitch('sa-makkah')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                activeRecord.cityId === 'sa-makkah'
+                  ? 'bg-[#C8A85E]/30 border-[#C8A85E] text-white'
+                  : 'bg-white/[0.06] border-white/[0.14] text-[#C8D6D0] hover:bg-white/[0.12]'
+              }`}
+            >
+              Makka
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickCitySwitch('sa-madinah')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                activeRecord.cityId === 'sa-madinah'
+                  ? 'bg-[#C8A85E]/30 border-[#C8A85E] text-white'
+                  : 'bg-white/[0.06] border-white/[0.14] text-[#C8D6D0] hover:bg-white/[0.12]'
+              }`}
+            >
+              Madina
+            </button>
+            <button
+              type="button"
+              disabled={isGpsLoading}
+              onClick={handleQuickGps}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-[#C8A85E]/40 bg-[#C8A85E]/15 text-[#F7F4EC] hover:bg-[#C8A85E]/25 transition-colors cursor-pointer inline-flex items-center gap-1.5"
+            >
+              {isGpsLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <LocateFixed className="w-3.5 h-3.5 text-[#C8A85E]" />
+              )}
+              <span>GPS</span>
+            </button>
+            {isLoadingSchedule && (
+              <span className="text-xs text-emerald-300 inline-flex items-center gap-1.5 ml-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Yangilanmoqda...
+              </span>
+            )}
+          </div>
+
+          {gpsBanner && (
+            <div className="text-xs text-amber-200 bg-black/30 border border-amber-400/30 rounded-xl px-3 py-2">
+              {gpsBanner}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 2. VERIFICATION & PUBLICATION STATUS BANNER */}
+      {/* 2. SOURCE MODE & VERIFICATION HONESTY BANNER (MANUAL_ADMIN vs AUTO_CALCULATED) */}
       <div
         className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs ${
-          schedule.isAdministratorPublished
+          isAsakaManual
             ? 'border-emerald-200 bg-emerald-50/90 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-950/40 dark:text-emerald-100'
-            : 'border-amber-200 bg-amber-50/90 text-amber-950 dark:border-amber-500/35 dark:bg-amber-950/40 dark:text-amber-100'
+            : activeRecord.verified
+              ? 'border-teal-200 bg-teal-50/90 text-teal-950 dark:border-teal-500/35 dark:bg-teal-950/40 dark:text-teal-100'
+              : 'border-amber-200 bg-amber-50/90 text-amber-950 dark:border-amber-500/35 dark:bg-amber-950/40 dark:text-amber-100'
         }`}
       >
         <div className="flex items-center gap-3.5">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              schedule.isAdministratorPublished
+              isAsakaManual
                 ? 'bg-emerald-600/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
-                : 'bg-amber-600/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                : activeRecord.verified
+                  ? 'bg-teal-600/15 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400'
+                  : 'bg-amber-600/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
             }`}
           >
-            {schedule.isAdministratorPublished ? (
+            {isAsakaManual ? (
+              <ShieldCheck className="w-5 h-5" />
+            ) : activeRecord.verified ? (
               <CheckCircle2 className="w-5 h-5" />
             ) : (
               <ShieldAlert className="w-5 h-5" />
@@ -432,26 +795,77 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
           </div>
           <div>
             <div className="font-bold text-sm sm:text-base">
-              {schedule.isAdministratorPublished
-                ? t('prayer:statusVerified')
-                : t('prayer:statusPending')}
+              {isAsakaManual
+                ? 'Asaka Shahri — Rasmiy Administrator Jadvali (MANUAL_ADMIN)'
+                : activeRecord.verified
+                  ? `${activeRecord.cityName} — Tasdiqlangan AUTO Taqvim (${activeRecord.sourceName})`
+                  : `${activeRecord.cityName} — Astronomik AUTO Taqvim (Tekshirilmagan / Mahalliy taqvim bilan ±1-2 daq farq bo‘lishi mumkin)`}
             </div>
-            <div className="opacity-80 text-xs font-mono-numbers mt-0.5">
-              {schedule.isAdministratorPublished
-                ? `${t('prayer:verifiedByLabel')}: ${schedule.publishedBy} · ${schedule.verifiedAt}`
-                : t('prayer:pendingDisclaimer')}
+            <div className="opacity-85 text-xs font-mono-numbers mt-0.5">
+              {isAsakaManual
+                ? `${t('prayer:verifiedByLabel')}: ${schedule.publishedBy} · ${schedule.verifiedAt} · Avtomatik hisob-kitob bilan o‘zgartirilmaydi`
+                : `Usul: ${activeRecord.calculationMethodLabel || activeRecord.calculationMethod} · Asr: ${activeRecord.asrMethod} · ${activeRecord.verificationNote || activeRecord.sourceName}`}
             </div>
+            {activeRecord.staleWarning && (
+              <div className="text-xs font-semibold text-amber-700 dark:text-amber-300 mt-1">
+                {activeRecord.staleWarning}
+              </div>
+            )}
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onOpenAdmin}
-          className="text-xs shrink-0 self-end sm:self-center border-[#c5a869]/50 text-[#c5a869] hover:bg-[#c5a869]/10"
-        >
-          {t('prayer:verifyButton')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
+          {!isAsakaManual && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <select
+                value={
+                  locationPref.calculationMethod ||
+                  (activeRecord.calculationMethod !== 'MANUAL_ADMIN'
+                    ? activeRecord.calculationMethod
+                    : 'UZBEKISTAN_OMI')
+                }
+                onChange={(e) =>
+                  handleSelectLocationPref({
+                    ...locationPref,
+                    calculationMethod: e.target.value as CalculationMethodId,
+                  })
+                }
+                className="px-2.5 py-1.5 rounded-lg border border-black/15 dark:border-white/15 bg-white dark:bg-[#091A16] text-xs font-semibold"
+              >
+                <option value="UZBEKISTAN_OMI">O‘MI (O‘zbekiston)</option>
+                <option value="UMM_AL_QURA">Umm al-Qura</option>
+                <option value="MWL">MWL</option>
+                <option value="KARACHI">Karachi</option>
+                <option value="DIYANET_TURKEY">Diyanet</option>
+                <option value="DUBAI">Dubai</option>
+                <option value="ISNA">ISNA</option>
+                <option value="EGYPT">Egypt</option>
+                <option value="RUSSIA_DUM">Russia DUM</option>
+              </select>
+              <select
+                value={locationPref.asrMethod || activeRecord.asrMethod}
+                onChange={(e) =>
+                  handleSelectLocationPref({
+                    ...locationPref,
+                    asrMethod: e.target.value as AsrMethodId,
+                  })
+                }
+                className="px-2.5 py-1.5 rounded-lg border border-black/15 dark:border-white/15 bg-white dark:bg-[#091A16] text-xs font-semibold"
+              >
+                <option value="HANAFI">Hanafiy</option>
+                <option value="STANDARD">Standart</option>
+              </select>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenAdmin}
+            className="text-xs shrink-0 border-[#c5a869]/50 text-[#c5a869] hover:bg-[#c5a869]/10"
+          >
+            {t('prayer:verifyButton')}
+          </Button>
+        </div>
       </div>
 
       {/* 3. FLUID SEGMENTED TABS (APPLE-INSPIRED SPRING INDICATOR) */}
@@ -495,55 +909,71 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
         })}
       </div>
 
-      {/* TAB 1: DAILY PRAYER SCHEDULE & ANIMATED CIRCULAR COUNTDOWN */}
+      {/* TAB 1: DAILY PRAYER SCHEDULE, LIVE COUNTDOWN + VISUALLY SEPARATED WEATHER */}
       {activeTab === 'daily' && (
         <div className="space-y-6">
-          {/* Active Countdown Card with Animated Circular Progress Bar */}
-          <Card elevated className="p-6 sm:p-10 bg-gradient-to-br from-[#051d18] via-[#072620] to-[#031d17] text-white border-[#c5a869]/50 relative overflow-hidden shadow-2xl">
-            <GeometricPattern opacity={0.06} />
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="space-y-3 text-center md:text-left max-w-lg">
-                <div className="inline-flex items-center gap-2 text-[#DFBD69] text-xs font-bold uppercase tracking-[0.2em]">
-                  <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
-                  <span>{t('prayer:nextPrayer')}</span>
-                  <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
-                  <span className="font-mono-numbers text-emerald-300">{liveDateContext.hijri.formatted}</span>
+          {/* TOP GRID: Next Prayer Countdown (Left) + Visually Separated Current Weather Card (Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <Card elevated className="lg:col-span-7 p-6 sm:p-8 bg-gradient-to-br from-[#051d18] via-[#072620] to-[#031d17] text-white border-[#c5a869]/50 relative overflow-hidden shadow-2xl">
+              <GeometricPattern opacity={0.06} />
+              <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 h-full">
+                <div className="space-y-3 text-center sm:text-left max-w-md">
+                  <div className="inline-flex items-center gap-2 text-[#DFBD69] text-xs font-bold uppercase tracking-[0.2em]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#DFBD69]" />
+                    <span>{t('prayer:nextPrayer')}</span>
+                    <span className="text-[#DFBD69]/45" aria-hidden="true">·</span>
+                    <span className="font-mono-numbers text-emerald-300">
+                      {activeRecord.cityName}
+                    </span>
+                  </div>
+
+                  <h2 className="text-3xl sm:text-4xl font-display font-bold text-white">
+                    {liveNextPrayerName ||
+                      (prayerCalculation.nextPrayer
+                        ? getLocalizedPrayerName(
+                            prayerCalculation.nextPrayer.key,
+                            prayerCalculation.nextPrayer.nameUz
+                          )
+                        : t('prayer:peshin'))}{' '}
+                    {liveIsTomorrow && `(${getLocalizedText('Ertangi')})`}
+                  </h2>
+
+                  <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+                    {activeRecord.timezone} vaqt zonasi bo‘yicha hisoblanmoqda · Qibla: {ACTIVE_QIBLA_BEARING}°
+                  </p>
                 </div>
 
-                <h2 className="text-3xl sm:text-4xl font-display font-bold text-white">
-                  {prayerCalculation.nextPrayer
-                    ? getLocalizedPrayerName(
-                        prayerCalculation.nextPrayer.key,
-                        prayerCalculation.nextPrayer.nameUz
-                      )
-                    : t('prayer:peshin')}{' '}
-                  {prayerCalculation.isTomorrow && `(${getLocalizedText('Ertangi')})`}
-                </h2>
-
-                <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-                  {t('prayer:countdownSubtext')}
-                </p>
-              </div>
-
-              {/* Spring-animated circular countdown ring */}
-              <AnimatedProgressRing
-                progress={progressPercent}
-                size={176}
-                strokeWidth={11}
-                trackClassName="stroke-emerald-950/80"
-                strokeColor="#e6ce8a"
-                secondaryStrokeColor="#c5a869"
-                className="shrink-0"
-              >
-                  <div className="text-2xl sm:text-3xl font-mono-numbers font-extrabold text-white tracking-wider">
-                    {prayerCalculation.countdownText}
+                {/* Spring-animated circular countdown ring */}
+                <AnimatedProgressRing
+                  progress={progressPercent}
+                  size={168}
+                  strokeWidth={11}
+                  trackClassName="stroke-emerald-950/80"
+                  strokeColor="#e6ce8a"
+                  secondaryStrokeColor="#c5a869"
+                  className="shrink-0"
+                >
+                  <div className="text-2xl font-mono-numbers font-extrabold text-white tracking-wider">
+                    {liveCountdownText}
                   </div>
                   <div className="text-[10px] text-[#c5a869] uppercase tracking-widest font-bold mt-1">
-                    {Math.round(progressPercent)}% oʻtdi
+                    {activeRecord.nextPrayer?.time || '--:--'}
                   </div>
-              </AnimatedProgressRing>
+                </AnimatedProgressRing>
+              </div>
+            </Card>
+
+            {/* Visually Distinct Current Weather Card */}
+            <div className="lg:col-span-5">
+              <WeatherCenterPanel
+                weather={weather}
+                isLoading={isLoadingWeather}
+                error={weatherError}
+                onRefresh={() => loadWeatherForActiveCity(true)}
+                mode="compact"
+              />
             </div>
-          </Card>
+          </div>
 
           {/* Live Adhan Audio Player Bar (visible whenever an Adhan track is playing, paused, or loading) */}
           {(playerState.playingTrackId || playerState.error) && (
@@ -624,10 +1054,11 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
             </Card>
           )}
 
-          {/* Today's 8 Prayer Times Cards Grid with explicit Azon & Iqomat */}
+          {/* MIDDLE SECTION: Today's 8 Prayer Times Cards Grid */}
           <StaggerGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" staggerDelay={0.035}>
-            {schedule.times.map((item) => {
-              const isNext = prayerCalculation.nextPrayer?.key === item.key;
+            {activePrayerTimes.map((item) => {
+              const isNext =
+                liveNextPrayerKey === item.key || prayerCalculation.nextPrayer?.key === item.key;
               const localizedName = getLocalizedPrayerName(item.key, item.nameUz);
               const mode = getPrayerMode(item.key);
               const isAzanCapable = isFiveDailyPrayer(item.key);
@@ -753,79 +1184,118 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
             })}
           </StaggerGrid>
 
+          {/* BOTTOM SECTION: VISUALLY SEPARATED 24H + 7-DAY / 16-DAY WEATHER FORECAST CENTER */}
+          <WeatherCenterPanel
+            weather={weather}
+            isLoading={isLoadingWeather}
+            error={weatherError}
+            onRefresh={() => loadWeatherForActiveCity(true)}
+            mode="forecast"
+          />
+
           {/* Regional Verification Disclaimer Card — Dual-Theme Light + Dark */}
           <Card className="p-5 bg-[#F2EFE9] dark:bg-[#0B1411] border-[#064E3B]/10 dark:border-white/[0.08] text-xs text-[#334F46] dark:text-[#C2D1CB] flex items-start gap-3.5">
             <Info className="w-5 h-5 text-[#064E3B] dark:text-[#C8A85E] shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              {getLocalizedText(schedule.disclaimer)}
+              {isAsakaManual
+                ? getLocalizedText(schedule.disclaimer)
+                : `${activeRecord.cityName} (${activeRecord.regionName}, ${activeRecord.countryName}) uchun namoz vaqtlari AUTO rejimda (${activeRecord.sourceName}) shakllantirilgan. Asaka shahrining MANUAL_ADMIN jadvaliga ta’sir qilmaydi.`}
             </p>
           </Card>
         </div>
       )}
 
-      {/* TAB 2: MONTHLY CALENDAR PREVIEW — FULL DUAL-THEME CONTRAST */}
+      {/* TAB 2: MONTHLY CALENDAR — REAL API-DRIVEN FOR SELECTED CITY */}
       {activeTab === 'monthly' && (
         <Card elevated className="p-6 sm:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="az-type-section text-[#0B1B16] dark:text-[#F7F5F0]">
-                {t('prayer:monthlyTitle')}
+                {t('prayer:monthlyTitle')} — {activeRecord.cityName}
               </h3>
               <p className="az-type-caption text-[#5F776F] dark:text-[#8FA69D]">
-                Asaka shahri va tumanlar uchun tasdiqlangan oylik jadval
+                {isAsakaManual
+                  ? 'Asaka shahri uchun administrator boshqaruvidagi oylik jadval (MANUAL_ADMIN)'
+                  : `${activeRecord.regionName}, ${activeRecord.countryName} · ${activeRecord.timezone} (${activeRecord.calculationMethodLabel || activeRecord.calculationMethod})`}
               </p>
             </div>
             <span className="az-type-numeric text-xs font-bold text-[#064E3B] dark:text-[#C8A85E]">
-              {t('prayer:monthlyHijri')}
+              {activeRecord.localDate.slice(0, 7)} · {activeRecord.hijriDate}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-[#064E3B]/[0.1] dark:border-white/[0.08]">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-[#F2EFE9] dark:bg-[#0F1A16] text-[#064E3B] dark:text-[#C8A85E] text-[11px] uppercase tracking-wider font-bold border-b border-[#064E3B]/[0.1] dark:border-white/[0.08]">
-                  <th className="py-3.5 px-3.5">{t('prayer:tableDay')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:tableDate')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:tahajjud')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:subh')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:bomdod')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:quyosh')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:peshin')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:asr')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:shom')}</th>
-                  <th className="py-3.5 px-3.5">{t('prayer:xufton')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#064E3B]/[0.07] dark:divide-white/[0.06] az-type-numeric text-[#1F3A32] dark:text-[#D4DDD8]">
-                {MONTHLY_CALENDAR_PREVIEW.map((row) => (
-                  <tr
-                    key={row.day}
-                    className="hover:bg-[#064E3B]/[0.04] dark:hover:bg-white/[0.04] transition-colors"
-                  >
-                    <td className="py-3 px-3.5 font-bold text-[#064E3B] dark:text-[#C8A85E]">{row.day}</td>
-                    <td className="py-3 px-3.5 text-[#5F776F] dark:text-[#8FA69D]">2026-11-{String(row.day).padStart(2, '0')}</td>
-                    <td className="py-3 px-3.5 text-emerald-700 dark:text-emerald-400 font-semibold">{row.tahajjud}</td>
-                    <td className="py-3 px-3.5 text-teal-700 dark:text-teal-300">{row.subh}</td>
-                    <td className="py-3 px-3.5 font-bold text-[#0B1B16] dark:text-[#F7F5F0]">{row.bomdod}</td>
-                    <td className="py-3 px-3.5 text-[#5F776F] dark:text-[#8FA69D]">{row.quyosh}</td>
-                    <td className="py-3 px-3.5 font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">{row.peshin}</td>
-                    <td className="py-3 px-3.5">{row.asr}</td>
-                    <td className="py-3 px-3.5 font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">{row.shom}</td>
-                    <td className="py-3 px-3.5 text-indigo-700 dark:text-indigo-300">{row.xufton}</td>
+          {isLoadingMonthly ? (
+            <div className="py-10 text-center text-xs text-[#5F776F] flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#064E3B]" />
+              <span>Oylik taqvim yuklanmoqda...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-[#064E3B]/[0.1] dark:border-white/[0.08]">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-[#F2EFE9] dark:bg-[#0F1A16] text-[#064E3B] dark:text-[#C8A85E] text-[11px] uppercase tracking-wider font-bold border-b border-[#064E3B]/[0.1] dark:border-white/[0.08]">
+                    <th className="py-3.5 px-3.5">{t('prayer:tableDay')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:tableDate')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:tahajjud')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:subh')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:bomdod')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:quyosh')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:peshin')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:asr')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:shom')}</th>
+                    <th className="py-3.5 px-3.5">{t('prayer:xufton')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#064E3B]/[0.07] dark:divide-white/[0.06] az-type-numeric text-[#1F3A32] dark:text-[#D4DDD8]">
+                  {(monthlyRows.length > 0
+                    ? monthlyRows
+                    : MONTHLY_CALENDAR_PREVIEW.map((r) => ({
+                        day: r.day,
+                        localDate: `2026-11-${String(r.day).padStart(2, '0')}`,
+                        hijriDate: '',
+                        tahajjud: r.tahajjud,
+                        subh: r.subh,
+                        fajr: r.bomdod,
+                        sunrise: r.quyosh,
+                        dhuhr: r.peshin,
+                        asr: r.asr,
+                        maghrib: r.shom,
+                        isha: r.xufton,
+                      }))
+                  ).map((row) => (
+                    <tr
+                      key={row.day}
+                      className={`hover:bg-[#064E3B]/[0.04] dark:hover:bg-white/[0.04] transition-colors ${
+                        row.localDate === activeRecord.localDate
+                          ? 'bg-emerald-500/10 font-semibold'
+                          : ''
+                      }`}
+                    >
+                      <td className="py-3 px-3.5 font-bold text-[#064E3B] dark:text-[#C8A85E]">{row.day}</td>
+                      <td className="py-3 px-3.5 text-[#5F776F] dark:text-[#8FA69D]">{row.localDate}</td>
+                      <td className="py-3 px-3.5 text-emerald-700 dark:text-emerald-400 font-semibold">{row.tahajjud}</td>
+                      <td className="py-3 px-3.5 text-teal-700 dark:text-teal-300">{row.subh}</td>
+                      <td className="py-3 px-3.5 font-bold text-[#0B1B16] dark:text-[#F7F5F0]">{row.fajr}</td>
+                      <td className="py-3 px-3.5 text-[#5F776F] dark:text-[#8FA69D]">{row.sunrise}</td>
+                      <td className="py-3 px-3.5 font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">{row.dhuhr}</td>
+                      <td className="py-3 px-3.5">{row.asr}</td>
+                      <td className="py-3 px-3.5 font-semibold text-[#0B1B16] dark:text-[#F7F5F0]">{row.maghrib}</td>
+                      <td className="py-3 px-3.5 text-indigo-700 dark:text-indigo-300">{row.isha}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
-      {/* TAB 3: SPATIAL 3D QIBLA COMPASS (LIVE DEVICE ORIENTATION + HONEST CALIBRATION FALLBACK) */}
+      {/* TAB 3: SPATIAL 3D QIBLA COMPASS (DYNAMIC FOR ANY SELECTED CITY) */}
       {activeTab === 'qibla' && (() => {
         const isLiveCompass = compassStatus === 'active' && compassHeading !== null;
         const needleAngle = isLiveCompass
-          ? (ASAKA_QIBLA_BEARING - compassHeading + 360) % 360
-          : ASAKA_QIBLA_BEARING;
+          ? (ACTIVE_QIBLA_BEARING - compassHeading + 360) % 360
+          : ACTIVE_QIBLA_BEARING;
         const dialRotation = isLiveCompass ? -compassHeading : 0;
         const angularDelta = isLiveCompass
           ? Math.min(needleAngle, 360 - needleAngle)
@@ -907,7 +1377,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
                 >
                   <Navigation className="w-5 h-5" />
                   <span className="az-type-numeric text-[10px] font-bold mt-0.5">
-                    {isLiveCompass ? `${compassHeading}°` : '241°'}
+                    {isLiveCompass ? `${compassHeading}°` : `${ACTIVE_QIBLA_BEARING}°`}
                   </span>
                 </div>
               </motion.div>
@@ -916,7 +1386,7 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
             {/* Live Bearing Readout + Sensor Activation Control */}
             <div className="relative z-10 space-y-3">
               <div className="az-type-numeric text-3xl sm:text-4xl font-extrabold text-[#F7F5F0] tracking-tight">
-                {ASAKA_QIBLA_BEARING}° <span className="text-[#C8A85E]">WSW</span>
+                {ACTIVE_QIBLA_BEARING}° <span className="text-[#C8A85E]">{activeRecord.cityName}</span>
               </div>
 
               {isAligned ? (
@@ -1359,6 +1829,14 @@ export const PrayerTimesView: React.FC<PrayerTimesViewProps> = ({
           </div>
         </div>
       </Modal>
+
+      {/* GLOBAL LOCATION PICKER MODAL */}
+      <GlobalLocationPickerModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        currentPref={locationPref}
+        onSelectLocation={handleSelectLocationPref}
+      />
     </div>
   );
 };

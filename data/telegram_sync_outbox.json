@@ -3105,6 +3105,105 @@
       "status": "deduplicated",
       "recipientsNotified": 0,
       "deduplicated": true,
+      "id": "sync_log_mwvo7q3x_73ea11",
+      "timestamp": "2026-11-25T05:16:07.533Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvo7pks_a769ec",
+      "timestamp": "2026-11-25T05:16:06.844Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvo7p61_7010a7",
+      "timestamp": "2026-11-25T05:16:06.313Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvo6pmo_705cb4",
+      "timestamp": "2026-11-25T05:15:20.256Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvm6pjq_0ee86b",
+      "timestamp": "2026-11-25T04:19:20.918Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvm6p1o_e616d0",
+      "timestamp": "2026-11-25T04:19:20.268Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvm6onb_398b4c",
+      "timestamp": "2026-11-25T04:19:19.752Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvm4hfh_0daca3",
+      "timestamp": "2026-11-25T04:17:37.085Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
+      "id": "sync_log_mwvm1w1c_ed2517",
+      "timestamp": "2026-11-25T04:15:36.048Z"
+    },
+    {
+      "eventId": "sync_mwp0srf5_d7957d20",
+      "entityType": "prayer_schedule",
+      "entityId": "asaka-main",
+      "action": "updated",
+      "status": "deduplicated",
+      "recipientsNotified": 0,
+      "deduplicated": true,
       "id": "sync_log_mwun3ofo_0ee0d7",
       "timestamp": "2026-11-24T11:57:12.948Z"
     },
@@ -4757,5 +4856,5 @@
     "article:e2e-test-art-1795521428714:archived:v5:343a6756175a",
     "article:e2e-test-art-1795521428714:created:v1:8f36b6b3ec9e"
   ],
-  "updatedAt": "2026-11-24T11:57:12.948Z"
+  "updatedAt": "2026-11-25T05:16:07.533Z"
 }

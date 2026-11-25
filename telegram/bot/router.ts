@@ -20,6 +20,9 @@ import {
 import { ReadOnlyPrayerScheduleProvider } from '../prayer/prayerAdapter';
 import { CentralDatabaseReader } from '../content/centralContentProvider';
 import { AppReleaseService } from '../services/appReleaseService';
+import type { GlobalPrayerEcosystemService } from '../../src/services/globalPrayerEcosystemServer';
+import type { QuranEcosystemService } from '../../src/services/quranEcosystemServer';
+import type { SubscriptionEcosystemService } from '../../src/services/subscriptionEcosystemServer';
 import {
   SyncActionType,
   SyncAudienceSegment,
@@ -54,6 +57,9 @@ export interface TelegramPlatformRouterDeps {
   centralContentReader?: CentralDatabaseReader;
   centralAdminWriter?: TelegramCentralAdminWriter;
   appReleaseService?: AppReleaseService;
+  globalPrayerEcosystem?: GlobalPrayerEcosystemService;
+  quranEcosystem?: QuranEcosystemService;
+  subscriptionEcosystem?: SubscriptionEcosystemService;
   config?: TelegramPlatformConfig;
   storePath?: string;
 }
@@ -76,6 +82,9 @@ export function createTelegramPlatformRouter(deps: TelegramPlatformRouterDeps): 
     centralContentReader: deps.centralContentReader,
     centralAdminWriter: deps.centralAdminWriter,
     appReleaseService: deps.appReleaseService,
+    globalPrayerEcosystem: deps.globalPrayerEcosystem,
+    quranEcosystem: deps.quranEcosystem,
+    subscriptionEcosystem: deps.subscriptionEcosystem,
     serverWriteFirestoreDoc: deps.serverWriteFirestoreDoc,
     serverReadFirestoreCollection: deps.serverReadFirestoreCollection,
   });

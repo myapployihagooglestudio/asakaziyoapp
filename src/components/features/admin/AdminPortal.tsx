@@ -22,6 +22,8 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { PageHero } from '../../ui/PageHero';
 import { GeometricPattern, IslamicStarEmblem } from '../../ui/GeometricPattern';
+import { GlobalPrayerWeatherAdminPanel } from './GlobalPrayerWeatherAdminPanel';
+import { UltimateEcosystemAdminPanel } from './UltimateEcosystemAdminPanel';
 import {
   Shield,
   ShieldCheck,
@@ -230,7 +232,8 @@ type AdminTab =
   | 'supabase'
   | 'localization'
   | 'audit_logs'
-  | 'enterprise_workspace';
+  | 'enterprise_workspace'
+  | 'ultimate_ecosystem';
 
 const TELEGRAM_CONFIG_KEY = 'asaka_ziyo_telegram_config';
 
@@ -2217,6 +2220,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-stone-200 dark:border-emerald-950">
         {[
           { id: 'dashboard', label: 'Boshqaruv Paneli', icon: Sliders, mod: 'dashboard' as EnterpriseModuleId },
+          { id: 'ultimate_ecosystem', label: 'Qurʼon Storage & Premium Markazi', icon: Sparkles, mod: 'quran_reciters_audio' as EnterpriseModuleId },
           { id: 'enterprise_workspace', label: 'Qurʼon 114 Audio & Azon Kutubxonasi', icon: Music, mod: 'quran_reciters_audio' as EnterpriseModuleId },
           { id: 'analytics', label: 'Analitika & Engagement', icon: BarChart3, mod: 'engagement_analytics' as EnterpriseModuleId },
           { id: 'users', label: `Foydalanuvchilar (${usersList.length})`, icon: Users, mod: 'users_profiles' as EnterpriseModuleId },
@@ -2268,6 +2272,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             Sizning joriy rolingiz (<strong>{activeRole}</strong>) «{selectedEnterpriseModule}» modulini koʻrish yoki boshqarish huquqiga ega emas. Yuqoridagi RBAC rol tanlagich orqali vakolatli rolni tanlang yoki Bosh Maʼmurga murojaat qiling.
           </p>
         </Card>
+      ) : activeTab === 'ultimate_ecosystem' ? (
+        <UltimateEcosystemAdminPanel />
       ) : activeTab === 'enterprise_workspace' ? (
         <EnterpriseAudioAndModulesWorkspaces
           activeModule={selectedEnterpriseModule}
@@ -3406,6 +3412,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
         </Card>
+      )}
+
+      {activeTab === 'prayer_schedule' && (
+        <GlobalPrayerWeatherAdminPanel
+          getAdminToken={() => getActiveAdminToken()}
+        />
       )}
 
       {/* ---------------- TAB 3: CONTENT CMS (ARTICLES, MEDIA, HADITH, DHIKR) ---------------- */}

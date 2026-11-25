@@ -30,6 +30,11 @@ import {
   verifyMp4FileIntegrity,
 } from './server/quranQuizVideoRenderer';
 import { createSmartMosqueDisplayRouter } from './server/smartMosqueDisplayRouter';
+import { createGlobalPrayerWeatherRouter } from './server/globalPrayerWeatherRouter';
+import { GlobalPrayerEcosystemService } from './src/services/globalPrayerEcosystemServer';
+import { QuranEcosystemService } from './src/services/quranEcosystemServer';
+import { SubscriptionEcosystemService } from './src/services/subscriptionEcosystemServer';
+import { createQuranPremiumEcosystemRouter } from './server/quranPremiumEcosystemRouter';
 import { createTelegramPlatformRouter } from './telegram/bot/router';
 import { AppReleaseService } from './telegram/services/appReleaseService';
 import { resolveAsakaDateContext } from './telegram/services/dateCalendarService';
@@ -6475,6 +6480,67 @@ app.use(
   })
 );
 
+// Global Prayer Times & Weather Ecosystem 2026 (Strictly Isolated Asaka MANUAL_ADMIN + 14 UZ Regions + Global Cities + Open-Meteo Weather)
+const globalPrayerEcosystem = new GlobalPrayerEcosystemService({
+  getAsakaSchedule: () => readDatabase().prayerSchedule,
+  saveAsakaSchedule: async (nextSchedule, actor) => {
+    const db = readDatabase();
+    const updatedSchedule = {
+      ...nextSchedule,
+      id: 'asaka-main',
+      updatedAt: new Date().toISOString(),
+      publishedBy: actor || AUTHORIZED_ADMIN_EMAIL,
+    };
+    const fsRes = await serverWriteFirestoreDoc('schedules', 'asaka-main', updatedSchedule);
+    if (!fsRes.success) {
+      return { success: false, error: fsRes.error || 'Firestore write failed' };
+    }
+    db.prayerSchedule = updatedSchedule;
+    writeDatabase(db);
+    triggerEcosystemSync(
+      'prayer_schedule',
+      'asaka-main',
+      'updated',
+      updatedSchedule,
+      actor || AUTHORIZED_ADMIN_EMAIL
+    );
+    return { success: true };
+  },
+  writeFirestoreDoc: serverWriteFirestoreDoc,
+});
+
+app.use(
+  createGlobalPrayerWeatherRouter({
+    ecosystem: globalPrayerEcosystem,
+    requireAdminAuth,
+    sensitiveActionLimiter,
+    extractAdminEmail: (req) => req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
+  })
+);
+
+// Ultimate Qur'on Ecosystem, Persistent Audio Storage & Unified Premium Subscription Engine (2026)
+const quranEcosystem = new QuranEcosystemService({
+  dataDir: DATA_DIR,
+  uploadsDir: UPLOADS_DIR,
+  firestoreMirror: serverWriteFirestoreDoc,
+});
+
+const subscriptionEcosystem = new SubscriptionEcosystemService({
+  dataDir: DATA_DIR,
+  firestoreMirror: serverWriteFirestoreDoc,
+  getTelegramBotToken: () => process.env.TELEGRAM_BOT_TOKEN || null,
+});
+
+app.use(
+  createQuranPremiumEcosystemRouter({
+    quranService: quranEcosystem,
+    subscriptionService: subscriptionEcosystem,
+    requireAdminAuth,
+    sensitiveActionLimiter,
+    extractAdminEmail: (req) => req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
+  })
+);
+
 // ASAKA ZIYO Telegram Platform (Unified Ecosystem V4 — mounted strictly under /api/telegram/platform/*)
 const telegramPlatform = createTelegramPlatformRouter({
   requireAdminAuth,
@@ -6483,6 +6549,9 @@ const telegramPlatform = createTelegramPlatformRouter({
   serverDeleteFirestoreDoc,
   serverReadFirestoreCollection,
   readOnlyPrayerProvider: () => readDatabase().prayerSchedule || null,
+  globalPrayerEcosystem,
+  quranEcosystem,
+  subscriptionEcosystem,
   centralContentReader: () => readDatabase() as any,
   appReleaseService,
   centralAdminWriter: {

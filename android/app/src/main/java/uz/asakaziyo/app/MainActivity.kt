@@ -10,11 +10,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Location
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import org.json.JSONObject
 import android.provider.Settings
 import android.util.Log
 import android.webkit.ConsoleMessage
@@ -384,6 +387,9 @@ class MainActivity : AppCompatActivity() {
                 <h1>ASAKA ZIYO</h1>
                 <p>Ilova resurslarini qayta yuklash talab qilinadi. Iltimos, quyidagi tugmani bosing.</p>
                 <button onclick="location.href='https://appassets.androidplatform.net/index.html'">Qayta yuklash</button>
+                <div style="margin-top:18px;font-size:11px;opacity:.65;">
+                  <a href="https://t.me/Ulugbek_Mirzayev_uz" style="color:#c6a45c;text-decoration:none;">Dev by Ulug‘bek Mirzayev</a>
+                </div>
               </div>
             </body>
             </html>
@@ -727,6 +733,202 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 applySystemBarsTheme(isDark)
             }
+        }
+
+        @JavascriptInterface
+        fun getLastKnownLocationJson(): String {
+            return try {
+                val fineGranted = ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+                val coarseGranted = ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+                if (!fineGranted && !coarseGranted) {
+                    return ""
+                }
+
+                val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return ""
+                val providers = listOf(
+                    LocationManager.GPS_PROVIDER,
+                    LocationManager.NETWORK_PROVIDER,
+                    LocationManager.PASSIVE_PROVIDER
+                )
+                var bestLocation: Location? = null
+                for (provider in providers) {
+                    val candidate = try {
+                        if (lm.isProviderEnabled(provider)) lm.getLastKnownLocation(provider) else null
+                    } catch (_: SecurityException) {
+                        null
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (candidate != null) {
+                        if (bestLocation == null || candidate.time > bestLocation.time) {
+                            bestLocation = candidate
+                        }
+                    }
+                }
+                if (bestLocation == null) return ""
+                JSONObject().apply {
+                    put("latitude", bestLocation.latitude)
+                    put("longitude", bestLocation.longitude)
+                    put("accuracy", bestLocation.accuracy.toDouble())
+                    put("timestamp", bestLocation.time)
+                }.toString()
+            } catch (e: Exception) {
+                Log.w("ASAKA_ZIYO_GPS", "getLastKnownLocationJson error: ${e.message}")
+                ""
+            }
+        }
+
+        @JavascriptInterface
+        fun syncSelectedLocation(payloadJson: String) {
+            try {
+                if (payloadJson.isBlank() || payloadJson.length > 4096) return
+                val parsed = JSONObject(payloadJson)
+                val prefs = applicationContext.getSharedPreferences(
+                    AsakaPrayerWidgetProvider.PREFS_NAME,
+                    Context.MODE_PRIVATE
+                )
+                prefs.edit()
+                    .putString(AsakaPrayerWidgetProvider.KEY_SELECTED_LOCATION, parsed.toString())
+                    .apply()
+            } catch (e: Exception) {
+                Log.w("ASAKA_ZIYO_LOC", "syncSelectedLocation error: ${e.message}")
+            }
+        }
+
+        @JavascriptInterface
+        fun syncPrayerWidgetSnapshot(payloadJson: String) {
+            try {
+                if (payloadJson.isBlank() || payloadJson.length > 8192) return
+                val parsed = JSONObject(payloadJson)
+                val prefs = applicationContext.getSharedPreferences(
+                    AsakaPrayerWidgetProvider.PREFS_NAME,
+                    Context.MODE_PRIVATE
+                )
+                prefs.edit()
+                    .putString(AsakaPrayerWidgetProvider.KEY_WIDGET_SNAPSHOT, parsed.toString())
+                    .putLong(AsakaPrayerWidgetProvider.KEY_WIDGET_UPDATED_AT, System.currentTimeMillis())
+                    .apply()
+                AsakaPrayerWidgetProvider.requestUpdate(applicationContext)
+            } catch (e: Exception) {
+                Log.w("ASAKA_ZIYO_WIDGET", "syncPrayerWidgetSnapshot error: ${e.message}")
+            }
+        }
+
+        @JavascriptInterface
+        fun notifyMediaPlaybackState(payloadJson: String) {
+            try {
+                if (payloadJson.isBlank() || payloadJson.length > 4096) return
+                val obj = JSONObject(payloadJson)
+                val actionType = obj.optString("action", "state")
+                val intent = Intent(this@MainActivity, AsakaMediaPlaybackService::class.java)
+                when (actionType) {
+                    "play" -> {
+                        intent.action = AsakaMediaPlaybackService.ACTION_PLAY_AUDIO
+                        val trackKey = obj.optString("trackKey", "")
+                        if (trackKey.isNotBlank() && AsakaOfflineDownloadManager.isDownloaded(applicationContext, trackKey)) {
+                            intent.putExtra(
+                                AsakaMediaPlaybackService.EXTRA_LOCAL_PATH,
+                                AsakaOfflineDownloadManager.getLocalFile(applicationContext, trackKey).absolutePath
+                            )
+                        }
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_AUDIO_URL, obj.optString("url", ""))
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_TITLE, obj.optString("title", "Qurʼoni Karim"))
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_ARTIST, obj.optString("artist", "ASAKA ZIYO"))
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_SPEED, obj.optDouble("speed", 1.0).toFloat())
+                        ContextCompat.startForegroundService(this@MainActivity, intent)
+                    }
+                    "pause" -> {
+                        intent.action = AsakaMediaPlaybackService.ACTION_PAUSE
+                        startService(intent)
+                    }
+                    "resume" -> {
+                        intent.action = AsakaMediaPlaybackService.ACTION_RESUME
+                        startService(intent)
+                    }
+                    "speed" -> {
+                        intent.action = AsakaMediaPlaybackService.ACTION_SET_SPEED
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_SPEED, obj.optDouble("speed", 1.0).toFloat())
+                        startService(intent)
+                    }
+                    "repeat" -> {
+                        intent.action = AsakaMediaPlaybackService.ACTION_SET_REPEAT_MODE
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_REPEAT_MODE, obj.optString("repeatMode", "off"))
+                        startService(intent)
+                    }
+                    "sleepTimer" -> {
+                        intent.action = AsakaMediaPlaybackService.ACTION_SET_SLEEP_TIMER
+                        intent.putExtra(AsakaMediaPlaybackService.EXTRA_SLEEP_MINUTES, obj.optInt("minutes", 0))
+                        startService(intent)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("ASAKA_ZIYO_MEDIA", "notifyMediaPlaybackState error: ${e.message}")
+            }
+        }
+
+        @JavascriptInterface
+        fun downloadQuranAudioOffline(trackKey: String, url: String, expectedSha256: String) {
+            if (trackKey.isBlank() || url.isBlank()) return
+            AsakaOfflineDownloadManager.downloadTrackAsync(
+                context = applicationContext,
+                trackKey = trackKey,
+                urlString = url,
+                expectedSha256 = expectedSha256.ifBlank { null }
+            ) { ok, localPath, error ->
+                runOnUiThread {
+                    val safeKey = JSONObject.quote(trackKey)
+                    val safeErr = JSONObject.quote(error ?: "")
+                    val safePath = JSONObject.quote(localPath ?: "")
+                    webView.evaluateJavascript(
+                        "try{window.dispatchEvent(new CustomEvent('asaka-native-download-result',{detail:{trackKey:$safeKey,ok:$ok,localPath:$safePath,error:$safeErr}}));}catch(e){}",
+                        null
+                    )
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun isQuranAudioOffline(trackKey: String): Boolean {
+            return AsakaOfflineDownloadManager.isDownloaded(applicationContext, trackKey)
+        }
+
+        @JavascriptInterface
+        fun deleteQuranAudioOffline(trackKey: String): Boolean {
+            return AsakaOfflineDownloadManager.deleteTrack(applicationContext, trackKey)
+        }
+
+        @JavascriptInterface
+        fun getOfflineStorageStats(): String {
+            return AsakaOfflineDownloadManager.getStorageStatsJson(applicationContext)
+        }
+
+        @JavascriptInterface
+        fun syncQuranWidget(payloadJson: String) {
+            try {
+                if (payloadJson.isBlank() || payloadJson.length > 4096) return
+                val parsed = JSONObject(payloadJson)
+                val prefs = applicationContext.getSharedPreferences(
+                    AsakaQuranWidgetProvider.PREFS_NAME,
+                    Context.MODE_PRIVATE
+                )
+                prefs.edit()
+                    .putString(AsakaQuranWidgetProvider.KEY_QURAN_SNAPSHOT, parsed.toString())
+                    .apply()
+                AsakaQuranWidgetProvider.requestUpdate(applicationContext)
+            } catch (e: Exception) {
+                Log.w("ASAKA_ZIYO_QURAN_W", "syncQuranWidget error: ${e.message}")
+            }
+        }
+
+        @JavascriptInterface
+        fun openDeveloperTelegram() {
+            openExternalUrl("https://t.me/Ulugbek_Mirzayev_uz")
         }
 
         @JavascriptInterface

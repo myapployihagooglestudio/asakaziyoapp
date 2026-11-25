@@ -1,0 +1,1374 @@
+{
+  "schemaVersion": 1,
+  "plans": {
+    "free": {
+      "id": "free",
+      "nameUz": "Bepul (Free)",
+      "taglineUz": "Barcha asosiy ibodat va Qurʼon imkoniyatlari doimo bepul",
+      "durationDays": 0,
+      "priceUzs": 0,
+      "isRecommended": false,
+      "isActive": true,
+      "highlightsUz": [
+        "Asaka va global namoz vaqtlari + ob-havo",
+        "Qurʼoni Karim Mushaf (114 sura) va asosiy tilovatlar",
+        "Tasbeh, zikrlar, hadislar va kunlik viktorina",
+        "Boshlangʻich Tajvid va Arab alifbosi darslari",
+        "Kunlik cheklangan AI Ustoz savollari"
+      ],
+      "updatedAt": "2026-11-25T05:12:03.045Z"
+    },
+    "premium_1m": {
+      "id": "premium_1m",
+      "nameUz": "Premium · 1 oylik",
+      "taglineUz": "Barcha Qorilar, cheksiz offline va chuqur Tajvid kursi",
+      "durationDays": 30,
+      "priceUzs": 29000,
+      "oldPriceUzs": 39000,
+      "discountPercent": 25,
+      "badgeUz": "Eng mashhur",
+      "isRecommended": false,
+      "isActive": true,
+      "highlightsUz": [
+        "Barcha Qorilarning 114 surasini cheksiz offline yuklash",
+        "Cheksiz shaxsiy playlistlar va sinxronizatsiya",
+        "Oʻrta va yuqori darajali Tajvid darslari + sertifikatlar",
+        "Kengaytirilgan Hifz va Murojaʼa rejasi",
+        "Ustuvor AI Ustoz va barcha qurilmalarda yagona Premium"
+      ],
+      "updatedAt": "2026-11-25T05:15:18.122Z"
+    },
+    "premium_3m": {
+      "id": "premium_3m",
+      "nameUz": "Premium · 3 oylik",
+      "taglineUz": "Muntazam Qurʼon va Tajvid oʻrganuvchilar uchun eng qulay tanlov",
+      "durationDays": 90,
+      "priceUzs": 75000,
+      "oldPriceUzs": 117000,
+      "discountPercent": 36,
+      "badgeUz": "Tavsiya etiladi",
+      "isRecommended": true,
+      "isActive": true,
+      "highlightsUz": [
+        "1 oylik Premium ning barcha imkoniyatlari",
+        "36% tejash (oyiga atigi 25 000 soʻm)",
+        "Barcha offline Qori paketlari va Hifz tahlili",
+        "Web, Android APK va Telegram Bot/Mini App sinxronizatsiyasi"
+      ],
+      "updatedAt": "2026-11-25T05:12:03.045Z"
+    },
+    "premium_6m": {
+      "id": "premium_6m",
+      "nameUz": "Premium · 6 oylik",
+      "taglineUz": "Maksimal tejamkorlik va yarim yillik uzluksiz ilm safri",
+      "durationDays": 180,
+      "priceUzs": 129000,
+      "oldPriceUzs": 234000,
+      "discountPercent": 45,
+      "badgeUz": "Eng foydali · -45%",
+      "isRecommended": false,
+      "isActive": true,
+      "highlightsUz": [
+        "Barcha Premium funksiyalar 180 kun davomida",
+        "45% maksimal chegirma (oyiga ~21 500 soʻm)",
+        "Barcha Tajvid sertifikatlari va audio testlar",
+        "Ustuvor texnik yordam va yangi funksiyalarga erta kirish"
+      ],
+      "updatedAt": "2026-11-25T05:12:03.045Z"
+    }
+  },
+  "featureGates": {
+    "prayer_times_global": {
+      "key": "prayer_times_global",
+      "labelUz": "Namoz vaqtlari va Ob-havo",
+      "descriptionUz": "Asaka MANUAL + Oʻzbekiston 14 hudud + global shaharlar",
+      "access": "free"
+    },
+    "quran_mushaf_core": {
+      "key": "quran_mushaf_core",
+      "labelUz": "Qurʼon Mushaf va Asosiy Tilovat",
+      "descriptionUz": "114 sura matni, tarjima va asosiy qorilar",
+      "access": "free"
+    },
+    "tasbeh_dhikr_core": {
+      "key": "tasbeh_dhikr_core",
+      "labelUz": "Tasbeh va Zikrlar",
+      "descriptionUz": "Raqamli tasbeh, tonggi-kechki zikrlar va duolar",
+      "access": "free"
+    },
+    "tajweed_beginner": {
+      "key": "tajweed_beginner",
+      "labelUz": "Arab alifbosi va Boshlangʻich Tajvid",
+      "descriptionUz": "28 harf, maxraj va asosiy darslar",
+      "access": "free"
+    },
+    "unlimited_offline_downloads": {
+      "key": "unlimited_offline_downloads",
+      "labelUz": "Cheksiz Offline Qori Yuklash",
+      "descriptionUz": "114 suralik toʻliq qori paketlarini offline saqlash",
+      "access": "premium",
+      "freeDailyLimit": 3
+    },
+    "advanced_tajweed_academy": {
+      "key": "advanced_tajweed_academy",
+      "labelUz": "Chuqur Tajvid va Sertifikatlar",
+      "descriptionUz": "Oʻrta va yuqori bosqich darslari hamda imtihonlar",
+      "access": "premium"
+    },
+    "unlimited_playlists": {
+      "key": "unlimited_playlists",
+      "labelUz": "Cheksiz Shaxsiy Playlistlar",
+      "descriptionUz": "Koʻp sonli playlist yaratish va qurilmalarda sinxronlash",
+      "access": "premium",
+      "freeDailyLimit": 2
+    },
+    "advanced_hifz_analytics": {
+      "key": "advanced_hifz_analytics",
+      "labelUz": "Kengaytirilgan Hifz va Murojaʼa",
+      "descriptionUz": "Kengaytirilgan takrorlash jadvali va qiyin oyatlar tahlili",
+      "access": "premium"
+    },
+    "ai_ustoz_unlimited": {
+      "key": "ai_ustoz_unlimited",
+      "labelUz": "Cheksiz AI Ustoz",
+      "descriptionUz": "Kunlik cheklovsiz islomiy savol-javob va izohlar",
+      "access": "premium",
+      "freeDailyLimit": 5
+    }
+  },
+  "cardSettings": {
+    "cardholderName": "ASAKA ZIYO (Admin orqali sozlang)",
+    "cardNumber": "8600 0000 0000 0000",
+    "bankName": "Uzcard / Humo",
+    "paymentNoteUz": "Toʻlov izohiga buyurtma raqamini (Order ID) yozing va chek maʼlumotini yuboring.",
+    "instructionsUz": "1. Tarifni tanlang va buyurtma yarating.\n2. Koʻrsatilgan karta raqamiga aniq summani oʻtkazing.\n3. Oʻtkazma cheki raqami yoki skrinshotini yuboring.\n4. Administrator haqiqiy oʻtkazmani tasdiqlagach, Premium darhol barcha qurilmalaringizda yoqiladi.\nEslatma: Hech qachon karta PIN-kodi, CVV yoki SMS tasdiqlash kodini hech kimga bermang!",
+    "isActive": true,
+    "supportTelegramUrl": "https://t.me/Ulugbek_Mirzayev_uz",
+    "updatedAt": "2026-11-25T05:12:03.045Z",
+    "updatedBy": "system_seed"
+  },
+  "orders": {
+    "ORD-20261125-A41435": {
+      "orderId": "ORD-20261125-A41435",
+      "userId": "buyer_test_1795583543915",
+      "userDisplayName": "Test Buyer",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "CHK-test_1795583543915",
+      "status": "APPROVED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T05:12:24.656Z",
+      "reviewedAt": "2026-11-25T05:12:24.665Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "activatedSubscriptionId": "buyer_test_1795583543915"
+    },
+    "ORD-20261125-686411": {
+      "orderId": "ORD-20261125-686411",
+      "userId": "buyer2_test_1795583543915",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "CHK-test_1795583543915",
+      "status": "PENDING",
+      "duplicateRefWarning": true,
+      "createdAt": "2026-11-25T05:12:24.660Z"
+    },
+    "ORD-20261125-F577BA": {
+      "orderId": "ORD-20261125-F577BA",
+      "userId": "reject_user_test_1795583543915",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "REJ-test_1795583543915",
+      "status": "REJECTED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T05:12:24.675Z",
+      "reviewedAt": "2026-11-25T05:12:24.678Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "rejectionReason": "Chek aniq emas"
+    },
+    "ORD-20261125-B7BF93": {
+      "orderId": "ORD-20261125-B7BF93",
+      "userId": "buyer_test_1795583658654",
+      "userDisplayName": "Test Buyer",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "CHK-test_1795583658654",
+      "status": "APPROVED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T05:14:19.612Z",
+      "reviewedAt": "2026-11-25T05:14:19.619Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "activatedSubscriptionId": "buyer_test_1795583658654"
+    },
+    "ORD-20261125-E0A434": {
+      "orderId": "ORD-20261125-E0A434",
+      "userId": "buyer2_test_1795583658654",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "CHK-test_1795583658654",
+      "status": "PENDING",
+      "duplicateRefWarning": true,
+      "createdAt": "2026-11-25T05:14:19.615Z"
+    },
+    "ORD-20261125-49AADF": {
+      "orderId": "ORD-20261125-49AADF",
+      "userId": "reject_user_test_1795583658654",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "REJ-test_1795583658654",
+      "status": "REJECTED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T05:14:19.631Z",
+      "reviewedAt": "2026-11-25T05:14:19.634Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "rejectionReason": "Chek aniq emas"
+    },
+    "ORD-20261125-F6CB0D": {
+      "orderId": "ORD-20261125-F6CB0D",
+      "userId": "buyer_test_1795583717541",
+      "userDisplayName": "Test Buyer",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "CHK-test_1795583717541",
+      "status": "APPROVED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T05:15:18.126Z",
+      "reviewedAt": "2026-11-25T05:15:18.132Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "activatedSubscriptionId": "buyer_test_1795583717541"
+    },
+    "ORD-20261125-0F2A0A": {
+      "orderId": "ORD-20261125-0F2A0A",
+      "userId": "buyer2_test_1795583717541",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "CHK-test_1795583717541",
+      "status": "PENDING",
+      "duplicateRefWarning": true,
+      "createdAt": "2026-11-25T05:15:18.129Z"
+    },
+    "ORD-20261125-FA81A8": {
+      "orderId": "ORD-20261125-FA81A8",
+      "userId": "reject_user_test_1795583717541",
+      "platform": "web",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "REJ-test_1795583717541",
+      "status": "REJECTED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T05:15:18.140Z",
+      "reviewedAt": "2026-11-25T05:15:18.145Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "rejectionReason": "Chek aniq emas"
+    }
+  },
+  "subscriptions": {
+    "buyer_test_1795583543915": {
+      "userId": "buyer_test_1795583543915",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:12:24.665Z",
+      "expiresAt": "2026-12-25T05:12:24.665Z",
+      "lastOrderId": "ORD-20261125-A41435",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:12:24.665Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Karta toʻlovi tasdiqlandi (29000 UZS, ref: CHK-test_1795583543915)",
+          "timestamp": "2026-11-25T05:12:24.665Z"
+        }
+      ]
+    },
+    "promo_user_test_1795583543915": {
+      "userId": "promo_user_test_1795583543915",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "promo_code",
+      "startsAt": "2026-11-25T05:12:24.691Z",
+      "expiresAt": "2026-12-02T05:12:24.691Z",
+      "grantedBy": "promo:ASAKA44685",
+      "giftReason": "ASAKA44685 promokodi orqali +7 kun Premium",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:12:24.691Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "promo:ASAKA44685",
+          "note": "ASAKA44685 promokodi orqali +7 kun Premium",
+          "timestamp": "2026-11-25T05:12:24.691Z"
+        }
+      ]
+    },
+    "draw_u2_test_1795583543915": {
+      "userId": "draw_u2_test_1795583543915",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "random_draw",
+      "startsAt": "2026-11-25T05:12:24.712Z",
+      "expiresAt": "2026-12-25T05:12:24.712Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "giftReason": "Tanlov gʻolibi hadyasi: Juma Hadya Tanlovi (test_1795583543915) (+30 kun)",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:12:24.712Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Tanlov gʻolibi hadyasi: Juma Hadya Tanlovi (test_1795583543915) (+30 kun)",
+          "timestamp": "2026-11-25T05:12:24.712Z"
+        }
+      ]
+    },
+    "web_link_test_1795583543915": {
+      "userId": "web_link_test_1795583543915",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:12:24.736Z",
+      "expiresAt": "2026-12-25T05:12:24.736Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:12:24.736Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Admin tomonidan uzaytirildi",
+          "timestamp": "2026-11-25T05:12:24.736Z"
+        }
+      ]
+    },
+    "buyer_test_1795583658654": {
+      "userId": "buyer_test_1795583658654",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:14:19.619Z",
+      "expiresAt": "2026-12-25T05:14:19.619Z",
+      "lastOrderId": "ORD-20261125-B7BF93",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:14:19.619Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Karta toʻlovi tasdiqlandi (29000 UZS, ref: CHK-test_1795583658654)",
+          "timestamp": "2026-11-25T05:14:19.619Z"
+        }
+      ]
+    },
+    "gift_test_1795583658654": {
+      "userId": "gift_test_1795583658654",
+      "status": "EXPIRED",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:14:19.642Z",
+      "expiresAt": "2026-11-25T05:14:18.698Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "giftReason": "Ramazon hadyasi",
+      "isSuspended": true,
+      "suspendedReason": "Vaqtincha toʻxtatildi",
+      "updatedAt": "2026-11-25T05:14:19.698Z",
+      "history": [
+        {
+          "action": "ADMIN_EXPIRE_NOW",
+          "planId": "premium_1m",
+          "status": "EXPIRED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Muddat tugatildi",
+          "timestamp": "2026-11-25T05:14:19.698Z"
+        },
+        {
+          "action": "ADMIN_SUSPEND",
+          "planId": "premium_1m",
+          "status": "SUSPENDED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Vaqtincha toʻxtatildi",
+          "timestamp": "2026-11-25T05:14:19.650Z"
+        },
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Qoʻshimcha 10 kun",
+          "timestamp": "2026-11-25T05:14:19.646Z"
+        },
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Ramazon hadyasi",
+          "timestamp": "2026-11-25T05:14:19.642Z"
+        }
+      ]
+    },
+    "promo_user_test_1795583658654": {
+      "userId": "promo_user_test_1795583658654",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "promo_code",
+      "startsAt": "2026-11-25T05:14:19.710Z",
+      "expiresAt": "2026-12-02T05:14:19.710Z",
+      "grantedBy": "promo:ASAKA59704",
+      "giftReason": "ASAKA59704 promokodi orqali +7 kun Premium",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:14:19.710Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "promo:ASAKA59704",
+          "note": "ASAKA59704 promokodi orqali +7 kun Premium",
+          "timestamp": "2026-11-25T05:14:19.710Z"
+        }
+      ]
+    },
+    "draw_u2_test_1795583658654": {
+      "userId": "draw_u2_test_1795583658654",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "random_draw",
+      "startsAt": "2026-11-25T05:14:19.733Z",
+      "expiresAt": "2026-12-25T05:14:19.733Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "giftReason": "Tanlov gʻolibi hadyasi: Juma Hadya Tanlovi (test_1795583658654) (+30 kun)",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:14:19.733Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Tanlov gʻolibi hadyasi: Juma Hadya Tanlovi (test_1795583658654) (+30 kun)",
+          "timestamp": "2026-11-25T05:14:19.733Z"
+        }
+      ]
+    },
+    "web_link_test_1795583658654": {
+      "userId": "web_link_test_1795583658654",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:14:19.755Z",
+      "expiresAt": "2026-12-25T05:14:19.755Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:14:19.755Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Admin tomonidan uzaytirildi",
+          "timestamp": "2026-11-25T05:14:19.755Z"
+        }
+      ]
+    },
+    "buyer_test_1795583717541": {
+      "userId": "buyer_test_1795583717541",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:15:18.132Z",
+      "expiresAt": "2026-12-25T05:15:18.132Z",
+      "lastOrderId": "ORD-20261125-F6CB0D",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:15:18.132Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Karta toʻlovi tasdiqlandi (29000 UZS, ref: CHK-test_1795583717541)",
+          "timestamp": "2026-11-25T05:15:18.132Z"
+        }
+      ]
+    },
+    "gift_test_1795583717541": {
+      "userId": "gift_test_1795583717541",
+      "status": "EXPIRED",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:15:18.151Z",
+      "expiresAt": "2026-11-25T05:15:17.165Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "giftReason": "Ramazon hadyasi",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:15:18.165Z",
+      "history": [
+        {
+          "action": "ADMIN_EXPIRE_NOW",
+          "planId": "premium_1m",
+          "status": "EXPIRED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Muddat tugatildi",
+          "timestamp": "2026-11-25T05:15:18.165Z"
+        },
+        {
+          "action": "ADMIN_SUSPEND",
+          "planId": "premium_1m",
+          "status": "SUSPENDED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Vaqtincha toʻxtatildi",
+          "timestamp": "2026-11-25T05:15:18.158Z"
+        },
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Qoʻshimcha 10 kun",
+          "timestamp": "2026-11-25T05:15:18.155Z"
+        },
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Ramazon hadyasi",
+          "timestamp": "2026-11-25T05:15:18.151Z"
+        }
+      ]
+    },
+    "promo_user_test_1795583717541": {
+      "userId": "promo_user_test_1795583717541",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "promo_code",
+      "startsAt": "2026-11-25T05:15:18.177Z",
+      "expiresAt": "2026-12-02T05:15:18.177Z",
+      "grantedBy": "promo:ASAKA18170",
+      "giftReason": "ASAKA18170 promokodi orqali +7 kun Premium",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:15:18.177Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "promo:ASAKA18170",
+          "note": "ASAKA18170 promokodi orqali +7 kun Premium",
+          "timestamp": "2026-11-25T05:15:18.177Z"
+        }
+      ]
+    },
+    "draw_u1_test_1795583717541": {
+      "userId": "draw_u1_test_1795583717541",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "random_draw",
+      "startsAt": "2026-11-25T05:15:18.198Z",
+      "expiresAt": "2026-12-25T05:15:18.198Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "giftReason": "Tanlov gʻolibi hadyasi: Juma Hadya Tanlovi (test_1795583717541) (+30 kun)",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:15:18.198Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Tanlov gʻolibi hadyasi: Juma Hadya Tanlovi (test_1795583717541) (+30 kun)",
+          "timestamp": "2026-11-25T05:15:18.198Z"
+        }
+      ]
+    },
+    "web_link_test_1795583717541": {
+      "userId": "web_link_test_1795583717541",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T05:15:18.222Z",
+      "expiresAt": "2026-12-25T05:15:18.222Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T05:15:18.222Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Admin tomonidan uzaytirildi",
+          "timestamp": "2026-11-25T05:15:18.222Z"
+        }
+      ]
+    }
+  },
+  "promoCodes": {
+    "ASAKA44685": {
+      "code": "ASAKA44685",
+      "titleUz": "E2E 7 kunlik hadya",
+      "type": "free_premium_days",
+      "value": 7,
+      "maxUses": 10,
+      "usedCount": 1,
+      "usedByUserIds": [
+        "promo_user_test_1795583543915"
+      ],
+      "applicablePlans": [
+        "premium_1m",
+        "premium_3m",
+        "premium_6m"
+      ],
+      "isActive": true,
+      "createdAt": "2026-11-25T05:12:24.687Z",
+      "createdBy": "asakaziyo0@gmail.com"
+    },
+    "ASAKA59704": {
+      "code": "ASAKA59704",
+      "titleUz": "E2E 7 kunlik hadya",
+      "type": "free_premium_days",
+      "value": 7,
+      "maxUses": 10,
+      "usedCount": 1,
+      "usedByUserIds": [
+        "promo_user_test_1795583658654"
+      ],
+      "applicablePlans": [
+        "premium_1m",
+        "premium_3m",
+        "premium_6m"
+      ],
+      "isActive": true,
+      "createdAt": "2026-11-25T05:14:19.706Z",
+      "createdBy": "asakaziyo0@gmail.com"
+    },
+    "ASAKA18170": {
+      "code": "ASAKA18170",
+      "titleUz": "E2E 7 kunlik hadya",
+      "type": "free_premium_days",
+      "value": 7,
+      "maxUses": 10,
+      "usedCount": 1,
+      "usedByUserIds": [
+        "promo_user_test_1795583717541"
+      ],
+      "applicablePlans": [
+        "premium_1m",
+        "premium_3m",
+        "premium_6m"
+      ],
+      "isActive": true,
+      "createdAt": "2026-11-25T05:15:18.173Z",
+      "createdBy": "asakaziyo0@gmail.com"
+    }
+  },
+  "campaigns": {},
+  "randomDraws": {
+    "draw_asaka_ziyo_monthly_gift": {
+      "id": "draw_asaka_ziyo_monthly_gift",
+      "titleUz": "ASAKA ZIYO — Bepul Premium Hadya Tanlovi",
+      "descriptionUz": "Barcha foydalanuvchilar uchun mutlaqo bepul ishtirok! Gʻolib server tomonidan adolatli tasodifiy tanlov (CSPRNG) orqali aniqlanadi va 1 oylik Premium hadya qilinadi.",
+      "prizePlanId": "premium_1m",
+      "prizeDays": 30,
+      "winnersCount": 3,
+      "entryType": "FREE_ONLY",
+      "status": "OPEN",
+      "startsAt": "2026-11-25T05:12:03.045Z",
+      "endsAt": "2026-12-25T05:12:03.045Z",
+      "entries": [],
+      "selectedWinnerUserIds": [],
+      "approvedWinnerUserIds": [],
+      "createdAt": "2026-11-25T05:12:03.045Z",
+      "createdBy": "system_seed"
+    },
+    "draw_1795583544698_54b6": {
+      "id": "draw_1795583544698_54b6",
+      "titleUz": "Juma Hadya Tanlovi (test_1795583543915)",
+      "descriptionUz": "Bepul ishtirok etiladigan hadya tanlovi.",
+      "prizePlanId": "premium_1m",
+      "prizeDays": 30,
+      "winnersCount": 1,
+      "entryType": "FREE_ONLY",
+      "status": "APPROVED_AND_GRANTED",
+      "startsAt": "2026-11-25T05:12:24.698Z",
+      "endsAt": "2026-12-09T05:12:24.698Z",
+      "entries": [
+        {
+          "userId": "draw_u1_test_1795583543915",
+          "displayName": "Abdulloh",
+          "platform": "web",
+          "joinedAt": "2026-11-25T05:12:24.702Z"
+        },
+        {
+          "userId": "draw_u2_test_1795583543915",
+          "displayName": "Bilol",
+          "platform": "telegram_miniapp",
+          "joinedAt": "2026-11-25T05:12:24.706Z"
+        }
+      ],
+      "selectedWinnerUserIds": [
+        "draw_u2_test_1795583543915"
+      ],
+      "approvedWinnerUserIds": [
+        "draw_u2_test_1795583543915"
+      ],
+      "createdAt": "2026-11-25T05:12:24.698Z",
+      "createdBy": "asakaziyo0@gmail.com",
+      "drawnAt": "2026-11-25T05:12:24.709Z",
+      "drawnBy": "asakaziyo0@gmail.com",
+      "approvedAt": "2026-11-25T05:12:24.712Z",
+      "approvedBy": "asakaziyo0@gmail.com"
+    },
+    "draw_1795583659718_172d": {
+      "id": "draw_1795583659718_172d",
+      "titleUz": "Juma Hadya Tanlovi (test_1795583658654)",
+      "descriptionUz": "Bepul ishtirok etiladigan hadya tanlovi.",
+      "prizePlanId": "premium_1m",
+      "prizeDays": 30,
+      "winnersCount": 1,
+      "entryType": "FREE_ONLY",
+      "status": "APPROVED_AND_GRANTED",
+      "startsAt": "2026-11-25T05:14:19.718Z",
+      "endsAt": "2026-12-09T05:14:19.718Z",
+      "entries": [
+        {
+          "userId": "draw_u1_test_1795583658654",
+          "displayName": "Abdulloh",
+          "platform": "web",
+          "joinedAt": "2026-11-25T05:14:19.721Z"
+        },
+        {
+          "userId": "draw_u2_test_1795583658654",
+          "displayName": "Bilol",
+          "platform": "telegram_miniapp",
+          "joinedAt": "2026-11-25T05:14:19.726Z"
+        }
+      ],
+      "selectedWinnerUserIds": [
+        "draw_u2_test_1795583658654"
+      ],
+      "approvedWinnerUserIds": [
+        "draw_u2_test_1795583658654"
+      ],
+      "createdAt": "2026-11-25T05:14:19.718Z",
+      "createdBy": "asakaziyo0@gmail.com",
+      "drawnAt": "2026-11-25T05:14:19.729Z",
+      "drawnBy": "asakaziyo0@gmail.com",
+      "approvedAt": "2026-11-25T05:14:19.733Z",
+      "approvedBy": "asakaziyo0@gmail.com"
+    },
+    "draw_1795583718184_38ed": {
+      "id": "draw_1795583718184_38ed",
+      "titleUz": "Juma Hadya Tanlovi (test_1795583717541)",
+      "descriptionUz": "Bepul ishtirok etiladigan hadya tanlovi.",
+      "prizePlanId": "premium_1m",
+      "prizeDays": 30,
+      "winnersCount": 1,
+      "entryType": "FREE_ONLY",
+      "status": "APPROVED_AND_GRANTED",
+      "startsAt": "2026-11-25T05:15:18.184Z",
+      "endsAt": "2026-12-09T05:15:18.184Z",
+      "entries": [
+        {
+          "userId": "draw_u1_test_1795583717541",
+          "displayName": "Abdulloh",
+          "platform": "web",
+          "joinedAt": "2026-11-25T05:15:18.187Z"
+        },
+        {
+          "userId": "draw_u2_test_1795583717541",
+          "displayName": "Bilol",
+          "platform": "telegram_miniapp",
+          "joinedAt": "2026-11-25T05:15:18.192Z"
+        }
+      ],
+      "selectedWinnerUserIds": [
+        "draw_u1_test_1795583717541"
+      ],
+      "approvedWinnerUserIds": [
+        "draw_u1_test_1795583717541"
+      ],
+      "createdAt": "2026-11-25T05:15:18.184Z",
+      "createdBy": "asakaziyo0@gmail.com",
+      "drawnAt": "2026-11-25T05:15:18.195Z",
+      "drawnBy": "asakaziyo0@gmail.com",
+      "approvedAt": "2026-11-25T05:15:18.198Z",
+      "approvedBy": "asakaziyo0@gmail.com"
+    }
+  },
+  "accountLinks": {
+    "tg:880044734": "web_link_test_1795583543915",
+    "tg:880059753": "web_link_test_1795583658654",
+    "tg:880018220": "web_link_test_1795583717541"
+  },
+  "pendingLinkCodes": {
+    "165021": {
+      "code": "165021",
+      "primaryUserId": "web_link_test_1795583717541",
+      "createdAt": "2026-11-25T05:15:18.227Z",
+      "expiresAt": "2026-11-25T05:30:18.227Z",
+      "used": true
+    },
+    "541908": {
+      "code": "541908",
+      "primaryUserId": "web_link_test_1795583658654",
+      "createdAt": "2026-11-25T05:14:19.760Z",
+      "expiresAt": "2026-11-25T05:29:19.760Z",
+      "used": true
+    },
+    "934363": {
+      "code": "934363",
+      "primaryUserId": "web_link_test_1795583543915",
+      "createdAt": "2026-11-25T05:12:24.739Z",
+      "expiresAt": "2026-11-25T05:27:24.739Z",
+      "used": true
+    }
+  },
+  "auditLogs": [
+    {
+      "id": "saud_1795583718232_265b12",
+      "actor": "tg:880018220",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_link_test_1795583717541",
+      "details": "tg:880018220 hisobi web_link_test_1795583717541 bilan bogʻlandi",
+      "createdAt": "2026-11-25T05:15:18.232Z"
+    },
+    {
+      "id": "saud_1795583718222_cbd804",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "web_link_test_1795583717541",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:15:18.222Z",
+      "createdAt": "2026-11-25T05:15:18.223Z"
+    },
+    {
+      "id": "saud_1795583718198_ebf604",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_APPROVED_AND_GRANTED",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583718184_38ed",
+      "details": "1 nafar gʻolibga 30 kunlik GIFTED Premium berildi",
+      "createdAt": "2026-11-25T05:15:18.198Z"
+    },
+    {
+      "id": "saud_1795583718198_4d72aa",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "draw_u1_test_1795583717541",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:15:18.198Z",
+      "createdAt": "2026-11-25T05:15:18.198Z"
+    },
+    {
+      "id": "saud_1795583718195_aac0e5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_SELECTED_CSPRNG",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583718184_38ed",
+      "details": "Ishtirokchilar: 2, tanlangan gʻoliblar: draw_u1_test_1795583717541",
+      "createdAt": "2026-11-25T05:15:18.195Z"
+    },
+    {
+      "id": "saud_1795583718184_84adc6",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_CREATED",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583718184_38ed",
+      "details": "Juma Hadya Tanlovi (test_1795583717541) (1 gʻolib, 30 kun)",
+      "createdAt": "2026-11-25T05:15:18.184Z"
+    },
+    {
+      "id": "saud_1795583718177_78481e",
+      "actor": "promo:ASAKA18170",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "promo_user_test_1795583717541",
+      "details": "premium_1m (+7 kun) -> 2026-12-02T05:15:18.177Z",
+      "createdAt": "2026-11-25T05:15:18.177Z"
+    },
+    {
+      "id": "saud_1795583718173_9871f9",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PROMO_SAVED",
+      "targetType": "promo",
+      "targetId": "ASAKA18170",
+      "details": "free_premium_days: 7",
+      "createdAt": "2026-11-25T05:15:18.173Z"
+    },
+    {
+      "id": "saud_1795583718165_89bd92",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_EXPIRE_NOW",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583717541",
+      "details": "Muddat tugatildi",
+      "createdAt": "2026-11-25T05:15:18.165Z"
+    },
+    {
+      "id": "saud_1795583718158_5d9293",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_SUSPEND",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583717541",
+      "details": "Vaqtincha toʻxtatildi",
+      "createdAt": "2026-11-25T05:15:18.158Z"
+    },
+    {
+      "id": "saud_1795583718155_46a56a",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583717541",
+      "details": "premium_1m (+10 kun) -> 2026-12-20T05:15:18.151Z",
+      "createdAt": "2026-11-25T05:15:18.155Z"
+    },
+    {
+      "id": "saud_1795583718152_61b61a",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583717541",
+      "details": "premium_1m (+15 kun) -> 2026-12-10T05:15:18.151Z",
+      "createdAt": "2026-11-25T05:15:18.152Z"
+    },
+    {
+      "id": "saud_1795583718145_4fd153",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_REJECTED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-FA81A8",
+      "details": "Sabab: Chek aniq emas",
+      "createdAt": "2026-11-25T05:15:18.145Z"
+    },
+    {
+      "id": "saud_1795583718140_cbfc9e",
+      "actor": "reject_user_test_1795583717541",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-FA81A8",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: REJ-test_1795583717541",
+      "createdAt": "2026-11-25T05:15:18.140Z"
+    },
+    {
+      "id": "saud_1795583718133_208cfa",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_APPROVED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-F6CB0D",
+      "details": "buyer_test_1795583717541 -> premium_1m (+30 kun)",
+      "createdAt": "2026-11-25T05:15:18.133Z"
+    },
+    {
+      "id": "saud_1795583718132_684c12",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "buyer_test_1795583717541",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:15:18.132Z",
+      "createdAt": "2026-11-25T05:15:18.132Z"
+    },
+    {
+      "id": "saud_1795583718129_3abc73",
+      "actor": "buyer2_test_1795583717541",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-0F2A0A",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: CHK-test_1795583717541 [DUPLICATE_REF_WARNING]",
+      "createdAt": "2026-11-25T05:15:18.129Z"
+    },
+    {
+      "id": "saud_1795583718126_6490d6",
+      "actor": "buyer_test_1795583717541",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-F6CB0D",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: CHK-test_1795583717541",
+      "createdAt": "2026-11-25T05:15:18.126Z"
+    },
+    {
+      "id": "saud_1795583718122_85a468",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_1m",
+      "details": "Premium · 1 oylik -> 29000 UZS (30 kun)",
+      "createdAt": "2026-11-25T05:15:18.122Z"
+    },
+    {
+      "id": "saud_1795583659798_122f85",
+      "actor": "tg:880059753",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_link_test_1795583658654",
+      "details": "tg:880059753 hisobi web_link_test_1795583658654 bilan bogʻlandi",
+      "createdAt": "2026-11-25T05:14:19.798Z"
+    },
+    {
+      "id": "saud_1795583659755_0b14a8",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "web_link_test_1795583658654",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:14:19.755Z",
+      "createdAt": "2026-11-25T05:14:19.755Z"
+    },
+    {
+      "id": "saud_1795583659733_a50985",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_APPROVED_AND_GRANTED",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583659718_172d",
+      "details": "1 nafar gʻolibga 30 kunlik GIFTED Premium berildi",
+      "createdAt": "2026-11-25T05:14:19.733Z"
+    },
+    {
+      "id": "saud_1795583659733_906d8f",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "draw_u2_test_1795583658654",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:14:19.733Z",
+      "createdAt": "2026-11-25T05:14:19.733Z"
+    },
+    {
+      "id": "saud_1795583659729_e408b5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_SELECTED_CSPRNG",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583659718_172d",
+      "details": "Ishtirokchilar: 2, tanlangan gʻoliblar: draw_u2_test_1795583658654",
+      "createdAt": "2026-11-25T05:14:19.729Z"
+    },
+    {
+      "id": "saud_1795583659718_76f616",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_CREATED",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583659718_172d",
+      "details": "Juma Hadya Tanlovi (test_1795583658654) (1 gʻolib, 30 kun)",
+      "createdAt": "2026-11-25T05:14:19.718Z"
+    },
+    {
+      "id": "saud_1795583659710_9b60e9",
+      "actor": "promo:ASAKA59704",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "promo_user_test_1795583658654",
+      "details": "premium_1m (+7 kun) -> 2026-12-02T05:14:19.710Z",
+      "createdAt": "2026-11-25T05:14:19.711Z"
+    },
+    {
+      "id": "saud_1795583659706_760109",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PROMO_SAVED",
+      "targetType": "promo",
+      "targetId": "ASAKA59704",
+      "details": "free_premium_days: 7",
+      "createdAt": "2026-11-25T05:14:19.706Z"
+    },
+    {
+      "id": "saud_1795583659698_abb8f5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_EXPIRE_NOW",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583658654",
+      "details": "Muddat tugatildi",
+      "createdAt": "2026-11-25T05:14:19.698Z"
+    },
+    {
+      "id": "saud_1795583659650_a1729a",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_SUSPEND",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583658654",
+      "details": "Vaqtincha toʻxtatildi",
+      "createdAt": "2026-11-25T05:14:19.650Z"
+    },
+    {
+      "id": "saud_1795583659646_3790b5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583658654",
+      "details": "premium_1m (+10 kun) -> 2026-12-20T05:14:19.642Z",
+      "createdAt": "2026-11-25T05:14:19.646Z"
+    },
+    {
+      "id": "saud_1795583659642_f00820",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "gift_test_1795583658654",
+      "details": "premium_1m (+15 kun) -> 2026-12-10T05:14:19.642Z",
+      "createdAt": "2026-11-25T05:14:19.642Z"
+    },
+    {
+      "id": "saud_1795583659634_c45b90",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_REJECTED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-49AADF",
+      "details": "Sabab: Chek aniq emas",
+      "createdAt": "2026-11-25T05:14:19.634Z"
+    },
+    {
+      "id": "saud_1795583659631_e75509",
+      "actor": "reject_user_test_1795583658654",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-49AADF",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: REJ-test_1795583658654",
+      "createdAt": "2026-11-25T05:14:19.631Z"
+    },
+    {
+      "id": "saud_1795583659620_8a7cc5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_APPROVED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-B7BF93",
+      "details": "buyer_test_1795583658654 -> premium_1m (+30 kun)",
+      "createdAt": "2026-11-25T05:14:19.620Z"
+    },
+    {
+      "id": "saud_1795583659619_d58f43",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "buyer_test_1795583658654",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:14:19.619Z",
+      "createdAt": "2026-11-25T05:14:19.619Z"
+    },
+    {
+      "id": "saud_1795583659615_f4cb1c",
+      "actor": "buyer2_test_1795583658654",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-E0A434",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: CHK-test_1795583658654 [DUPLICATE_REF_WARNING]",
+      "createdAt": "2026-11-25T05:14:19.615Z"
+    },
+    {
+      "id": "saud_1795583659612_4b4b4c",
+      "actor": "buyer_test_1795583658654",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-B7BF93",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: CHK-test_1795583658654",
+      "createdAt": "2026-11-25T05:14:19.612Z"
+    },
+    {
+      "id": "saud_1795583659608_3c8165",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_1m",
+      "details": "Premium · 1 oylik -> 29000 UZS (30 kun)",
+      "createdAt": "2026-11-25T05:14:19.608Z"
+    },
+    {
+      "id": "saud_1795583544742_895fbd",
+      "actor": "tg:880044734",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_link_test_1795583543915",
+      "details": "tg:880044734 hisobi web_link_test_1795583543915 bilan bogʻlandi",
+      "createdAt": "2026-11-25T05:12:24.742Z"
+    },
+    {
+      "id": "saud_1795583544736_bceaf0",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "web_link_test_1795583543915",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:12:24.736Z",
+      "createdAt": "2026-11-25T05:12:24.737Z"
+    },
+    {
+      "id": "saud_1795583544712_e908fe",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_APPROVED_AND_GRANTED",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583544698_54b6",
+      "details": "1 nafar gʻolibga 30 kunlik GIFTED Premium berildi",
+      "createdAt": "2026-11-25T05:12:24.712Z"
+    },
+    {
+      "id": "saud_1795583544712_5030ec",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "draw_u2_test_1795583543915",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:12:24.712Z",
+      "createdAt": "2026-11-25T05:12:24.712Z"
+    },
+    {
+      "id": "saud_1795583544709_1a924e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_SELECTED_CSPRNG",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583544698_54b6",
+      "details": "Ishtirokchilar: 2, tanlangan gʻoliblar: draw_u2_test_1795583543915",
+      "createdAt": "2026-11-25T05:12:24.709Z"
+    },
+    {
+      "id": "saud_1795583544698_6b47ed",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "RANDOM_DRAW_CREATED",
+      "targetType": "random_draw",
+      "targetId": "draw_1795583544698_54b6",
+      "details": "Juma Hadya Tanlovi (test_1795583543915) (1 gʻolib, 30 kun)",
+      "createdAt": "2026-11-25T05:12:24.698Z"
+    },
+    {
+      "id": "saud_1795583544691_876d9e",
+      "actor": "promo:ASAKA44685",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "promo_user_test_1795583543915",
+      "details": "premium_1m (+7 kun) -> 2026-12-02T05:12:24.691Z",
+      "createdAt": "2026-11-25T05:12:24.691Z"
+    },
+    {
+      "id": "saud_1795583544687_7cd4be",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PROMO_SAVED",
+      "targetType": "promo",
+      "targetId": "ASAKA44685",
+      "details": "free_premium_days: 7",
+      "createdAt": "2026-11-25T05:12:24.687Z"
+    },
+    {
+      "id": "saud_1795583544678_19fcf9",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_REJECTED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-F577BA",
+      "details": "Sabab: Chek aniq emas",
+      "createdAt": "2026-11-25T05:12:24.678Z"
+    },
+    {
+      "id": "saud_1795583544675_485eb8",
+      "actor": "reject_user_test_1795583543915",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-F577BA",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: REJ-test_1795583543915",
+      "createdAt": "2026-11-25T05:12:24.675Z"
+    },
+    {
+      "id": "saud_1795583544666_323863",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_APPROVED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-A41435",
+      "details": "buyer_test_1795583543915 -> premium_1m (+30 kun)",
+      "createdAt": "2026-11-25T05:12:24.666Z"
+    },
+    {
+      "id": "saud_1795583544665_da09ae",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "buyer_test_1795583543915",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T05:12:24.665Z",
+      "createdAt": "2026-11-25T05:12:24.665Z"
+    },
+    {
+      "id": "saud_1795583544660_d62696",
+      "actor": "buyer2_test_1795583543915",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-686411",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: CHK-test_1795583543915 [DUPLICATE_REF_WARNING]",
+      "createdAt": "2026-11-25T05:12:24.660Z"
+    },
+    {
+      "id": "saud_1795583544656_9e471a",
+      "actor": "buyer_test_1795583543915",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-A41435",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: CHK-test_1795583543915",
+      "createdAt": "2026-11-25T05:12:24.656Z"
+    },
+    {
+      "id": "saud_1795583544650_1cbe62",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_1m",
+      "details": "Premium · 1 oylik -> 29000 UZS (30 kun)",
+      "createdAt": "2026-11-25T05:12:24.650Z"
+    }
+  ],
+  "updatedAt": "2026-11-25T05:15:18.232Z"
+}

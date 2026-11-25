@@ -32,6 +32,22 @@ import { AppReleaseService } from '../services/appReleaseService';
 import { TelegramHifzService } from '../hifz/hifzService';
 import { TelegramQuranMp3Service } from '../services/quranMp3Service';
 import { DEFAULT_RICH_MESSAGE_TEMPLATES, TelegramStyleManager } from '../style/styleManager';
+import type { GlobalPrayerEcosystemService } from '../../src/services/globalPrayerEcosystemServer';
+import type { QuranEcosystemService } from '../../src/services/quranEcosystemServer';
+import type { SubscriptionEcosystemService } from '../../src/services/subscriptionEcosystemServer';
+import {
+  buildGlobalRegionPickerKeyboard,
+  buildWeatherInlineKeyboard,
+  formatTelegramUnifiedPrayerMessage,
+  formatTelegramWeatherMessage,
+  getTelegramUserPrefKey,
+} from '../services/globalPrayerWeatherBotHelper';
+import {
+  formatTelegramPremiumMessage,
+  formatTelegramQarisLibraryMessage,
+  formatTelegramRandomDrawsMessage,
+  getTelegramCanonicalUserKey,
+} from '../services/quranPremiumBotHelper';
 import {
   buildHifzHomeKeyboard,
   buildHifzRecitersKeyboard,
@@ -156,6 +172,9 @@ export interface CallbackHandlerContext {
   hifzService?: TelegramHifzService;
   quranMp3Service?: TelegramQuranMp3Service;
   styleManager?: TelegramStyleManager;
+  globalPrayerEcosystem?: GlobalPrayerEcosystemService;
+  quranEcosystem?: QuranEcosystemService;
+  subscriptionEcosystem?: SubscriptionEcosystemService;
   centralAdminWriter?: import('../types').TelegramCentralAdminWriter;
   runDiagnostics: () => Promise<{
     readyToAnswerStart: boolean;
@@ -747,6 +766,102 @@ export async function handleCallbackQuery(
       ),
     });
     return { handled: true, action: 'prayer:calendar' };
+  }
+
+  // 3B. Global Prayer & Weather Callbacks: gpray:regions:<page> | gpray:select:<cityId> | gpray:weather:<cityId>
+  if (data.startsWith('gpray:regions:')) {
+    const rawPage = data.slice('gpray:regions:'.length);
+    const page: 'uz1' | 'uz2' | 'global' =
+      rawPage === 'uz2' || rawPage === 'global' ? rawPage : 'uz1';
+    const formatted = ctx.emojiRegistry.formatMessage(
+      '{{emoji:prayer}} HUDUD VA SHAHAR TANLASH\n\n' +
+        'Asaka (MANUAL_ADMIN), O‘zbekistonning 14 hududi, Makka/Madina yoki dunyo shahrini tanlang:'
+    );
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    await renderScreenUpdate(
+      ctx.apiClient,
+      callback,
+      {
+        text: formatted.text,
+        entities: formatted.entities,
+        reply_markup: buildGlobalRegionPickerKeyboard(ctx.emojiRegistry, page),
+      },
+      ctx.styleManager
+    );
+    return { handled: true, action: data };
+  }
+
+  if (data.startsWith('gpray:select:')) {
+    const cityId = data.slice('gpray:select:'.length).trim();
+    if (ctx.globalPrayerEcosystem && cityId) {
+      await ctx.globalPrayerEcosystem.saveUserLocationPref({
+        userId: getTelegramUserPrefKey(user.telegramId),
+        cityId,
+        syncAcrossDevices: true,
+        platformSource: 'telegram',
+        updatedAt: new Date().toISOString(),
+      });
+      const unified = await formatTelegramUnifiedPrayerMessage({
+        ecosystem: ctx.globalPrayerEcosystem,
+        telegramId: user.telegramId,
+        locale: user.language,
+        emojiRegistry: ctx.emojiRegistry,
+        overrideCityId: cityId,
+      });
+      await ctx.apiClient.answerCallbackQuery({
+        callback_query_id: callback.id,
+        text: `Tanlandi: ${unified.record.cityName}`,
+      });
+      await renderScreenUpdate(
+        ctx.apiClient,
+        callback,
+        {
+          text: unified.formatted.text,
+          entities: unified.formatted.entities,
+          reply_markup: buildPrayerKeyboard(
+            user.language,
+            ctx.emojiRegistry,
+            ctx.config,
+            menuOpts.miniAppEnabled
+          ),
+        },
+        ctx.styleManager
+      );
+      return { handled: true, action: data };
+    }
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    return { handled: true, action: 'gpray:select:noop' };
+  }
+
+  if (data.startsWith('gpray:weather:')) {
+    const rawCity = data.slice('gpray:weather:'.length).trim();
+    await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+    if (ctx.globalPrayerEcosystem) {
+      try {
+        const res = await formatTelegramWeatherMessage({
+          ecosystem: ctx.globalPrayerEcosystem,
+          telegramId: user.telegramId,
+          emojiRegistry: ctx.emojiRegistry,
+          overrideCityId: rawCity && rawCity !== 'current' ? rawCity : undefined,
+        });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: res.formatted.text,
+            entities: res.formatted.entities,
+            reply_markup: buildWeatherInlineKeyboard(res.cityId, ctx.emojiRegistry),
+          },
+          ctx.styleManager
+        );
+      } catch (err: any) {
+        await renderScreenUpdate(ctx.apiClient, callback, {
+          text: `Ob-havo yuklanmadi: ${err?.message || 'tarmoq xatosi'}`,
+          reply_markup: buildBackOnlyKeyboard(user.language, ctx.emojiRegistry),
+        });
+      }
+    }
+    return { handled: true, action: data };
   }
 
   // 4. Quran, 114 Surahs Pagination, Tafsir, Khatm, Bookmarks
@@ -4655,11 +4770,35 @@ export async function handleCallbackQuery(
 
     case 'nav:prayer':
     case 'prayer:refresh': {
+      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+      if (ctx.globalPrayerEcosystem) {
+        const unified = await formatTelegramUnifiedPrayerMessage({
+          ecosystem: ctx.globalPrayerEcosystem,
+          telegramId: user.telegramId,
+          locale: user.language,
+          emojiRegistry: ctx.emojiRegistry,
+        });
+        await renderScreenUpdate(
+          ctx.apiClient,
+          callback,
+          {
+            text: unified.formatted.text,
+            entities: unified.formatted.entities,
+            reply_markup: buildPrayerKeyboard(
+              user.language,
+              ctx.emojiRegistry,
+              ctx.config,
+              menuOpts.miniAppEnabled
+            ),
+          },
+          ctx.styleManager
+        );
+        return { handled: true, action: data };
+      }
       const formatted = ctx.prayerAdapter.formatPrayerScheduleMessage(
         user.language,
         ctx.emojiRegistry
       );
-      await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
       await renderScreenUpdate(ctx.apiClient, callback, {
         text: formatted.text,
         entities: formatted.entities,
@@ -5089,6 +5228,132 @@ export async function handleCallbackQuery(
             : 'Murojaat topilmadi.',
           show_alert: true,
         });
+        return { handled: true, action: data };
+      }
+
+      if (data === 'premium:overview' && ctx.subscriptionEcosystem) {
+        const view = formatTelegramPremiumMessage({
+          subscriptionService: ctx.subscriptionEcosystem,
+          telegramId: user.telegramId,
+          config: ctx.config,
+          miniAppEnabled: menuOpts.miniAppEnabled,
+        });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        const msgId = callback.message?.message_id;
+        if (msgId) {
+          await ctx.apiClient.editMessageText({
+            chat_id: chatId,
+            message_id: msgId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        } else {
+          await ctx.apiClient.sendMessage({
+            chat_id: chatId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        }
+        return { handled: true, action: data };
+      }
+
+      if (data === 'premium:draws' && ctx.subscriptionEcosystem) {
+        const view = formatTelegramRandomDrawsMessage({
+          subscriptionService: ctx.subscriptionEcosystem,
+          telegramId: user.telegramId,
+          config: ctx.config,
+          miniAppEnabled: menuOpts.miniAppEnabled,
+        });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        const msgId = callback.message?.message_id;
+        if (msgId) {
+          await ctx.apiClient.editMessageText({
+            chat_id: chatId,
+            message_id: msgId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        } else {
+          await ctx.apiClient.sendMessage({
+            chat_id: chatId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        }
+        return { handled: true, action: data };
+      }
+
+      if (data.startsWith('draw_join:') && ctx.subscriptionEcosystem) {
+        const drawId = data.slice('draw_join:'.length).trim();
+        const tgKey = getTelegramCanonicalUserKey(user.telegramId);
+        const displayName = getUserDisplayFullName(user) || user.firstName || tgKey;
+        const joinRes = ctx.subscriptionEcosystem.joinRandomDraw(
+          drawId,
+          tgKey,
+          displayName,
+          'telegram_bot'
+        );
+        await ctx.apiClient.answerCallbackQuery({
+          callback_query_id: callback.id,
+          text: joinRes.ok
+            ? `🎉 Tanlovda roʻyxatdan oʻtdingiz! Jami ishtirokchilar: ${joinRes.entriesCount}`
+            : joinRes.error || 'Ishtirok etib boʻlmadi.',
+          show_alert: true,
+        });
+        const view = formatTelegramRandomDrawsMessage({
+          subscriptionService: ctx.subscriptionEcosystem,
+          telegramId: user.telegramId,
+          config: ctx.config,
+          miniAppEnabled: menuOpts.miniAppEnabled,
+        });
+        const msgId = callback.message?.message_id;
+        if (msgId) {
+          await ctx.apiClient.editMessageText({
+            chat_id: chatId,
+            message_id: msgId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        }
+        return { handled: true, action: data };
+      }
+
+      if (data === 'quran_pro:qaris' && ctx.quranEcosystem) {
+        const view = formatTelegramQarisLibraryMessage({
+          quranService: ctx.quranEcosystem,
+          config: ctx.config,
+          miniAppEnabled: menuOpts.miniAppEnabled,
+        });
+        await ctx.apiClient.answerCallbackQuery({ callback_query_id: callback.id });
+        const msgId = callback.message?.message_id;
+        if (msgId) {
+          await ctx.apiClient.editMessageText({
+            chat_id: chatId,
+            message_id: msgId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        } else {
+          await ctx.apiClient.sendMessage({
+            chat_id: chatId,
+            text: view.html,
+            parse_mode: 'HTML',
+            reply_markup: view.reply_markup,
+            disable_web_page_preview: true,
+          });
+        }
         return { handled: true, action: data };
       }
 

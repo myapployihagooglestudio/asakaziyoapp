@@ -38,7 +38,8 @@ export type NavigationTab =
   | 'hifz_istiqomat'
   | 'scholars'
   | 'media_center'
-  | 'mosques';
+  | 'mosques'
+  | 'premium';
 
 export type SupportedLocale = 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en';
 

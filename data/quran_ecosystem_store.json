@@ -1,0 +1,1129 @@
+{
+  "schemaVersion": 1,
+  "qaris": {
+    "alijon": {
+      "id": "alijon",
+      "nameUz": "Shayx Alijon qori",
+      "nameAr": "عليجان قوري حمدان",
+      "nameLatn": "Shayx Alijon qori",
+      "countryUz": "Oʻzbekiston",
+      "styleUz": "Murattal (Hafs an Osim)",
+      "bioUz": "Oʻzbekistonlik taniqli qori va Qurʼon ilmlari ustozi. 114 sura toʻliq Hafs an Osim rivoyati asosida tilovat qilingan.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": true,
+      "sortOrder": 1,
+      "externalSurahBaseUrl": "https://cdn.mp3quran.net/audio/alijon-hamdan/r1",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "jahongir_nematov": {
+      "id": "jahongir_nematov",
+      "nameUz": "Jahongir qori Neʼmatov",
+      "nameAr": "جهانغير قارئ نعمتوف",
+      "nameLatn": "Jahongir qori Neʼmatov",
+      "countryUz": "Oʻzbekiston",
+      "styleUz": "Murattal · Tajvid va Hifz uchun (114 sura)",
+      "bioUz": "Oʻzbekistonlik taniqli hofizi Qurʼon va tajvid ustozi. 114 sura uchun alohida qiroat kutubxonasi — litsenziyalangan audio fayllar maʼmuriyat orqali bosqichma-bosqich yuklanadi.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": true,
+      "sortOrder": 2,
+      "externalSurahBaseUrl": "",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "mishary": {
+      "id": "mishary",
+      "nameUz": "Shayx Mishariy Roshid al-Afosiy",
+      "nameAr": "مشاري راشد العفاسي",
+      "nameLatn": "Shayx Mishariy Roshid al-Afosiy",
+      "countryUz": "Kuvayt",
+      "styleUz": "Murattal (Hafs an Osim)",
+      "bioUz": "Kuvaytlik mashhur qori va imom. Masjid al-Kabir imomi, xalqaro Qurʼoni Karim qiroati ustozi.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": true,
+      "sortOrder": 3,
+      "externalSurahBaseUrl": "https://server8.mp3quran.net/afs",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "suwayd": {
+      "id": "suwayd",
+      "nameUz": "Shayx Ayman Rushdiy Suvayd",
+      "nameAr": "أيمن رشدي سويد",
+      "nameLatn": "Shayx Ayman Rushdiy Suvayd",
+      "countryUz": "Suriya / Saudiya Arabistoni",
+      "styleUz": "Al-Mushaf Al-Muallim (Tajvid ustozi)",
+      "bioUz": "Qiroat va tajvid ilmi boʻyicha zamonamizning eng yirik olimlaridan biri, «At-Tajvidul Musavvar» muallifi.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": true,
+      "sortOrder": 4,
+      "externalSurahBaseUrl": "https://server15.mp3quran.net/a-rushdi/Almusshaf-Al-Mo-lim",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "hussary": {
+      "id": "hussary",
+      "nameUz": "Shayx Mahmud Xalil al-Husariy",
+      "nameAr": "محمود خليل الحصري",
+      "nameLatn": "Shayx Mahmud Xalil al-Husariy",
+      "countryUz": "Misr",
+      "styleUz": "Mumtoz Tartil Maktabi",
+      "bioUz": "Misr qorilar shayxi. Dunyoda birinchi boʻlib Qurʼoni Karimni toʻliq ovozli tarzda yozib qoldirgan moʻtabar ustoz.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 5,
+      "externalSurahBaseUrl": "https://server13.mp3quran.net/husr",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "dussary": {
+      "id": "dussary",
+      "nameUz": "Shayx Yosir ad-Davsariy",
+      "nameAr": "ياسر الدوسري",
+      "nameLatn": "Shayx Yosir ad-Davsariy",
+      "countryUz": "Saudiya Arabistoni",
+      "styleUz": "Masjidul Harom qiroati",
+      "bioUz": "Makkai Mukarramadagi Masjidul Haromning rasmiy imom-xatibi va xushovoz qorisi.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 6,
+      "externalSurahBaseUrl": "https://server11.mp3quran.net/yasser",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "sudais": {
+      "id": "sudais",
+      "nameUz": "Shayx Abdurahmon as-Sudays",
+      "nameAr": "عبدالرحمن السديس",
+      "nameLatn": "Shayx Abdurahmon as-Sudays",
+      "countryUz": "Saudiya Arabistoni",
+      "styleUz": "Masjidul Harom bosh imomi",
+      "bioUz": "Ikki Muqaddas Masjid ishlari boʻyicha bosh rahbar va Masjidul Harom bosh imomi.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 7,
+      "externalSurahBaseUrl": "https://server11.mp3quran.net/sds",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "juhany": {
+      "id": "juhany",
+      "nameUz": "Shayx Abdulloh al-Juhaniy",
+      "nameAr": "عبدالله عواد الجهني",
+      "nameLatn": "Shayx Abdulloh al-Juhaniy",
+      "countryUz": "Saudiya Arabistoni",
+      "styleUz": "Masjidul Harom imomi qiroati",
+      "bioUz": "Masjidul Harom imomi, Madina Islom universiteti qiroat fakulteti doktori.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 8,
+      "externalSurahBaseUrl": "https://server13.mp3quran.net/jhn",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "ghamidi": {
+      "id": "ghamidi",
+      "nameUz": "Shayx Saʼd al-Gʻomidiy",
+      "nameAr": "سعد الغامدي",
+      "nameLatn": "Shayx Saʼd al-Gʻomidiy",
+      "countryUz": "Saudiya Arabistoni",
+      "styleUz": "Xushovoz va sokin murattal",
+      "bioUz": "Masjid an-Nabaviyda imomlik qilgan taniqli qori va islom olimi.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 9,
+      "externalSurahBaseUrl": "https://server7.mp3quran.net/s_gmd",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "shatri": {
+      "id": "shatri",
+      "nameUz": "Shayx Abu Bakr ash-Shotiriy",
+      "nameAr": "أبو بكر الشاطري",
+      "nameLatn": "Shayx Abu Bakr ash-Shotiriy",
+      "countryUz": "Saudiya Arabistoni",
+      "styleUz": "Mayin va taʼsirchan murattal",
+      "bioUz": "Jidda shahridagi al-Furqon masjidi imomi, butun dunyoda sevimli qorilardan biri.",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 10,
+      "externalSurahBaseUrl": "https://server11.mp3quran.net/shatri",
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:03.043Z",
+      "updatedAt": "2026-11-25T05:12:03.043Z",
+      "updatedBy": "system_seed"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795583543915": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795583543915",
+      "nameUz": "Jahongir qori Ne'matov (E2E test_1795583543915)",
+      "nameAr": "Jahongir qori Ne'matov (E2E test_1795583543915)",
+      "nameLatn": "Jahongir qori Ne'matov (E2E test_1795583543915)",
+      "countryUz": "O'zbekiston",
+      "styleUz": "Murattal",
+      "bioUz": "E2E test qori profili",
+      "isActive": false,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 11,
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:12:24.590Z",
+      "updatedAt": "2026-11-25T05:12:24.752Z",
+      "updatedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795583658654": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795583658654",
+      "nameUz": "Jahongir qori Ne'matov (E2E test_1795583658654)",
+      "nameAr": "Jahongir qori Ne'matov (E2E test_1795583658654)",
+      "nameLatn": "Jahongir qori Ne'matov (E2E test_1795583658654)",
+      "countryUz": "O'zbekiston",
+      "styleUz": "Murattal",
+      "bioUz": "E2E test qori profili",
+      "isActive": false,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 12,
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:14:19.453Z",
+      "updatedAt": "2026-11-25T05:14:19.811Z",
+      "updatedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795583717541": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795583717541",
+      "nameUz": "Jahongir qori Ne'matov (E2E test_1795583717541)",
+      "nameAr": "Jahongir qori Ne'matov (E2E test_1795583717541)",
+      "nameLatn": "Jahongir qori Ne'matov (E2E test_1795583717541)",
+      "countryUz": "O'zbekiston",
+      "styleUz": "Murattal",
+      "bioUz": "E2E test qori profili",
+      "isActive": false,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 13,
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T05:15:18.050Z",
+      "updatedAt": "2026-11-25T05:15:18.246Z",
+      "updatedBy": "asakaziyo0@gmail.com"
+    }
+  },
+  "audioFiles": {
+    "jahongir_qori_ne_matov_e2e_test_1795583543915_s001": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795583543915_s001",
+      "qariId": "jahongir_qori_ne_matov_e2e_test_1795583543915",
+      "surahNumber": 1,
+      "surahNameUz": "Fotiha",
+      "surahNameAr": "الفَاتِحَة",
+      "fileName": "surah-001.mp3",
+      "relativePath": "jahongir_qori_ne_matov_e2e_test_1795583543915/surah-001.mp3",
+      "streamUrl": "/api/quran-ecosystem/audio-stream/jahongir_qori_ne_matov_e2e_test_1795583543915_s001",
+      "mimeType": "audio/mpeg",
+      "sizeBytes": 4110,
+      "durationSec": 47,
+      "sha256": "1a185799ecf4d04ef1f01f5ea6a41bc38b7ef318e29146a39552653aece1457d",
+      "status": "ARCHIVED",
+      "version": 1,
+      "uploadedBy": "asakaziyo0@gmail.com",
+      "uploadedAt": "2026-11-25T05:12:24.601Z",
+      "publishedAt": "2026-11-25T05:12:24.610Z",
+      "publishedBy": "asakaziyo0@gmail.com",
+      "isDeleted": true,
+      "deletedAt": "2026-11-25T05:12:24.749Z",
+      "deletedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795583658654_s001": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795583658654_s001",
+      "qariId": "jahongir_qori_ne_matov_e2e_test_1795583658654",
+      "surahNumber": 1,
+      "surahNameUz": "Fotiha",
+      "surahNameAr": "الفَاتِحَة",
+      "fileName": "surah-001.mp3",
+      "relativePath": "jahongir_qori_ne_matov_e2e_test_1795583658654/surah-001.mp3",
+      "streamUrl": "/api/quran-ecosystem/audio-stream/jahongir_qori_ne_matov_e2e_test_1795583658654_s001",
+      "mimeType": "audio/mpeg",
+      "sizeBytes": 4110,
+      "durationSec": 47,
+      "sha256": "1e5a56db255d129723ad2c6e4a7acfccdf9a3f14579d771fbe35233d9f3eee1c",
+      "status": "ARCHIVED",
+      "version": 1,
+      "uploadedBy": "asakaziyo0@gmail.com",
+      "uploadedAt": "2026-11-25T05:14:19.508Z",
+      "publishedAt": "2026-11-25T05:14:19.516Z",
+      "publishedBy": "asakaziyo0@gmail.com",
+      "isDeleted": true,
+      "deletedAt": "2026-11-25T05:14:19.809Z",
+      "deletedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795583717541_s001": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795583717541_s001",
+      "qariId": "jahongir_qori_ne_matov_e2e_test_1795583717541",
+      "surahNumber": 1,
+      "surahNameUz": "Fotiha",
+      "surahNameAr": "الفَاتِحَة",
+      "fileName": "surah-001.mp3",
+      "relativePath": "jahongir_qori_ne_matov_e2e_test_1795583717541/surah-001.mp3",
+      "streamUrl": "/api/quran-ecosystem/audio-stream/jahongir_qori_ne_matov_e2e_test_1795583717541_s001",
+      "mimeType": "audio/mpeg",
+      "sizeBytes": 4110,
+      "durationSec": 47,
+      "sha256": "ed3f4b8269b4a2bf93f22544aaf5672ba66ac859b2a5a4388603f5e52f734ff6",
+      "status": "ARCHIVED",
+      "version": 1,
+      "uploadedBy": "asakaziyo0@gmail.com",
+      "uploadedAt": "2026-11-25T05:15:18.066Z",
+      "publishedAt": "2026-11-25T05:15:18.075Z",
+      "publishedBy": "asakaziyo0@gmail.com",
+      "isDeleted": true,
+      "deletedAt": "2026-11-25T05:15:18.241Z",
+      "deletedBy": "asakaziyo0@gmail.com"
+    }
+  },
+  "playlists": {
+    "official-juz-amma": {
+      "id": "official-juz-amma",
+      "ownerUserId": "official_admin",
+      "isOfficial": true,
+      "isPublic": true,
+      "shareSlug": "juz-amma-30",
+      "titleUz": "30-Juz (Amma) — Qisqa suralar toʻplami",
+      "descriptionUz": "Namoz va kundalik yodlash uchun 30-juzning mashhur suralari.",
+      "category": "juz_amma",
+      "coverColor": "#064E3B",
+      "offlineRecommended": true,
+      "tracks": [
+        {
+          "qariId": "mishary",
+          "surahNumber": 78,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 87,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 93,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 94,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 97,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 103,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 108,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 112,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 113,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "mishary",
+          "surahNumber": 114,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        }
+      ],
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "official-morning-evening": {
+      "id": "official-morning-evening",
+      "ownerUserId": "official_admin",
+      "isOfficial": true,
+      "isPublic": true,
+      "shareSlug": "tonggi-kechki-suralar",
+      "titleUz": "Tonggi va kechki fazilatli suralar",
+      "descriptionUz": "Fotiha, Yosin, Voqea, Mulk va Muavvizatayn suralari.",
+      "category": "morning",
+      "coverColor": "#1E3A2F",
+      "offlineRecommended": true,
+      "tracks": [
+        {
+          "qariId": "husary",
+          "surahNumber": 1,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "husary",
+          "surahNumber": 36,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "husary",
+          "surahNumber": 56,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "husary",
+          "surahNumber": 67,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "husary",
+          "surahNumber": 112,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "husary",
+          "surahNumber": 113,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "husary",
+          "surahNumber": 114,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        }
+      ],
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "official-friday-kahf": {
+      "id": "official-friday-kahf",
+      "ownerUserId": "official_admin",
+      "isOfficial": true,
+      "isPublic": true,
+      "shareSlug": "juma-suralari",
+      "titleUz": "Juma kuni tilovatlari (Kahf, Duxon, Juma)",
+      "descriptionUz": "Juma kuni oʻqish va tinglash sunnat boʻlgan muborak suralar.",
+      "category": "calm",
+      "coverColor": "#0F2E26",
+      "offlineRecommended": true,
+      "tracks": [
+        {
+          "qariId": "minshawi",
+          "surahNumber": 18,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "minshawi",
+          "surahNumber": 44,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "minshawi",
+          "surahNumber": 62,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "minshawi",
+          "surahNumber": 87,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        },
+        {
+          "qariId": "minshawi",
+          "surahNumber": 88,
+          "addedAt": "2026-11-25T05:12:03.044Z"
+        }
+      ],
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "pl_usr_1795583544632_f6eddd": {
+      "id": "pl_usr_1795583544632_f6eddd",
+      "ownerUserId": "web_free_test_1795583543915",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "tonggi_tilovat-31a7",
+      "titleUz": "Tonggi tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T05:12:24.632Z",
+      "updatedAt": "2026-11-25T05:12:24.632Z"
+    },
+    "pl_usr_1795583544636_34caaf": {
+      "id": "pl_usr_1795583544636_34caaf",
+      "ownerUserId": "web_free_test_1795583543915",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "kechki_tilovat-49db",
+      "titleUz": "Kechki tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T05:12:24.636Z",
+      "updatedAt": "2026-11-25T05:12:24.636Z"
+    },
+    "pl_usr_1795583659536_c19b21": {
+      "id": "pl_usr_1795583659536_c19b21",
+      "ownerUserId": "web_free_test_1795583658654",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "tonggi_tilovat-82fd",
+      "titleUz": "Tonggi tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T05:14:19.536Z",
+      "updatedAt": "2026-11-25T05:14:19.536Z"
+    },
+    "pl_usr_1795583659541_9ba9e1": {
+      "id": "pl_usr_1795583659541_9ba9e1",
+      "ownerUserId": "web_free_test_1795583658654",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "kechki_tilovat-4c30",
+      "titleUz": "Kechki tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T05:14:19.541Z",
+      "updatedAt": "2026-11-25T05:14:19.541Z"
+    },
+    "pl_usr_1795583718096_5b331a": {
+      "id": "pl_usr_1795583718096_5b331a",
+      "ownerUserId": "web_free_test_1795583717541",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "tonggi_tilovat-8445",
+      "titleUz": "Tonggi tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T05:15:18.096Z",
+      "updatedAt": "2026-11-25T05:15:18.096Z"
+    },
+    "pl_usr_1795583718103_1a4131": {
+      "id": "pl_usr_1795583718103_1a4131",
+      "ownerUserId": "web_free_test_1795583717541",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "kechki_tilovat-2179",
+      "titleUz": "Kechki tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T05:15:18.103Z",
+      "updatedAt": "2026-11-25T05:15:18.103Z"
+    }
+  },
+  "tajweedLessons": {
+    "tajweed-01-nun-sakin": {
+      "id": "tajweed-01-nun-sakin",
+      "level": "beginner",
+      "order": 1,
+      "titleUz": "Sokin Nun va Tanvin qoidalari (Izhor, Idgʻom, Iqlob, Ixfo)",
+      "titleAr": "أحكام النون الساكنة والتنوين",
+      "ruleCategoryUz": "Sokin Nun va Tanvin",
+      "summaryUz": "Qurʼon tilovatining eng muhim 4 ta asosiy qoidasi: Izhor, Idgʻom, Iqlob va Ixfo.",
+      "contentUz": "Sokin nun (نْ) yoki tanvindan (ً ٍ ٌ) keyin keladigan harfga qarab 4 xil hukm qoʻllanadi:\n1. Izhor (Aniq oʻqish): 6 ta halqum harfi (ء ه ع ح غ خ) kelganda nun aniq va gʻunnasiz oʻqiladi.\n2. Idgʻom (Kiritib yuborish): ي ر م ل و ن harflarida — ي ن م و bilan gʻunnali, ل ر bilan gʻunnasiz qoʻshiladi.\n3. Iqlob (Almashtirish): ب harfi kelganda nun tovushi yashirin mim (م) ga aylanib 2 harakat gʻunna qilinadi.\n4. Ixfo (Yashirish): Qolgan 15 ta harfda nun tovushi izhor va idgʻom orasida 2 harakat gʻunna bilan oʻqiladi.",
+      "examples": [
+        {
+          "arabic": "مِنْ خَوْفٍ",
+          "readingUz": "Min xovfin",
+          "ruleNoteUz": "Izhor: خ halqum harfi kelgani uchun nun aniq oʻqiladi."
+        },
+        {
+          "arabic": "مَن يَعْمَلْ",
+          "readingUz": "May-yaʼmal",
+          "ruleNoteUz": "Idgʻom bi-gʻunna: nun ي harfiga dimogʻ ovozi bilan kiritiladi."
+        },
+        {
+          "arabic": "مِن بَعْدِ",
+          "readingUz": "Mim-baʼdi",
+          "ruleNoteUz": "Iqlob: ب oldidan sokin nun mim ga aylanadi."
+        },
+        {
+          "arabic": "مِن شَرِّ",
+          "readingUz": "Min sharri (ixfo)",
+          "ruleNoteUz": "Ixfo: ش harfi oldida nun yashirilib 2 harakat gʻunna qilinadi."
+        }
+      ],
+      "teacherName": "ASAKA ZIYO Tajvid Ustozlari",
+      "durationMinutes": 12,
+      "isPremium": false,
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "tajweed-02-qalqala": {
+      "id": "tajweed-02-qalqala",
+      "level": "beginner",
+      "order": 2,
+      "titleUz": "Qalqala harflari va darajalari (ق ط ب ج د)",
+      "titleAr": "أحكام القلقلة",
+      "ruleCategoryUz": "Qalqala",
+      "summaryUz": "Qutbu Jaddin (ق ط ب ج د) harflari sokin boʻlganda tovushning tebranib chiqish qoidasi.",
+      "contentUz": "Qalqala harflari 5 ta: ق، ط، ب، ج، د (\"Qutbu Jaddin\" jumlasida jamlangan).\nUlar sokin (sukunli) holatda kelganda maxrajda tovush tiqilib qolmasligi uchun yengil aks-sado (tebranish) bilan oʻqiladi.\n• Qalqalai Sugʻro (Kichik): Soʻz oʻrtasida kelganda (masalan: يَجْعَلُونَ).\n• Qalqalai Kubro (Katta): Oyat oxirida vaqf qilinganda (masalan: قُلْ هُوَ اللَّهُ أَحَدٌ).",
+      "examples": [
+        {
+          "arabic": "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ",
+          "readingUz": "Al-Falaq",
+          "ruleNoteUz": "Oyat oxirida ق harfida Qalqalai Kubro qilinadi."
+        },
+        {
+          "arabic": "لَمْ يَلِدْ وَلَمْ يُولَدْ",
+          "readingUz": "Yalid · Yulad",
+          "ruleNoteUz": "د harfida aniq tebranish bilan toʻxtaladi."
+        }
+      ],
+      "teacherName": "ASAKA ZIYO Tajvid Ustozlari",
+      "durationMinutes": 9,
+      "isPremium": false,
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "tajweed-03-mim-sakin": {
+      "id": "tajweed-03-mim-sakin",
+      "level": "beginner",
+      "order": 3,
+      "titleUz": "Sokin Mim qoidalari (Ixfo Shafaviy, Idgʻom Mislayn, Izhor Shafaviy)",
+      "titleAr": "أحكام الميم الساكنة",
+      "ruleCategoryUz": "Sokin Mim",
+      "summaryUz": "Sokin mim (مْ) dan keyin ب, م yoki boshqa harflar kelgandagi talaffuz tartibi.",
+      "contentUz": "Sokin mim (مْ) uch holatda oʻqiladi:\n1. Idgʻom Mislayn (Shafaviy): Sokin mimdan keyin harakatli م kelsa, ikki mim birlashtirilib 2 harakat gʻunna qilinadi.\n2. Ixfo Shafaviy: Sokin mimdan keyin ب kelsa, lablar yengil tegib 2 harakat gʻunna bilan oʻqiladi.\n3. Izhor Shafaviy: Qolgan 26 harfda mim aniq va choʻzmasdan oʻqiladi (ayniqsa و va ف oldidan ehtiyot boʻlinadi).",
+      "examples": [
+        {
+          "arabic": "تَرْمِيهِم بِحِجَارَةٍ",
+          "readingUz": "Tarmiyhim bi-hijarotin",
+          "ruleNoteUz": "Ixfo Shafaviy: مْ dan keyin ب keldi."
+        },
+        {
+          "arabic": "لَهُم مَّغْفِرَةٌ",
+          "readingUz": "Lahum-magʻfirotun",
+          "ruleNoteUz": "Idgʻom Mislayn: ikki mim gʻunna bilan qoʻshildi."
+        }
+      ],
+      "teacherName": "ASAKA ZIYO Tajvid Ustozlari",
+      "durationMinutes": 10,
+      "isPremium": false,
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "tajweed-04-madd": {
+      "id": "tajweed-04-madd",
+      "level": "intermediate",
+      "order": 4,
+      "titleUz": "Mad (Choʻzish) turlari: Tabiiy, Muttasil, Munfasil va Lozim",
+      "titleAr": "أحكام المدود",
+      "ruleCategoryUz": "Mad qoidalari",
+      "summaryUz": "2, 4, 5 va 6 harakat choʻziladigan mad turlarini aniq ajratish.",
+      "contentUz": "Mad harflari 3 ta: sokin ا (oldi fatha), sokin و (oldi zamma), sokin ي (oldi kasra).\n• Mad Tabiiy: 2 harakat choʻziladi.\n• Mad Muttasil (Vojib): Mad harfi va hamza bitta soʻzda kelsa 4–5 harakat choʻziladi.\n• Mad Munfasil (Joiz): Mad harfi soʻz oxirida, hamza keyingi soʻz boshida kelsa 4–5 harakat choʻziladi.\n• Mad Lozim: Mad harfidan keyin asliy sukun yoki tashdid kelsa 6 harakat choʻziladi (masalan: وَلَا الضَّالِّينَ).",
+      "examples": [
+        {
+          "arabic": "إِذَا جَاءَ نَصْرُ اللَّهِ",
+          "readingUz": "Jaaaaʼa",
+          "ruleNoteUz": "Mad Muttasil: 4–5 harakat choʻziladi."
+        },
+        {
+          "arabic": "وَلَا الضَّالِّينَ",
+          "readingUz": "Valad-doollliiyn",
+          "ruleNoteUz": "Mad Lozim Kalimi Musaqqal: 6 harakat choʻziladi."
+        }
+      ],
+      "teacherName": "ASAKA ZIYO Tajvid Ustozlari",
+      "durationMinutes": 15,
+      "isPremium": true,
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "tajweed-05-ro-lam-tafxim": {
+      "id": "tajweed-05-ro-lam-tafxim",
+      "level": "intermediate",
+      "order": 5,
+      "titleUz": "Ro (ر) va Lafzi Jalola (اللَّه) harflarida Tafxim va Tarqiq",
+      "titleAr": "أحكام الراء ولام لفظ الجلالة",
+      "ruleCategoryUz": "Tafxim va Tarqiq",
+      "summaryUz": "Qachon yoʻgʻon (tafxim) va qachon ingichka (tarqiq) oʻqish qoidalari.",
+      "contentUz": "Lafzi Jalola (اللَّه) dan oldingi harf fatha yoki zamma boʻlsa yoʻgʻon (Alloh), kasra boʻlsa ingichka (Bismillahi) oʻqiladi.\nRo (ر) harfi fatha/zamma bilan yoʻgʻon, kasra bilan ingichka oʻqiladi; sokin boʻlganda oldingi harakatga qaraladi.",
+      "examples": [
+        {
+          "arabic": "بِسْمِ اللَّهِ",
+          "readingUz": "Bismillahi",
+          "ruleNoteUz": "Kasradan keyin kelgani uchun ingichka oʻqiladi."
+        },
+        {
+          "arabic": "قُلْ هُوَ اللَّهُ أَحَدٌ",
+          "readingUz": "Huval-lohu",
+          "ruleNoteUz": "Fathadan keyin kelgani uchun yoʻgʻon oʻqiladi."
+        }
+      ],
+      "teacherName": "ASAKA ZIYO Tajvid Ustozlari",
+      "durationMinutes": 14,
+      "isPremium": true,
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    },
+    "tajweed-06-waqf-ibtida": {
+      "id": "tajweed-06-waqf-ibtida",
+      "level": "advanced",
+      "order": 6,
+      "titleUz": "Vaqf va Ibtido belgilari (م، لا، ج، صلى، قلى)",
+      "titleAr": "أحكام الوقف والابتداء",
+      "ruleCategoryUz": "Vaqf qoidalari",
+      "summaryUz": "Madina Mushafidagi toʻxtash (vaqf) belgilarining maʼnosi va toʻgʻri nafas olish madaniyati.",
+      "contentUz": "• م (Vaqfi Lozim): Toʻxtash shart, aks holda maʼno buzilishi mumkin.\n• لا (Toʻxtash mumkin emas): Oyat oʻrtasida maʼno uzilib qoladi.\n• ج (Vaqfi Joiz): Toʻxtash ham, davom etish ham teng joiz.\n• قلى (Toʻxtash afzal) · صلى (Davom etish afzal) · ۛ ۛ (Muonaqa — faqat bittasida toʻxtaladi).",
+      "examples": [
+        {
+          "arabic": "ذَٰلِكَ الْكِتَابُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًى لِّلْمُتَّقِينَ",
+          "readingUz": "Baqara 2-oyat",
+          "ruleNoteUz": "Muonaqa belgisi: faqat ikkitadan bittasida toʻxtaladi."
+        }
+      ],
+      "teacherName": "ASAKA ZIYO Tajvid Ustozlari",
+      "durationMinutes": 16,
+      "isPremium": true,
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z",
+      "updatedAt": "2026-11-25T05:12:03.044Z"
+    }
+  },
+  "educationQuizzes": {
+    "eq-01": {
+      "id": "eq-01",
+      "category": "tajweed",
+      "difficulty": "oson",
+      "questionUz": "Qalqala harflari qaysi qatorda toʻliq va toʻgʻri koʻrsatilgan?",
+      "optionsUz": [
+        "ق ط ب ج د",
+        "ي ر م ل و ن",
+        "ء ه ع ح غ خ",
+        "ص ض ط ظ"
+      ],
+      "correctIndex": 0,
+      "explanationUz": "Qalqala harflari 5 ta boʻlib, \"Qutbu Jaddin\" (ق ط ب ج د) iborasida jamlangan.",
+      "sourceRef": "Tuhfatul Atfol / Tajvid asoslari",
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z"
+    },
+    "eq-02": {
+      "id": "eq-02",
+      "category": "tajweed",
+      "difficulty": "oson",
+      "questionUz": "«مِن بَعْدِ» soʻzida sokin nundan keyin «ب» harfi kelgan. Bu qaysi tajvid qoidasi?",
+      "arabicPrompt": "مِن بَعْدِ",
+      "optionsUz": [
+        "Izhor",
+        "Iqlob",
+        "Idgʻom bi-gʻunna",
+        "Qalqala"
+      ],
+      "correctIndex": 1,
+      "explanationUz": "Sokin nun yoki tanvindan keyin ب harfi kelsa Iqlob qoidasi qoʻllanadi va nun mim tovushiga aylanadi.",
+      "sourceRef": "Tajvid asoslari — Sokin Nun hukmlari",
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z"
+    },
+    "eq-03": {
+      "id": "eq-03",
+      "category": "makharij",
+      "difficulty": "orta",
+      "questionUz": "«ع» (Ayn) va «ح» (Ha) harflari qaysi maxrajdan chiqadi?",
+      "arabicPrompt": "ع · ح",
+      "optionsUz": [
+        "Ikki labdan (Ash-Shafatan)",
+        "Boʻgʻiz oʻrtasidan (Vasatul Halq)",
+        "Til uchidan",
+        "Dimogʻdan (Al-Xoyshum)"
+      ],
+      "correctIndex": 1,
+      "explanationUz": "ع va ح harflari boʻgʻizning oʻrta qismidan (Vasatul Halq) talaffuz qilinadi.",
+      "sourceRef": "Muqaddimatul Jazariyya — Maxorijul Huruf",
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z"
+    },
+    "eq-04": {
+      "id": "eq-04",
+      "category": "alphabet",
+      "difficulty": "oson",
+      "questionUz": "Arab alifbosida oʻzidan keyingi harfga qoʻshilmaydigan (faqat oʻngdan ulanadigan) harflar qaysilar?",
+      "optionsUz": [
+        "ا د ذ ر ز و",
+        "ب ت ث ن ي",
+        "س ش ص ض",
+        "ك ل م ه"
+      ],
+      "correctIndex": 0,
+      "explanationUz": "6 ta harf (ا د ذ ر ز و) oʻzidan keyingi harfga ulanmaydi.",
+      "sourceRef": "Muallimi Soniy",
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z"
+    },
+    "eq-05": {
+      "id": "eq-05",
+      "category": "tajweed",
+      "difficulty": "orta",
+      "questionUz": "Fotiha surasidagi «وَلَا الضَّالِّينَ» soʻzidagi Mad Lozim necha harakat choʻziladi?",
+      "arabicPrompt": "وَلَا الضَّالِّينَ",
+      "optionsUz": [
+        "2 harakat",
+        "3 harakat",
+        "4 harakat",
+        "6 harakat"
+      ],
+      "correctIndex": 3,
+      "explanationUz": "Mad Lozim Kalimi Musaqqal barcha qiroat ulamolari ittifoqi bilan 6 harakat choʻziladi.",
+      "sourceRef": "Tajvid — Mad hukmlari",
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z"
+    },
+    "eq-06": {
+      "id": "eq-06",
+      "category": "quran_knowledge",
+      "difficulty": "oson",
+      "questionUz": "Qurʼoni Karim jami nechta sura va nechta juzdan iborat?",
+      "optionsUz": [
+        "114 sura, 30 juz",
+        "110 sura, 28 juz",
+        "120 sura, 30 juz",
+        "114 sura, 60 juz"
+      ],
+      "correctIndex": 0,
+      "explanationUz": "Qurʼoni Karim 114 sura, 30 juz va Madina Mushafida 604 sahifadan iborat.",
+      "sourceRef": "Ulumul Qurʼon",
+      "isPublished": true,
+      "createdAt": "2026-11-25T05:12:03.044Z"
+    }
+  },
+  "userProfiles": {
+    "student_test_1795583658654": {
+      "userId": "student_test_1795583658654",
+      "lastReadSurah": 1,
+      "lastReadAyah": 1,
+      "lastReadPage": 1,
+      "dailyGoalAyahs": 10,
+      "dailyGoalMinutes": 15,
+      "todayAyahsRead": 0,
+      "todayDateStr": "2026-11-25",
+      "streakDays": 0,
+      "favoriteQariIds": [
+        "mishary"
+      ],
+      "favoriteTrackKeys": [],
+      "bookmarks": [],
+      "notes": [],
+      "memorizedAyahKeys": [],
+      "completedLessonIds": [
+        "tajweed-01-nun-sakin",
+        "tajweed-02-qalqala",
+        "tajweed-03-mim-sakin"
+      ],
+      "masteredLetterIds": [],
+      "hifzRanges": [],
+      "quizScores": {
+        "eq-01": {
+          "bestScore": 100,
+          "attempts": 1,
+          "passed": true,
+          "lastAt": "2026-11-25T05:14:19.551Z"
+        }
+      },
+      "certificates": [
+        {
+          "id": "cert_beg_1795583659598",
+          "titleUz": "ASAKA ZIYO — Tajvid Boshlangʻich Bosqich Sertifikati",
+          "level": "beginner",
+          "issuedAt": "2026-11-25T05:14:19.598Z",
+          "verificationCode": "AZ-TAJ-9927EE"
+        }
+      ],
+      "updatedAt": "2026-11-25T05:14:19.598Z",
+      "hifzItems": [
+        {
+          "surahNumber": 1,
+          "ayahFrom": 1,
+          "ayahTo": 7,
+          "easeFactor": 2.5,
+          "intervalDays": 1,
+          "repetitions": 1,
+          "masteryScore": 85,
+          "nextReviewAt": "2026-11-26T05:14:19.552Z"
+        }
+      ]
+    },
+    "student_test_1795583717541": {
+      "userId": "student_test_1795583717541",
+      "lastReadSurah": 1,
+      "lastReadAyah": 1,
+      "lastReadPage": 1,
+      "dailyGoalAyahs": 10,
+      "dailyGoalMinutes": 15,
+      "todayAyahsRead": 0,
+      "todayDateStr": "2026-11-25",
+      "streakDays": 0,
+      "favoriteQariIds": [
+        "mishary"
+      ],
+      "favoriteTrackKeys": [],
+      "bookmarks": [],
+      "notes": [],
+      "memorizedAyahKeys": [],
+      "completedLessonIds": [
+        "tajweed-01-nun-sakin",
+        "tajweed-02-qalqala",
+        "tajweed-03-mim-sakin"
+      ],
+      "masteredLetterIds": [],
+      "hifzRanges": [],
+      "quizScores": {
+        "eq-01": {
+          "bestScore": 100,
+          "attempts": 1,
+          "passed": true,
+          "lastAt": "2026-11-25T05:15:18.114Z"
+        }
+      },
+      "certificates": [
+        {
+          "id": "cert_beg_1795583718116",
+          "titleUz": "ASAKA ZIYO — Tajvid Boshlangʻich Bosqich Sertifikati",
+          "level": "beginner",
+          "issuedAt": "2026-11-25T05:15:18.116Z",
+          "verificationCode": "AZ-TAJ-C9F46B"
+        }
+      ],
+      "updatedAt": "2026-11-25T05:15:18.116Z",
+      "hifzItems": [
+        {
+          "surahNumber": 1,
+          "ayahFrom": 1,
+          "ayahTo": 7,
+          "easeFactor": 2.5,
+          "intervalDays": 1,
+          "repetitions": 1,
+          "masteryScore": 85,
+          "nextReviewAt": "2026-11-26T05:15:18.114Z"
+        }
+      ]
+    }
+  },
+  "auditLogs": [
+    {
+      "id": "qaud_1795583718246_28bd8e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_DEACTIVATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583717541",
+      "summary": "Qori faolsizlantirildi: Jahongir qori Ne'matov (E2E test_1795583717541)",
+      "createdAt": "2026-11-25T05:15:18.246Z"
+    },
+    {
+      "id": "qaud_1795583718241_f25e2e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_SOFT_DELETED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583717541_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795583717541 · 1-sura arxivlandi",
+      "createdAt": "2026-11-25T05:15:18.241Z"
+    },
+    {
+      "id": "qaud_1795583718088_44cb0f",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QURAN_BACKUP_CREATED",
+      "targetType": "backup",
+      "targetId": "quran_ecosystem_backup_2026-11-25T05-15-18-087Z.json",
+      "summary": "Qurʼon va audio metadata zaxira nusxasi yaratildi",
+      "createdAt": "2026-11-25T05:15:18.088Z"
+    },
+    {
+      "id": "qaud_1795583718075_a4628d",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_STATUS_PUBLISHED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583717541_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795583717541 · 1-sura -> PUBLISHED",
+      "createdAt": "2026-11-25T05:15:18.075Z"
+    },
+    {
+      "id": "qaud_1795583718066_213faa",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_UPLOADED_VERIFIED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583717541_s001",
+      "summary": "Jahongir qori Ne'matov (E2E test_1795583717541) · 1-sura (Fotiha) · 4110 bayt",
+      "createdAt": "2026-11-25T05:15:18.066Z"
+    },
+    {
+      "id": "qaud_1795583718051_b546e3",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_CREATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583717541",
+      "summary": "Qori: Jahongir qori Ne'matov (E2E test_1795583717541)",
+      "createdAt": "2026-11-25T05:15:18.051Z"
+    },
+    {
+      "id": "qaud_1795583659811_59fb3d",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_DEACTIVATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583658654",
+      "summary": "Qori faolsizlantirildi: Jahongir qori Ne'matov (E2E test_1795583658654)",
+      "createdAt": "2026-11-25T05:14:19.812Z"
+    },
+    {
+      "id": "qaud_1795583659809_8e2b2e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_SOFT_DELETED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583658654_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795583658654 · 1-sura arxivlandi",
+      "createdAt": "2026-11-25T05:14:19.809Z"
+    },
+    {
+      "id": "qaud_1795583659530_f136c7",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QURAN_BACKUP_CREATED",
+      "targetType": "backup",
+      "targetId": "quran_ecosystem_backup_2026-11-25T05-14-19-529Z.json",
+      "summary": "Qurʼon va audio metadata zaxira nusxasi yaratildi",
+      "createdAt": "2026-11-25T05:14:19.530Z"
+    },
+    {
+      "id": "qaud_1795583659516_3bdb2e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_STATUS_PUBLISHED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583658654_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795583658654 · 1-sura -> PUBLISHED",
+      "createdAt": "2026-11-25T05:14:19.517Z"
+    },
+    {
+      "id": "qaud_1795583659508_88efe4",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_UPLOADED_VERIFIED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583658654_s001",
+      "summary": "Jahongir qori Ne'matov (E2E test_1795583658654) · 1-sura (Fotiha) · 4110 bayt",
+      "createdAt": "2026-11-25T05:14:19.508Z"
+    },
+    {
+      "id": "qaud_1795583659454_3ea716",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_CREATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583658654",
+      "summary": "Qori: Jahongir qori Ne'matov (E2E test_1795583658654)",
+      "createdAt": "2026-11-25T05:14:19.454Z"
+    },
+    {
+      "id": "qaud_1795583544752_8ae957",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_DEACTIVATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583543915",
+      "summary": "Qori faolsizlantirildi: Jahongir qori Ne'matov (E2E test_1795583543915)",
+      "createdAt": "2026-11-25T05:12:24.752Z"
+    },
+    {
+      "id": "qaud_1795583544749_13eed1",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_SOFT_DELETED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583543915_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795583543915 · 1-sura arxivlandi",
+      "createdAt": "2026-11-25T05:12:24.749Z"
+    },
+    {
+      "id": "qaud_1795583544624_2269ab",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QURAN_BACKUP_CREATED",
+      "targetType": "backup",
+      "targetId": "quran_ecosystem_backup_2026-11-25T05-12-24-623Z.json",
+      "summary": "Qurʼon va audio metadata zaxira nusxasi yaratildi",
+      "createdAt": "2026-11-25T05:12:24.624Z"
+    },
+    {
+      "id": "qaud_1795583544610_f08e2d",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_STATUS_PUBLISHED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583543915_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795583543915 · 1-sura -> PUBLISHED",
+      "createdAt": "2026-11-25T05:12:24.610Z"
+    },
+    {
+      "id": "qaud_1795583544601_4d004f",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_UPLOADED_VERIFIED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583543915_s001",
+      "summary": "Jahongir qori Ne'matov (E2E test_1795583543915) · 1-sura (Fotiha) · 4110 bayt",
+      "createdAt": "2026-11-25T05:12:24.601Z"
+    },
+    {
+      "id": "qaud_1795583544590_551a27",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_CREATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795583543915",
+      "summary": "Qori: Jahongir qori Ne'matov (E2E test_1795583543915)",
+      "createdAt": "2026-11-25T05:12:24.590Z"
+    }
+  ],
+  "updatedAt": "2026-11-25T05:15:18.246Z"
+}

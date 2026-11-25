@@ -29,6 +29,7 @@ import {
   Award,
   Moon,
   Bell,
+  Crown,
 } from 'lucide-react';
 
 import { triggerTactileHaptic } from '../../utils/motionSystem';
@@ -128,6 +129,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     {
       title: 'Shaxsiy va Boshqaruv',
       items: [
+        { id: 'premium', labelKey: 'premium', fallback: 'Premium & Tanlov', icon: <Crown className="w-[18px] h-[18px] text-[#C8A85E]" /> },
         { id: 'favorites', labelKey: 'favorites', fallback: 'Sevimlilar', icon: <Bookmark className="w-[18px] h-[18px]" /> },
         { id: 'notifications', labelKey: 'notifications', fallback: 'Bildirishnomalar', icon: <Bell className="w-[18px] h-[18px]" /> },
         { id: 'settings', labelKey: 'settings', fallback: 'Sozlamalar', icon: <Settings className="w-[18px] h-[18px]" /> },

@@ -46,7 +46,8 @@ import { SupportChatModal } from './components/features/chat/SupportChatModal';
 
 // Feature Views
 import { HomeView } from './components/features/home/HomeView';
-import { QuranView } from './components/features/quran/QuranView';
+import { QuranEcosystemHub } from './components/features/quran/QuranEcosystemHub';
+import { PremiumSubscriptionView } from './components/features/premium/PremiumSubscriptionView';
 import { HadithView } from './components/features/hadith/HadithView';
 import { DhikrView } from './components/features/dhikr/DhikrView';
 import { PrayerTimesView } from './components/features/prayer/PrayerTimesView';
@@ -84,8 +85,11 @@ import { MosquesDirectoryView } from './components/features/mosques/MosquesDirec
 import { MediaCenterView } from './components/features/media/MediaCenterView';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
+import { GlobalQuranMiniPlayer } from './components/ui/GlobalQuranMiniPlayer';
+import { DeveloperAttribution } from './components/layout/DeveloperAttribution';
 import { PrivacyPolicyModal } from './components/features/legal/PrivacyPolicyModal';
 import { pageTransitionVariants } from './utils/motionSystem';
+import { verifyAndSyncTelegramMiniAppSession } from './utils/userIdentityClient';
 import {
   subscribeToMessages,
   getUnreadMessagesCount,
@@ -366,12 +370,13 @@ export default function App() {
     setMobileMenuSearch('');
   };
 
-  // Initialize Telegram Mini App native bridge (ready, expand, safe-area insets, deep links)
+  // Initialize Telegram Mini App native bridge (ready, expand, safe-area insets, deep links & HMAC verification)
   useEffect(() => {
     const isDarkNow = document.documentElement.classList.contains('dark');
     const cleanup = initTelegramMiniApp(isDarkNow, (startTab) => {
       setActiveTab(startTab);
     });
+    void verifyAndSyncTelegramMiniAppSession();
     return cleanup;
   }, []);
 
@@ -629,12 +634,15 @@ export default function App() {
         )}
 
         {activeTab === 'quran' && (
-          <QuranView
+          <QuranEcosystemHub
             onToggleFavorite={handleToggleFavorite}
             isFavorited={isFavorited}
             arabicFontSize={settings.arabicFontSize}
+            onOpenPremium={() => handleNavigate('premium')}
           />
         )}
+
+        {activeTab === 'premium' && <PremiumSubscriptionView />}
 
         {activeTab === 'hadith' && (
           <HadithView
@@ -895,6 +903,7 @@ export default function App() {
               {
                 group: 'Shaxsiy va Tizim',
                 items: [
+                  { id: 'premium', label: 'Premium Obuna & Tanlov' },
                   { id: 'notifications', label: 'Bildirishnomalar' },
                   { id: 'achievements', label: 'Shaxsiy yutuqlar' },
                   { id: 'favorites', label: 'Sevimlilar' },
@@ -959,6 +968,8 @@ export default function App() {
                 Yozish
               </span>
             </button>
+
+            <DeveloperAttribution compact />
           </div>
         </div>
       </Modal>
@@ -1019,8 +1030,9 @@ export default function App() {
         onOpenAccountDelete={() => handleNavigate('profile')}
       />
 
-      {/* Persistent Global Audio Mini/Expanded Player */}
+      {/* Persistent Global Audio Mini/Expanded Players */}
       <PersistentAudioPlayer />
+      <GlobalQuranMiniPlayer />
       </div>
     </MotionConfig>
   );
