@@ -17,9 +17,12 @@ import {
   Play,
   Sparkles,
   AlertTriangle,
+  BarChart3,
+  Plus,
+  Power,
 } from 'lucide-react';
 
-type AdminSubTab = 'qorilar' | 'education' | 'plans' | 'payments' | 'users' | 'promos_draws';
+type AdminSubTab = 'analytics' | 'plans' | 'payments' | 'users' | 'promos_draws' | 'qorilar' | 'education';
 
 function fmtUzs(v: number): string {
   return `${new Intl.NumberFormat('uz-UZ').format(v || 0)} UZS`;
@@ -35,11 +38,21 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export const UltimateEcosystemAdminPanel: React.FC = () => {
-  const [tab, setTab] = useState<AdminSubTab>('qorilar');
+  const [tab, setTab] = useState<AdminSubTab>('plans');
   const [quranData, setQuranData] = useState<any | null>(null);
   const [subData, setSubData] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
+
+  // Per-feature filter & new feature creator
+  const [featureModuleFilter, setFeatureModuleFilter] = useState<string>('all');
+  const [newGateKey, setNewGateKey] = useState('');
+  const [newGateModule, setNewGateModule] = useState('ai');
+  const [newGateLabel, setNewGateLabel] = useState('');
+  const [newGateDesc, setNewGateDesc] = useState('');
+  const [newGateAccess, setNewGateAccess] = useState<'free' | 'premium'>('premium');
+  const [newGatePeriod, setNewGatePeriod] = useState<'daily' | 'weekly' | 'monthly' | 'unlimited'>('daily');
+  const [newGateFreeLimit, setNewGateFreeLimit] = useState<number>(0);
 
   // Qari & 114-Surah Upload state
   const [selectedQariId, setSelectedQariId] = useState<string>('');
@@ -259,17 +272,51 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
     }
   };
 
-  const handleToggleFeatureGate = async (gate: any) => {
-    const nextAccess = gate.access === 'free' ? 'premium' : 'free';
-    const res = await fetch(`/api/admin/subscriptions/feature-gates/${encodeURIComponent(gate.key)}`, {
+  const handleUpdateFeatureGate = async (key: string, patch: Record<string, any>, label?: string) => {
+    const res = await fetch(`/api/admin/subscriptions/feature-gates/${encodeURIComponent(key)}`, {
       method: 'PUT',
       headers: authHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ access: nextAccess }),
+      body: JSON.stringify(patch),
     }).then((r) => r.json());
     if (res?.success) {
-      setNotice({ type: 'ok', msg: `${gate.labelUz} -> ${nextAccess.toUpperCase()}` });
+      setNotice({
+        type: 'ok',
+        msg: `"${label || key}" barcha 4 platformada darhol yangilandi!`,
+      });
       void loadAll();
+    } else {
+      setNotice({ type: 'err', msg: res?.error || 'Funksiya yangilanmadi.' });
+    }
+  };
+
+  const handleCreateFeatureGate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGateKey.trim() || !newGateLabel.trim()) return;
+    const res = await fetch('/api/admin/subscriptions/feature-gates', {
+      method: 'POST',
+      headers: authHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({
+        key: newGateKey.trim(),
+        module: newGateModule,
+        labelUz: newGateLabel.trim(),
+        descriptionUz: newGateDesc.trim() || newGateLabel.trim(),
+        access: newGateAccess,
+        limitPeriod: newGatePeriod,
+        freeLimit: Number(newGateFreeLimit),
+        premiumLimit: -1,
+        isEnabled: true,
+      }),
+    }).then((r) => r.json());
+    if (res?.success) {
+      setNotice({ type: 'ok', msg: `Yangi funksiya "${res.featureGate.labelUz}" yaratildi va barcha platformalarga tarqatildi!` });
+      setNewGateKey('');
+      setNewGateLabel('');
+      setNewGateDesc('');
+      void loadAll();
+    } else {
+      setNotice({ type: 'err', msg: res?.error || 'Funksiya yaratilmadi.' });
     }
   };
 
@@ -391,12 +438,13 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
   };
 
   const subTabs: Array<{ id: AdminSubTab; label: string; icon: React.ReactNode }> = [
-    { id: 'qorilar', label: 'A. Qorilar & 114 Audio', icon: <Headphones className="w-4 h-4" /> },
-    { id: 'education', label: 'B. Tajvid & Testlar', icon: <GraduationCap className="w-4 h-4" /> },
-    { id: 'plans', label: 'C. Tariflar & Huquqlar', icon: <Crown className="w-4 h-4" /> },
-    { id: 'payments', label: 'D. Karta & Toʻlovlar', icon: <CreditCard className="w-4 h-4" /> },
-    { id: 'users', label: 'E. Obunalar (Gift/Admin)', icon: <Users className="w-4 h-4" /> },
-    { id: 'promos_draws', label: 'F. Promo & Random Tanlov', icon: <Gift className="w-4 h-4" /> },
+    { id: 'analytics', label: '1. Real Statistika', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'plans', label: '2. Tariflar & 26 Funksiya', icon: <Crown className="w-4 h-4" /> },
+    { id: 'payments', label: '3. Karta & Toʻlovlar', icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'users', label: '4. Obunalar (Gift/Admin)', icon: <Users className="w-4 h-4" /> },
+    { id: 'promos_draws', label: '5. Promo & Random Tanlov', icon: <Gift className="w-4 h-4" /> },
+    { id: 'qorilar', label: '6. Qorilar & 114 Audio', icon: <Headphones className="w-4 h-4" /> },
+    { id: 'education', label: '7. Tajvid & Testlar', icon: <GraduationCap className="w-4 h-4" /> },
   ];
 
   return (
@@ -431,30 +479,44 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* Live Real KPI Cards (Zero Demo Data) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
-          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Yuklangan Audio / Qorilar</div>
-          <div className="text-lg font-mono-numbers font-extrabold mt-1">
+          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Jami / Bepul / Premium</div>
+          <div className="text-base font-mono-numbers font-extrabold mt-1">
+            {subData?.stats?.totalUsersCount || 0} / {subData?.stats?.freeUsersCount || 0} /{' '}
+            <span className="text-emerald-500">{subData?.stats?.activePremiumCount || 0}</span>
+          </div>
+          <div className="text-[10px] text-[#5F776F] dark:text-[#8FA69D] mt-0.5 font-mono-numbers">
+            Konversiya: {subData?.stats?.conversionRatePercent ?? 0}%
+          </div>
+        </div>
+        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
+          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Kutilayotgan / Tasdiqlangan</div>
+          <div className="text-base font-mono-numbers font-extrabold text-amber-500 mt-1">
+            {subData?.stats?.pendingOrdersCount || 0} /{' '}
+            <span className="text-emerald-500">{subData?.stats?.approvedOrdersCount || 0}</span>
+          </div>
+          <div className="text-[10px] text-[#5F776F] dark:text-[#8FA69D] mt-0.5 font-mono-numbers">
+            Tugagan: {subData?.stats?.expiredSubscriptionsCount || 0} · Bekor: {subData?.stats?.cancelledSubscriptionsCount || 0}
+          </div>
+        </div>
+        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
+          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Kunlik / Oylik / Jami Tushum</div>
+          <div className="text-sm font-mono-numbers font-extrabold text-[#C8A85E] mt-1">
+            {fmtUzs(subData?.stats?.totalRevenueUzs || 0)}
+          </div>
+          <div className="text-[10px] text-[#5F776F] dark:text-[#8FA69D] mt-0.5 font-mono-numbers">
+            Bugun: {fmtUzs(subData?.stats?.dailyRevenueUzs || 0)}
+          </div>
+        </div>
+        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
+          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Audio / Qorilar / Limit Tekshiruvi</div>
+          <div className="text-base font-mono-numbers font-extrabold mt-1">
             {quranData?.storageStats?.publishedAudioCount || 0} / {quranData?.storageStats?.activeQaris || 0}
           </div>
-        </div>
-        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
-          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Kutilayotgan Toʻlovlar</div>
-          <div className="text-lg font-mono-numbers font-extrabold text-amber-500 mt-1">
-            {subData?.stats?.pendingOrdersCount || 0} ta
-          </div>
-        </div>
-        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
-          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Faol Premium Obunachilar</div>
-          <div className="text-lg font-mono-numbers font-extrabold text-emerald-500 mt-1">
-            {subData?.stats?.activePremiumCount || 0} nafar
-          </div>
-        </div>
-        <div className="p-4 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
-          <div className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">Oylik / Jami Tushum</div>
-          <div className="text-sm font-mono-numbers font-extrabold text-[#C8A85E] mt-1">
-            {fmtUzs(subData?.stats?.monthlyRevenueUzs || 0)}
+          <div className="text-[10px] text-[#5F776F] dark:text-[#8FA69D] mt-0.5 font-mono-numbers">
+            Real foydalanish: {subData?.stats?.totalFeatureChecksConsumed || 0}
           </div>
         </div>
       </div>
@@ -490,6 +552,116 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* TAB 1: REAL CROSS-PLATFORM ANALYTICS & REPORTS (ZERO FAKE NUMBERS) */}
+      {tab === 'analytics' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: 'Jami Foydalanuvchilar', val: subData?.stats?.totalUsersCount ?? 0 },
+              { label: 'Bepul (Free)', val: subData?.stats?.freeUsersCount ?? 0 },
+              { label: 'Faol Premium', val: subData?.stats?.activePremiumCount ?? 0 },
+              { label: 'Yangi Premium (30k)', val: subData?.stats?.newPremiumLast30dCount ?? 0 },
+              { label: 'Muddati Tugagan', val: subData?.stats?.expiredSubscriptionsCount ?? 0 },
+              { label: 'Free→Premium (%)', val: `${subData?.stats?.conversionRatePercent ?? 0}%` },
+            ].map((kpi) => (
+              <div key={kpi.label} className="p-3.5 rounded-2xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10">
+                <div className="text-[10px] text-[#5F776F] dark:text-[#8FA69D]">{kpi.label}</div>
+                <div className="text-lg font-mono-numbers font-extrabold mt-1 text-[#091813] dark:text-[#F7F4EC]">
+                  {kpi.val}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 4-Platform Breakdown */}
+          <div className="p-5 rounded-3xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10 space-y-3">
+            <h3 className="font-bold text-sm">Platformalar Kesimi (Web · Android APK · Telegram Mini App · Telegram Bot)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {(['web', 'android', 'telegram_miniapp', 'telegram_bot'] as const).map((plat) => {
+                const row = subData?.analytics?.platformBreakdown?.[plat] || {
+                  usersCount: 0,
+                  ordersCount: 0,
+                  approvedOrdersCount: 0,
+                  revenueUzs: 0,
+                };
+                const labelMap: Record<string, string> = {
+                  web: '🌐 Web App',
+                  android: '📱 Android APK',
+                  telegram_miniapp: '⚡ Telegram Mini App',
+                  telegram_bot: '🤖 Telegram Bot',
+                };
+                return (
+                  <div key={plat} className="p-3.5 rounded-2xl bg-[#F7F5F0] dark:bg-white/[0.04] space-y-1.5 text-xs">
+                    <div className="font-bold">{labelMap[plat]}</div>
+                    <div className="font-mono-numbers text-[11px] opacity-85">Foydalanuvchilar: <strong>{row.usersCount}</strong></div>
+                    <div className="font-mono-numbers text-[11px] opacity-85">Buyurtmalar: <strong>{row.ordersCount}</strong> (Tasdiq: {row.approvedOrdersCount})</div>
+                    <div className="font-mono-numbers text-[11px] text-[#8A6B2D] dark:text-[#E6CE8A]">Tushum: <strong>{fmtUzs(row.revenueUzs)}</strong></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Top Used Features (Real Server Consumption Counters) */}
+            <div className="p-5 rounded-3xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10 space-y-3">
+              <h3 className="font-bold text-sm">Eng Koʻp Ishlatiladigan Funksiyalar (Real Server Hisoblagichi)</h3>
+              {(subData?.analytics?.topUsedFeatures || []).length === 0 ? (
+                <div className="text-xs opacity-70 py-4">Hali funksiya sarflari qayd etilmagan.</div>
+              ) : (
+                <div className="space-y-2">
+                  {(subData?.analytics?.topUsedFeatures || []).map((f: any) => (
+                    <div key={f.key} className="p-2.5 rounded-xl bg-[#F7F5F0] dark:bg-white/[0.04] flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold">{f.labelUz}</div>
+                        <div className="text-[10px] opacity-70">{f.module} · {f.access.toUpperCase()}</div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-lg bg-[#064E3B]/15 dark:bg-emerald-500/20 font-mono-numbers font-extrabold text-xs">
+                        {f.totalUses} marta
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Promo Usage & Revenue Breakdown */}
+            <div className="p-5 rounded-3xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10 space-y-3">
+              <h3 className="font-bold text-sm">Tushum va Promokodlar Hisoboti</h3>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#F7F5F0] dark:bg-white/[0.04]">
+                  <div className="text-[10px] opacity-70">Kunlik</div>
+                  <div className="font-mono-numbers font-bold mt-0.5">{fmtUzs(subData?.stats?.dailyRevenueUzs || 0)}</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#F7F5F0] dark:bg-white/[0.04]">
+                  <div className="text-[10px] opacity-70">Oylik</div>
+                  <div className="font-mono-numbers font-bold mt-0.5">{fmtUzs(subData?.stats?.monthlyRevenueUzs || 0)}</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#F7F5F0] dark:bg-white/[0.04]">
+                  <div className="text-[10px] opacity-70">Jami</div>
+                  <div className="font-mono-numbers font-bold mt-0.5 text-[#C8A85E]">{fmtUzs(subData?.stats?.totalRevenueUzs || 0)}</div>
+                </div>
+              </div>
+              <div className="space-y-1.5 pt-2">
+                {(subData?.analytics?.promoUsageBreakdown || []).map((p: any) => (
+                  <div key={p.code} className="p-2.5 rounded-xl bg-[#F7F5F0] dark:bg-white/[0.04] flex items-center justify-between text-xs">
+                    <div>
+                      <strong className="font-mono-numbers">{p.code}</strong> · {p.titleUz}
+                    </div>
+                    <span className="font-mono-numbers font-bold">
+                      {p.usedCount} / {p.maxUses}
+                    </span>
+                  </div>
+                ))}
+                {(subData?.analytics?.promoUsageBreakdown || []).length === 0 && (
+                  <div className="text-xs opacity-70 py-2">Promokodlar hali yaratilmagan.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB A: QORILAR & PERSISTENT 114-SURAH AUDIO STORAGE */}
       {tab === 'qorilar' && (
@@ -748,29 +920,229 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
               ))}
           </div>
 
-          <div className="p-5 rounded-3xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10 space-y-3">
-            <h3 className="font-bold text-sm">Free vs Premium Funksiya Chegaralari</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {(subData?.featureGates || []).map((g: any) => (
-                <div key={g.key} className="p-3 rounded-xl bg-[#F7F5F0] dark:bg-white/[0.04] flex items-center justify-between gap-2 text-xs">
-                  <div>
-                    <div className="font-bold">{g.labelUz}</div>
-                    <div className="text-[10px] opacity-70">{g.key}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleFeatureGate(g)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer ${
-                      g.access === 'free'
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300'
-                        : 'bg-[#C8A85E]/25 text-[#8A6B2D] dark:text-[#E6CE8A]'
+          {/* Independent Cross-Module Per-Feature Control Center */}
+          <div className="p-5 rounded-3xl az-liquid-glass border border-[#064E3B]/15 dark:border-white/10 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-sm">
+                  Barcha Boʻlimlar Boʻyicha Mustaqil Funksiya Boshqaruvi ({(subData?.featureGates || []).length} ta)
+                </h3>
+                <p className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">
+                  Har bir funksiyani alohida FREE/PREMIUM qiling, kunlik/haftalik/oylik limit belgilang yoki vaqtincha oʻchiring — barcha 4 platformada darhol ishlaydi.
+                </p>
+              </div>
+              <select
+                value={featureModuleFilter}
+                onChange={(e) => setFeatureModuleFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs font-semibold"
+              >
+                <option value="all">Barcha boʻlimlar</option>
+                {Object.entries(subData?.analytics?.moduleLabelsUz || {}).map(([mKey, mLabel]) => (
+                  <option key={mKey} value={mKey}>
+                    {String(mLabel)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(subData?.featureGates || [])
+                .filter((g: any) => featureModuleFilter === 'all' || g.module === featureModuleFilter)
+                .map((g: any) => (
+                  <div
+                    key={g.key}
+                    className={`p-4 rounded-2xl border space-y-3 text-xs ${
+                      g.isEnabled === false
+                        ? 'bg-rose-500/5 border-rose-500/25 opacity-75'
+                        : 'bg-[#F7F5F0] dark:bg-white/[0.04] border-[#064E3B]/12 dark:border-white/10'
                     }`}
                   >
-                    {g.access.toUpperCase()}
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#064E3B] dark:text-[#E6CE8A]">
+                          {subData?.analytics?.moduleLabelsUz?.[g.module] || g.module}
+                        </div>
+                        <div className="font-bold text-xs mt-0.5">{g.labelUz}</div>
+                        <div className="text-[10px] font-mono-numbers opacity-65">{g.key}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleUpdateFeatureGate(
+                              g.key,
+                              { access: g.access === 'free' ? 'premium' : 'free' },
+                              g.labelUz
+                            )
+                          }
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer ${
+                            g.access === 'free'
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-[#C8A85E]/25 text-[#8A6B2D] dark:text-[#E6CE8A]'
+                          }`}
+                        >
+                          {g.access.toUpperCase()}
+                        </button>
+                        <button
+                          type="button"
+                          title={g.isEnabled === false ? 'Funksiyani yoqish' : 'Funksiyani vaqtincha oʻchirish'}
+                          onClick={() =>
+                            void handleUpdateFeatureGate(
+                              g.key,
+                              { isEnabled: g.isEnabled === false },
+                              g.labelUz
+                            )
+                          }
+                          className={`p-1.5 rounded-lg cursor-pointer ${
+                            g.isEnabled === false
+                              ? 'bg-rose-500/20 text-rose-600'
+                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+                          }`}
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="block">
+                        <span className="text-[10px] opacity-70">Free Limit (-1=∞, 0=Yopiq)</span>
+                        <input
+                          type="number"
+                          min={-1}
+                          defaultValue={g.freeLimit ?? (g.access === 'free' ? -1 : 0)}
+                          onBlur={(e) =>
+                            void handleUpdateFeatureGate(
+                              g.key,
+                              { freeLimit: Number(e.target.value) },
+                              g.labelUz
+                            )
+                          }
+                          className="mt-0.5 w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 font-mono-numbers text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] opacity-70">Premium Limit (-1=∞)</span>
+                        <input
+                          type="number"
+                          min={-1}
+                          defaultValue={g.premiumLimit ?? -1}
+                          onBlur={(e) =>
+                            void handleUpdateFeatureGate(
+                              g.key,
+                              { premiumLimit: Number(e.target.value) },
+                              g.labelUz
+                            )
+                          }
+                          className="mt-0.5 w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 font-mono-numbers text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] opacity-70">Davr</span>
+                        <select
+                          value={g.limitPeriod || 'daily'}
+                          onChange={(e) =>
+                            void handleUpdateFeatureGate(
+                              g.key,
+                              { limitPeriod: e.target.value },
+                              g.labelUz
+                            )
+                          }
+                          className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs"
+                        >
+                          <option value="daily">Kunlik</option>
+                          <option value="weekly">Haftalik</option>
+                          <option value="monthly">Oylik</option>
+                          <option value="unlimited">Umumiy</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                ))}
             </div>
+
+            {/* Create New Dynamic Feature Gate */}
+            <form
+              onSubmit={handleCreateFeatureGate}
+              className="pt-4 border-t border-[#064E3B]/12 dark:border-white/10 space-y-3"
+            >
+              <div className="font-bold text-xs flex items-center gap-1.5 text-[#064E3B] dark:text-[#E6CE8A]">
+                <Plus className="w-4 h-4" />
+                <span>Kelajakdagi Yangi Funksiya Uchun Huquq Qoʻshish</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                <input
+                  type="text"
+                  required
+                  value={newGateKey}
+                  onChange={(e) => setNewGateKey(e.target.value)}
+                  placeholder="Kalit (masalan: voice_tajweed_pro)"
+                  className="px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs font-mono-numbers"
+                />
+                <select
+                  value={newGateModule}
+                  onChange={(e) => setNewGateModule(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs"
+                >
+                  {Object.entries(subData?.analytics?.moduleLabelsUz || {}).map(([mKey, mLabel]) => (
+                    <option key={mKey} value={mKey}>
+                      {String(mLabel)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  required
+                  value={newGateLabel}
+                  onChange={(e) => setNewGateLabel(e.target.value)}
+                  placeholder="Funksiya nomi"
+                  className="px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs"
+                />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <select
+                    value={newGateAccess}
+                    onChange={(e) => setNewGateAccess(e.target.value as any)}
+                    className="px-2 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs"
+                  >
+                    <option value="premium">PREMIUM</option>
+                    <option value="free">FREE</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={-1}
+                    value={newGateFreeLimit}
+                    onChange={(e) => setNewGateFreeLimit(Number(e.target.value))}
+                    placeholder="Free limit"
+                    className="px-2 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs font-mono-numbers"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] font-bold text-xs cursor-pointer"
+                >
+                  Qoʻshish
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  value={newGateDesc}
+                  onChange={(e) => setNewGateDesc(e.target.value)}
+                  placeholder="Qisqacha izoh (foydalanuvchiga koʻrinadi)"
+                  className="sm:col-span-2 px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs"
+                />
+                <select
+                  value={newGatePeriod}
+                  onChange={(e) => setNewGatePeriod(e.target.value as any)}
+                  className="px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs"
+                >
+                  <option value="daily">Kunlik limit</option>
+                  <option value="weekly">Haftalik limit</option>
+                  <option value="monthly">Oylik limit</option>
+                  <option value="unlimited">Cheksiz / Umumiy</option>
+                </select>
+              </div>
+            </form>
           </div>
         </div>
       )}

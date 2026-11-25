@@ -17,7 +17,12 @@ import {
   OfflineStorageStats,
   OfflineDownloadTask,
 } from '../../../utils/offlineStorageService';
-import { getActiveEcosystemUserId } from '../../../utils/userIdentityClient';
+import { getActiveEcosystemUserId, detectClientPlatform } from '../../../utils/userIdentityClient';
+import {
+  useUserEntitlements,
+  ClientFeatureDecision,
+} from '../../../utils/entitlementClient';
+import { PremiumGateModal } from '../../ui/PremiumGateModal';
 import {
   BookOpen,
   Headphones,
@@ -99,10 +104,16 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
 
   // Cross-platform User Profile (Hifz, Progress, Certificates)
   const [profile, setProfile] = useState<any | null>(null);
+  const { isPremium: liveIsPremium, checkFeature } = useUserEntitlements();
   const [isPremium, setIsPremium] = useState(false);
+  const [gateDecision, setGateDecision] = useState<ClientFeatureDecision | null>(null);
   const [hifzSurah, setHifzSurah] = useState(112);
   const [hifzStart, setHifzStart] = useState(1);
   const [hifzEnd, setHifzEnd] = useState(4);
+
+  useEffect(() => {
+    setIsPremium(liveIsPremium);
+  }, [liveIsPremium]);
 
   useEffect(() => {
     const unsubPlayer = subscribeGlobalQuranPlayer(setPlayerState);
@@ -192,6 +203,26 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
 
   const handleDownloadSurah = async (surahItem: any) => {
     if (!surahItem.audioUrl || !activeQari) return;
+    const check = await checkFeature('unlimited_offline_downloads', true);
+    if (!check.ok) {
+      setGateDecision(
+        check.decision || {
+          allowed: false,
+          featureKey: 'unlimited_offline_downloads',
+          module: 'offline',
+          reasonCode: 'USAGE_LIMIT_REACHED',
+          messageUz: check.error || 'Kunlik bepul oflayn yuklash limitingiz tugadi.',
+          access: 'premium',
+          isPremiumUser: false,
+          subscriptionStatus: 'FREE',
+          limitPeriod: 'daily',
+          limit: 3,
+          used: 3,
+          remaining: 0,
+        }
+      );
+      return;
+    }
     await startOfflineDownload({
       id: `quran_${activeQari.id}_${surahItem.surahNumber}`,
       type: 'quran_audio',
@@ -212,6 +243,7 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId,
+        platform: detectClientPlatform(),
         titleUz: newPlaylistTitle.trim(),
         descriptionUz: 'Shaxsiy Qurʼon tilovatlari roʻyxati',
         category: 'custom',
@@ -220,6 +252,24 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
     });
     const json = await res.json();
     if (!json.success) {
+      if (res.status === 403) {
+        setGateDecision(
+          json.entitlement || {
+            allowed: false,
+            featureKey: 'unlimited_playlists',
+            module: 'audio',
+            reasonCode: json.code || 'PREMIUM_REQUIRED',
+            messageUz: json.error || 'Cheksiz playlistlar uchun Premium faollashtiring.',
+            access: 'premium',
+            isPremiumUser: false,
+            subscriptionStatus: 'FREE',
+            limitPeriod: 'unlimited',
+            limit: 2,
+            used: 2,
+            remaining: 0,
+          }
+        );
+      }
       setPlaylistFeedback(json.error || 'Playlist yaratib boʻlmadi.');
       return;
     }
@@ -1249,6 +1299,13 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
           </div>
         </div>
       )}
+
+      <PremiumGateModal
+        open={Boolean(gateDecision)}
+        decision={gateDecision}
+        onClose={() => setGateDecision(null)}
+        onUpgrade={onOpenPremium}
+      />
     </div>
   );
 };

@@ -73,7 +73,8 @@ export function formatTelegramPremiumMessage(params: {
 }): { html: string; reply_markup: TelegramInlineKeyboardMarkup } {
   const { subscriptionService, telegramId, config, miniAppEnabled } = params;
   const tgKey = getTelegramCanonicalUserKey(telegramId);
-  const subState = subscriptionService.getEffectiveSubscription(tgKey);
+  const entData = subscriptionService.getUserEntitlements(tgKey, 'telegram_bot');
+  const subState = entData.subscription;
   const catalog = subscriptionService.getPublicCatalog();
   const activePlans = catalog.plans.filter((p) => p.isActive && p.id !== 'free');
   const activePlanObj = catalog.plans.find((p) => p.id === subState.planId);
@@ -92,6 +93,23 @@ export function formatTelegramPremiumMessage(params: {
       ? `\n🔗 Bogʻlangan yagona hisob: <code>${escapeHtml(subState.userId)}</code>`
       : '\n🔗 Web/Android bilan bogʻlash: <code>/link KOD</code>';
 
+  const fmtQuota = (key: string): string => {
+    const d = entData.features[key];
+    if (!d) return '—';
+    if (!d.feature?.isEnabled) return '⛔ Oʻchirilgan';
+    if (d.limit < 0) return '♾ Cheksiz';
+    if (d.limit === 0) return '🔒 Faqat Premium';
+    return `${d.remaining}/${d.limit} qoldi`;
+  };
+
+  const quotaLines = [
+    `• 🤖 AI Ustoz: <b>${fmtQuota('ai_ustoz_unlimited')}</b>`,
+    `• 📥 Offline Qori yuklash: <b>${fmtQuota('unlimited_offline_downloads')}</b>`,
+    `• 🧠 Hifz AI & Murojaʼa: <b>${fmtQuota('hifz_ai_voice_check')}</b>`,
+    `• 🎯 Qurʼon Viktorinasi: <b>${fmtQuota('quran_quiz_unlimited')}</b>`,
+    `• 🎓 Tajvid & Kurslar: <b>${fmtQuota('advanced_tajweed_academy')}</b>`,
+  ];
+
   const planLines = activePlans.map((p) => {
     const badgeNote = p.badgeUz ? ` · <i>${escapeHtml(p.badgeUz)}</i>` : '';
     return `• <b>${escapeHtml(p.nameUz)}</b> (${p.durationDays} kun) — <b>${formatMoneyUzs(p.priceUzs)}</b>${badgeNote}`;
@@ -105,10 +123,12 @@ export function formatTelegramPremiumMessage(params: {
     );
 
   const html =
-    `<b>👑 ASAKA ZIYO — Premium Obuna Markazi</b>\n\n` +
+    `<b>👑 ASAKA ZIYO — Yagona Premium Obuna Markazi</b>\n\n` +
     `${statusEmoji} Joriy holat: <b>${escapeHtml(statusLabel)}</b>` +
     `${expiryLine}${linkedLine}\n\n` +
-    `<b>💎 Tariflar (barcha platformalarda yagona):</b>\n` +
+    `<b>📊 Barcha boʻlimlar boʻyicha joriy imkoniyatlaringiz:</b>\n` +
+    `${quotaLines.join('\n')}\n\n` +
+    `<b>💎 Tariflar (Web, Android, Mini App va Botda yagona):</b>\n` +
     (planLines.length > 0 ? planLines.join('\n') : '• Tariflar hozircha sozlanmoqda') +
     (activeCampaignLines.length > 0 ? `\n\n<b>🔥 Faol aksiyalar:</b>\n${activeCampaignLines.join('\n')}` : '') +
     `\n\n📌 <b>Buyruqlar:</b>\n` +

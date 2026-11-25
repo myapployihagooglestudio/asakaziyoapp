@@ -377,7 +377,17 @@ export default function App() {
       setActiveTab(startTab);
     });
     void verifyAndSyncTelegramMiniAppSession();
-    return cleanup;
+    const onGlobalNavigate = (e: Event) => {
+      const target = (e as CustomEvent<{ tab?: NavigationTab }>)?.detail?.tab;
+      if (target) {
+        handleNavigate(target);
+      }
+    };
+    window.addEventListener('asaka_navigate_tab', onGlobalNavigate);
+    return () => {
+      window.removeEventListener('asaka_navigate_tab', onGlobalNavigate);
+      cleanup();
+    };
   }, []);
 
   // Sync Telegram native BackButton with active screen

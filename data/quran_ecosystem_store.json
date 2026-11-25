@@ -244,6 +244,42 @@
       "createdAt": "2026-11-25T05:15:18.050Z",
       "updatedAt": "2026-11-25T05:15:18.246Z",
       "updatedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795593940656": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795593940656",
+      "nameUz": "Jahongir qori Ne'matov (E2E test_1795593940656)",
+      "nameAr": "Jahongir qori Ne'matov (E2E test_1795593940656)",
+      "nameLatn": "Jahongir qori Ne'matov (E2E test_1795593940656)",
+      "countryUz": "O'zbekiston",
+      "styleUz": "Murattal",
+      "bioUz": "E2E test qori profili",
+      "isActive": false,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 14,
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T08:05:41.275Z",
+      "updatedAt": "2026-11-25T08:05:41.511Z",
+      "updatedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795594101187": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795594101187",
+      "nameUz": "Jahongir qori Ne'matov (E2E test_1795594101187)",
+      "nameAr": "Jahongir qori Ne'matov (E2E test_1795594101187)",
+      "nameLatn": "Jahongir qori Ne'matov (E2E test_1795594101187)",
+      "countryUz": "O'zbekiston",
+      "styleUz": "Murattal",
+      "bioUz": "E2E test qori profili",
+      "isActive": false,
+      "isVerified": true,
+      "isFeatured": false,
+      "sortOrder": 15,
+      "uploadedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "createdAt": "2026-11-25T08:08:21.823Z",
+      "updatedAt": "2026-11-25T08:08:22.078Z",
+      "updatedBy": "asakaziyo0@gmail.com"
     }
   },
   "audioFiles": {
@@ -314,6 +350,52 @@
       "publishedBy": "asakaziyo0@gmail.com",
       "isDeleted": true,
       "deletedAt": "2026-11-25T05:15:18.241Z",
+      "deletedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795593940656_s001": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795593940656_s001",
+      "qariId": "jahongir_qori_ne_matov_e2e_test_1795593940656",
+      "surahNumber": 1,
+      "surahNameUz": "Fotiha",
+      "surahNameAr": "الفَاتِحَة",
+      "fileName": "surah-001.mp3",
+      "relativePath": "jahongir_qori_ne_matov_e2e_test_1795593940656/surah-001.mp3",
+      "streamUrl": "/api/quran-ecosystem/audio-stream/jahongir_qori_ne_matov_e2e_test_1795593940656_s001",
+      "mimeType": "audio/mpeg",
+      "sizeBytes": 4110,
+      "durationSec": 47,
+      "sha256": "e366a28e944a1cf37fde0810a78fb375068c11ddc1fb165621e545fddbed14f5",
+      "status": "ARCHIVED",
+      "version": 1,
+      "uploadedBy": "asakaziyo0@gmail.com",
+      "uploadedAt": "2026-11-25T08:05:41.286Z",
+      "publishedAt": "2026-11-25T08:05:41.295Z",
+      "publishedBy": "asakaziyo0@gmail.com",
+      "isDeleted": true,
+      "deletedAt": "2026-11-25T08:05:41.508Z",
+      "deletedBy": "asakaziyo0@gmail.com"
+    },
+    "jahongir_qori_ne_matov_e2e_test_1795594101187_s001": {
+      "id": "jahongir_qori_ne_matov_e2e_test_1795594101187_s001",
+      "qariId": "jahongir_qori_ne_matov_e2e_test_1795594101187",
+      "surahNumber": 1,
+      "surahNameUz": "Fotiha",
+      "surahNameAr": "الفَاتِحَة",
+      "fileName": "surah-001.mp3",
+      "relativePath": "jahongir_qori_ne_matov_e2e_test_1795594101187/surah-001.mp3",
+      "streamUrl": "/api/quran-ecosystem/audio-stream/jahongir_qori_ne_matov_e2e_test_1795594101187_s001",
+      "mimeType": "audio/mpeg",
+      "sizeBytes": 4110,
+      "durationSec": 47,
+      "sha256": "ef1fad2563374d0c02d0f5b0eedcdc6e86afe0fb3dbebf3fc0906a29c9be7545",
+      "status": "ARCHIVED",
+      "version": 1,
+      "uploadedBy": "asakaziyo0@gmail.com",
+      "uploadedAt": "2026-11-25T08:08:21.834Z",
+      "publishedAt": "2026-11-25T08:08:21.843Z",
+      "publishedBy": "asakaziyo0@gmail.com",
+      "isDeleted": true,
+      "deletedAt": "2026-11-25T08:08:22.073Z",
       "deletedBy": "asakaziyo0@gmail.com"
     }
   },
@@ -565,6 +647,192 @@
       "tracks": [],
       "createdAt": "2026-11-25T05:15:18.103Z",
       "updatedAt": "2026-11-25T05:15:18.103Z"
+    },
+    "pl_usr_1795593782031_a12d94": {
+      "id": "pl_usr_1795593782031_a12d94",
+      "ownerUserId": "web_subtest_1795593781194_d8ad7e_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_1-42ff",
+      "titleUz": "E2E Playlist 1",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 1,
+          "addedAt": "2026-11-25T08:03:02.031Z"
+        }
+      ],
+      "createdAt": "2026-11-25T08:03:02.031Z",
+      "updatedAt": "2026-11-25T08:03:02.031Z"
+    },
+    "pl_usr_1795593782036_e9217d": {
+      "id": "pl_usr_1795593782036_e9217d",
+      "ownerUserId": "web_subtest_1795593781194_d8ad7e_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_2-3413",
+      "titleUz": "E2E Playlist 2",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 2,
+          "addedAt": "2026-11-25T08:03:02.036Z"
+        }
+      ],
+      "createdAt": "2026-11-25T08:03:02.036Z",
+      "updatedAt": "2026-11-25T08:03:02.036Z"
+    },
+    "pl_usr_1795593867559_1045fa": {
+      "id": "pl_usr_1795593867559_1045fa",
+      "ownerUserId": "web_subtest_1795593866644_ae6270_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_1-9b25",
+      "titleUz": "E2E Playlist 1",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 1,
+          "addedAt": "2026-11-25T08:04:27.559Z"
+        }
+      ],
+      "createdAt": "2026-11-25T08:04:27.559Z",
+      "updatedAt": "2026-11-25T08:04:27.559Z"
+    },
+    "pl_usr_1795593867564_571332": {
+      "id": "pl_usr_1795593867564_571332",
+      "ownerUserId": "web_subtest_1795593866644_ae6270_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_2-5fd0",
+      "titleUz": "E2E Playlist 2",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 2,
+          "addedAt": "2026-11-25T08:04:27.564Z"
+        }
+      ],
+      "createdAt": "2026-11-25T08:04:27.564Z",
+      "updatedAt": "2026-11-25T08:04:27.564Z"
+    },
+    "pl_usr_1795593941317_cb70b4": {
+      "id": "pl_usr_1795593941317_cb70b4",
+      "ownerUserId": "web_free_test_1795593940656",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "tonggi_tilovat-71d3",
+      "titleUz": "Tonggi tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T08:05:41.317Z",
+      "updatedAt": "2026-11-25T08:05:41.317Z"
+    },
+    "pl_usr_1795593941322_08be7e": {
+      "id": "pl_usr_1795593941322_08be7e",
+      "ownerUserId": "web_free_test_1795593940656",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "kechki_tilovat-a977",
+      "titleUz": "Kechki tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T08:05:41.322Z",
+      "updatedAt": "2026-11-25T08:05:41.322Z"
+    },
+    "pl_usr_1795594101865_caad00": {
+      "id": "pl_usr_1795594101865_caad00",
+      "ownerUserId": "web_free_test_1795594101187",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "tonggi_tilovat-4e2a",
+      "titleUz": "Tonggi tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T08:08:21.865Z",
+      "updatedAt": "2026-11-25T08:08:21.865Z"
+    },
+    "pl_usr_1795594101870_f6a109": {
+      "id": "pl_usr_1795594101870_f6a109",
+      "ownerUserId": "web_free_test_1795594101187",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "kechki_tilovat-c390",
+      "titleUz": "Kechki tilovat",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [],
+      "createdAt": "2026-11-25T08:08:21.870Z",
+      "updatedAt": "2026-11-25T08:08:21.870Z"
+    },
+    "pl_usr_1795594263926_02c54b": {
+      "id": "pl_usr_1795594263926_02c54b",
+      "ownerUserId": "web_subtest_1795594262995_0a305e_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_1-8aa1",
+      "titleUz": "E2E Playlist 1",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 1,
+          "addedAt": "2026-11-25T08:11:03.926Z"
+        }
+      ],
+      "createdAt": "2026-11-25T08:11:03.926Z",
+      "updatedAt": "2026-11-25T08:11:03.926Z"
+    },
+    "pl_usr_1795594263945_35bb96": {
+      "id": "pl_usr_1795594263945_35bb96",
+      "ownerUserId": "web_subtest_1795594262995_0a305e_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_2-5559",
+      "titleUz": "E2E Playlist 2",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 2,
+          "addedAt": "2026-11-25T08:11:03.945Z"
+        }
+      ],
+      "createdAt": "2026-11-25T08:11:03.945Z",
+      "updatedAt": "2026-11-25T08:11:03.945Z"
     }
   },
   "tajweedLessons": {
@@ -959,9 +1227,227 @@
           "nextReviewAt": "2026-11-26T05:15:18.114Z"
         }
       ]
+    },
+    "student_test_1795593940656": {
+      "userId": "student_test_1795593940656",
+      "lastReadSurah": 1,
+      "lastReadAyah": 1,
+      "lastReadPage": 1,
+      "dailyGoalAyahs": 10,
+      "dailyGoalMinutes": 15,
+      "todayAyahsRead": 0,
+      "todayDateStr": "2026-11-25",
+      "streakDays": 0,
+      "favoriteQariIds": [
+        "mishary"
+      ],
+      "favoriteTrackKeys": [],
+      "bookmarks": [],
+      "notes": [],
+      "memorizedAyahKeys": [],
+      "completedLessonIds": [
+        "tajweed-01-nun-sakin",
+        "tajweed-02-qalqala",
+        "tajweed-03-mim-sakin"
+      ],
+      "masteredLetterIds": [],
+      "hifzRanges": [],
+      "quizScores": {
+        "eq-01": {
+          "bestScore": 100,
+          "attempts": 1,
+          "passed": true,
+          "lastAt": "2026-11-25T08:05:41.331Z"
+        }
+      },
+      "certificates": [
+        {
+          "id": "cert_beg_1795593941333",
+          "titleUz": "ASAKA ZIYO — Tajvid Boshlangʻich Bosqich Sertifikati",
+          "level": "beginner",
+          "issuedAt": "2026-11-25T08:05:41.333Z",
+          "verificationCode": "AZ-TAJ-B65369"
+        }
+      ],
+      "updatedAt": "2026-11-25T08:05:41.333Z",
+      "hifzItems": [
+        {
+          "surahNumber": 1,
+          "ayahFrom": 1,
+          "ayahTo": 7,
+          "easeFactor": 2.5,
+          "intervalDays": 1,
+          "repetitions": 1,
+          "masteryScore": 85,
+          "nextReviewAt": "2026-11-26T08:05:41.331Z"
+        }
+      ]
+    },
+    "student_test_1795594101187": {
+      "userId": "student_test_1795594101187",
+      "lastReadSurah": 1,
+      "lastReadAyah": 1,
+      "lastReadPage": 1,
+      "dailyGoalAyahs": 10,
+      "dailyGoalMinutes": 15,
+      "todayAyahsRead": 0,
+      "todayDateStr": "2026-11-25",
+      "streakDays": 0,
+      "favoriteQariIds": [
+        "mishary"
+      ],
+      "favoriteTrackKeys": [],
+      "bookmarks": [],
+      "notes": [],
+      "memorizedAyahKeys": [],
+      "completedLessonIds": [
+        "tajweed-01-nun-sakin",
+        "tajweed-02-qalqala",
+        "tajweed-03-mim-sakin"
+      ],
+      "masteredLetterIds": [],
+      "hifzRanges": [],
+      "quizScores": {
+        "eq-01": {
+          "bestScore": 100,
+          "attempts": 1,
+          "passed": true,
+          "lastAt": "2026-11-25T08:08:21.879Z"
+        }
+      },
+      "certificates": [
+        {
+          "id": "cert_beg_1795594101881",
+          "titleUz": "ASAKA ZIYO — Tajvid Boshlangʻich Bosqich Sertifikati",
+          "level": "beginner",
+          "issuedAt": "2026-11-25T08:08:21.881Z",
+          "verificationCode": "AZ-TAJ-841C56"
+        }
+      ],
+      "updatedAt": "2026-11-25T08:08:21.881Z",
+      "hifzItems": [
+        {
+          "surahNumber": 1,
+          "ayahFrom": 1,
+          "ayahTo": 7,
+          "easeFactor": 2.5,
+          "intervalDays": 1,
+          "repetitions": 1,
+          "masteryScore": 85,
+          "nextReviewAt": "2026-11-26T08:08:21.880Z"
+        }
+      ]
     }
   },
   "auditLogs": [
+    {
+      "id": "qaud_1795594102078_ec007e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_DEACTIVATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795594101187",
+      "summary": "Qori faolsizlantirildi: Jahongir qori Ne'matov (E2E test_1795594101187)",
+      "createdAt": "2026-11-25T08:08:22.078Z"
+    },
+    {
+      "id": "qaud_1795594102073_66f649",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_SOFT_DELETED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795594101187_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795594101187 · 1-sura arxivlandi",
+      "createdAt": "2026-11-25T08:08:22.073Z"
+    },
+    {
+      "id": "qaud_1795594101856_d4d1ea",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QURAN_BACKUP_CREATED",
+      "targetType": "backup",
+      "targetId": "quran_ecosystem_backup_2026-11-25T08-08-21-855Z.json",
+      "summary": "Qurʼon va audio metadata zaxira nusxasi yaratildi",
+      "createdAt": "2026-11-25T08:08:21.856Z"
+    },
+    {
+      "id": "qaud_1795594101843_1d9fd0",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_STATUS_PUBLISHED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795594101187_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795594101187 · 1-sura -> PUBLISHED",
+      "createdAt": "2026-11-25T08:08:21.843Z"
+    },
+    {
+      "id": "qaud_1795594101835_30eec1",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_UPLOADED_VERIFIED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795594101187_s001",
+      "summary": "Jahongir qori Ne'matov (E2E test_1795594101187) · 1-sura (Fotiha) · 4110 bayt",
+      "createdAt": "2026-11-25T08:08:21.835Z"
+    },
+    {
+      "id": "qaud_1795594101824_f87f21",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_CREATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795594101187",
+      "summary": "Qori: Jahongir qori Ne'matov (E2E test_1795594101187)",
+      "createdAt": "2026-11-25T08:08:21.824Z"
+    },
+    {
+      "id": "qaud_1795593941511_2c7277",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_DEACTIVATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795593940656",
+      "summary": "Qori faolsizlantirildi: Jahongir qori Ne'matov (E2E test_1795593940656)",
+      "createdAt": "2026-11-25T08:05:41.511Z"
+    },
+    {
+      "id": "qaud_1795593941508_01460f",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_SOFT_DELETED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795593940656_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795593940656 · 1-sura arxivlandi",
+      "createdAt": "2026-11-25T08:05:41.508Z"
+    },
+    {
+      "id": "qaud_1795593941308_cc0fb5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QURAN_BACKUP_CREATED",
+      "targetType": "backup",
+      "targetId": "quran_ecosystem_backup_2026-11-25T08-05-41-307Z.json",
+      "summary": "Qurʼon va audio metadata zaxira nusxasi yaratildi",
+      "createdAt": "2026-11-25T08:05:41.308Z"
+    },
+    {
+      "id": "qaud_1795593941295_d6ea28",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_STATUS_PUBLISHED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795593940656_s001",
+      "summary": "jahongir_qori_ne_matov_e2e_test_1795593940656 · 1-sura -> PUBLISHED",
+      "createdAt": "2026-11-25T08:05:41.295Z"
+    },
+    {
+      "id": "qaud_1795593941286_ba7012",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "AUDIO_UPLOADED_VERIFIED",
+      "targetType": "audio",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795593940656_s001",
+      "summary": "Jahongir qori Ne'matov (E2E test_1795593940656) · 1-sura (Fotiha) · 4110 bayt",
+      "createdAt": "2026-11-25T08:05:41.286Z"
+    },
+    {
+      "id": "qaud_1795593941276_e6b07f",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "QARI_CREATED",
+      "targetType": "qari",
+      "targetId": "jahongir_qori_ne_matov_e2e_test_1795593940656",
+      "summary": "Qori: Jahongir qori Ne'matov (E2E test_1795593940656)",
+      "createdAt": "2026-11-25T08:05:41.276Z"
+    },
     {
       "id": "qaud_1795583718246_28bd8e",
       "actor": "asakaziyo0@gmail.com",
@@ -1125,5 +1611,5 @@
       "createdAt": "2026-11-25T05:12:24.590Z"
     }
   ],
-  "updatedAt": "2026-11-25T05:15:18.246Z"
+  "updatedAt": "2026-11-25T08:11:03.945Z"
 }

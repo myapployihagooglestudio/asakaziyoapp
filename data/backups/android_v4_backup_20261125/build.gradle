@@ -1,0 +1,115 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+def keystoreProps = new Properties()
+def rootKeystoreFile = rootProject.file("../keystore.properties")
+def androidKeystoreFile = rootProject.file("keystore.properties")
+if (rootKeystoreFile.exists()) {
+    keystoreProps.load(new FileInputStream(rootKeystoreFile))
+} else if (androidKeystoreFile.exists()) {
+    keystoreProps.load(new FileInputStream(androidKeystoreFile))
+}
+
+def resolveSigningValue = { String propKey, String envKey ->
+    return keystoreProps.getProperty(propKey) ?: System.getenv(envKey)
+}
+
+android {
+    namespace "uz.asakaziyo.app"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        applicationId "uz.asakaziyo.app"
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
+        versionCode 410
+        versionName "4.1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        base.archivesName = "Asaka-Ziyo-v${versionName}"
+
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    bundle {
+        abi {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        language {
+            enableSplit = true
+        }
+    }
+
+    signingConfigs {
+        release {
+            def keystorePath = resolveSigningValue("storeFile", "ANDROID_KEYSTORE_PATH")
+            if (keystorePath != null && new File(keystorePath).exists()) {
+                storeFile file(keystorePath)
+                storePassword resolveSigningValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias resolveSigningValue("keyAlias", "ANDROID_KEY_ALIAS") ?: "asakaziyo"
+                keyPassword resolveSigningValue("keyPassword", "ANDROID_KEY_PASSWORD")
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            def keystorePath = resolveSigningValue("storeFile", "ANDROID_KEYSTORE_PATH")
+            if (keystorePath != null && new File(keystorePath).exists()) {
+                signingConfig signingConfigs.release
+            } else if (!project.hasProperty("allowUnsignedRelease")) {
+                // Never silently sign Play Store release artifacts with the debug key
+                signingConfig null
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.core:core-ktx:$androidxCoreVersion"
+    implementation "androidx.activity:activity-ktx:$androidxActivityVersion"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "androidx.media3:media3-exoplayer:$media3Version"
+    implementation "androidx.media3:media3-session:$media3Version"
+    implementation "androidx.media3:media3-ui:$media3Version"
+    implementation "androidx.work:work-runtime-ktx:$workManagerVersion"
+    implementation platform('com.google.firebase:firebase-bom:33.5.1')
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+    implementation 'com.google.firebase:firebase-firestore-ktx'
+}
+
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}

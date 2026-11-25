@@ -22,6 +22,49 @@ export type SubscriptionPlanId = 'free' | 'premium_1m' | 'premium_3m' | 'premium
 export type SubscriptionStatus = 'FREE' | 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED' | 'GIFTED';
 export type PaymentOrderStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type PaymentMethodType = 'manual_card' | 'payme' | 'click' | 'admin_gift' | 'promo_code';
+export type PlatformId = 'web' | 'android' | 'telegram_bot' | 'telegram_miniapp';
+export type FeatureLimitPeriod = 'daily' | 'weekly' | 'monthly' | 'unlimited';
+export type FeatureAudience = 'all' | 'registered' | 'beta' | 'admins_only';
+export type FeatureModuleId =
+  | 'home'
+  | 'quran'
+  | 'audio'
+  | 'hifz'
+  | 'tajweed'
+  | 'quiz'
+  | 'prayer'
+  | 'qibla'
+  | 'hadith_dua'
+  | 'tasbeh'
+  | 'ai'
+  | 'education'
+  | 'offline'
+  | 'analytics'
+  | 'notifications'
+  | 'community'
+  | 'profile';
+
+export const ALL_PLATFORMS: PlatformId[] = ['web', 'android', 'telegram_miniapp', 'telegram_bot'];
+
+export const FEATURE_MODULE_LABELS_UZ: Record<FeatureModuleId, string> = {
+  home: 'Bosh sahifa',
+  quran: 'Qurʼon va Mushaf',
+  audio: 'Qurʼon MP3 va Qorilar',
+  hifz: 'Hifz va Murojaʼa',
+  tajweed: 'Tajvid akademiyasi',
+  quiz: 'Qurʼon viktorinasi',
+  prayer: 'Namoz vaqtlari va Ob-havo',
+  qibla: 'Qibla kompas',
+  hadith_dua: 'Hadislar va Duolar',
+  tasbeh: 'Zikr va Tasbeh',
+  ai: 'AI Islomiy yordamchi',
+  education: 'Islomiy kurslar va Imtihonlar',
+  offline: 'Offline Markaz',
+  analytics: 'Shaxsiy statistika',
+  notifications: 'Bildirishnomalar va Vidjetlar',
+  community: 'Hamjamiyat',
+  profile: 'Shaxsiy profil',
+};
 
 export interface SubscriptionPlanConfig {
   id: SubscriptionPlanId;
@@ -42,10 +85,53 @@ export interface SubscriptionPlanConfig {
 
 export interface FeatureGateItem {
   key: string;
+  module: FeatureModuleId;
   labelUz: string;
   descriptionUz: string;
+  userNoticeUz?: string;
   access: 'free' | 'premium';
-  freeDailyLimit?: number;
+  limitPeriod: FeatureLimitPeriod;
+  freeLimit: number; // -1 = unlimited, 0 = blocked for Free when access==='premium', >0 = Free quota
+  premiumLimit: number; // -1 = unlimited, >0 = Premium quota
+  freeDailyLimit?: number; // legacy mirror for backward compatibility
+  requiredPlans: SubscriptionPlanId[];
+  audience: FeatureAudience;
+  isEnabled: boolean;
+  trialDays: number;
+  platforms: PlatformId[];
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface FeatureEntitlementDecision {
+  allowed: boolean;
+  featureKey: string;
+  module: FeatureModuleId;
+  reasonCode:
+    | 'OK'
+    | 'PREMIUM_REQUIRED'
+    | 'USAGE_LIMIT_REACHED'
+    | 'FEATURE_DISABLED'
+    | 'PLATFORM_RESTRICTED'
+    | 'AUDIENCE_RESTRICTED'
+    | 'PLAN_TIER_REQUIRED'
+    | 'UNKNOWN_FEATURE';
+  messageUz: string;
+  access: 'free' | 'premium';
+  isPremiumUser: boolean;
+  subscriptionStatus: SubscriptionStatus;
+  limitPeriod: FeatureLimitPeriod;
+  limit: number; // -1 = unlimited
+  used: number;
+  remaining: number; // -1 = unlimited
+  feature?: FeatureGateItem;
+}
+
+export interface TrackedUserMeta {
+  userId: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  platforms: PlatformId[];
 }
 
 export interface ManualCardSettings {
@@ -64,7 +150,7 @@ export interface PaymentOrderRecord {
   orderId: string;
   userId: string;
   userDisplayName?: string;
-  platform: 'web' | 'android' | 'telegram_bot' | 'telegram_miniapp';
+  platform: PlatformId;
   planId: SubscriptionPlanId;
   planNameUz: string;
   durationDays: number;
@@ -140,7 +226,7 @@ export interface CampaignRecord {
 export interface RandomDrawEntry {
   userId: string;
   displayName: string;
-  platform: 'web' | 'android' | 'telegram_bot' | 'telegram_miniapp';
+  platform: PlatformId;
   joinedAt: string;
 }
 
@@ -196,6 +282,9 @@ interface SubscriptionEcosystemStore {
   randomDraws: Record<string, RandomDrawRecord>;
   accountLinks: Record<string, string>; // aliasUserId (e.g. tg:123) -> canonicalUserId
   pendingLinkCodes: Record<string, AccountLinkRecord>;
+  usageCounters: Record<string, number>; // `${userId}::${featureKey}::${periodBucket}` -> count
+  featureUsageTotals: Record<string, number>; // featureKey -> total server-checked uses
+  trackedUsers: Record<string, TrackedUserMeta>; // canonicalUserId -> platform metadata
   auditLogs: SubscriptionAuditLog[];
   updatedAt: string;
 }
@@ -220,16 +309,16 @@ function createDefaultPlans(): Record<SubscriptionPlanId, SubscriptionPlanConfig
       highlightsUz: [
         'Asaka va global namoz vaqtlari + ob-havo',
         'Qurʼoni Karim Mushaf (114 sura) va asosiy tilovatlar',
-        'Tasbeh, zikrlar, hadislar va kunlik viktorina',
-        'Boshlangʻich Tajvid va Arab alifbosi darslari',
-        'Kunlik cheklangan AI Ustoz savollari',
+        'Tasbeh, zikrlar, hadislar, duolar va Qibla',
+        'Boshlangʻich Tajvid, Hifz asosi va kunlik viktorina',
+        'Kunlik bepul AI Ustoz savollari (limit bilan)',
       ],
       updatedAt: now,
     },
     premium_1m: {
       id: 'premium_1m',
       nameUz: 'Premium · 1 oylik',
-      taglineUz: 'Barcha Qorilar, cheksiz offline va chuqur Tajvid kursi',
+      taglineUz: 'Barcha boʻlimlar, cheksiz AI, offline audio va chuqur taʼlim',
       durationDays: 30,
       priceUzs: 29000,
       oldPriceUzs: 39000,
@@ -238,18 +327,18 @@ function createDefaultPlans(): Record<SubscriptionPlanId, SubscriptionPlanConfig
       isRecommended: false,
       isActive: true,
       highlightsUz: [
+        'Cheksiz AI Islomiy Yordamchi va chuqur tahlil rejimi',
         'Barcha Qorilarning 114 surasini cheksiz offline yuklash',
-        'Cheksiz shaxsiy playlistlar va sinxronizatsiya',
-        'Oʻrta va yuqori darajali Tajvid darslari + sertifikatlar',
-        'Kengaytirilgan Hifz va Murojaʼa rejasi',
-        'Ustuvor AI Ustoz va barcha qurilmalarda yagona Premium',
+        'AI Hifz tekshiruvi, shaxsiy Murojaʼa rejasi va statistika',
+        'Toʻliq Tajvid akademiyasi, kurslar va sertifikatlar',
+        'Web, Android APK, Telegram Bot va Mini Appda yagona Premium',
       ],
       updatedAt: now,
     },
     premium_3m: {
       id: 'premium_3m',
       nameUz: 'Premium · 3 oylik',
-      taglineUz: 'Muntazam Qurʼon va Tajvid oʻrganuvchilar uchun eng qulay tanlov',
+      taglineUz: 'Muntazam ibodat, AI Ustoz va Qurʼon oʻrganish uchun eng qulay tanlov',
       durationDays: 90,
       priceUzs: 75000,
       oldPriceUzs: 117000,
@@ -258,9 +347,9 @@ function createDefaultPlans(): Record<SubscriptionPlanId, SubscriptionPlanConfig
       isRecommended: true,
       isActive: true,
       highlightsUz: [
-        '1 oylik Premium ning barcha imkoniyatlari',
+        '1 oylik Premium ning barcha boʻlimlardagi imkoniyatlari',
         '36% tejash (oyiga atigi 25 000 soʻm)',
-        'Barcha offline Qori paketlari va Hifz tahlili',
+        'Cheksiz viktorina, playlist, offline audio va shaxsiy tahlil',
         'Web, Android APK va Telegram Bot/Mini App sinxronizatsiyasi',
       ],
       updatedAt: now,
@@ -268,7 +357,7 @@ function createDefaultPlans(): Record<SubscriptionPlanId, SubscriptionPlanConfig
     premium_6m: {
       id: 'premium_6m',
       nameUz: 'Premium · 6 oylik',
-      taglineUz: 'Maksimal tejamkorlik va yarim yillik uzluksiz ilm safri',
+      taglineUz: 'Maksimal tejamkorlik va yarim yillik toʻliq ekotizim',
       durationDays: 180,
       priceUzs: 129000,
       oldPriceUzs: 234000,
@@ -277,9 +366,9 @@ function createDefaultPlans(): Record<SubscriptionPlanId, SubscriptionPlanConfig
       isRecommended: false,
       isActive: true,
       highlightsUz: [
-        'Barcha Premium funksiyalar 180 kun davomida',
+        'Barcha 17 boʻlimdagi Premium funksiyalar 180 kun davomida',
         '45% maksimal chegirma (oyiga ~21 500 soʻm)',
-        'Barcha Tajvid sertifikatlari va audio testlar',
+        'Barcha Tajvid va Islomiy kurs sertifikatlari + hamjamiyat',
         'Ustuvor texnik yordam va yangi funksiyalarga erta kirish',
       ],
       updatedAt: now,
@@ -287,21 +376,395 @@ function createDefaultPlans(): Record<SubscriptionPlanId, SubscriptionPlanConfig
   };
 }
 
+function makeGate(
+  partial: Omit<FeatureGateItem, 'requiredPlans' | 'audience' | 'isEnabled' | 'trialDays' | 'platforms' | 'freeDailyLimit'> & {
+    requiredPlans?: SubscriptionPlanId[];
+    audience?: FeatureAudience;
+    isEnabled?: boolean;
+    trialDays?: number;
+    platforms?: PlatformId[];
+  }
+): FeatureGateItem {
+  return {
+    ...partial,
+    freeDailyLimit: partial.freeLimit > 0 ? partial.freeLimit : undefined,
+    requiredPlans: partial.requiredPlans ?? ['premium_1m', 'premium_3m', 'premium_6m'],
+    audience: partial.audience ?? 'all',
+    isEnabled: partial.isEnabled ?? true,
+    trialDays: partial.trialDays ?? 0,
+    platforms: partial.platforms ?? [...ALL_PLATFORMS],
+  };
+}
+
 function createDefaultFeatureGates(): Record<string, FeatureGateItem> {
   const list: FeatureGateItem[] = [
-    { key: 'prayer_times_global', labelUz: 'Namoz vaqtlari va Ob-havo', descriptionUz: 'Asaka MANUAL + Oʻzbekiston 14 hudud + global shaharlar', access: 'free' },
-    { key: 'quran_mushaf_core', labelUz: 'Qurʼon Mushaf va Asosiy Tilovat', descriptionUz: '114 sura matni, tarjima va asosiy qorilar', access: 'free' },
-    { key: 'tasbeh_dhikr_core', labelUz: 'Tasbeh va Zikrlar', descriptionUz: 'Raqamli tasbeh, tonggi-kechki zikrlar va duolar', access: 'free' },
-    { key: 'tajweed_beginner', labelUz: 'Arab alifbosi va Boshlangʻich Tajvid', descriptionUz: '28 harf, maxraj va asosiy darslar', access: 'free' },
-    { key: 'unlimited_offline_downloads', labelUz: 'Cheksiz Offline Qori Yuklash', descriptionUz: '114 suralik toʻliq qori paketlarini offline saqlash', access: 'premium', freeDailyLimit: 3 },
-    { key: 'advanced_tajweed_academy', labelUz: 'Chuqur Tajvid va Sertifikatlar', descriptionUz: 'Oʻrta va yuqori bosqich darslari hamda imtihonlar', access: 'premium' },
-    { key: 'unlimited_playlists', labelUz: 'Cheksiz Shaxsiy Playlistlar', descriptionUz: 'Koʻp sonli playlist yaratish va qurilmalarda sinxronlash', access: 'premium', freeDailyLimit: 2 },
-    { key: 'advanced_hifz_analytics', labelUz: 'Kengaytirilgan Hifz va Murojaʼa', descriptionUz: 'Kengaytirilgan takrorlash jadvali va qiyin oyatlar tahlili', access: 'premium' },
-    { key: 'ai_ustoz_unlimited', labelUz: 'Cheksiz AI Ustoz', descriptionUz: 'Kunlik cheklovsiz islomiy savol-javob va izohlar', access: 'premium', freeDailyLimit: 5 },
+    // 1. Bosh sahifa
+    makeGate({
+      key: 'home_core_dashboard',
+      module: 'home',
+      labelUz: 'Bosh sahifa va Kunlik Oyati/Hadis',
+      descriptionUz: 'Asosiy boshqaruv paneli, kunlik oyat, hadis va tezkor kirish',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    // 2. Namoz vaqtlari va Ob-havo
+    makeGate({
+      key: 'prayer_times_global',
+      module: 'prayer',
+      labelUz: 'Namoz vaqtlari va Ob-havo',
+      descriptionUz: 'Asaka MANUAL + Oʻzbekiston 14 hududi + global shaharlar va ob-havo',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'prayer_smart_widgets_alerts',
+      module: 'notifications',
+      labelUz: 'Kengaytirilgan Azon, Vidjetlar va Maxsus Eslatmalar',
+      descriptionUz: 'Koʻp shaharli azon jadvali, Tahajjud/Duho aqlli bildirishnomalari va Pro vidjetlar',
+      userNoticeUz: 'Kengaytirilgan aqlli bildirishnoma va Pro vidjet sozlamalari Premium obunada ochiladi.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 3. Qibla
+    makeGate({
+      key: 'qibla_ar_compass',
+      module: 'qibla',
+      labelUz: 'Qibla Kompas va Xarita',
+      descriptionUz: 'Aniq magnit kompas, GPS yoʻnalish va Kaʼbagacha masofa',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    // 4. Qur'on va Mushaf
+    makeGate({
+      key: 'quran_mushaf_core',
+      module: 'quran',
+      labelUz: 'Qurʼon Mushaf (114 sura) va Tarjima',
+      descriptionUz: 'Toʻliq arabcha matn, oʻzbekcha tarjima, xatchoʻp va asosiy oʻqish rejimi',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'quran_tafsir_pro',
+      module: 'quran',
+      labelUz: 'Chuqur Tafsir, Oyat Taqqoslash va Izohlar Sinxroni',
+      descriptionUz: 'Koʻp tarjimalarni yonma-yon oʻqish, boy tafsir izohlari va bulutli eslatmalar',
+      userNoticeUz: 'Chuqur Tafsir va koʻp tarjimali qiyosiy oʻqish rejimi Premium foydalanuvchilar uchun.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 5. Qur'on MP3 & Audio Studio
+    makeGate({
+      key: 'audio_stream_core',
+      module: 'audio',
+      labelUz: 'Qurʼon MP3 Asosiy Tinglash',
+      descriptionUz: 'Qorilar katalogidan onlayn tilovat tinglash va mini-pleer',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'unlimited_playlists',
+      module: 'audio',
+      labelUz: 'Cheksiz Shaxsiy Playlistlar',
+      descriptionUz: 'Koʻp sonli playlist yaratish va barcha qurilmalarda sinxronlash (Bepul: 2 ta)',
+      userNoticeUz: 'Bepul tarifda playlistlar soni cheklangan. Cheksiz playlistlar uchun Premium faollashtiring.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 2,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'audio_studio_pro',
+      module: 'audio',
+      labelUz: 'Pro Audio Pleer (A–B Takrorlash va Maxsus Sifat)',
+      descriptionUz: 'Oyat oraligʻini A–B siklida takrorlash, kengaytirilgan uyqu taymeri va navbat boshqaruvi',
+      userNoticeUz: 'Pro Audio Studio (A–B sikl takrorlash) Premium obunachilar uchun ochiq.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 6. Offline Markaz
+    makeGate({
+      key: 'unlimited_offline_downloads',
+      module: 'offline',
+      labelUz: 'Cheksiz Offline Qori Yuklash',
+      descriptionUz: '114 suralik toʻliq qori paketlarini oflayn saqlash (Bepul: kuniga 3 ta sura)',
+      userNoticeUz: 'Kunlik bepul oflayn yuklash limitingiz tugadi. Barcha 114 surani cheksiz yuklash uchun Premiumga oʻting.',
+      access: 'premium',
+      limitPeriod: 'daily',
+      freeLimit: 3,
+      premiumLimit: -1,
+    }),
+    // 7. Hifz va Muroja'a
+    makeGate({
+      key: 'hifz_basic_tracker',
+      module: 'hifz',
+      labelUz: 'Asosiy Hifz Kundaligi',
+      descriptionUz: 'Yodlangan suralarni belgilash va oddiy kunlik takrorlash',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'advanced_hifz_analytics',
+      module: 'hifz',
+      labelUz: 'Kengaytirilgan Hifz, Shaxsiy Reja va Murojaʼa',
+      descriptionUz: 'Aqlli takrorlash jadvali, qiyin oyatlar tahlili va chuqur Hifz statistikasi',
+      userNoticeUz: 'Shaxsiy Murojaʼa rejasi va chuqur Hifz tahlili Premium tarifda ishlaydi.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'hifz_ai_voice_check',
+      module: 'hifz',
+      labelUz: 'AI Yordamida Hifz va Qiroat Tekshiruvi',
+      descriptionUz: 'Yodlangan oyatlarni AI orqali tekshirish va xatolarni koʻrsatish (Bepul: kuniga 1 marta)',
+      userNoticeUz: 'AI Hifz tekshiruvi kunlik limiti tugadi. Cheksiz tekshiruv uchun Premium faollashtiring.',
+      access: 'premium',
+      limitPeriod: 'daily',
+      freeLimit: 1,
+      premiumLimit: -1,
+    }),
+    // 8. Tajvid Akademiyasi
+    makeGate({
+      key: 'tajweed_beginner',
+      module: 'tajweed',
+      labelUz: 'Arab Alifbosi va Boshlangʻich Tajvid',
+      descriptionUz: '28 harf, maxraj va boshlangʻich bosqich darslari',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'advanced_tajweed_academy',
+      module: 'tajweed',
+      labelUz: 'Chuqur Tajvid Akademiyasi va Sertifikatlar',
+      descriptionUz: 'Oʻrta va yuqori bosqich Tajvid darslari, amaliy mashqlar va rasmiy sertifikat',
+      userNoticeUz: 'Oʻrta va yuqori darajali Tajvid darslari hamda sertifikat imtihonlari Premium obunada ochiladi.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 9. Qur'on Viktorinasi
+    makeGate({
+      key: 'quran_quiz_daily',
+      module: 'quiz',
+      labelUz: 'Kunlik Islomiy Viktorina',
+      descriptionUz: 'Har kunlik bepul bilim sinovi va asosiy reyting',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'quran_quiz_unlimited',
+      module: 'quiz',
+      labelUz: 'Cheksiz Viktorina, Turnirlar va Chuqur Izohlar',
+      descriptionUz: 'Cheklovsiz mavzuli testlar, xatolar tahlili va Pro turnirlar (Bepul: kuniga 3 urinish)',
+      userNoticeUz: 'Kunlik bepul viktorina urinishlaringiz tugadi. Cheksiz testlar va tahlil uchun Premiumga oʻting.',
+      access: 'premium',
+      limitPeriod: 'daily',
+      freeLimit: 3,
+      premiumLimit: -1,
+    }),
+    // 10. Hadislar va Duolar
+    makeGate({
+      key: 'hadith_dua_library_core',
+      module: 'hadith_dua',
+      labelUz: 'Hadislar va Duolar Kutubxonasi',
+      descriptionUz: 'Sahih hadislar toʻplami, tonggi-kechki va kundalik duolar',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'hadith_dua_collections_sync',
+      module: 'hadith_dua',
+      labelUz: 'Shaxsiy Hadis/Duo Toʻplamlari va Audio Oflayn',
+      descriptionUz: 'Cheksiz sevimli toʻplamlar, shaxsiy qaydlar va oflayn duo audiolari',
+      userNoticeUz: 'Shaxsiy toʻplamlar sinxronizatsiyasi va oflayn duo audiolari Premium obunada mavjud.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 11. Zikr va Tasbeh
+    makeGate({
+      key: 'tasbeh_dhikr_core',
+      module: 'tasbeh',
+      labelUz: 'Raqamli Tasbeh va Zikrlar',
+      descriptionUz: 'Haptik tasbeh, kunlik zikrlar va odatiy maqsadlar',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
+    // 12. AI Islomiy Yordamchi (Real Server-Side Usage Limit!)
+    makeGate({
+      key: 'ai_ustoz_unlimited',
+      module: 'ai',
+      labelUz: 'AI Islomiy Yordamchi (Savol-javob)',
+      descriptionUz: 'Islomiy savol-javob va izohlar (Bepul: kuniga 5 ta savol, Premium: cheksiz)',
+      userNoticeUz: 'Kunlik bepul AI Ustoz limitingiz tugadi. Cheksiz savol-javob va tezkor tahlil uchun Premium faollashtiring.',
+      access: 'premium',
+      limitPeriod: 'daily',
+      freeLimit: 5,
+      premiumLimit: -1,
+    }),
+    makeGate({
+      key: 'ai_deep_reasoning_mode',
+      module: 'ai',
+      labelUz: 'AI Chuqur Tahlil (Deep Reasoning) Rejimi',
+      descriptionUz: 'Murakkab fiqhiy va tafsir savollari uchun chuqur manbali AI tahlili (Bepul: kuniga 1 ta)',
+      userNoticeUz: 'Chuqur tahlil (Deep) AI rejimi Premium foydalanuvchilar uchun cheksiz ochiq.',
+      access: 'premium',
+      limitPeriod: 'daily',
+      freeLimit: 1,
+      premiumLimit: -1,
+    }),
+    // 13. Islomiy Kurslar va Imtihonlar
+    makeGate({
+      key: 'islamic_courses_certificates',
+      module: 'education',
+      labelUz: 'Islomiy Kurslar, Imtihonlar va Sertifikatlar',
+      descriptionUz: 'Toʻliq strukturalangan akademiya kurslari, bosqichli imtihonlar va raqamli sertifikat',
+      userNoticeUz: 'Kengaytirilgan Islomiy kurslar va sertifikatli imtihonlar Premium obunada ochiladi.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 14. Shaxsiy Statistika va Rivojlanish Hisoboti
+    makeGate({
+      key: 'personal_growth_analytics',
+      module: 'analytics',
+      labelUz: 'Shaxsiy Statistika va Rivojlanish Hisoboti',
+      descriptionUz: 'Oylik namoz, Qurʼon, zikr va Hifz rivojlanish grafiklari hamda PDF hisobot',
+      userNoticeUz: 'Chuqur shaxsiy statistika va oylik rivojlanish hisobotlari Premium tarifda ochiladi.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 15. Hamjamiyat
+    makeGate({
+      key: 'community_study_circles',
+      module: 'community',
+      labelUz: 'Hamjamiyat Ilm Halqalari va Maxsus Guruhlar',
+      descriptionUz: 'Jamoaviy xatm halqalari, ustozlar bilan savol-javob sessiyalari va maxsus belgilar',
+      userNoticeUz: 'Maxsus ilm halqalari va jamoaviy xatm guruhlari Premium obunachilar uchun.',
+      access: 'premium',
+      limitPeriod: 'unlimited',
+      freeLimit: 0,
+      premiumLimit: -1,
+    }),
+    // 16. Shaxsiy Profil & Bulut Sinxroni
+    makeGate({
+      key: 'cross_platform_cloud_sync',
+      module: 'profile',
+      labelUz: 'Web, Android va Telegram Yagona Profil Sinxroni',
+      descriptionUz: '6 xonali kod orqali barcha platformalarda yagona hisob va obuna sinxroni',
+      access: 'free',
+      limitPeriod: 'unlimited',
+      freeLimit: -1,
+      premiumLimit: -1,
+    }),
   ];
   const map: Record<string, FeatureGateItem> = {};
   for (const f of list) map[f.key] = f;
   return map;
+}
+
+function normalizeGateItem(raw: Partial<FeatureGateItem>, fallback?: FeatureGateItem): FeatureGateItem {
+  const key = String(raw.key || fallback?.key || '').trim();
+  const access: 'free' | 'premium' =
+    raw.access === 'free' ? 'free' : raw.access === 'premium' ? 'premium' : fallback?.access || 'premium';
+  const rawFreeLimit =
+    typeof raw.freeLimit === 'number' && Number.isFinite(raw.freeLimit)
+      ? Math.round(raw.freeLimit)
+      : typeof raw.freeDailyLimit === 'number' && Number.isFinite(raw.freeDailyLimit)
+        ? Math.round(raw.freeDailyLimit)
+        : fallback?.freeLimit ?? (access === 'free' ? -1 : 0);
+  const rawPremiumLimit =
+    typeof raw.premiumLimit === 'number' && Number.isFinite(raw.premiumLimit)
+      ? Math.round(raw.premiumLimit)
+      : fallback?.premiumLimit ?? -1;
+  const limitPeriod: FeatureLimitPeriod =
+    raw.limitPeriod === 'daily' ||
+    raw.limitPeriod === 'weekly' ||
+    raw.limitPeriod === 'monthly' ||
+    raw.limitPeriod === 'unlimited'
+      ? raw.limitPeriod
+      : fallback?.limitPeriod || (rawFreeLimit > 0 ? 'daily' : 'unlimited');
+
+  const validPlatforms = Array.isArray(raw.platforms)
+    ? (raw.platforms.filter((p) => ALL_PLATFORMS.includes(p as PlatformId)) as PlatformId[])
+    : fallback?.platforms || [...ALL_PLATFORMS];
+
+  return {
+    key,
+    module: (raw.module || fallback?.module || 'quran') as FeatureModuleId,
+    labelUz: String(raw.labelUz || fallback?.labelUz || key).trim().slice(0, 140),
+    descriptionUz: String(raw.descriptionUz || fallback?.descriptionUz || '').trim().slice(0, 400),
+    userNoticeUz: raw.userNoticeUz !== undefined ? String(raw.userNoticeUz).trim().slice(0, 400) : fallback?.userNoticeUz,
+    access,
+    limitPeriod,
+    freeLimit: rawFreeLimit,
+    premiumLimit: rawPremiumLimit,
+    freeDailyLimit: rawFreeLimit > 0 ? rawFreeLimit : undefined,
+    requiredPlans:
+      Array.isArray(raw.requiredPlans) && raw.requiredPlans.length > 0
+        ? (raw.requiredPlans as SubscriptionPlanId[])
+        : fallback?.requiredPlans || ['premium_1m', 'premium_3m', 'premium_6m'],
+    audience:
+      raw.audience === 'all' || raw.audience === 'registered' || raw.audience === 'beta' || raw.audience === 'admins_only'
+        ? raw.audience
+        : fallback?.audience || 'all',
+    isEnabled: raw.isEnabled !== undefined ? Boolean(raw.isEnabled) : fallback?.isEnabled ?? true,
+    trialDays:
+      typeof raw.trialDays === 'number' && Number.isFinite(raw.trialDays)
+        ? Math.max(0, Math.min(365, Math.round(raw.trialDays)))
+        : fallback?.trialDays ?? 0,
+    platforms: validPlatforms.length > 0 ? validPlatforms : [...ALL_PLATFORMS],
+    updatedAt: raw.updatedAt || fallback?.updatedAt,
+    updatedBy: raw.updatedBy || fallback?.updatedBy,
+  };
+}
+
+function getUtcPeriodBucket(period: FeatureLimitPeriod, now = new Date()): string {
+  if (period === 'unlimited') return 'all';
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(now.getUTCDate()).padStart(2, '0');
+  if (period === 'daily') return `${y}-${m}-${d}`;
+  if (period === 'monthly') return `${y}-${m}`;
+  // ISO week bucket
+  const tmp = new Date(Date.UTC(y, now.getUTCMonth(), now.getUTCDate()));
+  const dayNum = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((tmp.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 export class SubscriptionEcosystemService {
@@ -331,6 +794,16 @@ export class SubscriptionEcosystemService {
 
     const defaultPlans = createDefaultPlans();
     const defaultGates = createDefaultFeatureGates();
+
+    // Backward-compatible migration: preserve Admin's customized gates while adding new cross-module defaults
+    const mergedGates: Record<string, FeatureGateItem> = { ...defaultGates };
+    if (parsed?.featureGates && typeof parsed.featureGates === 'object') {
+      for (const [k, v] of Object.entries(parsed.featureGates)) {
+        if (v && typeof v === 'object') {
+          mergedGates[k] = normalizeGateItem({ ...v, key: k }, defaultGates[k]);
+        }
+      }
+    }
 
     const defaultCard: ManualCardSettings = {
       cardholderName: 'ASAKA ZIYO (Admin orqali sozlang)',
@@ -372,9 +845,9 @@ export class SubscriptionEcosystemService {
     };
 
     const store: SubscriptionEcosystemStore = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       plans: { ...defaultPlans, ...(parsed?.plans || {}) } as Record<SubscriptionPlanId, SubscriptionPlanConfig>,
-      featureGates: { ...defaultGates, ...(parsed?.featureGates || {}) },
+      featureGates: mergedGates,
       cardSettings: parsed?.cardSettings ? { ...defaultCard, ...parsed.cardSettings } : defaultCard,
       orders: parsed?.orders || {},
       subscriptions: parsed?.subscriptions || {},
@@ -383,6 +856,10 @@ export class SubscriptionEcosystemService {
       randomDraws: parsed?.randomDraws && Object.keys(parsed.randomDraws).length > 0 ? parsed.randomDraws : defaultDraws,
       accountLinks: parsed?.accountLinks || {},
       pendingLinkCodes: parsed?.pendingLinkCodes || {},
+      usageCounters: parsed?.usageCounters && typeof parsed.usageCounters === 'object' ? parsed.usageCounters : {},
+      featureUsageTotals:
+        parsed?.featureUsageTotals && typeof parsed.featureUsageTotals === 'object' ? parsed.featureUsageTotals : {},
+      trackedUsers: parsed?.trackedUsers && typeof parsed.trackedUsers === 'object' ? parsed.trackedUsers : {},
       auditLogs: Array.isArray(parsed?.auditLogs) ? parsed.auditLogs : [],
       updatedAt: parsed?.updatedAt || now,
     };
@@ -397,6 +874,29 @@ export class SubscriptionEcosystemService {
     fs.writeFileSync(tmp, JSON.stringify(nextStore, null, 2), 'utf-8');
     fs.renameSync(tmp, this.storePath);
     this.store = nextStore;
+  }
+
+  public reloadFromDisk(): void {
+    this.store = this.loadOrInitStore();
+  }
+
+  private touchTrackedUser(canonicalUserId: string, platform?: PlatformId): void {
+    if (!canonicalUserId || canonicalUserId === 'guest_anonymous') return;
+    const now = new Date().toISOString();
+    const existing = this.store.trackedUsers[canonicalUserId];
+    if (!existing) {
+      this.store.trackedUsers[canonicalUserId] = {
+        userId: canonicalUserId,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        platforms: platform && ALL_PLATFORMS.includes(platform) ? [platform] : ['web'],
+      };
+      return;
+    }
+    existing.lastSeenAt = now;
+    if (platform && ALL_PLATFORMS.includes(platform) && !existing.platforms.includes(platform)) {
+      existing.platforms.push(platform);
+    }
   }
 
   private recordAudit(
@@ -550,6 +1050,8 @@ export class SubscriptionEcosystemService {
 
       const rawTgUserId = `tg:${tgUser.id}`;
       const canonicalUserId = this.resolveCanonicalUserId(rawTgUserId);
+      this.touchTrackedUser(canonicalUserId, 'telegram_miniapp');
+      this.persistStore();
       return {
         ok: true,
         userId: canonicalUserId,
@@ -591,6 +1093,7 @@ export class SubscriptionEcosystemService {
     return {
       plans,
       featureGates: Object.values(this.store.featureGates),
+      moduleLabelsUz: FEATURE_MODULE_LABELS_UZ,
       cardSettings: this.store.cardSettings.isActive
         ? {
             cardholderName: this.store.cardSettings.cardholderName,
@@ -655,6 +1158,48 @@ export class SubscriptionEcosystemService {
     return updated;
   }
 
+  public async createFeatureGate(
+    input: Partial<FeatureGateItem> & { key: string; labelUz: string },
+    actor: string
+  ): Promise<FeatureGateItem> {
+    const cleanKey = String(input.key || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .slice(0, 64);
+    if (cleanKey.length < 3) {
+      throw new Error('Funksiya kaliti kamida 3 ta lotin belgidan iborat boʻlishi kerak.');
+    }
+    const existing = this.store.featureGates[cleanKey];
+    const now = new Date().toISOString();
+    const created = normalizeGateItem(
+      {
+        ...input,
+        key: cleanKey,
+        updatedAt: now,
+        updatedBy: actor,
+      },
+      existing
+    );
+    this.store.featureGates[cleanKey] = created;
+    this.recordAudit(
+      actor,
+      existing ? 'FEATURE_GATE_UPDATED' : 'FEATURE_GATE_CREATED',
+      'feature_gate',
+      cleanKey,
+      `${created.labelUz} [${created.module}] -> ${created.access.toUpperCase()} (freeLimit=${created.freeLimit}, enabled=${created.isEnabled})`
+    );
+    this.persistStore();
+    if (this.firestoreMirror) {
+      await this.firestoreMirror('subscriptionConfig', 'feature_gates', {
+        gates: this.store.featureGates,
+        updatedAt: now,
+        updatedBy: actor,
+      }).catch(() => {});
+    }
+    return created;
+  }
+
   public async updateFeatureGate(
     key: string,
     patch: Partial<FeatureGateItem>,
@@ -662,15 +1207,33 @@ export class SubscriptionEcosystemService {
   ): Promise<FeatureGateItem> {
     const existing = this.store.featureGates[key];
     if (!existing) throw new Error('Funksiya kaliti topilmadi.');
-    const updated: FeatureGateItem = {
-      ...existing,
-      ...patch,
-      key,
-      access: patch.access === 'premium' ? 'premium' : patch.access === 'free' ? 'free' : existing.access,
-    };
+    const now = new Date().toISOString();
+    const updated = normalizeGateItem(
+      {
+        ...existing,
+        ...patch,
+        key,
+        updatedAt: now,
+        updatedBy: actor,
+      },
+      existing
+    );
     this.store.featureGates[key] = updated;
-    this.recordAudit(actor, 'FEATURE_GATE_UPDATED', 'feature_gate', key, `${updated.labelUz} -> ${updated.access.toUpperCase()}`);
+    this.recordAudit(
+      actor,
+      'FEATURE_GATE_UPDATED',
+      'feature_gate',
+      key,
+      `${updated.labelUz} -> ${updated.access.toUpperCase()} (freeLimit=${updated.freeLimit}, premiumLimit=${updated.premiumLimit}, period=${updated.limitPeriod}, enabled=${updated.isEnabled})`
+    );
     this.persistStore();
+    if (this.firestoreMirror) {
+      await this.firestoreMirror('subscriptionConfig', 'feature_gates', {
+        gates: this.store.featureGates,
+        updatedAt: now,
+        updatedBy: actor,
+      }).catch(() => {});
+    }
     return updated;
   }
 
@@ -762,21 +1325,296 @@ export class SubscriptionEcosystemService {
       giftReason: rec.giftReason,
       suspendedReason: rec.suspendedReason,
       pendingOrderId: pendingOrder?.orderId || null,
-      entitlements: this.computeEntitlements(isPremium),
+      entitlements: this.computeEntitlements(isPremium, userId),
       linkedAliases: this.getLinkedAliasesForUser(userId),
       serverTimeUtc: nowIso,
     };
   }
 
-  private computeEntitlements(isPremium: boolean): Record<string, { allowed: boolean; freeDailyLimit?: number }> {
-    const out: Record<string, { allowed: boolean; freeDailyLimit?: number }> = {};
+  private getUsageCounterKey(canonicalUserId: string, featureKey: string, period: FeatureLimitPeriod): string {
+    return `${canonicalUserId}::${featureKey}::${getUtcPeriodBucket(period)}`;
+  }
+
+  public getFeatureUsageCount(rawUserId: string, featureKey: string, period?: FeatureLimitPeriod): number {
+    const canonicalUserId = this.resolveCanonicalUserId(rawUserId);
+    const gate = this.store.featureGates[featureKey];
+    const effectivePeriod = period || gate?.limitPeriod || 'daily';
+    const counterKey = this.getUsageCounterKey(canonicalUserId, featureKey, effectivePeriod);
+    return this.store.usageCounters[counterKey] || 0;
+  }
+
+  private computeEntitlements(
+    isPremium: boolean,
+    canonicalUserId?: string
+  ): Record<
+    string,
+    {
+      allowed: boolean;
+      module: FeatureModuleId;
+      access: 'free' | 'premium';
+      isEnabled: boolean;
+      limitPeriod: FeatureLimitPeriod;
+      limit: number;
+      used: number;
+      remaining: number;
+      freeDailyLimit?: number;
+      platforms: PlatformId[];
+      userNoticeUz?: string;
+    }
+  > {
+    const out: Record<string, any> = {};
     for (const gate of Object.values(this.store.featureGates)) {
+      const used = canonicalUserId ? this.getFeatureUsageCount(canonicalUserId, gate.key, gate.limitPeriod) : 0;
+      const effectiveLimit = isPremium
+        ? gate.premiumLimit
+        : gate.access === 'free'
+          ? gate.freeLimit
+          : gate.freeLimit > 0
+            ? gate.freeLimit
+            : 0;
+      const remaining = effectiveLimit < 0 ? -1 : Math.max(0, effectiveLimit - used);
+      const allowed = gate.isEnabled && (effectiveLimit < 0 || remaining > 0);
       out[gate.key] = {
-        allowed: isPremium || gate.access === 'free',
-        freeDailyLimit: isPremium ? undefined : gate.freeDailyLimit,
+        allowed,
+        module: gate.module,
+        access: gate.access,
+        isEnabled: gate.isEnabled,
+        limitPeriod: gate.limitPeriod,
+        limit: effectiveLimit,
+        used,
+        remaining,
+        freeDailyLimit: isPremium ? undefined : gate.freeLimit > 0 ? gate.freeLimit : undefined,
+        platforms: gate.platforms,
+        userNoticeUz: gate.userNoticeUz,
       };
     }
     return out;
+  }
+
+  /**
+   * Authoritative server-side Feature Entitlement Check & Usage Consumption Engine.
+   * Works identically for Web App, Android APK, Telegram Mini App, and Telegram Bot.
+   */
+  public checkFeatureEntitlement(
+    rawUserId: string,
+    featureKey: string,
+    platform: PlatformId = 'web',
+    options?: { consume?: boolean; isAdmin?: boolean; isRegistered?: boolean }
+  ): FeatureEntitlementDecision {
+    const canonicalUserId = this.resolveCanonicalUserId(rawUserId);
+    const gate = this.store.featureGates[featureKey];
+    const sub = this.getEffectiveSubscription(canonicalUserId);
+
+    this.touchTrackedUser(canonicalUserId, platform);
+
+    if (!gate) {
+      return {
+        allowed: false,
+        featureKey,
+        module: 'home',
+        reasonCode: 'UNKNOWN_FEATURE',
+        messageUz: `Nomaʼlum funksiya kaliti: ${featureKey}`,
+        access: 'premium',
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: 'unlimited',
+        limit: 0,
+        used: 0,
+        remaining: 0,
+      };
+    }
+
+    const usedBefore = this.getFeatureUsageCount(canonicalUserId, featureKey, gate.limitPeriod);
+
+    // 1. Admin kill-switch check
+    if (!gate.isEnabled && !options?.isAdmin) {
+      return {
+        allowed: false,
+        featureKey,
+        module: gate.module,
+        reasonCode: 'FEATURE_DISABLED',
+        messageUz: `"${gate.labelUz}" funksiyasi administrator tomonidan vaqtincha oʻchirilgan.`,
+        access: gate.access,
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: gate.limitPeriod,
+        limit: 0,
+        used: usedBefore,
+        remaining: 0,
+        feature: gate,
+      };
+    }
+
+    // 2. Platform applicability check
+    if (gate.platforms.length > 0 && !gate.platforms.includes(platform)) {
+      return {
+        allowed: false,
+        featureKey,
+        module: gate.module,
+        reasonCode: 'PLATFORM_RESTRICTED',
+        messageUz: `"${gate.labelUz}" ushbu platformada (${platform}) faol emas.`,
+        access: gate.access,
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: gate.limitPeriod,
+        limit: 0,
+        used: usedBefore,
+        remaining: 0,
+        feature: gate,
+      };
+    }
+
+    // 3. Audience check
+    if (gate.audience === 'admins_only' && !options?.isAdmin) {
+      return {
+        allowed: false,
+        featureKey,
+        module: gate.module,
+        reasonCode: 'AUDIENCE_RESTRICTED',
+        messageUz: `"${gate.labelUz}" faqat administratorlar uchun ochiq.`,
+        access: gate.access,
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: gate.limitPeriod,
+        limit: 0,
+        used: usedBefore,
+        remaining: 0,
+        feature: gate,
+      };
+    }
+
+    // 4. Plan tier check for Premium users if feature restricts to specific plans
+    const planMatches =
+      sub.isPremium &&
+      (sub.status === 'GIFTED' ||
+        gate.requiredPlans.length === 0 ||
+        gate.requiredPlans.includes(sub.planId));
+
+    if (gate.access === 'premium' && sub.isPremium && !planMatches) {
+      return {
+        allowed: false,
+        featureKey,
+        module: gate.module,
+        reasonCode: 'PLAN_TIER_REQUIRED',
+        messageUz: `Ushbu imkoniyat uchun yuqoriroq Premium tarif talab qilinadi.`,
+        access: gate.access,
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: gate.limitPeriod,
+        limit: 0,
+        used: usedBefore,
+        remaining: 0,
+        feature: gate,
+      };
+    }
+
+    // 5. Effective limit determination
+    const effectiveLimit = sub.isPremium
+      ? gate.premiumLimit
+      : gate.access === 'free'
+        ? gate.freeLimit
+        : gate.freeLimit > 0
+          ? gate.freeLimit
+          : 0;
+
+    // 6. Enforce block or quota
+    if (effectiveLimit === 0) {
+      return {
+        allowed: false,
+        featureKey,
+        module: gate.module,
+        reasonCode: 'PREMIUM_REQUIRED',
+        messageUz:
+          gate.userNoticeUz ||
+          `"${gate.labelUz}" Premium obunachilar uchun moʻljallangan. Barcha boʻlimlarni ochish uchun Premiumga oʻting.`,
+        access: gate.access,
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: gate.limitPeriod,
+        limit: 0,
+        used: usedBefore,
+        remaining: 0,
+        feature: gate,
+      };
+    }
+
+    if (effectiveLimit > 0 && usedBefore >= effectiveLimit) {
+      const periodUz =
+        gate.limitPeriod === 'daily'
+          ? 'kunlik'
+          : gate.limitPeriod === 'weekly'
+            ? 'haftalik'
+            : gate.limitPeriod === 'monthly'
+              ? 'oylik'
+              : '';
+      return {
+        allowed: false,
+        featureKey,
+        module: gate.module,
+        reasonCode: 'USAGE_LIMIT_REACHED',
+        messageUz:
+          gate.userNoticeUz ||
+          `"${gate.labelUz}" boʻyicha ${periodUz} limitingiz (${usedBefore}/${effectiveLimit}) tugadi. Cheksiz foydalanish uchun Premium faollashtiring.`,
+        access: gate.access,
+        isPremiumUser: sub.isPremium,
+        subscriptionStatus: sub.status,
+        limitPeriod: gate.limitPeriod,
+        limit: effectiveLimit,
+        used: usedBefore,
+        remaining: 0,
+        feature: gate,
+      };
+    }
+
+    // 7. Allowed! Consume usage counter if requested
+    let usedAfter = usedBefore;
+    if (options?.consume) {
+      const counterKey = this.getUsageCounterKey(canonicalUserId, featureKey, gate.limitPeriod);
+      usedAfter = usedBefore + 1;
+      this.store.usageCounters[counterKey] = usedAfter;
+      this.store.featureUsageTotals[featureKey] = (this.store.featureUsageTotals[featureKey] || 0) + 1;
+      this.persistStore();
+    } else {
+      // Persist tracked user touch lazily if first time seen
+      if (this.store.trackedUsers[canonicalUserId]?.firstSeenAt === this.store.trackedUsers[canonicalUserId]?.lastSeenAt) {
+        this.persistStore();
+      }
+    }
+
+    const remainingAfter = effectiveLimit < 0 ? -1 : Math.max(0, effectiveLimit - usedAfter);
+    return {
+      allowed: true,
+      featureKey,
+      module: gate.module,
+      reasonCode: 'OK',
+      messageUz: 'Ruxsat berildi.',
+      access: gate.access,
+      isPremiumUser: sub.isPremium,
+      subscriptionStatus: sub.status,
+      limitPeriod: gate.limitPeriod,
+      limit: effectiveLimit,
+      used: usedAfter,
+      remaining: remainingAfter,
+      feature: gate,
+    };
+  }
+
+  public getUserEntitlements(rawUserId: string, platform: PlatformId = 'web') {
+    const canonicalUserId = this.resolveCanonicalUserId(rawUserId);
+    this.touchTrackedUser(canonicalUserId, platform);
+    const sub = this.getEffectiveSubscription(canonicalUserId);
+    const decisions: Record<string, FeatureEntitlementDecision> = {};
+    for (const gate of Object.values(this.store.featureGates)) {
+      decisions[gate.key] = this.checkFeatureEntitlement(canonicalUserId, gate.key, platform, { consume: false });
+    }
+    return {
+      userId: canonicalUserId,
+      platform,
+      subscription: sub,
+      moduleLabelsUz: FEATURE_MODULE_LABELS_UZ,
+      features: decisions,
+      serverTimeUtc: new Date().toISOString(),
+    };
   }
 
   // =========================================================================
@@ -853,6 +1691,7 @@ export class SubscriptionEcosystemService {
     };
 
     this.store.orders[orderId] = order;
+    this.touchTrackedUser(userId, order.platform);
     this.recordAudit(
       userId,
       'PAYMENT_ORDER_CREATED',
@@ -1299,6 +2138,7 @@ export class SubscriptionEcosystemService {
       platform,
       joinedAt: new Date().toISOString(),
     });
+    this.touchTrackedUser(userId, platform);
     this.persistStore();
     return { ok: true, entriesCount: draw.entries.length };
   }
@@ -1394,6 +2234,7 @@ export class SubscriptionEcosystemService {
     const subscriptions = Object.values(this.store.subscriptions).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
     const nowMs = Date.now();
+    const thirtyDaysAgoMs = nowMs - 30 * 24 * 60 * 60 * 1000;
     const todayPrefix = new Date(nowMs).toISOString().slice(0, 10);
     const monthPrefix = todayPrefix.slice(0, 7);
 
@@ -1406,22 +2247,125 @@ export class SubscriptionEcosystemService {
       .reduce((s, o) => s + (o.finalAmountUzs || 0), 0);
     const totalRevenueUzs = approvedOrders.reduce((s, o) => s + (o.finalAmountUzs || 0), 0);
 
-    const activePremiumCount = subscriptions.filter(
-      (s) => !s.isSuspended && (s.status === 'ACTIVE' || s.status === 'GIFTED') && (!s.expiresAt || Date.parse(s.expiresAt) > nowMs)
-    ).length;
+    // Distinct real tracked user universe (zero fake numbers!)
+    const allUserIds = new Set<string>();
+    Object.keys(this.store.trackedUsers).forEach((u) => allUserIds.add(u));
+    subscriptions.forEach((s) => allUserIds.add(s.userId));
+    orders.forEach((o) => allUserIds.add(o.userId));
+    Object.values(this.store.randomDraws).forEach((d) => d.entries.forEach((e) => allUserIds.add(e.userId)));
+
+    let activePremiumCount = 0;
+    let giftedSubscriptionsCount = 0;
+    let expiredSubscriptionsCount = 0;
+    let cancelledSubscriptionsCount = 0;
+    let suspendedSubscriptionsCount = 0;
+    let newPremiumLast30dCount = 0;
+
+    for (const s of subscriptions) {
+      const expMs = s.expiresAt ? Date.parse(s.expiresAt) : 0;
+      const isCurrentlyActive =
+        !s.isSuspended && (s.status === 'ACTIVE' || s.status === 'GIFTED') && (!s.expiresAt || expMs > nowMs);
+      if (isCurrentlyActive) {
+        activePremiumCount += 1;
+        if (s.status === 'GIFTED') giftedSubscriptionsCount += 1;
+      } else if (s.isSuspended || s.status === 'SUSPENDED') {
+        suspendedSubscriptionsCount += 1;
+      } else if (s.status === 'CANCELLED') {
+        cancelledSubscriptionsCount += 1;
+      } else if (s.status === 'EXPIRED' || (s.expiresAt && expMs <= nowMs)) {
+        expiredSubscriptionsCount += 1;
+      }
+
+      if (s.startsAt && Date.parse(s.startsAt) >= thirtyDaysAgoMs && (s.status === 'ACTIVE' || s.status === 'GIFTED')) {
+        newPremiumLast30dCount += 1;
+      }
+    }
+
+    const totalUsersCount = allUserIds.size;
+    const freeUsersCount = Math.max(0, totalUsersCount - activePremiumCount);
+    const conversionRatePercent =
+      totalUsersCount > 0 ? Number(((activePremiumCount / totalUsersCount) * 100).toFixed(1)) : 0;
+
+    // Real platform breakdown across all 4 platforms
+    const platformBreakdown: Record<
+      PlatformId,
+      { usersCount: number; ordersCount: number; approvedOrdersCount: number; revenueUzs: number }
+    > = {
+      web: { usersCount: 0, ordersCount: 0, approvedOrdersCount: 0, revenueUzs: 0 },
+      android: { usersCount: 0, ordersCount: 0, approvedOrdersCount: 0, revenueUzs: 0 },
+      telegram_miniapp: { usersCount: 0, ordersCount: 0, approvedOrdersCount: 0, revenueUzs: 0 },
+      telegram_bot: { usersCount: 0, ordersCount: 0, approvedOrdersCount: 0, revenueUzs: 0 },
+    };
+
+    for (const meta of Object.values(this.store.trackedUsers)) {
+      for (const p of meta.platforms) {
+        if (platformBreakdown[p]) platformBreakdown[p].usersCount += 1;
+      }
+    }
+    for (const o of orders) {
+      const p: PlatformId = platformBreakdown[o.platform] ? o.platform : 'web';
+      platformBreakdown[p].ordersCount += 1;
+      if (o.status === 'APPROVED') {
+        platformBreakdown[p].approvedOrdersCount += 1;
+        platformBreakdown[p].revenueUzs += o.finalAmountUzs || 0;
+      }
+    }
+
+    // Real top used features from live server consumption counters
+    const topUsedFeatures = Object.entries(this.store.featureUsageTotals)
+      .map(([key, totalUses]) => {
+        const gate = this.store.featureGates[key];
+        return {
+          key,
+          labelUz: gate?.labelUz || key,
+          module: gate?.module || 'home',
+          access: gate?.access || 'free',
+          totalUses,
+        };
+      })
+      .sort((a, b) => b.totalUses - a.totalUses)
+      .slice(0, 12);
+
+    const promoUsageBreakdown = Object.values(this.store.promoCodes)
+      .map((p) => ({
+        code: p.code,
+        titleUz: p.titleUz,
+        type: p.type,
+        value: p.value,
+        usedCount: p.usedCount,
+        maxUses: p.maxUses,
+        isActive: p.isActive,
+      }))
+      .sort((a, b) => b.usedCount - a.usedCount);
 
     return {
       stats: {
+        totalUsersCount,
+        freeUsersCount,
+        premiumUsersCount: activePremiumCount,
+        activePremiumCount,
+        giftedSubscriptionsCount,
+        expiredSubscriptionsCount,
+        cancelledSubscriptionsCount,
+        suspendedSubscriptionsCount,
+        newPremiumLast30dCount,
+        conversionRatePercent,
         pendingOrdersCount: orders.filter((o) => o.status === 'PENDING').length,
         approvedOrdersCount: approvedOrders.length,
         rejectedOrdersCount: orders.filter((o) => o.status === 'REJECTED').length,
-        activePremiumCount,
         totalTrackedSubscriptions: subscriptions.length,
         dailyRevenueUzs,
         monthlyRevenueUzs,
         totalRevenueUzs,
         activePromosCount: Object.values(this.store.promoCodes).filter((p) => p.isActive).length,
         openDrawsCount: Object.values(this.store.randomDraws).filter((d) => d.status === 'OPEN').length,
+        totalFeatureChecksConsumed: Object.values(this.store.featureUsageTotals).reduce((a, b) => a + b, 0),
+      },
+      analytics: {
+        platformBreakdown,
+        topUsedFeatures,
+        promoUsageBreakdown,
+        moduleLabelsUz: FEATURE_MODULE_LABELS_UZ,
       },
       plans: Object.values(this.store.plans),
       featureGates: Object.values(this.store.featureGates),

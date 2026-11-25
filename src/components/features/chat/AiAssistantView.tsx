@@ -42,6 +42,14 @@ import {
   PREMIUM_EASE,
 } from '../../ui/MotionPrimitives';
 import { triggerTactileHaptic } from '../../../utils/motionSystem';
+import { getActiveEcosystemUserId, detectClientPlatform } from '../../../utils/userIdentityClient';
+import {
+  useUserEntitlements,
+  ClientFeatureDecision,
+  notifyEntitlementsChanged,
+} from '../../../utils/entitlementClient';
+import { PremiumGateModal } from '../../ui/PremiumGateModal';
+import { Crown } from 'lucide-react';
 
 export type AgentRoutingMode = 'auto' | 'deep' | 'fast';
 
@@ -121,22 +129,7 @@ function detectClientChannel(): 'web' | 'android' {
 }
 
 function getActiveConversationOwnerId(): string {
-  if (auth.currentUser?.uid) {
-    return auth.currentUser.uid;
-  }
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      let guestId = window.localStorage.getItem(GUEST_USER_ID_KEY);
-      if (!guestId) {
-        guestId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        window.localStorage.setItem(GUEST_USER_ID_KEY, guestId);
-      }
-      return guestId;
-    }
-  } catch {
-    // ignore
-  }
-  return 'guest_default_user';
+  return getActiveEcosystemUserId();
 }
 
 function getWelcomeMessage(locale: SupportedLocale): ChatMessage {
@@ -243,6 +236,8 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
 }) => {
   const [locale, setLocale] = useState<SupportedLocale>('uz-Latn');
   const [routingMode, setRoutingMode] = useState<AgentRoutingMode>('auto');
+  const { isPremium, features: userFeatures, refresh: refreshEntitlements } = useUserEntitlements();
+  const [gateModalDecision, setGateModalDecision] = useState<ClientFeatureDecision | null>(null);
   const [conversations, setConversations] = useState<AiConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage('uz-Latn')]);
@@ -563,12 +558,38 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
           locale,
           routingMode,
           channel: detectClientChannel(),
+          platform: detectClientPlatform(),
           userId: getActiveConversationOwnerId(),
           userName: auth.currentUser?.displayName || 'ASAKA ZIYO Foydalanuvchisi',
           stream: true,
         }),
         signal: controller.signal,
       });
+
+      if (res.status === 403) {
+        const blockedJson = await res.json().catch(() => ({}));
+        setMessages(baseMessages);
+        if (blockedJson?.entitlement) {
+          setGateModalDecision(blockedJson.entitlement);
+        } else {
+          setGateModalDecision({
+            allowed: false,
+            featureKey: routingMode === 'deep' ? 'ai_deep_reasoning_mode' : 'ai_ustoz_unlimited',
+            module: 'ai',
+            reasonCode: blockedJson?.code || 'USAGE_LIMIT_REACHED',
+            messageUz: blockedJson?.error || 'Kunlik bepul AI Ustoz limitingiz tugadi.',
+            access: 'premium',
+            isPremiumUser: false,
+            subscriptionStatus: 'FREE',
+            limitPeriod: 'daily',
+            limit: 5,
+            used: 5,
+            remaining: 0,
+          });
+        }
+        void refreshEntitlements();
+        return;
+      }
 
       const contentType = res.headers.get('content-type') || '';
 
@@ -702,6 +723,7 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
         const finalHistory = [...updatedWithUser, finalMsg];
         setMessages(finalHistory);
         await persistConversation(convId, finalHistory, locale);
+        notifyEntitlementsChanged();
       } else {
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
@@ -723,6 +745,7 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
         const finalHistory = [...updatedWithUser, modelMsg];
         setMessages(finalHistory);
         await persistConversation(convId, finalHistory, locale);
+        notifyEntitlementsChanged();
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') {
@@ -850,6 +873,34 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
               <span className="text-[#C8A85E] font-medium">
                 {aiStatus.connected ? `${aiStatus.toolsCount} ta jonli vosita faol` : 'Oflayn holat'}
               </span>
+              <span aria-hidden="true" className="text-white/25">·</span>
+              {isPremium ? (
+                <span className="inline-flex items-center gap-1 font-bold text-[#E6CE8A]">
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>Premium · Cheksiz AI</span>
+                </span>
+              ) : (
+                (() => {
+                  const aiQuota = userFeatures[routingMode === 'deep' ? 'ai_deep_reasoning_mode' : 'ai_ustoz_unlimited'];
+                  const limitLabel = !aiQuota
+                    ? 'Bepul tarif'
+                    : aiQuota.limit < 0
+                      ? 'Cheksiz (Bepul)'
+                      : aiQuota.limit === 0
+                        ? 'Faqat Premium'
+                        : `Qoldi: ${aiQuota.remaining}/${aiQuota.limit}`;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.('premium')}
+                      className="inline-flex items-center gap-1 font-mono-numbers font-bold text-amber-300 hover:text-[#E6CE8A] underline decoration-dotted cursor-pointer"
+                    >
+                      <Crown className="w-3.5 h-3.5" />
+                      <span>{limitLabel}</span>
+                    </button>
+                  );
+                })()
+              )}
             </div>
             <MaskedSplitText
               as="h1"
@@ -1559,6 +1610,13 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      <PremiumGateModal
+        open={Boolean(gateModalDecision)}
+        decision={gateModalDecision}
+        onClose={() => setGateModalDecision(null)}
+        onUpgrade={() => onNavigate?.('premium')}
+      />
     </div>
   );
 };

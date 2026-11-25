@@ -67,6 +67,16 @@ function validateAndroidProjectResources() {
     'android/app/src/main/java/uz/asakaziyo/app/AsakaPrayerAlarmReceiver.kt',
     'android/app/src/main/java/uz/asakaziyo/app/AsakaBootReceiver.kt',
     'android/app/src/main/java/uz/asakaziyo/app/AsakaIconUtils.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/AsakaPrayerWidgetProvider.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/AsakaNextPrayerWidgetProvider.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/AsakaQuranWidgetProvider.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/data/AsakaModels.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/data/AsakaApiClient.kt',
+    'android/app/src/main/java/uz/asakaziyo/app/data/AsakaOfflineSyncWorker.kt',
+    'android/app/src/main/res/layout/widget_asaka_prayer.xml',
+    'android/app/src/main/res/layout/widget_asaka_next_prayer.xml',
+    'android/app/src/main/res/xml/asaka_prayer_widget_info.xml',
+    'android/app/src/main/res/xml/asaka_next_prayer_widget_info.xml',
     'android/app/src/main/res/values/strings.xml',
     'android/app/src/main/res/values/colors.xml',
     'android/app/src/main/res/values/styles.xml',
@@ -89,13 +99,13 @@ function validateAndroidProjectResources() {
     assertFileExists(f);
   }
 
-  // Verify versionName 4.0.0, versionCode 400, package uz.asakaziyo.app
+  // Verify versionName 5.0.0, versionCode 500, package uz.asakaziyo.app
   const appBuildGradle = fs.readFileSync(path.join(ROOT_DIR, 'android/app/build.gradle'), 'utf8');
   if (!appBuildGradle.includes('applicationId "uz.asakaziyo.app"')) {
     throw new Error('android/app/build.gradle applicationId must remain uz.asakaziyo.app');
   }
-  if (!appBuildGradle.includes('versionCode 400') || !appBuildGradle.includes('versionName "4.0.0"')) {
-    throw new Error('android/app/build.gradle must specify versionCode 400 and versionName "4.0.0"');
+  if (!appBuildGradle.includes('versionCode 500') || !appBuildGradle.includes('versionName "5.0.0"')) {
+    throw new Error('android/app/build.gradle must specify versionCode 500 and versionName "5.0.0"');
   }
 
   // Verify ProGuard keeps AsakaNativeBridge so R8 never breaks @JavascriptInterface

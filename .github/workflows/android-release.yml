@@ -1,10 +1,11 @@
-name: ASAKA ZIYO Android v4.1.0 Release (APK & AAB)
+name: ASAKA ZIYO Android v5.0.0 Release (APK & AAB)
 
 on:
   push:
     branches:
       - main
     tags:
+      - 'v5.*'
       - 'v4.*'
       - 'android-v*'
   workflow_dispatch:
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   build-android-release:
-    name: Build, Sign & Verify ASAKA ZIYO v4.1.0 (APK + AAB)
+    name: Build, Sign & Verify ASAKA ZIYO v5.0.0 (APK + AAB)
     runs-on: ubuntu-latest
     outputs:
       signed: ${{ steps.verify.outputs.signed }}
@@ -238,10 +239,10 @@ jobs:
           echo "$BADGING" | head -n 15
           echo "$BADGING" | grep -q "name='uz.asakaziyo.app'"
           if [ "${{ steps.signing.outputs.signing_mode }}" = "ci_secrets" ]; then
-            echo "$BADGING" | grep -q "versionCode='410'"
-            echo "$BADGING" | grep -q "versionName='4.1.0'"
+            echo "$BADGING" | grep -q "versionCode='500'"
+            echo "$BADGING" | grep -q "versionName='5.0.0'"
           else
-            echo "$BADGING" | grep -Eq "versionCode='(400|410)'"
+            echo "$BADGING" | grep -Eq "versionCode='(400|410|500)'"
           fi
 
           VERIFY_OUT=$("$APKSIGNER" verify --verbose --print-certs "$RELEASE_APK")
@@ -277,8 +278,8 @@ jobs:
           CERT_SHA="${{ steps.verify.outputs.cert_sha256 }}"
           SIGNING_MODE="${{ steps.signing.outputs.signing_mode }}"
           if [ "$SIGNING_MODE" = "ci_secrets" ]; then
-            APP_VER="4.1.0"
-            APP_CODE="410"
+            APP_VER="5.0.0"
+            APP_CODE="500"
           else
             APP_VER="4.0.0"
             APP_CODE="400"
@@ -377,7 +378,7 @@ jobs:
       - name: 17a. Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v4.1.0-apk
+          name: Asaka-Ziyo-v5.0.0-apk
           path: release-output/*.apk
           retention-days: 90
 
@@ -385,14 +386,14 @@ jobs:
         if: steps.package.outputs.has_signed_aab == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v4.1.0-aab
+          name: Asaka-Ziyo-v5.0.0-aab
           path: release-output/*.aab
           retention-days: 90
 
       - name: 17c. Upload Release Metadata & Checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v4.1.0-metadata
+          name: Asaka-Ziyo-v5.0.0-metadata
           path: |
             release-output/apk_release_metadata.json
             release-output/SHA256SUMS.txt
@@ -440,10 +441,11 @@ jobs:
             - **APK SHA-256:** `${{ needs.build-android-release.outputs.apk_sha256 }}`
             - **Signing Mode:** `${{ needs.build-android-release.outputs.signing_mode }}`
 
-            ### Yangi imkoniyatlar (v4.1.0)
+            ### Yangi imkoniyatlar (v5.0.0)
+            - Yagona Cross-Module Free & Premium Obuna Tizimi (17 boʻlim, 26 dinamik funksiya, server-side limit va 4 platforma sinxronizatsiyasi)
             - Ultimate Qurʼon Ekotizimi: Qorilar 114-sura audio kutubxonasi, oflayn yuklab olish menejeri (`AsakaOfflineDownloadManager`), Media3 fon pleeri (`0.5x–2.0x`, takrorlash, uyqu taymeri)
-            - Yangi Qurʼon & Kunlik Zikr Home Screen Widget (`AsakaQuranWidgetProvider`)
-            - Yagona Free + Premium obuna, promokodlar, bepul hadya tanlovlari va Telegram bilan 6 xonali hisob bogʻlash
+            - Yangi Qurʼon & Kunlik Zikr hamda Keyingi Namoz Home Screen Widgetlari (`AsakaQuranWidgetProvider`, `AsakaNextPrayerWidgetProvider`)
+            - Promokodlar, bepul hadya tanlovlari va Telegram bilan 6 xonali hisob bogʻlash
             - `Dev by Ulug‘bek Mirzayev` (https://t.me/Ulugbek_Mirzayev_uz)
           files: |
             release-artifacts/*.apk

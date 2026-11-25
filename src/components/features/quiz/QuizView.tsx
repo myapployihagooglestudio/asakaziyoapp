@@ -40,7 +40,14 @@ import {
   Clock,
   Filter,
   ShieldCheck,
+  Crown,
 } from 'lucide-react';
+import {
+  useUserEntitlements,
+  ClientFeatureDecision,
+  dispatchNavigateToPremium,
+} from '../../../utils/entitlementClient';
+import { PremiumGateModal } from '../../ui/PremiumGateModal';
 
 interface AttemptRecord {
   id: string;
@@ -76,6 +83,8 @@ interface QuizViewProps {
 
 export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
   const { t } = useTranslation();
+  const { isPremium, features: userFeatures, checkFeature } = useUserEntitlements();
+  const [gateDecision, setGateDecision] = useState<ClientFeatureDecision | null>(null);
 
   // Today's formatted ISO date for Asaka timezone
   const todayDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
@@ -271,7 +280,27 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
     }
   };
 
-  const handleRetake = () => {
+  const handleRetake = async () => {
+    const check = await checkFeature('quran_quiz_unlimited', true);
+    if (!check.ok) {
+      setGateDecision(
+        check.decision || {
+          allowed: false,
+          featureKey: 'quran_quiz_unlimited',
+          module: 'quiz',
+          reasonCode: 'USAGE_LIMIT_REACHED',
+          messageUz: check.error || 'Kunlik bepul viktorina urinishlaringiz tugadi.',
+          access: 'premium',
+          isPremiumUser: false,
+          subscriptionStatus: 'FREE',
+          limitPeriod: 'daily',
+          limit: 3,
+          used: 3,
+          remaining: 0,
+        }
+      );
+      return;
+    }
     setCurrentIndex(0);
     setSelectedOption(null);
     setUserAnswers({});
@@ -889,6 +918,33 @@ export const QuizView: React.FC<QuizViewProps> = ({ onOpenQuranQuiz }) => {
           </Card>
         </div>
       )}
+
+      {!isPremium && userFeatures.quran_quiz_unlimited && userFeatures.quran_quiz_unlimited.limit > 0 && (
+        <div className="p-3.5 rounded-2xl az-liquid-glass border border-[#C8A85E]/25 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="inline-flex items-center gap-2 text-[#5F776F] dark:text-[#C5D4CE]">
+            <Crown className="w-4 h-4 text-[#C8A85E]" />
+            <span>
+              Bugungi viktorina doimo bepul · Qoʻshimcha urinishlar:{' '}
+              <strong className="font-mono-numbers text-[#091813] dark:text-[#F7F4EC]">
+                {userFeatures.quran_quiz_unlimited.remaining}/{userFeatures.quran_quiz_unlimited.limit}
+              </strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => dispatchNavigateToPremium()}
+            className="px-3 py-1 rounded-lg bg-[#C8A85E]/20 text-[#8A6B2D] dark:text-[#E6CE8A] font-bold cursor-pointer"
+          >
+            Cheksiz · Premium
+          </button>
+        </div>
+      )}
+
+      <PremiumGateModal
+        open={Boolean(gateDecision)}
+        decision={gateDecision}
+        onClose={() => setGateDecision(null)}
+      />
     </div>
   );
 };

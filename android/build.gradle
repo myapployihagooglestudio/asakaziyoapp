@@ -1,4 +1,4 @@
-// Top-level build file for ASAKA ZIYO Native Android Application (2026 · API 36)
+// Top-level build file for ASAKA ZIYO Native Android Application v5.0.0 (2026 · Jetpack Compose · API 36)
 buildscript {
     ext {
         kotlin_version = '2.0.21'
@@ -14,6 +14,13 @@ buildscript {
         androidxWebkitVersion = '1.12.1'
         media3Version = '1.5.0'
         workManagerVersion = '2.10.0'
+        composeBomVersion = '2024.10.01'
+        navigationComposeVersion = '2.8.4'
+        lifecycleVersion = '2.8.7'
+        coroutinesVersion = '1.9.0'
+        datastoreVersion = '1.1.1'
+        biometricVersion = '1.1.0'
+        securityCryptoVersion = '1.1.0-alpha06'
     }
     repositories {
         google()
@@ -23,6 +30,7 @@ buildscript {
         classpath 'com.android.tools.build:gradle:8.7.3'
         classpath 'com.google.gms:google-services:4.4.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version"
     }
 }
 

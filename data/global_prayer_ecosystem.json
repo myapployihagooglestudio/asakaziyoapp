@@ -2,6 +2,330 @@
   "asakaManualArchive": {
     "versions": [
       {
+        "versionId": "asaka-v22-1795594189975",
+        "versionNumber": 22,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "05:50",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "16:55",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T08:09:49.743Z",
+        "note": "Oldingi tasdiqlangan versiyaga qaytildi (v20 · 2026-11-02)"
+      },
+      {
+        "versionId": "asaka-v21-1795594189266",
+        "versionNumber": 21,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "04:59",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "18:19",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T08:09:48.982Z",
+        "note": "Automated verification test publish (will be rolled back)"
+      },
+      {
+        "versionId": "asaka-v20-1795594188654",
+        "versionNumber": 20,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameUz": "Tahajjud",
+            "nameAr": "التَّهَجُّد",
+            "key": "tahajjud",
+            "id": "p-0"
+          },
+          {
+            "id": "p-01",
+            "key": "subh",
+            "time": "05:50",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "nameUz": "Subh (Saharlik)",
+            "nameAr": "الصُّبْح"
+          },
+          {
+            "iqamahTime": "06:30",
+            "time": "05:50",
+            "id": "p-1",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "key": "bomdod",
+            "nameUz": "Bomdod",
+            "nameAr": "الفَجْر"
+          },
+          {
+            "time": "06:46",
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "key": "quyosh",
+            "id": "p-2",
+            "nameUz": "Quyosh",
+            "nameAr": "الشُّرُوق"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "key": "peshin",
+            "id": "p-3",
+            "iqamahTime": "12:50",
+            "time": "12:45"
+          },
+          {
+            "key": "asr",
+            "iqamahTime": "15:15",
+            "id": "p-4",
+            "time": "15:10",
+            "nameAr": "العَصْر",
+            "nameUz": "Asr",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha"
+          },
+          {
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "nameUz": "Shom",
+            "nameAr": "المَغْرِب",
+            "id": "p-5",
+            "iqamahTime": "16:55",
+            "time": "16:55",
+            "key": "shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "time": "18:30",
+            "nameUz": "Xufton",
+            "nameAr": "العِشَاء",
+            "key": "xufton",
+            "iqamahTime": "18:40",
+            "id": "p-6"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T08:09:48.385Z",
+        "note": "Oldingi tasdiqlangan versiyaga qaytildi (v18 · 2026-11-02)"
+      },
+      {
+        "versionId": "asaka-v19-1795594104092",
+        "versionNumber": 19,
+        "date": "2026-11-02",
+        "formattedDateUz": "2-Noyabr, Dushanba, 2026",
+        "hijriDate": "22 Jumodul avval, 1448",
+        "times": [
+          {
+            "descriptionUz": "Kechasi uyqudan uygʻonib oʻqiladigan qimmatli nafl namozi",
+            "time": "01:30",
+            "nameAr": "التَّهَجُّد",
+            "id": "p-0",
+            "key": "tahajjud",
+            "nameUz": "Tahajjud"
+          },
+          {
+            "nameAr": "الصُّبْح",
+            "time": "05:50",
+            "id": "p-01",
+            "nameUz": "Subh (Saharlik)",
+            "descriptionUz": "Subhi sodiq kirishi, saharlik (imsoq) toʻxtash vaqti",
+            "key": "subh"
+          },
+          {
+            "nameUz": "Bomdod",
+            "time": "04:59",
+            "nameAr": "الفَجْر",
+            "iqamahTime": "06:30",
+            "descriptionUz": "Tong yorishishidan quyosh chiqishigacha boʻlgan vaqt",
+            "id": "p-1",
+            "key": "bomdod"
+          },
+          {
+            "descriptionUz": "Quyosh koʻtarilishi (namoz oʻqish makruh boʻlgan vaqt)",
+            "nameAr": "الشُّرُوق",
+            "nameUz": "Quyosh",
+            "id": "p-2",
+            "key": "quyosh",
+            "time": "06:46"
+          },
+          {
+            "nameAr": "الظُّهْر",
+            "time": "12:45",
+            "iqamahTime": "12:50",
+            "nameUz": "Peshin",
+            "descriptionUz": "Quyosh tikkadan oqqandan asrgacha boʻlgan vaqt",
+            "id": "p-3",
+            "key": "peshin"
+          },
+          {
+            "iqamahTime": "15:15",
+            "nameUz": "Asr",
+            "id": "p-4",
+            "descriptionUz": "Har bir narsaning soyasi oʻziga teng boʻlgandan quyosh botguncha",
+            "key": "asr",
+            "time": "15:10",
+            "nameAr": "العَصْر"
+          },
+          {
+            "key": "shom",
+            "id": "p-5",
+            "time": "18:19",
+            "nameAr": "المَغْرِب",
+            "descriptionUz": "Quyosh toʻliq botgandan soʻnggi shafaq yoʻqolguncha",
+            "iqamahTime": "16:55",
+            "nameUz": "Shom"
+          },
+          {
+            "descriptionUz": "Qizil shafaq botgandan soʻnggi tong otguncha boʻlgan vaqt",
+            "key": "xufton",
+            "id": "p-6",
+            "iqamahTime": "18:40",
+            "nameAr": "العِشَاء",
+            "time": "18:30",
+            "nameUz": "Xufton"
+          }
+        ],
+        "publishedBy": "asakaziyo0@gmail.com",
+        "publishedAt": "2026-11-25T08:08:23.856Z",
+        "note": "Automated verification test publish (will be rolled back)"
+      },
+      {
         "versionId": "asaka-v18-1795583767536",
         "versionNumber": 18,
         "date": "2026-11-02",
@@ -824,7 +1148,7 @@
     "customGlobalCities": [],
     "adminImportedUzTables": {},
     "lastUzbekistanAudit": {
-      "generatedAt": "2026-11-25T05:16:10.575Z",
+      "generatedAt": "2026-11-25T08:09:53.124Z",
       "auditedDate": "2026-11-25",
       "sources": [
         {
@@ -835,9 +1159,9 @@
           "scrapingAllowed": false,
           "reachable": true,
           "httpStatus": 200,
-          "latencyMs": 2525,
+          "latencyMs": 2531,
           "notesUz": "Rasmiy HTML portal. Ochiq REST JSON API mavjud emas; ruxsatsiz scraping taqiqlangan. Admin rasmiy jadval importi orqali tasdiqlash tavsiya etiladi.",
-          "checkedAt": "2026-11-25T05:16:10.575Z"
+          "checkedAt": "2026-11-25T08:09:53.124Z"
         },
         {
           "id": "muslim_uz",
@@ -845,11 +1169,11 @@
           "url": "https://muslim.uz/",
           "hasPublicJsonApi": false,
           "scrapingAllowed": false,
-          "reachable": true,
-          "httpStatus": 200,
-          "latencyMs": 3446,
+          "reachable": false,
+          "httpStatus": null,
+          "latencyMs": 5002,
           "notesUz": "O‘MI rasmiy veb-portali. Ochiq JSON API taqdim etilmagan; ruxsatsiz scraping qo‘llanilmaydi. Rasmiy oylik taqvim Admin Import mexanizmi orqali kiritiladi.",
-          "checkedAt": "2026-11-25T05:16:10.575Z"
+          "checkedAt": "2026-11-25T08:09:53.124Z"
         },
         {
           "id": "namoz_vaqti_uz",
@@ -861,7 +1185,7 @@
           "httpStatus": 200,
           "latencyMs": 351,
           "notesUz": "Ochiq ?format=json endpointi faol va 14 hudud markazlari bo‘yicha O‘MI taqvimi bilan daqiqalik taqqoslash uchun foydalanilmoqda.",
-          "checkedAt": "2026-11-25T05:16:10.575Z"
+          "checkedAt": "2026-11-25T08:09:53.124Z"
         },
         {
           "id": "islomapi_uz",
@@ -871,9 +1195,9 @@
           "scrapingAllowed": true,
           "reachable": false,
           "httpStatus": 502,
-          "latencyMs": 1490,
+          "latencyMs": 1549,
           "notesUz": "Uchinchi tomon API hozirda barqaror emas (HTTP 502) — asosiy manba sifatida tayanilmaydi.",
-          "checkedAt": "2026-11-25T05:16:10.575Z"
+          "checkedAt": "2026-11-25T08:09:53.124Z"
         }
       ],
       "regionResults": [
@@ -928,7 +1252,7 @@
           "meanAbsDiffMinutes": 2.3,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:39",
             "sunrise": "08:04",
@@ -989,7 +1313,7 @@
           "meanAbsDiffMinutes": 2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "05:46",
             "sunrise": "07:09",
@@ -1050,7 +1374,7 @@
           "meanAbsDiffMinutes": 2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:16",
             "sunrise": "07:38",
@@ -1111,7 +1435,7 @@
           "meanAbsDiffMinutes": 2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "05:47",
             "sunrise": "07:10",
@@ -1172,7 +1496,7 @@
           "meanAbsDiffMinutes": 2.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:03",
             "sunrise": "07:25",
@@ -1233,7 +1557,7 @@
           "meanAbsDiffMinutes": 2.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:09",
             "sunrise": "07:30",
@@ -1294,7 +1618,7 @@
           "meanAbsDiffMinutes": 2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:13",
             "sunrise": "07:35",
@@ -1355,7 +1679,7 @@
           "meanAbsDiffMinutes": 2.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "05:49",
             "sunrise": "07:12",
@@ -1416,7 +1740,7 @@
           "meanAbsDiffMinutes": 2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:06",
             "sunrise": "07:27",
@@ -1477,7 +1801,7 @@
           "meanAbsDiffMinutes": 2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:01",
             "sunrise": "07:20",
@@ -1538,7 +1862,7 @@
           "meanAbsDiffMinutes": 2.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:00",
             "sunrise": "07:22",
@@ -1599,7 +1923,7 @@
           "meanAbsDiffMinutes": 3.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 6 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "05:56",
             "sunrise": "07:20",
@@ -1660,7 +1984,7 @@
           "meanAbsDiffMinutes": 2.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 8 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "06:34",
             "sunrise": "07:58",
@@ -1721,7 +2045,7 @@
           "meanAbsDiffMinutes": 2.2,
           "verified": true,
           "statusNoteUz": "Rasmiy manba ulangan (astronomik formula bilan maksimal farq 9 daqiqa — O‘MI rasmiy jadval qiymatlari ustuvor ko‘rsatiladi va farq yashirilmaydi)",
-          "checkedAt": "2026-11-25T05:16:10.575Z",
+          "checkedAt": "2026-11-25T08:09:53.124Z",
           "referenceTimes": {
             "fajr": "05:59",
             "sunrise": "07:23",
@@ -1798,7 +2122,7 @@
         ]
       }
     },
-    "updatedAt": "2026-11-25T05:16:07.173Z",
+    "updatedAt": "2026-11-25T08:09:49.592Z",
     "updatedBy": "asakaziyo0@gmail.com"
   },
   "userLocationPrefs": {
@@ -1809,7 +2133,7 @@
       "customLocation": null,
       "syncAcrossDevices": true,
       "platformSource": "android",
-      "updatedAt": "2026-11-25T05:16:19.084Z"
+      "updatedAt": "2026-11-25T08:10:03.871Z"
     },
     "web-836ebnka": {
       "userId": "web-836ebnka",
@@ -1824,6 +2148,78 @@
     }
   },
   "auditLogs": [
+    {
+      "id": "aud-1795594201709-owesv",
+      "timestamp": "2026-11-25T08:10:01.709Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "UZBEKISTAN_AUTO",
+      "action": "VERIFICATION_AUDIT_RUN",
+      "details": "14 hudud tekshirildi: 14/14 tasdiqlangan (2026-11-25)"
+    },
+    {
+      "id": "aud-1795594189976-uycio",
+      "timestamp": "2026-11-25T08:09:49.976Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "ROLLBACK",
+      "details": "Asaka jadvali v20 (asaka-v20-1795594188654) versiyasiga qaytarildi"
+    },
+    {
+      "id": "aud-1795594189975-nldoi",
+      "timestamp": "2026-11-25T08:09:49.975Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v22 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795594189592-ih7zc",
+      "timestamp": "2026-11-25T08:09:49.592Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "GLOBAL_AUTO",
+      "action": "CONFIG_UPDATED",
+      "details": "Global AUTO sozlamalari yangilandi (Method: ISNA, Asr: STANDARD). Asaka MANUAL o‘zgarmadi."
+    },
+    {
+      "id": "aud-1795594189431-vomj2",
+      "timestamp": "2026-11-25T08:09:49.431Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "GLOBAL_AUTO",
+      "action": "CONFIG_UPDATED",
+      "details": "Global AUTO sozlamalari yangilandi (Method: ISNA, Asr: STANDARD). Asaka MANUAL o‘zgarmadi."
+    },
+    {
+      "id": "aud-1795594189266-jopzc",
+      "timestamp": "2026-11-25T08:09:49.266Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v21 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795594188655-kdt6x",
+      "timestamp": "2026-11-25T08:09:48.655Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "ROLLBACK",
+      "details": "Asaka jadvali v18 (asaka-v18-1795583767536) versiyasiga qaytarildi"
+    },
+    {
+      "id": "aud-1795594188654-xe7pv",
+      "timestamp": "2026-11-25T08:09:48.654Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v20 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
+    {
+      "id": "aud-1795594104092-n9ohj",
+      "timestamp": "2026-11-25T08:08:24.092Z",
+      "actor": "asakaziyo0@gmail.com",
+      "scope": "ASAKA_MANUAL",
+      "action": "SCHEDULE_PUBLISHED",
+      "details": "Asaka rasmiy jadvali v19 (2026-11-02) saqlandi va barcha platformalarga uzatildi"
+    },
     {
       "id": "aud-1795583776903-sspic",
       "timestamp": "2026-11-25T05:16:16.903Z",

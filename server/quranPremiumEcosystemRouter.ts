@@ -9,6 +9,8 @@ import { QuranEcosystemService, AudioPublishStatus } from '../src/services/quran
 import {
   SubscriptionEcosystemService,
   SubscriptionPlanId,
+  PlatformId,
+  ALL_PLATFORMS,
 } from '../src/services/subscriptionEcosystemServer';
 import { getPaymentGatewayStatus, verifyPaymeBasicAuth } from './paymentGatewayAdapter';
 
@@ -135,15 +137,33 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
         return res.status(400).json({ success: false, error: 'userId va titleUz majburiy.' });
       }
       const canonicalUser = subscriptionService.resolveCanonicalUserId(String(userId));
-      const sub = subscriptionService.getEffectiveSubscription(canonicalUser);
+      const reqPlatform: PlatformId = ALL_PLATFORMS.includes(req.body?.platform) ? req.body.platform : 'web';
       const existing = quranService.listPlaylists(canonicalUser).personal;
-      const limit = sub.entitlements.unlimited_playlists?.freeDailyLimit;
-      if (!id && !sub.isPremium && typeof limit === 'number' && existing.length >= limit) {
-        return res.status(403).json({
-          success: false,
-          code: 'PREMIUM_REQUIRED',
-          error: `Bepul tarifda koʻpi bilan ${limit} ta shaxsiy playlist yaratish mumkin. Cheksiz playlistlar uchun Premium faollashtiring.`,
-        });
+      if (!id) {
+        const decision = subscriptionService.checkFeatureEntitlement(
+          canonicalUser,
+          'unlimited_playlists',
+          reqPlatform,
+          { consume: false }
+        );
+        if (!decision.allowed && decision.reasonCode !== 'USAGE_LIMIT_REACHED') {
+          return res.status(403).json({
+            success: false,
+            code: decision.reasonCode,
+            error: decision.messageUz,
+            entitlement: decision,
+          });
+        }
+        if (decision.limit >= 0 && existing.length >= decision.limit) {
+          return res.status(403).json({
+            success: false,
+            code: 'PREMIUM_REQUIRED',
+            error:
+              decision.feature?.userNoticeUz ||
+              `Bepul tarifda koʻpi bilan ${decision.limit} ta shaxsiy playlist yaratish mumkin. Cheksiz playlistlar uchun Premium faollashtiring.`,
+            entitlement: decision,
+          });
+        }
       }
 
       const playlist = await quranService.upsertPlaylist({
@@ -360,9 +380,49 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
   });
 
   router.get('/api/subscriptions/me/:userId', (req: Request, res: Response) => {
-    const status = subscriptionService.getEffectiveSubscription(req.params.userId);
+    const rawPlatform = String(req.query.platform || 'web') as PlatformId;
+    const platform: PlatformId = ALL_PLATFORMS.includes(rawPlatform) ? rawPlatform : 'web';
+    const entitlementData = subscriptionService.getUserEntitlements(req.params.userId, platform);
     const orders = subscriptionService.getUserOrders(req.params.userId);
-    return res.json({ success: true, subscription: status, orders });
+    return res.json({
+      success: true,
+      subscription: entitlementData.subscription,
+      features: entitlementData.features,
+      moduleLabelsUz: entitlementData.moduleLabelsUz,
+      orders,
+    });
+  });
+
+  // Unified Cross-Platform Entitlement Matrix (Web, Android, Telegram Mini App, Telegram Bot)
+  router.get('/api/subscriptions/entitlements/:userId', (req: Request, res: Response) => {
+    const rawPlatform = String(req.query.platform || 'web') as PlatformId;
+    const platform: PlatformId = ALL_PLATFORMS.includes(rawPlatform) ? rawPlatform : 'web';
+    const data = subscriptionService.getUserEntitlements(req.params.userId, platform);
+    return res.json({ success: true, ...data });
+  });
+
+  // Authoritative Server-Side Feature Entitlement Check & Quota Consumption Endpoint
+  router.post('/api/subscriptions/entitlements/check', (req: Request, res: Response) => {
+    const { userId, featureKey, platform, consume } = req.body || {};
+    if (!userId || !featureKey) {
+      return res.status(400).json({ success: false, error: 'userId va featureKey majburiy.' });
+    }
+    const safePlatform: PlatformId = ALL_PLATFORMS.includes(platform) ? platform : 'web';
+    const decision = subscriptionService.checkFeatureEntitlement(
+      String(userId),
+      String(featureKey),
+      safePlatform,
+      { consume: Boolean(consume) }
+    );
+    if (!decision.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: decision.reasonCode,
+        error: decision.messageUz,
+        decision,
+      });
+    }
+    return res.json({ success: true, decision });
   });
 
   router.post('/api/subscriptions/orders', async (req: Request, res: Response) => {
@@ -516,6 +576,18 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
       return res.json({ success: true, plan });
     } catch (err: any) {
       return res.status(400).json({ success: false, error: err?.message || 'Tarif yangilanmadi' });
+    }
+  });
+
+  router.post('/api/admin/subscriptions/feature-gates', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
+    try {
+      if (!req.body?.key || !req.body?.labelUz) {
+        return res.status(400).json({ success: false, error: 'Funksiya kaliti (key) va nomi (labelUz) majburiy.' });
+      }
+      const gate = await subscriptionService.createFeatureGate(req.body, extractAdminEmail(req));
+      return res.json({ success: true, featureGate: gate });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Yangi funksiya huquqi yaratilmadi' });
     }
   });
 

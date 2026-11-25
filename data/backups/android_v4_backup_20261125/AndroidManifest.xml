@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 1. Essential Network & Offline Sync -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 2. Notifications, Exact Prayer Alarms & Boot Rescheduling (Android 12–16) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- 3. Camera (On-Demand Only — Profile & Media Capture) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- 4. Microphone (On-Demand Only — Voice Message & Audio Search) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- 5. Foreground Location Only (Prayer Region & 241° WSW Qibla Compass) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- 6. Music, Quran Tilovat & Adhan Background Audio Playback (Android 13–16) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/AppTheme">
+
+        <!-- Main Native Hybrid Activity (Android 12+ SplashScreen + Adaptive API 36 Large Screens & TV) -->
+        <activity
+            android:name=".MainActivity"
+            android:theme="@style/Theme.AsakaZiyo.Splash"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep Links for ASAKA ZIYO Sections -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="asakaziyo.uz" />
+                <data android:scheme="https" android:host="asakaziyo.ai.studio" />
+                <data android:scheme="asakaziyo" android:host="open" />
+            </intent-filter>
+        </activity>
+
+        <!-- Native Media3 ExoPlayer Background Quran & Adhan Audio Service -->
+        <service
+            android:name=".AsakaMediaPlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <!-- Firebase Cloud Messaging Push Notification Service -->
+        <service
+            android:name=".AsakaFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Exact Prayer Alarm Receiver -->
+        <receiver
+            android:name=".AsakaPrayerAlarmReceiver"
+            android:exported="false" />
+
+        <!-- Boot Receiver to Reschedule Prayer Alarms -->
+        <receiver
+            android:name=".AsakaBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Global Prayer Times & Weather Home Screen AppWidget -->
+        <receiver
+            android:name=".AsakaPrayerWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Namoz &amp; Ob-havo">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_prayer_widget_info" />
+        </receiver>
+
+        <!-- Qur'on Continue Reading & Daily Dhikr Home Screen AppWidget -->
+        <receiver
+            android:name=".AsakaQuranWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Qurʼon &amp; Kunlik Zikr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_quran_widget_info" />
+        </receiver>
+    </application>
+</manifest>

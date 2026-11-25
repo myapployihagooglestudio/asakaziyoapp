@@ -3,6 +3,7 @@ import {
   getActiveEcosystemUserId,
   detectClientPlatform,
 } from '../../../utils/userIdentityClient';
+import { notifyEntitlementsChanged } from '../../../utils/entitlementClient';
 import {
   Crown,
   Check,
@@ -18,6 +19,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Lock,
+  Infinity as InfinityIcon,
 } from 'lucide-react';
 
 function fmtUzs(val: number): string {
@@ -28,8 +31,12 @@ export const PremiumSubscriptionView: React.FC = () => {
   const [userId] = useState<string>(() => getActiveEcosystemUserId());
   const [catalog, setCatalog] = useState<any | null>(null);
   const [mySub, setMySub] = useState<any | null>(null);
+  const [myFeatures, setMyFeatures] = useState<Record<string, any>>({});
+  const [moduleLabelsUz, setModuleLabelsUz] = useState<Record<string, string>>({});
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [justActivated, setJustActivated] = useState(false);
+  const [showExtendCheckout, setShowExtendCheckout] = useState(false);
 
   // Checkout state
   const [selectedPlanId, setSelectedPlanId] = useState<string>('premium_3m');
@@ -47,13 +54,19 @@ export const PremiumSubscriptionView: React.FC = () => {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
+      const platform = detectClientPlatform();
       const [catRes, meRes] = await Promise.all([
         fetch('/api/subscriptions/catalog').then((r) => r.json()),
-        fetch(`/api/subscriptions/me/${encodeURIComponent(userId)}`).then((r) => r.json()),
+        fetch(`/api/subscriptions/me/${encodeURIComponent(userId)}?platform=${encodeURIComponent(platform)}`).then((r) => r.json()),
       ]);
-      if (catRes?.success) setCatalog(catRes);
+      if (catRes?.success) {
+        setCatalog(catRes);
+        if (catRes.moduleLabelsUz) setModuleLabelsUz(catRes.moduleLabelsUz);
+      }
       if (meRes?.success) {
         setMySub(meRes.subscription);
+        setMyFeatures(meRes.features || {});
+        if (meRes.moduleLabelsUz) setModuleLabelsUz(meRes.moduleLabelsUz);
         setMyOrders(meRes.orders || []);
       }
     } catch {
@@ -97,8 +110,11 @@ export const PremiumSubscriptionView: React.FC = () => {
       return;
     }
     if (redeemNow && json.subscription) {
-      setFeedback({ type: 'ok', text: `Tabriklaymiz! ${promoInput.toUpperCase()} promokodi bilan Premium faollashtirildi!` });
+      setJustActivated(true);
+      setTimeout(() => setJustActivated(false), 6500);
+      setFeedback({ type: 'ok', text: `Tabriklaymiz! ${promoInput.toUpperCase()} promokodi bilan Premium faollashtirildi va barcha boʻlimlar ochildi!` });
       setPromoInput('');
+      notifyEntitlementsChanged();
       void loadAll();
       return;
     }
@@ -200,12 +216,12 @@ export const PremiumSubscriptionView: React.FC = () => {
               Bitta Obuna — Web, Android va Telegramda
             </h1>
             <p className="text-xs sm:text-sm text-[#A5BAB2] max-w-2xl leading-relaxed">
-              Namoz vaqtlari, Qurʼon Mushaf, Tasbeh va asosiy darslar doimo bepul qoladi. Premium obuna cheksiz offline Qori yuklash, chuqur Tajvid darslari, sertifikatlar va cheksiz playlistlarni ochadi.
+              Namoz vaqtlari, Qurʼon Mushaf, Tasbeh, Hadislar, Duolar va Qibla doimo bepul qoladi. Premium obuna esa barcha 17 boʻlimdagi kengaytirilgan imkoniyatlarni — cheksiz AI Ustoz, offline Qori yuklash, AI Hifz, Tajvid akademiyasi, viktorina va shaxsiy statistikani barcha qurilmalarda ochadi.
             </p>
           </div>
 
           {/* Live Server-Verified Status Box */}
-          <div className="p-4 rounded-2xl bg-white/[0.06] border border-white/[0.12] min-w-[230px] space-y-1.5">
+          <div className="p-4 rounded-2xl bg-white/[0.06] border border-white/[0.12] min-w-[240px] space-y-1.5">
             <div className="text-[11px] uppercase tracking-wider text-[#9AB0A7]">Joriy Holatingiz</div>
             <div className="flex items-center gap-2">
               <span
@@ -231,6 +247,43 @@ export const PremiumSubscriptionView: React.FC = () => {
         </div>
       </div>
 
+      {/* Celebratory Activation Banner */}
+      {justActivated && (
+        <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-600/20 via-[#C8A85E]/25 to-emerald-600/20 border border-[#C8A85E]/50 text-[#091813] dark:text-[#F7F4EC] flex items-center gap-4 shadow-lg animate-pulse">
+          <div className="w-11 h-11 rounded-2xl bg-[#C8A85E] text-[#050C09] flex items-center justify-center shrink-0">
+            <Crown className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="font-extrabold text-sm sm:text-base">Muborak boʻlsin! ASAKA ZIYO Premium Faollashdi!</div>
+            <div className="text-xs opacity-85">
+              Endi Web, Android APK, Telegram Bot va Mini Appdagi barcha Premium boʻlimlar siz uchun cheksiz ochiq.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Premium Member Summary (Zero Spam — Clean Management View) */}
+      {mySub?.isPremium && (
+        <div className="p-5 rounded-3xl az-liquid-glass border border-[#C8A85E]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 text-xs font-extrabold text-[#8A6B2D] dark:text-[#E6CE8A]">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Sizda faol Premium obuna mavjud ({mySub.daysRemaining} kun qoldi)</span>
+            </div>
+            <p className="text-xs text-[#5F776F] dark:text-[#9AB0A7]">
+              Barcha 17 boʻlimdagi Premium imkoniyatlar — AI Ustoz, Offline Qorilar, Hifz, Tajvid, Viktorina va Statistika ochiq.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowExtendCheckout((v) => !v)}
+            className="px-4 py-2 rounded-xl bg-[#064E3B]/15 dark:bg-white/10 text-xs font-bold cursor-pointer whitespace-nowrap hover:bg-[#064E3B]/25"
+          >
+            {showExtendCheckout ? 'Uzaytirish oynasini yopish' : 'Muddatni oldindan uzaytirish'}
+          </button>
+        </div>
+      )}
+
       {feedback && (
         <div
           className={`p-4 rounded-2xl border text-xs font-semibold flex items-center gap-2.5 ${
@@ -244,7 +297,8 @@ export const PremiumSubscriptionView: React.FC = () => {
         </div>
       )}
 
-      {/* Dynamic Plans Grid (Admin-configured 1m / 3m / 6m) */}
+      {/* Dynamic Plans Grid (Hidden for active Premium unless user opens Extend) */}
+      {(!mySub?.isPremium || showExtendCheckout) && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {paidPlans.map((plan: any) => {
           const isSelected = activePlan?.id === plan.id;
@@ -298,6 +352,7 @@ export const PremiumSubscriptionView: React.FC = () => {
           );
         })}
       </div>
+      )}
 
       {/* Manual Card Checkout + Promo Code + Payme/Click Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -530,31 +585,122 @@ export const PremiumSubscriptionView: React.FC = () => {
         </div>
       </div>
 
-      {/* Free vs Premium Feature Comparison Matrix (Dynamic from Admin) */}
-      <div className="rounded-3xl az-liquid-glass p-5 border border-[#064E3B]/12 dark:border-white/10 space-y-3">
-        <h3 className="font-bold text-base text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#C8A85E]" />
-          <span>Bepul (Free) va Premium Imkoniyatlari Taqqoslash</span>
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {(catalog?.featureGates || []).map((g: any) => (
-            <div key={g.key} className="p-3.5 rounded-2xl bg-[#F7F5F0] dark:bg-white/[0.04] space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-xs text-[#091813] dark:text-[#F7F4EC]">{g.labelUz}</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    g.access === 'free'
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                      : 'bg-[#C8A85E]/20 text-[#8A6B2D] dark:text-[#E6CE8A]'
-                  }`}
-                >
-                  {g.access === 'free' ? 'Bepul' : 'Premium'}
-                </span>
-              </div>
-              <p className="text-[11px] text-[#5F776F] dark:text-[#8FA69D]">{g.descriptionUz}</p>
-            </div>
-          ))}
+      {/* Full Cross-Module Free vs Premium Comparison Matrix (Dynamic from Admin, Grouped by Module) */}
+      <div className="rounded-3xl az-liquid-glass p-5 sm:p-6 border border-[#064E3B]/15 dark:border-white/10 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="font-bold text-base text-[#091813] dark:text-[#F7F4EC] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#C8A85E]" />
+              <span>Barcha Boʻlimlar Boʻyicha Free vs Premium Imkoniyatlari</span>
+            </h3>
+            <p className="text-[11px] text-[#5F776F] dark:text-[#8FA69D] mt-0.5">
+              Har bir boʻlimning limit va huquqlari markaziy tizimdan jonli sinxronlanadi (Web · Android · Telegram).
+            </p>
+          </div>
+          <span className="text-[11px] font-mono-numbers font-bold px-2.5 py-1 rounded-lg bg-[#064E3B]/10 dark:bg-white/10">
+            {(catalog?.featureGates || []).length} ta funksiya
+          </span>
         </div>
+
+        {(() => {
+          const grouped: Record<string, any[]> = {};
+          for (const g of catalog?.featureGates || []) {
+            const mod = g.module || 'quran';
+            if (!grouped[mod]) grouped[mod] = [];
+            grouped[mod].push(g);
+          }
+          const periodLabel = (p: string) =>
+            p === 'daily' ? 'kunlik' : p === 'weekly' ? 'haftalik' : p === 'monthly' ? 'oylik' : '';
+          const fmtLimit = (val: number, period: string) => {
+            if (val < 0) return 'Cheksiz';
+            if (val === 0) return 'Yopiq';
+            return `${val} ta ${periodLabel(period)}`.trim();
+          };
+          return (
+            <div className="space-y-4">
+              {Object.entries(grouped).map(([modKey, items]) => (
+                <div key={modKey} className="space-y-2">
+                  <div className="text-xs font-extrabold uppercase tracking-wider text-[#064E3B] dark:text-[#E6CE8A] flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#C8A85E]" />
+                    <span>{moduleLabelsUz[modKey] || modKey}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {items.map((g: any) => {
+                      const liveDecision = myFeatures[g.key];
+                      return (
+                        <div
+                          key={g.key}
+                          className={`p-3.5 rounded-2xl border space-y-2 ${
+                            !g.isEnabled
+                              ? 'bg-rose-500/5 border-rose-500/20 opacity-65'
+                              : g.access === 'free'
+                                ? 'bg-[#F7F5F0] dark:bg-white/[0.03] border-[#064E3B]/10 dark:border-white/10'
+                                : 'bg-[#F7F5F0] dark:bg-white/[0.05] border-[#C8A85E]/25'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-bold text-xs text-[#091813] dark:text-[#F7F4EC] leading-snug">
+                              {g.labelUz}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${
+                                !g.isEnabled
+                                  ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300'
+                                  : g.access === 'free'
+                                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-[#C8A85E]/25 text-[#8A6B2D] dark:text-[#E6CE8A]'
+                              }`}
+                            >
+                              {!g.isEnabled ? 'Oʻchiq' : g.access === 'free' ? 'Bepul' : 'Premium'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#5F776F] dark:text-[#8FA69D] leading-relaxed">
+                            {g.descriptionUz}
+                          </p>
+                          <div className="pt-1.5 border-t border-[#064E3B]/10 dark:border-white/10 flex items-center justify-between text-[10px] font-mono-numbers">
+                            <span className="text-[#5F776F] dark:text-[#9AB0A7]">
+                              Free: <strong>{fmtLimit(g.freeLimit ?? (g.access === 'free' ? -1 : 0), g.limitPeriod)}</strong>
+                            </span>
+                            <span className="text-[#8A6B2D] dark:text-[#E6CE8A] inline-flex items-center gap-1">
+                              {g.premiumLimit < 0 ? (
+                                <>
+                                  <InfinityIcon className="w-3 h-3" />
+                                  <strong>Cheksiz</strong>
+                                </>
+                              ) : (
+                                <strong>{fmtLimit(g.premiumLimit, g.limitPeriod)}</strong>
+                              )}
+                            </span>
+                          </div>
+                          {liveDecision && (
+                            <div className="flex items-center justify-between text-[10px] font-semibold">
+                              <span className={liveDecision.allowed ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-300'}>
+                                {liveDecision.allowed ? (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> Sizda ochiq
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Lock className="w-3 h-3" /> Premium talab qilinadi
+                                  </span>
+                                )}
+                              </span>
+                              {liveDecision.limit > 0 && (
+                                <span className="font-mono-numbers opacity-80">
+                                  Qoldi: {liveDecision.remaining}/{liveDecision.limit}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

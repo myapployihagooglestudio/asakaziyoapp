@@ -2779,6 +2779,26 @@ export class TelegramBotEngine {
           return { ok: true, updateId, kind: 'voice_ai_reply', detail: 'file_download_failed' };
         }
 
+        if (this.subscriptionEcosystem) {
+          const entCheck = this.subscriptionEcosystem.checkFeatureEntitlement(
+            `tg:${actorId}`,
+            'ai_ustoz_unlimited',
+            'telegram_bot',
+            { consume: true }
+          );
+          if (!entCheck.allowed) {
+            await this.apiClient.sendMessage({
+              chat_id: chatId,
+              text: `👑 <b>ASAKA ZIYO Premium</b>\n\n${entCheck.messageUz}\n\nBarcha platformalarda cheksiz AI Ustoz va Premium imkoniyatlari uchun /premium buyrugʻini bosing.`,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[{ text: '👑 Premiumga oʻtish', callback_data: 'premium:overview' }]],
+              },
+            });
+            return { ok: true, updateId, kind: 'voice_ai_reply', detail: entCheck.reasonCode };
+          }
+        }
+
         const voiceRes = await this.aiBridge.handleVoiceMessage({
           telegramId: actorId,
           locale: user.language,
@@ -2823,6 +2843,25 @@ export class TelegramBotEngine {
         (message.photo?.length || message.document) &&
         (this.aiBridge.isUserInAiMode(actorId) || Boolean(message.caption))
       ) {
+        if (this.subscriptionEcosystem) {
+          const entCheck = this.subscriptionEcosystem.checkFeatureEntitlement(
+            `tg:${actorId}`,
+            'ai_ustoz_unlimited',
+            'telegram_bot',
+            { consume: true }
+          );
+          if (!entCheck.allowed) {
+            await this.apiClient.sendMessage({
+              chat_id: chatId,
+              text: `👑 <b>ASAKA ZIYO Premium</b>\n\n${entCheck.messageUz}\n\nCheksiz AI tahlil uchun /premium boʻlimini oching.`,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[{ text: '👑 Premiumga oʻtish', callback_data: 'premium:overview' }]],
+              },
+            });
+            return { ok: true, updateId, kind: 'media_ai_reply', detail: entCheck.reasonCode };
+          }
+        }
         await this.apiClient.sendChatAction(chatId, 'typing');
         const isPhoto = Boolean(message.photo && message.photo.length > 0);
         const fileId = isPhoto
@@ -2866,6 +2905,25 @@ export class TelegramBotEngine {
       // 10. Private chat plain text: AI Assistant when active, otherwise main menu
       if (message.text && message.chat.type === 'private') {
         if (this.aiBridge.isUserInAiMode(actorId)) {
+          if (this.subscriptionEcosystem) {
+            const entCheck = this.subscriptionEcosystem.checkFeatureEntitlement(
+              `tg:${actorId}`,
+              'ai_ustoz_unlimited',
+              'telegram_bot',
+              { consume: true }
+            );
+            if (!entCheck.allowed) {
+              await this.apiClient.sendMessage({
+                chat_id: chatId,
+                text: `👑 <b>ASAKA ZIYO Premium</b>\n\n${entCheck.messageUz}\n\nCheksiz AI Ustoz va barcha boʻlimlar uchun /premium buyrugʻidan foydalaning.`,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [[{ text: '👑 Premium / Tariflar', callback_data: 'premium:overview' }]],
+                },
+              });
+              return { ok: true, updateId, kind: 'ai_reply', detail: entCheck.reasonCode };
+            }
+          }
           await this.apiClient.sendChatAction(chatId, 'typing');
           if (settings.aiStreamingDraftsEnabled) {
             const draftFmt = this.emojiRegistry.formatMessage(

@@ -4889,19 +4889,50 @@ async function handleUnifiedAgentChatRequest(req: Request, res: Response) {
       });
     }
 
+    const safeMode: AgentRoutingMode =
+      routingMode === 'deep' || routingMode === 'fast' ? routingMode : 'auto';
+    const safeChannel: AgentChannel =
+      channel === 'android' || channel === 'telegram' ? channel : 'web';
+    const reqPlatform =
+      req.body?.platform === 'android' ||
+      req.body?.platform === 'telegram_miniapp' ||
+      req.body?.platform === 'telegram_bot' ||
+      req.body?.platform === 'web'
+        ? req.body.platform
+        : safeChannel === 'android'
+          ? 'android'
+          : safeChannel === 'telegram'
+            ? 'telegram_bot'
+            : 'web';
+    const canonicalAiUser = String(userId || req.headers['x-asaka-user-id'] || 'guest_agent_user').trim();
+    const isAdminCaller = Boolean(extractAdminTokenFromRequest(req) && verifyServerSessionToken(extractAdminTokenFromRequest(req) || ''));
+
+    // Authoritative Server-Side AI Entitlement & Usage Quota Enforcement (runs before upstream AI calls)
+    const aiGateKey = safeMode === 'deep' ? 'ai_deep_reasoning_mode' : 'ai_ustoz_unlimited';
+    const aiDecision = subscriptionEcosystem.checkFeatureEntitlement(
+      canonicalAiUser,
+      aiGateKey,
+      reqPlatform,
+      { consume: true, isAdmin: isAdminCaller }
+    );
+    if (!aiDecision.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: aiDecision.reasonCode,
+        error: aiDecision.messageUz,
+        entitlement: aiDecision,
+      });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
       return res.status(503).json({
         success: false,
         aiUnavailable: true,
+        entitlement: aiDecision,
         error: 'Serverda GEMINI_API_KEY sozlanmagan. Administrator muhit oʻzgaruvchisini tekshirishi zarur.',
       });
     }
-
-    const safeMode: AgentRoutingMode =
-      routingMode === 'deep' || routingMode === 'fast' ? routingMode : 'auto';
-    const safeChannel: AgentChannel =
-      channel === 'android' || channel === 'telegram' ? channel : 'web';
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -4916,7 +4947,7 @@ async function handleUnifiedAgentChatRequest(req: Request, res: Response) {
             locale: String(locale),
             channel: safeChannel,
             routingMode: safeMode,
-            userId: String(userId || 'guest_agent_user'),
+            userId: canonicalAiUser,
             userName: String(userName || 'Foydalanuvchi'),
             preferredModel: preferredModel ? String(preferredModel) : undefined,
           },
@@ -4953,6 +4984,8 @@ async function handleUnifiedAgentChatRequest(req: Request, res: Response) {
             escalation: result.escalation || null,
             sensitiveFatwaDetected: result.sensitiveFatwaDetected,
             latencyMs: result.latencyMs,
+            timestamp: result.timestamp,
+            entitlement: aiDecision,
             done: true,
           })}\n\n`
         );
@@ -4979,7 +5012,7 @@ async function handleUnifiedAgentChatRequest(req: Request, res: Response) {
           locale: String(locale),
           channel: safeChannel,
           routingMode: safeMode,
-          userId: String(userId || 'guest_agent_user'),
+          userId: canonicalAiUser,
           userName: String(userName || 'Foydalanuvchi'),
           preferredModel: preferredModel ? String(preferredModel) : undefined,
         },
@@ -5001,6 +5034,7 @@ async function handleUnifiedAgentChatRequest(req: Request, res: Response) {
         sensitiveFatwaDetected: result.sensitiveFatwaDetected,
         latencyMs: result.latencyMs,
         timestamp: result.timestamp,
+        entitlement: aiDecision,
       });
     } catch (upstreamErr: any) {
       return res.status(502).json({
