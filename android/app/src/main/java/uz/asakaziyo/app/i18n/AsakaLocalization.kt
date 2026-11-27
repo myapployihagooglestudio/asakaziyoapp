@@ -52,9 +52,11 @@ data class AsakaStrings(
     val greeting: String,
     val navHome: String,
     val navQuran: String,
+    val navLearn: String,
+    val navAudio: String,
+    val navProfile: String,
     val navPrayer: String,
     val navOffline: String,
-    val navProfile: String,
     val prayerTimes: String,
     val nextPrayer: String,
     val continueQuran: String,
@@ -85,6 +87,8 @@ data class AsakaStrings(
     val downloadedBadge: String,
     val syncNow: String,
     val openAdminPortal: String,
+    val globalSearch: String,
+    val customizeHome: String,
     val developerAttribution: String = "Dev by Ulug‘bek Mirzayev"
 )
 
@@ -93,11 +97,13 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
         locale = AsakaLocale.UZ_LATN,
         appTitle = "ASAKA ZIYO",
         greeting = "Assalomu alaykum",
-        navHome = "Bosh sahifa",
+        navHome = "Home",
         navQuran = "Qurʼon",
+        navLearn = "Oʻrganish",
+        navAudio = "Audio",
+        navProfile = "Profil",
         navPrayer = "Namoz",
         navOffline = "Oflayn",
-        navProfile = "Profil",
         prayerTimes = "Namoz vaqtlari",
         nextPrayer = "Keyingi namoz",
         continueQuran = "Qurʼonni davom ettirish",
@@ -127,7 +133,9 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
         downloadOffline = "Oflayn yuklash",
         downloadedBadge = "Oflayn tayyor",
         syncNow = "Hozir sinxronlash",
-        openAdminPortal = "Admin Boshqaruv Markazi"
+        openAdminPortal = "Admin Boshqaruv Markazi",
+        globalSearch = "Sura, qori, hadis, duo izlash...",
+        customizeHome = "Bosh sahifani sozlash"
     )
 
     return when (locale) {
@@ -135,11 +143,13 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
         AsakaLocale.UZ_NEW -> uzLatn.copy(
             locale = AsakaLocale.UZ_NEW,
             greeting = toNewUzbekLatin(uzLatn.greeting),
-            navHome = toNewUzbekLatin(uzLatn.navHome),
+            navHome = "Home",
             navQuran = toNewUzbekLatin(uzLatn.navQuran),
+            navLearn = toNewUzbekLatin(uzLatn.navLearn),
+            navAudio = toNewUzbekLatin(uzLatn.navAudio),
+            navProfile = toNewUzbekLatin(uzLatn.navProfile),
             navPrayer = toNewUzbekLatin(uzLatn.navPrayer),
             navOffline = toNewUzbekLatin(uzLatn.navOffline),
-            navProfile = toNewUzbekLatin(uzLatn.navProfile),
             prayerTimes = toNewUzbekLatin(uzLatn.prayerTimes),
             nextPrayer = toNewUzbekLatin(uzLatn.nextPrayer),
             continueQuran = toNewUzbekLatin(uzLatn.continueQuran),
@@ -169,7 +179,9 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             downloadOffline = toNewUzbekLatin(uzLatn.downloadOffline),
             downloadedBadge = toNewUzbekLatin(uzLatn.downloadedBadge),
             syncNow = toNewUzbekLatin(uzLatn.syncNow),
-            openAdminPortal = toNewUzbekLatin(uzLatn.openAdminPortal)
+            openAdminPortal = toNewUzbekLatin(uzLatn.openAdminPortal),
+            globalSearch = toNewUzbekLatin(uzLatn.globalSearch),
+            customizeHome = toNewUzbekLatin(uzLatn.customizeHome)
         )
         AsakaLocale.UZ_CYRL -> AsakaStrings(
             locale = AsakaLocale.UZ_CYRL,
@@ -177,9 +189,11 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             greeting = "Ассалому алайкум",
             navHome = "Бош саҳифа",
             navQuran = "Қуръон",
+            navLearn = "Ўрганиш",
+            navAudio = "Аудио",
+            navProfile = "Профил",
             navPrayer = "Намоз",
             navOffline = "Офлайн",
-            navProfile = "Профил",
             prayerTimes = "Намоз вақтлари",
             nextPrayer = "Кейинги намоз",
             continueQuran = "Қуръонни давом эттириш",
@@ -209,7 +223,9 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             downloadOffline = "Офлайн юклаш",
             downloadedBadge = "Офлайн тайёр",
             syncNow = "Ҳозир синхронлаш",
-            openAdminPortal = "Админ Бошқарув Маркази"
+            openAdminPortal = "Админ Бошқарув Маркази",
+            globalSearch = "Сура, қори, ҳадис, дуо излаш...",
+            customizeHome = "Бош саҳифани созлаш"
         )
         AsakaLocale.RU -> AsakaStrings(
             locale = AsakaLocale.RU,
@@ -217,9 +233,11 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             greeting = "Ассаламу алейкум",
             navHome = "Главная",
             navQuran = "Коран",
+            navLearn = "Обучение",
+            navAudio = "Аудио",
+            navProfile = "Профиль",
             navPrayer = "Намаз",
             navOffline = "Офлайн",
-            navProfile = "Профиль",
             prayerTimes = "Время намаза",
             nextPrayer = "Следующий намаз",
             continueQuran = "Продолжить чтение",
@@ -249,7 +267,9 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             downloadOffline = "Скачать офлайн",
             downloadedBadge = "Доступно офлайн",
             syncNow = "Синхронизировать",
-            openAdminPortal = "Панель Администратора"
+            openAdminPortal = "Панель Администратора",
+            globalSearch = "Поиск сур, чтецов, хадисов, дуа...",
+            customizeHome = "Настройка главной"
         )
         AsakaLocale.EN -> AsakaStrings(
             locale = AsakaLocale.EN,
@@ -257,9 +277,11 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             greeting = "Assalamu Alaykum",
             navHome = "Home",
             navQuran = "Qur'an",
+            navLearn = "Learn",
+            navAudio = "Audio",
+            navProfile = "Profile",
             navPrayer = "Prayer",
             navOffline = "Offline",
-            navProfile = "Profile",
             prayerTimes = "Prayer Times",
             nextPrayer = "Next Prayer",
             continueQuran = "Continue Reading",
@@ -289,7 +311,9 @@ fun resolveAsakaStrings(locale: AsakaLocale): AsakaStrings {
             downloadOffline = "Save Offline",
             downloadedBadge = "Offline Ready",
             syncNow = "Sync Now",
-            openAdminPortal = "Admin Control Center"
+            openAdminPortal = "Admin Control Center",
+            globalSearch = "Search Surahs, Qaris, Hadith, Duas...",
+            customizeHome = "Customize Home"
         )
     }
 }

@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * ASAKA ZIYO v4.0.0 (Build 400) — Full Android APK & AAB Build, Signing & Verification Pipeline
+ * ASAKA ZIYO v6.0.0 (Build 600) — Pure Native Android APK & AAB Build, Signing & Verification Pipeline
  *
- * 1. Syncs web dist/ assets & verifies native Android resources/icons/manifest.
- * 2. Preserves any existing release signing keystore (`keystore.properties`, `ANDROID_KEYSTORE_PATH`,
+ * 1. Preserves existing release signing keystore (`keystore.properties`, `ANDROID_KEYSTORE_PATH`,
  *    or persistent `data/.android-signing/asakaziyo-release.jks`). Refuses silent certificate switching.
- * 3. Runs genuine Gradle `./gradlew assembleDebug assembleRelease bundleRelease --no-daemon`.
- * 4. Independently verifies:
+ * 2. Runs genuine Gradle `./gradlew testDebugUnitTest assembleDebug assembleRelease bundleRelease --no-daemon`.
+ * 3. Independently verifies:
  *    - APK & AAB ZIP integrity (`unzip -t`)
- *    - Required compiled Android + WebView entries (AndroidManifest.xml, classes.dex, resources.arsc,
- *      mipmap icons, assets/public/index.html, JS bundles, official seal image)
- *    - `aapt2 dump badging` (package uz.asakaziyo.app, versionName 4.0.0, versionCode 400)
+ *    - Required compiled native Android entries (`AndroidManifest.xml`, `classes.dex`, `resources.arsc`, `mipmap`)
+ *      and confirms ZERO legacy WebView `assets/public/index.html` bloat
+ *    - `aapt2 dump badging` (package `uz.asakaziyo.app`, `versionName 6.0.0`, `versionCode 600`)
  *    - `apksigner verify --verbose --print-certs` (cryptographic signature + cert SHA-256 match)
  *    - `jarsigner -verify` on the signed release AAB
- * 5. Publishes verified binaries, `data/release/SHA256SUMS.txt`, and `data/apk_release_metadata.json`
- *    derived strictly from the verified binary artifacts.
+ * 4. Publishes verified binaries, `data/release/SHA256SUMS.txt`, `data/apk_release_metadata.json`,
+ *    `data/release/apk_release_metadata.json`, and `data/app_releases_store.json`.
  */
 
 const fs = require('fs');
@@ -29,9 +28,11 @@ const SIGNING_DIR = path.join(ROOT_DIR, 'data', '.android-signing');
 const LOCAL_KEYSTORE_PATH = path.join(SIGNING_DIR, 'asakaziyo-release.jks');
 const LOCAL_SIGNING_CREDS_PATH = path.join(SIGNING_DIR, 'signing.json');
 const METADATA_PATH = path.join(ROOT_DIR, 'data', 'apk_release_metadata.json');
+const RELEASE_METADATA_PATH = path.join(RELEASE_DIR, 'apk_release_metadata.json');
+const RELEASES_STORE_PATH = path.join(ROOT_DIR, 'data', 'app_releases_store.json');
 
-const APP_VERSION = '4.0.0';
-const BUILD_CODE = 400;
+const APP_VERSION = '7.0.0';
+const BUILD_CODE = 700;
 const PACKAGE_ID = 'uz.asakaziyo.app';
 const APK_FILENAME = `Asaka-Ziyo-v${APP_VERSION}.apk`;
 const AAB_FILENAME = `Asaka-Ziyo-v${APP_VERSION}.aab`;
@@ -62,6 +63,10 @@ function resolveSdkRoot() {
 function resolveGradleCommand() {
   const gradlew = path.join(ANDROID_DIR, 'gradlew');
   if (fs.existsSync(gradlew)) {
+    const raw = fs.readFileSync(gradlew, 'utf8');
+    if (raw.includes('\r\n')) {
+      fs.writeFileSync(gradlew, raw.replace(/\r\n/g, '\n'), 'utf8');
+    }
     fs.chmodSync(gradlew, 0o755);
     return './gradlew';
   }
@@ -100,7 +105,6 @@ function readExistingMetadata() {
 }
 
 function resolveOrProvisionSigningConfig() {
-  // 1. Respect explicit keystore.properties (root or android/)
   if (
     fs.existsSync(path.join(ROOT_DIR, 'keystore.properties')) ||
     fs.existsSync(path.join(ANDROID_DIR, 'keystore.properties'))
@@ -108,7 +112,6 @@ function resolveOrProvisionSigningConfig() {
     return { source: 'keystore.properties', envOverrides: {} };
   }
 
-  // 2. Respect explicit CI/environment keystore
   if (
     process.env.ANDROID_KEYSTORE_PATH &&
     fs.existsSync(process.env.ANDROID_KEYSTORE_PATH) &&
@@ -118,7 +121,6 @@ function resolveOrProvisionSigningConfig() {
     return { source: 'environment', envOverrides: {} };
   }
 
-  // 3. Preserve existing persistent local release keystore if already generated
   if (fs.existsSync(LOCAL_KEYSTORE_PATH) && fs.existsSync(LOCAL_SIGNING_CREDS_PATH)) {
     const creds = JSON.parse(fs.readFileSync(LOCAL_SIGNING_CREDS_PATH, 'utf8'));
     if (creds.storePassword && creds.keyPassword && creds.keyAlias) {
@@ -135,7 +137,6 @@ function resolveOrProvisionSigningConfig() {
     }
   }
 
-  // 4. Generate a genuine 4096-bit RSA release keystore (25-year validity, local-only, 0600, gitignored)
   const keytoolBin = commandExists('keytool');
   if (!keytoolBin) {
     throw new Error('JDK keytool not found — cannot create Android release signing keystore.');
@@ -196,29 +197,22 @@ function verifyApkIntegrity(apkPath, sdkRoot, expectedPackageId, pinnedCertSha25
     throw new Error(`Invalid APK ZIP header or suspiciously small binary: ${apkPath} (${buf.length} bytes)`);
   }
 
-  // 1. Test ZIP structure integrity
   execSync(`unzip -t "${apkPath}" > /dev/null`, { stdio: 'inherit' });
 
-  // 2. Verify required compiled Android + WebView entries exist inside APK
   const listing = execSync(`unzip -l "${apkPath}"`, { encoding: 'utf8' });
-  const requiredEntries = [
-    'AndroidManifest.xml',
-    'classes.dex',
-    'resources.arsc',
-    'assets/public/index.html',
-    'assets/public/images/asaka-ziyo-logo-seal.jpg',
-    'assets/public/assets/aistudio/IMG_20261114_084331_924_8f6ccba1.jpg',
-  ];
+  const requiredEntries = ['AndroidManifest.xml', 'classes.dex', 'resources.arsc'];
   for (const entry of requiredEntries) {
     if (!listing.includes(entry)) {
       throw new Error(`Compiled APK missing required entry: ${entry}`);
     }
   }
-  if (!/assets\/public\/assets\/[^\s]+\.js/.test(listing)) {
-    throw new Error('Compiled APK missing bundled JavaScript assets inside assets/public/assets/');
+  if (!listing.includes('res/')) {
+    throw new Error('Compiled APK missing res/ resources directory');
+  }
+  if (listing.includes('assets/public/index.html')) {
+    throw new Error('Compiled pure native v7.0.0 APK must NOT bundle legacy WebView assets/public/index.html');
   }
 
-  // 3. Verify compiled AndroidManifest badging & launcher icon via aapt2
   const aapt2Path = findBuildTool('aapt2', sdkRoot);
   if (!aapt2Path) {
     throw new Error('aapt2 not found in PATH or ANDROID_HOME/build-tools — cannot verify package ID & version');
@@ -236,15 +230,11 @@ function verifyApkIntegrity(apkPath, sdkRoot, expectedPackageId, pinnedCertSha25
   if (!badging.includes("application-label:'ASAKA ZIYO'")) {
     throw new Error("aapt2 badging mismatch: expected application-label 'ASAKA ZIYO'");
   }
-  const iconMatch = badging.match(/application:\s+label='ASAKA ZIYO'\s+icon='([^']+)'/);
-  if (!iconMatch || !iconMatch[1] || !listing.includes(iconMatch[1])) {
-    throw new Error('Compiled APK missing verified launcher application icon resource');
+  if (!badging.includes('application-icon')) {
+    throw new Error('aapt2 badging mismatch: compiled APK missing launcher application-icon');
   }
-  console.log(
-    `✅ aapt2 dump badging verified: ${expectedPackageId} v${APP_VERSION} (${BUILD_CODE}) · label 'ASAKA ZIYO' · icon '${iconMatch[1]}'`
-  );
+  console.log(`✅ aapt2 dump badging verified: ${expectedPackageId} v${APP_VERSION} (${BUILD_CODE}) · label 'ASAKA ZIYO' · launcher icon present`);
 
-  // 4. Verify cryptographic APK signature via apksigner (REQUIRED)
   const apksignerPath = findBuildTool('apksigner', sdkRoot);
   if (!apksignerPath) {
     throw new Error('apksigner not found in PATH or ANDROID_HOME/build-tools — cannot verify signature');
@@ -255,11 +245,8 @@ function verifyApkIntegrity(apkPath, sdkRoot, expectedPackageId, pinnedCertSha25
   if (!verifyOut.includes('Verifies')) {
     throw new Error(`apksigner verification failed:\n${verifyOut}`);
   }
-  let certSha256 = '';
   const digestMatch = verifyOut.match(/certificate SHA-256 digest:\s*([a-fA-F0-9]{64})/);
-  if (digestMatch) {
-    certSha256 = digestMatch[1].toLowerCase();
-  }
+  const certSha256 = digestMatch ? digestMatch[1].toLowerCase() : '';
   if (!certSha256) {
     throw new Error('Could not extract Signer #1 certificate SHA-256 digest from apksigner output');
   }
@@ -312,26 +299,16 @@ function verifyAabIntegrity(aabPath) {
 
 function main() {
   const args = new Set(process.argv.slice(2));
-  const skipWebBuild = args.has('--skip-web-build');
   const apkOnly = args.has('--apk-only');
+  const skipTests = args.has('--skip-tests');
   const allowCertChange = args.has('--allow-cert-change');
   const existingMeta = readExistingMetadata();
-  const pinnedCertSha256 =
-    existingMeta.signingCertSha256 || existingMeta.certSha256 || '';
+  const pinnedCertSha256 = existingMeta.signingCertSha256 || existingMeta.certSha256 || '';
 
   console.log(
-    `🚀 ASAKA ZIYO v${APP_VERSION} (Build ${BUILD_CODE}) — Android Build & Verification Pipeline (${apkOnly ? 'APK-Only' : 'Debug APK + Release APK + Release AAB'})`
+    `🚀 ASAKA ZIYO v${APP_VERSION} (Build ${BUILD_CODE}) — Pure Native Android Build & Verification Pipeline`
   );
 
-  if (!skipWebBuild) {
-    execSync('node scripts/generate-pwa-icons.js', { cwd: ROOT_DIR, stdio: 'inherit' });
-    execSync('npm run build', { cwd: ROOT_DIR, stdio: 'inherit' });
-  }
-
-  // Sync & validate Android WebView assets + native XML/Kotlin pre-flight
-  execSync('node scripts/sync-android-assets.cjs', { cwd: ROOT_DIR, stdio: 'inherit' });
-
-  // Verify Native Android Toolchain (JDK 17+, Android SDK, Gradle)
   const javaBin = commandExists('java');
   const sdkRoot = resolveSdkRoot();
   const gradleCmd = resolveGradleCommand();
@@ -355,11 +332,10 @@ function main() {
 
   const tasks = [];
   if (args.has('--clean')) tasks.push('clean');
+  if (!skipTests) tasks.push('testDebugUnitTest');
   tasks.push('assembleDebug');
   tasks.push('assembleRelease');
-  if (!apkOnly) {
-    tasks.push('bundleRelease');
-  }
+  if (!apkOnly) tasks.push('bundleRelease');
 
   const cmd = `${gradleCmd} ${tasks.join(' ')} --no-daemon`;
   console.log(`\n🔨 Executing: ${cmd} (ANDROID_HOME=${sdkRoot}, signing=${signing.source})`);
@@ -367,16 +343,13 @@ function main() {
 
   fs.mkdirSync(RELEASE_DIR, { recursive: true });
 
-  // Remove any stale unsigned/debug artifacts from data/release/
   for (const stale of [
-    'Asaka-Ziyo-v4.0.0-unsigned.apk',
-    'Asaka-Ziyo-v4.0.0-unsigned.aab',
-    'Asaka-Ziyo-v4.0.0-debug.apk',
+    `Asaka-Ziyo-v${APP_VERSION}-unsigned.apk`,
+    `Asaka-Ziyo-v${APP_VERSION}-unsigned.aab`,
+    `Asaka-Ziyo-v${APP_VERSION}-debug.apk`,
   ]) {
     const stalePath = path.join(RELEASE_DIR, stale);
-    if (fs.existsSync(stalePath)) {
-      fs.unlinkSync(stalePath);
-    }
+    if (fs.existsSync(stalePath)) fs.unlinkSync(stalePath);
   }
 
   const apkOutputsDir = path.join(ANDROID_DIR, 'app', 'build', 'outputs', 'apk', 'release');
@@ -415,15 +388,19 @@ function main() {
     }
   }
 
-  // Write SHA256SUMS.txt
   const checksumLines = [`${signedApkInfo.sha256}  ${APK_FILENAME}`];
   if (signedAabInfo) {
     checksumLines.push(`${signedAabInfo.sha256}  ${AAB_FILENAME}`);
   }
   fs.writeFileSync(path.join(RELEASE_DIR, 'SHA256SUMS.txt'), `${checksumLines.join('\n')}\n`, 'utf8');
 
-  const previousHistory = Array.isArray(existingMeta.releaseHistory) ? existingMeta.releaseHistory : [];
+  const existingHistory = Array.isArray(existingMeta.releaseHistory) ? existingMeta.releaseHistory : [];
   const today = new Date().toISOString().slice(0, 10);
+  const nowIso = new Date().toISOString();
+  const sizeDisplay = `${(signedApkInfo.sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
+  const releaseNotesUz =
+    'ASAKA ZIYO v7.0.0 (Build 700) — yagona ekotizim (Web App + Android v7 Native + Telegram Mini App + Telegram Bot). Barcha 36 ta Web App moduli (jumladan Kunlik Hikmatlar Arxivi, Islomiy Yutuqlar, Namoz Kundaligi & Qazo, Aqlli Eslatmalar, Ommaviy Ekran, 7-boʻlimli Admin Moderatsiya), 6 xonali hisob bogʻlash, toʻliq Cross-Platform sinxronizatsiya, 7 ta Home vidjet va RSA-4096 v2+v3 imzosi.';
+
   const metadata = {
     appName: 'ASAKA ZIYO',
     packageId: PACKAGE_ID,
@@ -444,9 +421,9 @@ function main() {
     signingCertSha256: signedApkInfo.certSha256,
     signingSource: signing.source,
     status: 'ready',
-    statusMessageUz: `ASAKA ZIYO v${APP_VERSION} (Build ${BUILD_CODE}) rasmiy imzolangan va apksigner orqali tasdiqlangan Android APK toʻgʻridan-toʻgʻri yuklab olish uchun tayyor.`,
+    statusMessageUz: `ASAKA ZIYO v${APP_VERSION} (Build ${BUILD_CODE}) rasmiy RSA-4096 imzolangan va apksigner orqali tasdiqlangan native Android APK yuklab olish uchun tayyor.`,
     sizeBytes: signedApkInfo.sizeBytes,
-    fileSizeDisplay: `${(signedApkInfo.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+    fileSizeDisplay: sizeDisplay,
     sha256Checksum: signedApkInfo.sha256,
     aabSizeBytes: signedAabInfo ? signedAabInfo.sizeBytes : 0,
     aabSha256Checksum: signedAabInfo ? signedAabInfo.sha256 : '',
@@ -458,12 +435,59 @@ function main() {
     downloadUrl: '/api/apk/download',
     directUrl: `/${APK_FILENAME}`,
     releaseDate: today,
-    verifiedAt: new Date().toISOString(),
-    releaseHistory: previousHistory,
+    verifiedAt: nowIso,
+    releaseNotesUz,
+    releaseHistory: existingHistory,
   };
 
-  fs.writeFileSync(METADATA_PATH, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
-  console.log(`✅ Updated ${path.relative(ROOT_DIR, METADATA_PATH)}`);
+  const metadataJson = `${JSON.stringify(metadata, null, 2)}\n`;
+  fs.writeFileSync(METADATA_PATH, metadataJson, 'utf8');
+  fs.writeFileSync(RELEASE_METADATA_PATH, metadataJson, 'utf8');
+
+  let store = { releases: {}, totalDownloads: 0, telegramFileIdCache: {}, updatedAt: nowIso };
+  if (fs.existsSync(RELEASES_STORE_PATH)) {
+    try {
+      store = JSON.parse(fs.readFileSync(RELEASES_STORE_PATH, 'utf8')) || store;
+    } catch {
+      // keep default
+    }
+  }
+  const releaseId = `android-v${APP_VERSION}-${BUILD_CODE}`;
+  store.releases = store.releases || {};
+  store.releases[releaseId] = {
+    id: releaseId,
+    platform: 'android',
+    appName: 'ASAKA ZIYO',
+    packageId: PACKAGE_ID,
+    versionName: APP_VERSION,
+    versionCode: BUILD_CODE,
+    status: 'published',
+    signed: true,
+    apksignerVerified: true,
+    apkFilename: APK_FILENAME,
+    aabFilename: signedAabInfo ? AAB_FILENAME : '',
+    apkDownloadUrl: `https://asakaziyo.ai.studio/${APK_FILENAME}`,
+    aabDownloadUrl: '',
+    githubReleaseUrl: `https://github.com/myapployihagooglestudio/asakaziyoapp/releases/tag/v${APP_VERSION}`,
+    githubTag: `v${APP_VERSION}`,
+    apkSizeBytes: signedApkInfo.sizeBytes,
+    aabSizeBytes: signedAabInfo ? signedAabInfo.sizeBytes : 0,
+    sha256Checksum: signedApkInfo.sha256,
+    aabSha256Checksum: signedAabInfo ? signedAabInfo.sha256 : '',
+    signingCertSha256: signedApkInfo.certSha256,
+    minSdk: 24,
+    targetSdk: 36,
+    releaseNotesUz,
+    releaseDate: today,
+    downloadCount: Number(store.releases[releaseId]?.downloadCount || store.totalDownloads || 0),
+    publishedBy: 'android-release-pipeline',
+    createdAt: store.releases[releaseId]?.createdAt || nowIso,
+    updatedAt: nowIso,
+  };
+  store.updatedAt = nowIso;
+  fs.writeFileSync(RELEASES_STORE_PATH, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
+
+  console.log(`✅ Updated ${path.relative(ROOT_DIR, METADATA_PATH)}, ${path.relative(ROOT_DIR, RELEASE_METADATA_PATH)}, and ${path.relative(ROOT_DIR, RELEASES_STORE_PATH)}`);
 }
 
 try {

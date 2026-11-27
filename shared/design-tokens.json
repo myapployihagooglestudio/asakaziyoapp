@@ -1,0 +1,67 @@
+{
+  "$schema": "https://asakaziyo.ai.studio/schemas/design-tokens-v1.json",
+  "version": "2026.7.0",
+  "brand": "ASAKA ZIYO",
+  "platforms": ["web", "android", "telegram_miniapp", "telegram_bot"],
+  "colors": {
+    "dark": {
+      "oledBlack": "#060B09",
+      "midnightGreen": "#0B1B16",
+      "deepEmerald": "#063B2C",
+      "emeraldAccent": "#10B981",
+      "emeraldSoftBg": "rgba(16, 185, 129, 0.14)",
+      "subtleGold": "#D4AF37",
+      "luminousGold": "#E5C88B",
+      "goldSoftBg": "rgba(212, 175, 55, 0.14)",
+      "warmIvory": "#F7F5F0",
+      "textSecondary": "#9CAFA7",
+      "glassSurface": "rgba(11, 27, 22, 0.72)",
+      "luminousBorder": "rgba(255, 255, 255, 0.12)"
+    },
+    "light": {
+      "warmIvory": "#F7F5F0",
+      "surfaceCard": "#FFFFFF",
+      "deepEmerald": "#063B2C",
+      "emeraldAccent": "#059669",
+      "subtleGold": "#B48A1E",
+      "textPrimary": "#0B1B16",
+      "textSecondary": "#4B635A",
+      "glassSurface": "rgba(255, 255, 255, 0.82)",
+      "luminousBorder": "rgba(6, 59, 44, 0.12)"
+    }
+  },
+  "typography": {
+    "display": "Manrope",
+    "body": "Plus Jakarta Sans",
+    "mono": "JetBrains Mono",
+    "arabicMushaf": "Amiri Quran",
+    "arabicClassic": "Scheherazade New"
+  },
+  "radii": {
+    "cardSm": 14,
+    "cardMd": 20,
+    "cardLg": 24,
+    "button": 14,
+    "sheet": 28
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32
+  },
+  "motion": {
+    "fastMs": 160,
+    "normalMs": 280,
+    "cinematicMs": 420,
+    "easingStandard": "cubic-bezier(0.22, 1, 0.36, 1)"
+  },
+  "locales": [
+    { "code": "uz-Latn", "label": "Oʻzbek (Lotin)" },
+    { "code": "uz-Cyrl", "label": "Ўзбек (Кирилл)" },
+    { "code": "uz-Latn-new", "label": "Oʻzbek (Yangi Lotin: ş ç ö ğ)" },
+    { "code": "ru", "label": "Русский" },
+    { "code": "en", "label": "English" }
+  ]
+}

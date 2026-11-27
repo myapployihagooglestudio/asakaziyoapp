@@ -21,8 +21,9 @@ import {
   Plus,
   Power,
 } from 'lucide-react';
+import { OdiljonQoriAdminPanel } from './OdiljonQoriAdminPanel';
 
-type AdminSubTab = 'analytics' | 'plans' | 'payments' | 'users' | 'promos_draws' | 'qorilar' | 'education';
+type AdminSubTab = 'odiljon_qori' | 'analytics' | 'plans' | 'payments' | 'users' | 'promos_draws' | 'qorilar' | 'education';
 
 function fmtUzs(v: number): string {
   return `${new Intl.NumberFormat('uz-UZ').format(v || 0)} UZS`;
@@ -438,12 +439,13 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
   };
 
   const subTabs: Array<{ id: AdminSubTab; label: string; icon: React.ReactNode }> = [
+    { id: 'odiljon_qori', label: '★ Odiljon Qori (114 Sura)', icon: <Headphones className="w-4 h-4" /> },
     { id: 'analytics', label: '1. Real Statistika', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'plans', label: '2. Tariflar & 26 Funksiya', icon: <Crown className="w-4 h-4" /> },
     { id: 'payments', label: '3. Karta & Toʻlovlar', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'users', label: '4. Obunalar (Gift/Admin)', icon: <Users className="w-4 h-4" /> },
     { id: 'promos_draws', label: '5. Promo & Random Tanlov', icon: <Gift className="w-4 h-4" /> },
-    { id: 'qorilar', label: '6. Qorilar & 114 Audio', icon: <Headphones className="w-4 h-4" /> },
+    { id: 'qorilar', label: '6. Barcha Qorilar & Audio', icon: <Headphones className="w-4 h-4" /> },
     { id: 'education', label: '7. Tajvid & Testlar', icon: <GraduationCap className="w-4 h-4" /> },
   ];
 
@@ -662,6 +664,9 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* DEDICATED TAB: ODILJON QORI 114-SURAH PERMANENT AUDIO ECOSYSTEM */}
+      {tab === 'odiljon_qori' && <OdiljonQoriAdminPanel />}
 
       {/* TAB A: QORILAR & PERSISTENT 114-SURAH AUDIO STORAGE */}
       {tab === 'qorilar' && (

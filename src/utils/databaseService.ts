@@ -84,26 +84,30 @@ const KEYS = {
 };
 
 // Purge legacy v1..v4 sample caches so only admin-approved data is ever shown
-if (typeof window !== 'undefined' && window.localStorage) {
-  const legacyPrefixes = [
-    'asaka_ziyo_db_prayer_v2',
-    'asaka_ziyo_db_articles_v2',
-    'asaka_ziyo_db_media_posts_v2',
-    'asaka_ziyo_db_hadiths_v2',
-    'asaka_ziyo_db_dhikrs_v2',
-    'asaka_ziyo_db_inquiries_v2',
-    'asaka_ziyo_db_drafts_v2',
-    'asaka_ziyo_db_notifications_v2',
-    'asaka_ziyo_db_announcements_v2',
-    'asaka_ziyo_db_news_v2',
-  ];
-  for (const k of legacyPrefixes) {
-    try {
-      window.localStorage.removeItem(k);
-    } catch {
-      // ignore
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const legacyPrefixes = [
+      'asaka_ziyo_db_prayer_v2',
+      'asaka_ziyo_db_articles_v2',
+      'asaka_ziyo_db_media_posts_v2',
+      'asaka_ziyo_db_hadiths_v2',
+      'asaka_ziyo_db_dhikrs_v2',
+      'asaka_ziyo_db_inquiries_v2',
+      'asaka_ziyo_db_drafts_v2',
+      'asaka_ziyo_db_notifications_v2',
+      'asaka_ziyo_db_announcements_v2',
+      'asaka_ziyo_db_news_v2',
+    ];
+    for (const k of legacyPrefixes) {
+      try {
+        window.localStorage.removeItem(k);
+      } catch {
+        // ignore
+      }
     }
   }
+} catch {
+  // Ignore SecurityError when third-party storage is restricted inside cross-origin iframes
 }
 
 // Seed initial Media Posts & Reels for Asaka Ziyo
@@ -3292,13 +3296,17 @@ export function getAppUserId(): string {
   if (auth.currentUser?.uid) {
     return auth.currentUser.uid;
   }
-  if (typeof window !== 'undefined' && window.localStorage) {
-    let id = window.localStorage.getItem('asaka_user_identifier');
-    if (!id) {
-      id = 'user_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      window.localStorage.setItem('asaka_user_identifier', id);
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      let id = window.localStorage.getItem('asaka_user_identifier');
+      if (!id) {
+        id = 'user_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        window.localStorage.setItem('asaka_user_identifier', id);
+      }
+      return id;
     }
-    return id;
+  } catch {
+    // Storage restricted in iframe/privacy mode
   }
   return 'anonymous_user';
 }
@@ -3314,9 +3322,13 @@ export async function isContentLiked(contentType: string, contentId: string): Pr
   } catch {
     // fallback
   }
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const likedMap = JSON.parse(window.localStorage.getItem('asaka_user_likes_map') || '{}');
-    return !!likedMap[likeDocId];
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const likedMap = JSON.parse(window.localStorage.getItem('asaka_user_likes_map') || '{}');
+      return !!likedMap[likeDocId];
+    }
+  } catch {
+    // ignore storage errors
   }
   return false;
 }
@@ -3400,11 +3412,15 @@ export async function recordContentView(contentType: string, contentId: string):
   const userId = getAppUserId();
   const sessionKey = `viewed_${contentType}_${contentId}`;
   
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    if (window.sessionStorage.getItem(sessionKey)) {
-      return; // already viewed in this session
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      if (window.sessionStorage.getItem(sessionKey)) {
+        return; // already viewed in this session
+      }
+      window.sessionStorage.setItem(sessionKey, 'true');
     }
-    window.sessionStorage.setItem(sessionKey, 'true');
+  } catch {
+    // ignore sessionStorage restrictions
   }
 
   const viewId = `${contentType}_${contentId}_${userId}_${Date.now()}`;
@@ -4046,8 +4062,8 @@ export async function runComprehensiveSystemHealthCheck(): Promise<SystemHealthR
   // 4. LocalStorage Usage
   let totalBytes = 0;
   let itemsCount = 0;
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
       itemsCount = window.localStorage.length;
       for (let i = 0; i < window.localStorage.length; i++) {
         const k = window.localStorage.key(i);
@@ -4056,9 +4072,9 @@ export async function runComprehensiveSystemHealthCheck(): Promise<SystemHealthR
           totalBytes += (k.length + (val ? val.length : 0)) * 2;
         }
       }
-    } catch {
-      // ignore
     }
+  } catch {
+    // ignore
   }
   const localStorageUsageKb = Math.round(totalBytes / 1024);
 

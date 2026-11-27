@@ -30,8 +30,8 @@ android {
         applicationId "uz.asakaziyo.app"
         minSdk rootProject.ext.minSdkVersion
         targetSdk rootProject.ext.targetSdkVersion
-        versionCode 500
-        versionName "5.0.0"
+        versionCode 700
+        versionName "7.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         base.archivesName = "Asaka-Ziyo-v${versionName}"
 
@@ -113,7 +113,6 @@ dependencies {
     implementation "androidx.activity:activity-ktx:$androidxActivityVersion"
     implementation "androidx.activity:activity-compose:$androidxActivityVersion"
     implementation "androidx.fragment:fragment-ktx:$androidxFragmentVersion"
-    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
 
     // Jetpack Compose + Material 3 + Animation + Navigation
@@ -150,6 +149,8 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore-ktx'
     implementation 'com.google.firebase:firebase-auth-ktx'
 
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.json:json:20240303"
     debugImplementation "androidx.compose.ui:ui-tooling"
 }
 

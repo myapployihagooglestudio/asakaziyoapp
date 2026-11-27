@@ -169,10 +169,10 @@ export const TelegramManagementCenter: React.FC = () => {
         <div className="space-y-1">
           <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
             <Activity className="w-4 h-4 text-emerald-500" />
-            <span>ASAKA ZIYO Unified Ecosystem V4 — Telegram & Android Sinxronizatsiya Markazi</span>
+            <span>ASAKA ZIYO Unified Ecosystem V5 — Telegram & Android Sinxronizatsiya Markazi</span>
           </h3>
           <p className="text-xs text-stone-500 dark:text-stone-400">
-            Web App, Android APK v4.0.0 va Telegram Bot oʻrtasidagi yagona maʼlumotlar oqimi, Outbox navbati va reliz nazorati.
+            Web App, Android APK v5.0.0 va Telegram Bot oʻrtasidagi yagona maʼlumotlar oqimi, Outbox navbati va reliz nazorati.
           </p>
         </div>
 
@@ -233,7 +233,7 @@ export const TelegramManagementCenter: React.FC = () => {
             <Smartphone className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-lg font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-            <span>v{release?.version || '4.0.0'} (Build {release?.buildCode || 400})</span>
+            <span>v{release?.version || '5.0.0'} (Build {release?.buildCode || 500})</span>
             {release?.apkAvailable && release?.signed && (
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
             )}

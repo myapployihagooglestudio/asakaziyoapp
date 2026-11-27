@@ -1,6 +1,37 @@
 {
-  "releases": {},
-  "totalDownloads": 13,
+  "releases": {
+    "android-v6.0.0-600": {
+      "id": "android-v6.0.0-600",
+      "platform": "android",
+      "appName": "ASAKA ZIYO",
+      "packageId": "uz.asakaziyo.app",
+      "versionName": "6.0.0",
+      "versionCode": 600,
+      "status": "published",
+      "signed": true,
+      "apksignerVerified": true,
+      "apkFilename": "Asaka-Ziyo-v6.0.0.apk",
+      "aabFilename": "Asaka-Ziyo-v6.0.0.aab",
+      "apkDownloadUrl": "https://asakaziyo.ai.studio/Asaka-Ziyo-v6.0.0.apk",
+      "aabDownloadUrl": "",
+      "githubReleaseUrl": "https://github.com/myapployihagooglestudio/asakaziyoapp/releases/tag/v6.0.0",
+      "githubTag": "v6.0.0",
+      "apkSizeBytes": 6244235,
+      "aabSizeBytes": 14129422,
+      "sha256Checksum": "efa857fa0ea2c89847d3da12d5100f4921e473579742396dd25b86c87e30efc5",
+      "aabSha256Checksum": "c745b42fb87dc9a50a03187a13a5017a55098098869e80b9e2421cad479e241d",
+      "signingCertSha256": "8049b7e65b87ac1e95e7006754475c497b2fb45771c1f4f58b36deefb36c6d2b",
+      "minSdk": 24,
+      "targetSdk": 36,
+      "releaseNotesUz": "ASAKA ZIYO v6.0.0 (Build 600) — toʻliq native Kotlin + Jetpack Compose + Material 3 islomiy super-ilova. 7 ta uy ekrani vidjeti, 5 ta Quick Settings Tile, 6 ta App Shortcut, Aqlli Ibodat Rejalashtiruvchi, Diagnostika markazi, planshet uchun NavigationRail va Web App bilan 100% real-time kontent sinxronizatsiyasi.",
+      "releaseDate": "2026-11-25",
+      "downloadCount": 15,
+      "publishedBy": "android-release-pipeline",
+      "createdAt": "2026-11-25T12:41:00.000Z",
+      "updatedAt": "2026-11-25T13:59:44.577Z"
+    }
+  },
+  "totalDownloads": 15,
   "telegramFileIdCache": {},
-  "updatedAt": "2026-11-24T11:27:15.888Z"
+  "updatedAt": "2026-11-25T13:59:44.577Z"
 }

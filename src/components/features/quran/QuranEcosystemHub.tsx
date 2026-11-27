@@ -510,22 +510,33 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-sm">{q.nameUz}</div>
-                      <div className="font-arabic text-base opacity-85 mt-0.5">{q.nameAr}</div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {q.avatarUrl ? (
+                        <img
+                          src={q.avatarUrl}
+                          alt={q.nameUz}
+                          className="w-10 h-10 rounded-xl object-cover border border-[#C8A85E]/40 shrink-0"
+                        />
+                      ) : null}
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm truncate">{q.nameUz}</div>
+                        <div className="font-arabic text-base opacity-85 mt-0.5 truncate">{q.nameAr}</div>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-black/15 dark:bg-white/10">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-black/15 dark:bg-white/10 shrink-0">
                       {q.styleUz}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] opacity-80">
+                  <div className="mt-3 flex items-center justify-between text-[11px] opacity-85">
                     <span>{q.countryUz}</span>
-                    <span className="font-mono-numbers">
-                      {q.publishedSurahsCount > 0
-                        ? `${q.publishedSurahsCount} server audio`
+                    <span className="font-mono-numbers font-semibold">
+                      {q.isCompleteReady
+                        ? '114/114 sura tayyor'
+                        : q.publishedSurahsCount > 0
+                        ? `${q.publishedSurahsCount}/114 sura tayyor`
                         : q.externalSurahBaseUrl
-                        ? '114 sura tayyor'
-                        : 'Yuklanmoqda'}
+                        ? '114/114 sura tayyor'
+                        : '0/114 (yuklanmoqda)'}
                     </span>
                   </div>
                 </button>
@@ -631,7 +642,9 @@ export const QuranEcosystemHub: React.FC<QuranEcosystemHubProps> = ({
                           </button>
                         </>
                       ) : (
-                        <span className="text-[10px] text-[#5F776F] px-2">Kutilmoqda</span>
+                        <span className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-500/10 px-2 py-1 rounded-lg font-semibold">
+                          Hali yuklanmagan
+                        </span>
                       )}
                     </div>
                   </div>

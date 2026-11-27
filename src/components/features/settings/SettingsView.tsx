@@ -228,11 +228,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-14 h-14 rounded-2xl object-cover bg-white ring-1 ring-[#C8A85E]/50 shrink-0"
               />
               <div className="space-y-0.5 pr-1">
-                <div className="text-xs font-bold text-[#F7F4EC]">ASAKA ZIYO v4.0.0</div>
+                <div className="text-xs font-bold text-[#F7F4EC]">ASAKA ZIYO v{apkInfo.version || '5.0.0'}</div>
                 <div className="text-[11px] text-[#C8A85E] font-mono-numbers">
                   Asia/Tashkent · UTC+5
                 </div>
-                <div className="text-[11px] text-[#C2D4CD]">Build 400 · NEO 2026</div>
+                <div className="text-[11px] text-[#C2D4CD]">Build {apkInfo.buildCode || 500} · Native v5</div>
               </div>
             </div>
           </div>
@@ -839,15 +839,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    {getLocalizedText('Mobil Ilova va Rasmiy Android APK v4.0.0')}
+                    {getLocalizedText(`Mobil Ilova va Rasmiy Android APK v${apkInfo.version || '5.0.0'}`)}
                   </h3>
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#c5a869] text-[#071614]">
-                    v4.0.0 (Build 400)
+                    v{apkInfo.version || '5.0.0'} (Build {apkInfo.buildCode || 500})
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 dark:text-stone-400">
                   {getLocalizedText(
-                    'Toʻliq taʼmirlangan Android 7.0–16 (API 24–36) native ilovasi, yagona masjid logosi va oflayn tizim'
+                    'Yangi avlod native Kotlin + Jetpack Compose (Android 7.0–16, API 24–36) mobil ilovasi, Media3 fon pleeri va oflayn tizim'
                   )}
                 </p>
               </div>
@@ -892,13 +892,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 if (onOpenInstallModal) {
                   onOpenInstallModal();
                 } else {
-                  void triggerApkDownload('Asaka-Ziyo-v4.0.0.apk');
+                  void triggerApkDownload(apkInfo.apkFilename || 'Asaka-Ziyo-v5.0.0.apk');
                 }
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#c5a869] text-[#071614] text-xs font-bold hover:bg-[#d8bd7e] transition-all shadow-sm cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>{getLocalizedText('APK v4.0.0 Yuklab Olish Markazi')}</span>
+              <span>{getLocalizedText(`APK v${apkInfo.version || '5.0.0'} Yuklab Olish Markazi`)}</span>
             </button>
 
             {onOpenInstallModal && (
@@ -935,7 +935,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div>
               <span className="text-stone-400 block">{t('settings:platformVersion')}:</span>
-              <span className="font-semibold">ASAKA ZIYO v4.0.0 · Build 400</span>
+              <span className="font-semibold">ASAKA ZIYO v{apkInfo.version || '5.0.0'} · Build {apkInfo.buildCode || 500}</span>
             </div>
           </div>
 

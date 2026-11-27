@@ -565,6 +565,55 @@ export async function syncRecitersAndAudioFromFirestore(): Promise<{
     }
   }
 
+  // Merge unified server Qari catalog (including Odiljon qori permanent 114-surah vault)
+  try {
+    const apiBase = resolveReciterApiBaseUrl();
+    const ecoRes = await fetch(`${apiBase}/api/quran-ecosystem/qaris`, { cache: 'no-store' });
+    if (ecoRes.ok) {
+      const ecoJson = await ecoRes.json();
+      if (ecoJson?.success && Array.isArray(ecoJson.qaris) && ecoJson.qaris.length > 0) {
+        const mergedById = new Map<string, ReciterProfile>();
+        for (const r of recitersList) {
+          if (r && r.id) mergedById.set(r.id, r);
+        }
+        for (const q of ecoJson.qaris) {
+          if (!q || !q.id || q.isActive === false) continue;
+          const existing = mergedById.get(q.id);
+          const hasCdn = Boolean(q.externalSurahBaseUrl && String(q.externalSurahBaseUrl).trim());
+          const uploadedCount = hasCdn ? 114 : Number(q.publishedSurahsCount || 0);
+          mergedById.set(q.id, {
+            id: q.id,
+            name: q.nameUz || existing?.name || q.id,
+            nameAr: q.nameAr || existing?.nameAr || q.nameUz || '',
+            country: q.countryUz || existing?.country || 'Oʻzbekiston',
+            style: q.styleUz || existing?.style || 'Murattal',
+            rewaya: q.rewayaUz || existing?.rewaya || 'Hafs an Osim',
+            biographyUz: q.biographyUz || existing?.biographyUz || '',
+            language: existing?.language || 'Arab tili (Usmonsimon Mushaf)',
+            profileImageUrl: q.avatarUrl || existing?.profileImageUrl || '/images/quran_illumination_art_1793634658336.jpg',
+            surahServerBaseUrl: q.externalSurahBaseUrl || existing?.surahServerBaseUrl || '',
+            ayahServerBaseUrl: q.externalAyahBaseUrl || existing?.ayahServerBaseUrl || '',
+            previewUrl: existing?.previewUrl || '',
+            isActive: true,
+            isCustomUploaded: !hasCdn || Boolean(q.isProtectedPermanent),
+            uploadedSurahsCount: uploadedCount,
+            missingSurahsCount: Math.max(0, 114 - uploadedCount),
+            failedSurahsCount: 0,
+            totalSurahsCount: 114,
+            storageBasePath: existing?.storageBasePath || `quran-audio/${q.id}`,
+            createdAt: q.createdAt || existing?.createdAt || new Date().toISOString(),
+            updatedAt: q.updatedAt || new Date().toISOString(),
+          });
+        }
+        recitersList = Array.from(mergedById.values());
+        saveStoredPermanentReciters(recitersList);
+        dispatchReciterStorageEvent('QURAN_RECITERS_UPDATED', recitersList);
+      }
+    }
+  } catch {
+    // offline safe
+  }
+
   return {
     reciters: recitersList,
     overrides: overridesMap,

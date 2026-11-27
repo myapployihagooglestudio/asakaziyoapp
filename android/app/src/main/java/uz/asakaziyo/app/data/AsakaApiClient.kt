@@ -23,87 +23,156 @@ import java.net.URLEncoder
 object AsakaApiClient {
     private val baseUrl: String = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
 
+    @Volatile
+    var lastApiLatencyMs: Long = 0L
+        private set
+
+    @Volatile
+    var lastApiError: String = ""
+        private set
+
     private suspend fun requestJson(
         method: String,
         urlString: String,
         body: JSONObject? = null,
-        timeoutMs: Int = 15_000
+        timeoutMs: Int = 15_000,
+        maxRetries: Int = 2
     ): Pair<Int, JSONObject?> = withContext(Dispatchers.IO) {
-        var conn: HttpURLConnection? = null
-        try {
-            conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
-                requestMethod = method
-                connectTimeout = timeoutMs
-                readTimeout = timeoutMs
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", "AsakaZiyo-Android/${BuildConfig.VERSION_NAME}")
-                if (body != null) {
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                }
-            }
-            if (body != null) {
-                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
-                    writer.write(body.toString())
-                    writer.flush()
-                }
-            }
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.let { s ->
-                BufferedReader(InputStreamReader(s, Charsets.UTF_8)).use { it.readText() }
-            }.orEmpty()
-            val parsed = if (text.trim().startsWith("{")) JSONObject(text) else null
-            code to parsed
-        } catch (_: Exception) {
-            0 to null
-        } finally {
+        val attempts = if (method == "GET") (maxRetries + 1) else 1
+        var lastCode = 0
+        var lastJson: JSONObject? = null
+        for (attempt in 0 until attempts) {
+            val startedAt = System.currentTimeMillis()
+            var conn: HttpURLConnection? = null
             try {
-                conn?.disconnect()
-            } catch (_: Exception) {}
+                conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
+                    requestMethod = method
+                    connectTimeout = timeoutMs
+                    readTimeout = timeoutMs
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("User-Agent", "AsakaZiyo-Android/${BuildConfig.VERSION_NAME}")
+                    if (body != null) {
+                        doOutput = true
+                        setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    }
+                }
+                if (body != null) {
+                    OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { writer ->
+                        writer.write(body.toString())
+                        writer.flush()
+                    }
+                }
+                val code = conn.responseCode
+                lastApiLatencyMs = (System.currentTimeMillis() - startedAt).coerceAtLeast(1L)
+                val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                val text = stream?.let { s ->
+                    BufferedReader(InputStreamReader(s, Charsets.UTF_8)).use { it.readText() }
+                }.orEmpty()
+                val parsed = if (text.trim().startsWith("{")) JSONObject(text) else null
+                lastCode = code
+                lastJson = parsed
+                if (code in 200..299) {
+                    lastApiError = ""
+                    return@withContext code to parsed
+                }
+                if (code == 429) {
+                    lastApiError = "HTTP 429: Soʻrovlar chegarasi — kesh ishlatilmoqda"
+                    return@withContext code to parsed
+                }
+                if (code in 400..499) {
+                    lastApiError = "HTTP $code"
+                    return@withContext code to parsed
+                }
+                lastApiError = "HTTP $code"
+            } catch (e: Exception) {
+                lastApiLatencyMs = (System.currentTimeMillis() - startedAt).coerceAtLeast(1L)
+                lastApiError = e.message ?: "Tarmoq xatoligi"
+                lastCode = 0
+                lastJson = null
+            } finally {
+                try {
+                    conn?.disconnect()
+                } catch (_: Exception) {}
+            }
+            if (attempt < attempts - 1) {
+                try {
+                    Thread.sleep(350L * (1 shl attempt))
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
         }
+        lastCode to lastJson
+    }
+
+    // Pure parser exposed for JUnit tests & Asaka MANUAL_ADMIN integrity checks
+    fun parsePrayerScheduleJson(json: JSONObject, fallbackCityId: String = "uz-andijan-asaka"): PrayerScheduleSnapshot {
+        val rec = json.optJSONObject("record") ?: json.optJSONObject("schedule") ?: json
+        val timesObj = rec.optJSONObject("times")
+        val timesArr = rec.optJSONArray("times")
+        val arrayTimesMap = mutableMapOf<String, String>()
+        if (timesArr != null) {
+            for (i in 0 until timesArr.length()) {
+                val item = timesArr.optJSONObject(i) ?: continue
+                val key = item.optString("id", item.optString("key", "")).lowercase()
+                val t = item.optString("time", "")
+                if (key.isNotBlank() && t.isNotBlank()) arrayTimesMap[key] = t
+            }
+        }
+        fun pickTime(vararg keys: String, defaultVal: String = "--:--"): String {
+            for (k in keys) {
+                val direct = rec.optString(k, "").trim()
+                if (direct.isNotBlank()) return direct
+                val fromObj = timesObj?.optString(k, "")?.trim().orEmpty()
+                if (fromObj.isNotBlank()) return fromObj
+                val fromArr = arrayTimesMap[k.lowercase()]?.trim().orEmpty()
+                if (fromArr.isNotBlank()) return fromArr
+            }
+            return defaultVal
+        }
+        val nextObj = rec.optJSONObject("nextPrayer") ?: json.optJSONObject("nextPrayer")
+        val resolvedCityId = rec.optString("cityId", rec.optString("locationId", fallbackCityId)).ifBlank { fallbackCityId }
+        val defaultMode = if (resolvedCityId == "uz-andijan-asaka") "MANUAL_ADMIN" else "AUTO_CALCULATED"
+        return PrayerScheduleSnapshot(
+            cityId = resolvedCityId,
+            cityName = rec.optString("cityName", "Asaka").ifBlank { "Asaka" },
+            regionName = rec.optString("regionName", ""),
+            sourceMode = rec.optString("sourceMode", defaultMode).ifBlank { defaultMode },
+            localDate = rec.optString("localDate", rec.optString("date", "")),
+            hijriDate = rec.optString("hijriDate", ""),
+            fajr = pickTime("fajr", "bomdod"),
+            sunrise = pickTime("sunrise", "quyosh"),
+            dhuhr = pickTime("dhuhr", "peshin"),
+            asr = pickTime("asr"),
+            maghrib = pickTime("maghrib", "shom"),
+            isha = pickTime("isha", "xufton"),
+            tahajjud = pickTime("tahajjud", defaultVal = ""),
+            nextPrayerName = nextObj?.optString("nameUz", nextObj.optString("name", "")) ?: "",
+            nextPrayerTime = nextObj?.optString("time", "") ?: "",
+            isStaleCache = false,
+            fetchedAt = rec.optString("updatedAt", json.optString("fetchedAt", ""))
+        )
     }
 
     // --- 1. Global Prayer Times & Weather (Respecting Asaka MANUAL_ADMIN) ---
     suspend fun fetchTodayPrayer(cityId: String): PrayerScheduleSnapshot? {
         val encoded = URLEncoder.encode(cityId, "UTF-8")
-        val (code, json) = requestJson("GET", "$baseUrl/api/prayer-times/today?cityId=$encoded")
+        val (code, json) = requestJson("GET", "$baseUrl/api/global-prayer/schedule?locationId=$encoded")
         if (code != 200 || json == null) return null
-        val rec = json.optJSONObject("record") ?: json.optJSONObject("schedule") ?: json
-        val times = rec.optJSONObject("times") ?: rec
-        val nextObj = rec.optJSONObject("nextPrayer")
-        return PrayerScheduleSnapshot(
-            cityId = rec.optString("cityId", cityId),
-            cityName = rec.optString("cityName", "Asaka"),
-            regionName = rec.optString("regionName", ""),
-            sourceMode = rec.optString("sourceMode", "MANUAL_ADMIN"),
-            localDate = rec.optString("localDate", rec.optString("date", "")),
-            hijriDate = rec.optString("hijriDate", ""),
-            fajr = times.optString("fajr", times.optString("bomdod", "--:--")),
-            sunrise = times.optString("sunrise", times.optString("quyosh", "--:--")),
-            dhuhr = times.optString("dhuhr", times.optString("peshin", "--:--")),
-            asr = times.optString("asr", "--:--"),
-            maghrib = times.optString("maghrib", times.optString("shom", "--:--")),
-            isha = times.optString("isha", times.optString("xufton", "--:--")),
-            tahajjud = times.optString("tahajjud", ""),
-            nextPrayerName = nextObj?.optString("nameUz", "") ?: "",
-            nextPrayerTime = nextObj?.optString("time", "") ?: "",
-            isStaleCache = false,
-            fetchedAt = rec.optString("updatedAt", "")
-        )
+        return parsePrayerScheduleJson(json, cityId)
     }
 
     suspend fun fetchWeather(cityId: String): WeatherSnapshot? {
         val encoded = URLEncoder.encode(cityId, "UTF-8")
-        val (code, json) = requestJson("GET", "$baseUrl/api/weather?cityId=$encoded")
+        val (code, json) = requestJson("GET", "$baseUrl/api/weather?locationId=$encoded")
         if (code != 200 || json == null) return null
         val w = json.optJSONObject("weather") ?: json
         val current = w.optJSONObject("current") ?: return null
         return WeatherSnapshot(
-            cityName = w.optString("cityName", "Asaka"),
+            cityName = w.optString("locationLabel", w.optString("cityName", "Asaka")).ifBlank { "Asaka" },
             tempC = current.optDouble("temperatureC", current.optDouble("tempC", 0.0)),
             conditionUz = current.optString("conditionUz", current.optString("descriptionUz", "")),
-            humidity = current.optInt("relativeHumidity", current.optInt("humidity", 0)),
+            humidity = current.optInt("humidityPct", current.optInt("relativeHumidity", current.optInt("humidity", 0))),
             windKmh = current.optDouble("windSpeedKmh", current.optDouble("windKmh", 0.0)),
             isStale = w.optBoolean("isStale", false),
             attribution = w.optString("attribution", "Open-Meteo (CC BY 4.0)")
@@ -111,69 +180,57 @@ object AsakaApiClient {
     }
 
     suspend fun fetchUzbekistanAndGlobalCities(): List<CityOption> {
-        val out = mutableListOf<CityOption>()
-        val (c1, j1) = requestJson("GET", "$baseUrl/api/locations/uzbekistan")
-        if (c1 == 200 && j1 != null) {
-            val regions = j1.optJSONArray("regions") ?: JSONArray()
-            for (i in 0 until regions.length()) {
-                val reg = regions.getJSONObject(i)
-                val regName = reg.optString("nameUz", "")
-                val cities = reg.optJSONArray("cities") ?: JSONArray()
-                for (j in 0 until cities.length()) {
-                    val city = cities.getJSONObject(j)
-                    val id = city.optString("id", "")
-                    if (id.isNotBlank()) {
-                        out.add(
-                            CityOption(
-                                id = id,
-                                cityName = city.optString("cityName", ""),
-                                regionName = regName,
-                                countryName = "Oʻzbekiston",
-                                latitude = city.optDouble("latitude", 40.64),
-                                longitude = city.optDouble("longitude", 72.24),
-                                isManualAdmin = id == "uz-andijan-asaka"
-                            )
-                        )
-                    }
-                }
+        val out = LinkedHashMap<String, CityOption>()
+        val (code, json) = requestJson("GET", "$baseUrl/api/global-prayer/locations")
+        if (code != 200 || json == null) return emptyList()
+
+        fun addCity(city: JSONObject, fallbackRegion: String = "", fallbackCountry: String = "") {
+            val id = city.optString("id", "").trim()
+            if (id.isBlank() || out.containsKey(id)) return
+            out[id] = CityOption(
+                id = id,
+                cityName = city.optString("cityName", "").ifBlank { id },
+                regionName = city.optString("regionName", fallbackRegion),
+                countryName = city.optString("countryName", fallbackCountry),
+                latitude = city.optDouble("latitude", 40.6415),
+                longitude = city.optDouble("longitude", 72.2387),
+                isManualAdmin = id == "uz-andijan-asaka" || city.optString("sourceMode", "") == "MANUAL_ADMIN"
+            )
+        }
+
+        val regions = json.optJSONArray("uzbekistanRegions") ?: JSONArray()
+        for (i in 0 until regions.length()) {
+            val reg = regions.optJSONObject(i) ?: continue
+            val regName = reg.optString("regionName", reg.optString("nameUz", ""))
+            val cities = reg.optJSONArray("cities") ?: continue
+            for (j in 0 until cities.length()) {
+                val city = cities.optJSONObject(j) ?: continue
+                addCity(city, fallbackRegion = regName, fallbackCountry = "Oʻzbekiston")
             }
         }
-        val (c2, j2) = requestJson("GET", "$baseUrl/api/locations/global")
-        if (c2 == 200 && j2 != null) {
-            val cities = j2.optJSONArray("cities") ?: JSONArray()
-            for (i in 0 until cities.length()) {
-                val city = cities.getJSONObject(i)
-                val id = city.optString("id", "")
-                if (id.isNotBlank()) {
-                    out.add(
-                        CityOption(
-                            id = id,
-                            cityName = city.optString("cityName", ""),
-                            regionName = city.optString("regionName", ""),
-                            countryName = city.optString("countryName", ""),
-                            latitude = city.optDouble("latitude", 21.42),
-                            longitude = city.optDouble("longitude", 39.82),
-                            isManualAdmin = false
-                        )
-                    )
-                }
+        listOf("haramainFeatured", "centralAsiaCities", "globalCities").forEach { key ->
+            val arr = json.optJSONArray(key) ?: return@forEach
+            for (i in 0 until arr.length()) {
+                val city = arr.optJSONObject(i) ?: continue
+                addCity(city)
             }
         }
-        return out
+        return out.values.toList()
     }
 
     suspend fun resolveNearestCity(lat: Double, lon: Double): CityOption? {
-        val (code, json) = requestJson("GET", "$baseUrl/api/locations/nearest?lat=$lat&lon=$lon")
+        val (code, json) = requestJson("GET", "$baseUrl/api/global-prayer/resolve-gps?lat=$lat&lon=$lon")
         if (code != 200 || json == null) return null
-        val loc = json.optJSONObject("location") ?: return null
+        val loc = json.optJSONObject("location") ?: json.optJSONObject("city") ?: return null
+        val id = loc.optString("id", "uz-andijan-asaka")
         return CityOption(
-            id = loc.optString("id", "uz-andijan-asaka"),
+            id = id,
             cityName = loc.optString("cityName", "Asaka"),
             regionName = loc.optString("regionName", ""),
             countryName = loc.optString("countryName", ""),
             latitude = loc.optDouble("latitude", lat),
             longitude = loc.optDouble("longitude", lon),
-            isManualAdmin = loc.optString("id") == "uz-andijan-asaka"
+            isManualAdmin = id == "uz-andijan-asaka"
         )
     }
 
@@ -185,6 +242,18 @@ object AsakaApiClient {
         val out = mutableListOf<QariProfile>()
         for (i in 0 until arr.length()) {
             val q = arr.getJSONObject(i)
+            val extBase = q.optString("externalSurahBaseUrl", "").ifBlank { null }
+            val publishedCount = q.optInt("publishedSurahsCount", 0)
+            val rawAvatar = q.optString("avatarUrl", "")
+            val resolvedAvatar = if (rawAvatar.startsWith("/")) "$baseUrl$rawAvatar" else rawAvatar
+            val missingCount = q.optInt(
+                "missingSurahsCount",
+                if (extBase != null) 0 else (114 - publishedCount).coerceAtLeast(0)
+            )
+            val isCompleteReady = q.optBoolean(
+                "isCompleteReady",
+                extBase != null || publishedCount >= 114
+            )
             out.add(
                 QariProfile(
                     id = q.optString("id", ""),
@@ -192,9 +261,13 @@ object AsakaApiClient {
                     nameAr = q.optString("nameAr", ""),
                     countryUz = q.optString("countryUz", ""),
                     styleUz = q.optString("styleUz", "Murattal"),
-                    bioUz = q.optString("bioUz", ""),
-                    publishedSurahsCount = q.optInt("publishedSurahsCount", 0),
-                    externalSurahBaseUrl = q.optString("externalSurahBaseUrl", "").ifBlank { null }
+                    bioUz = q.optString("biographyUz", q.optString("bioUz", "")),
+                    publishedSurahsCount = publishedCount,
+                    externalSurahBaseUrl = extBase,
+                    avatarUrl = resolvedAvatar,
+                    isCompleteReady = isCompleteReady,
+                    missingSurahsCount = missingCount,
+                    isProtectedPermanent = q.optBoolean("isProtectedPermanent", false)
                 )
             )
         }
@@ -210,30 +283,37 @@ object AsakaApiClient {
         for (i in 0 until arr.length()) {
             val s = arr.getJSONObject(i)
             val surahNum = s.optInt("surahNumber", i + 1)
-            val serverAudio = s.optJSONObject("audio")
+            val serverAudio = s.optJSONObject("uploadedRecord") ?: s.optJSONObject("audio")
             val audioId = serverAudio?.optString("id", "")?.ifBlank { null }
-            val extUrl = s.optString("externalFallbackUrl", "").ifBlank { null }
+            val rawAudioUrl = s.optString("audioUrl", s.optString("externalFallbackUrl", "")).ifBlank { null }
             val resolvedStream = when {
+                rawAudioUrl != null && rawAudioUrl.startsWith("/") -> "$baseUrl$rawAudioUrl"
+                rawAudioUrl != null -> rawAudioUrl
                 audioId != null -> "$baseUrl/api/quran-ecosystem/audio-stream/$audioId"
-                extUrl != null -> extUrl
                 else -> ""
             }
-            if (resolvedStream.isNotBlank()) {
-                out.add(
-                    QariSurahTrack(
-                        trackKey = "${qari.id}_${surahNum}",
-                        qariId = qari.id,
-                        qariName = qari.nameUz,
-                        surahNumber = surahNum,
-                        surahNameUz = s.optString("surahNameUz", "Sura #$surahNum"),
-                        audioId = audioId,
-                        streamUrl = resolvedStream,
-                        sha256 = serverAudio?.optString("sha256", "")?.ifBlank { null },
-                        durationSec = serverAudio?.optInt("durationSec", 0) ?: 0,
-                        isServerHosted = audioId != null
-                    )
+            val audioSource = s.optString(
+                "audioSource",
+                if (audioId != null) "uploaded_persistent" else if (resolvedStream.isNotBlank()) "verified_cdn" else "unavailable"
+            )
+            val surahTitle = s.optString("nameUz", s.optString("surahNameUz", "Sura #$surahNum"))
+            out.add(
+                QariSurahTrack(
+                    trackKey = "${qari.id}_${surahNum}",
+                    qariId = qari.id,
+                    qariName = qari.nameUz,
+                    surahNumber = surahNum,
+                    surahNameUz = surahTitle,
+                    audioId = audioId,
+                    streamUrl = resolvedStream,
+                    sha256 = serverAudio?.optString("sha256", "")?.ifBlank { null },
+                    durationSec = serverAudio?.optInt("durationSeconds", serverAudio.optInt("durationSec", 0)) ?: 0,
+                    isServerHosted = audioSource == "uploaded_persistent" || audioId != null,
+                    isAvailable = resolvedStream.isNotBlank(),
+                    audioSource = audioSource,
+                    version = serverAudio?.optInt("version", 1) ?: 1
                 )
-            }
+            )
         }
         return out
     }
@@ -552,6 +632,36 @@ object AsakaApiClient {
         } else {
             null to (json?.optString("error", "Kod yaratishda xatolik") ?: "Tarmoq xatoligi")
         }
+    }
+
+    suspend fun redeemAccountLinkCode(codeInput: String, secondaryUserId: String): Pair<String?, String?> {
+        val body = JSONObject().apply {
+            put("code", codeInput.trim())
+            put("secondaryUserId", secondaryUserId)
+            put("platform", "android")
+        }
+        val (code, json) = requestJson("POST", "$baseUrl/api/account-link/redeem", body)
+        return if (code == 200 && json?.optBoolean("success", false) == true) {
+            val canonical = json.optString("canonicalUserId", "").ifBlank { null }
+            canonical to null
+        } else {
+            null to (json?.optString("error", "6 xonali kod yaroqsiz yoki muddati tugagan") ?: "Tarmoq xatoligi")
+        }
+    }
+
+    suspend fun fetchUnifiedUserSyncState(userId: String): JSONObject? {
+        val encoded = URLEncoder.encode(userId, "UTF-8")
+        val (code, json) = requestJson("GET", "$baseUrl/api/user/sync-state/$encoded")
+        return if (code == 200 && json?.optBoolean("success", false) == true) json else null
+    }
+
+    suspend fun pushUnifiedUserSyncState(userId: String, payload: JSONObject): Boolean {
+        val encoded = URLEncoder.encode(userId, "UTF-8")
+        val body = JSONObject(payload.toString()).apply {
+            put("platform", "android")
+        }
+        val (code, json) = requestJson("PUT", "$baseUrl/api/user/sync-state/$encoded", body)
+        return code == 200 && json?.optBoolean("success", false) == true
     }
 
     // --- 4. Server-Side Gemini AI Assistant Proxy (ZERO API Keys in APK, Server-Enforced Entitlements!) ---

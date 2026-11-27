@@ -1087,9 +1087,9 @@ async function runFullE2ESuite() {
   }
 
   // ---------------------------------------------------------------------------
-  // 10. NATIVE ANDROID APK v4.0.0 RELEASE METADATA & DOWNLOAD CONTRACT VERIFICATION
+  // 10. NATIVE ANDROID APK v5.0.0 RELEASE METADATA & DOWNLOAD CONTRACT VERIFICATION
   // ---------------------------------------------------------------------------
-  console.log('\n--- 10. Testing Native Android APK v4.0.0 Metadata & Download Contract ---');
+  console.log('\n--- 10. Testing Native Android APK v5.0.0 Metadata & Download Contract ---');
 
   const apkInfoRes = await fetch(`${BASE_URL}/api/apk/info`);
   const apkInfoJson = await apkInfoRes.json();
@@ -1097,10 +1097,10 @@ async function runFullE2ESuite() {
     apkInfoRes.status === 200 &&
       apkInfoJson.success === true &&
       apkInfoJson.packageId === 'uz.asakaziyo.app' &&
-      apkInfoJson.version === '4.0.0' &&
-      apkInfoJson.buildCode === 400 &&
-      apkInfoJson.apkFilename === 'Asaka-Ziyo-v4.0.0.apk',
-    'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app), v4.0.0 & buildCode 400'
+      apkInfoJson.version === '5.0.0' &&
+      apkInfoJson.buildCode === 500 &&
+      apkInfoJson.apkFilename === 'Asaka-Ziyo-v5.0.0.apk',
+    'APK TEST 1: GET /api/apk/info returns verified packageId (uz.asakaziyo.app), v5.0.0 & buildCode 500'
   );
 
   const apkDownloadRes = await fetch(`${BASE_URL}/api/apk/download`);
@@ -1119,8 +1119,8 @@ async function runFullE2ESuite() {
     assert(
       apkDownloadRes.status === 200 &&
         apkContentType.includes('application/vnd.android.package-archive') &&
-        apkDisposition.includes('Asaka-Ziyo-v4.0.0.apk'),
-      'APK TEST 3: GET /api/apk/download streams with Content-Type: application/vnd.android.package-archive & Asaka-Ziyo-v4.0.0.apk'
+        apkDisposition.includes('Asaka-Ziyo-v5.0.0.apk'),
+      'APK TEST 3: GET /api/apk/download streams with Content-Type: application/vnd.android.package-archive & Asaka-Ziyo-v5.0.0.apk'
     );
     assert(
       apkBytes.length === apkInfoJson.sizeBytes &&
@@ -1138,7 +1138,7 @@ async function runFullE2ESuite() {
     const errJson = await apkDownloadRes.json();
     assert(
       apkInfoJson.status === 'awaiting_ci_artifact' && apkInfoJson.apkAvailable === false,
-      'APK TEST 2: GET /api/apk/info honestly reports awaiting_ci_artifact when v4.0.0 APK binary is not yet built on server'
+      'APK TEST 2: GET /api/apk/info honestly reports awaiting_ci_artifact when v5.0.0 APK binary is not yet built on server'
     );
     assert(
       apkDownloadRes.status === 404 &&

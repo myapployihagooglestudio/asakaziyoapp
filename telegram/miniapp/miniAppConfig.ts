@@ -21,14 +21,17 @@ export interface VerifiedMiniAppInitData {
 export function buildMiniAppEntryUrl(
   config: TelegramPlatformConfig,
   locale: TelegramLocale,
-  section: 'home' | 'prayer' | 'quran' | 'masjid-tv' = 'home'
+  section: string = 'home'
 ): string {
   const base = (config.miniAppUrl || config.webAppUrl).replace(/\/+$/, '');
-  if (section === 'masjid-tv') {
+  const cleanSection = String(section || 'home').trim().toLowerCase();
+  if (cleanSection === 'masjid-tv' || cleanSection === 'masjid_tv') {
     return `${base}/masjid-tv?lang=${encodeURIComponent(locale)}&source=telegram_miniapp`;
   }
-  const hash = section === 'home' ? '' : `#${section}`;
-  return `${base}/?lang=${encodeURIComponent(locale)}&source=telegram_miniapp${hash}`;
+  const safeHash = cleanSection === 'home' || !cleanSection
+    ? ''
+    : `#${encodeURIComponent(cleanSection)}`;
+  return `${base}/?lang=${encodeURIComponent(locale)}&source=telegram_miniapp${safeHash}`;
 }
 
 export function verifyTelegramMiniAppInitData(

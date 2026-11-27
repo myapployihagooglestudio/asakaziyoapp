@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shortcut_quran"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_quran_short"
+        android:shortcutLongLabel="@string/shortcut_quran_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.asakaziyo.app"
+            android:targetClass="uz.asakaziyo.app.MainActivity">
+            <extra android:name="targetView" android:value="quran" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_audio"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_audio_short"
+        android:shortcutLongLabel="@string/shortcut_audio_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.asakaziyo.app"
+            android:targetClass="uz.asakaziyo.app.MainActivity">
+            <extra android:name="targetView" android:value="audio" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_prayer"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_prayer_short"
+        android:shortcutLongLabel="@string/shortcut_prayer_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.asakaziyo.app"
+            android:targetClass="uz.asakaziyo.app.MainActivity">
+            <extra android:name="targetView" android:value="prayer" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_tasbeh"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_tasbeh_short"
+        android:shortcutLongLabel="@string/shortcut_tasbeh_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.asakaziyo.app"
+            android:targetClass="uz.asakaziyo.app.MainActivity">
+            <extra android:name="targetView" android:value="tasbeh" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_qibla"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_qibla_short"
+        android:shortcutLongLabel="@string/shortcut_qibla_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.asakaziyo.app"
+            android:targetClass="uz.asakaziyo.app.MainActivity">
+            <extra android:name="targetView" android:value="qibla" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_hifz"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_round"
+        android:shortcutShortLabel="@string/shortcut_hifz_short"
+        android:shortcutLongLabel="@string/shortcut_hifz_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.asakaziyo.app"
+            android:targetClass="uz.asakaziyo.app.MainActivity">
+            <extra android:name="targetView" android:value="hifz" />
+        </intent>
+    </shortcut>
+</shortcuts>

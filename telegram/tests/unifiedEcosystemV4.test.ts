@@ -349,40 +349,40 @@ async function run() {
     assert.equal(recoveredCount, 1, 'Should recover 1 stuck processing job after restart');
     results.push('✅ [6/12] Transactional Outbox restart recovery verified');
 
-    // TEST 7 & 8: AppReleaseService honesty (v3 never treated as v4; upsert + download counter works)
+    // TEST 7 & 8: AppReleaseService honesty (v4/v3 never treated as v5; upsert + download counter works)
     const emptyRelease = await releaseService.getResolvedReleaseInfo({ checkGitHub: false });
-    assert.equal(emptyRelease.apkAvailable, false, 'Must honestly report apkAvailable=false when no v4 APK exists');
-    assert.equal(emptyRelease.version, '4.0.0');
+    assert.equal(emptyRelease.apkAvailable, false, 'Must honestly report apkAvailable=false when no v5 APK exists');
+    assert.equal(emptyRelease.version, '5.0.0');
 
     await releaseService.upsertRelease({
-      versionName: '3.0.0',
-      versionCode: 300,
-      apkDownloadUrl: 'https://asakaziyo.ai.studio/Asaka-Ziyo-v3.0.0.apk',
-      apkSizeBytes: 2_500_000,
+      versionName: '4.0.0',
+      versionCode: 400,
+      apkDownloadUrl: 'https://asakaziyo.ai.studio/Asaka-Ziyo-v4.0.0.apk',
+      apkSizeBytes: 7_473_103,
       signed: true,
       apksignerVerified: true,
       status: 'published',
     });
-    const stillNoV4 = await releaseService.getResolvedReleaseInfo({ checkGitHub: false });
-    assert.equal(stillNoV4.apkAvailable, false, 'v3.0.0 release must NEVER be returned as v4.0.0');
+    const stillNoV5 = await releaseService.getResolvedReleaseInfo({ checkGitHub: false });
+    assert.equal(stillNoV5.apkAvailable, false, 'v4.0.0 release must NEVER be returned as v5.0.0');
 
-    const v4Record = await releaseService.upsertRelease({
-      versionName: '4.0.0',
-      versionCode: 400,
+    const v5Record = await releaseService.upsertRelease({
+      versionName: '5.0.0',
+      versionCode: 500,
       apkDownloadUrl: 'https://asakaziyo.ai.studio/api/apk/download',
-      apkSizeBytes: 5_200_000,
+      apkSizeBytes: 12_500_000,
       sha256Checksum: 'a'.repeat(64),
       signed: true,
       apksignerVerified: true,
       status: 'published',
     });
-    await releaseService.incrementDownloadCount(v4Record.id);
-    const resolvedV4 = await releaseService.getResolvedReleaseInfo({ checkGitHub: false });
-    assert.equal(resolvedV4.apkAvailable, true);
-    assert.equal(resolvedV4.buildCode, 400);
-    assert.ok(resolvedV4.downloadCount >= 1);
-    results.push('✅ [7/12] AppReleaseService v3/v4 strict isolation & honest availability verified');
-    results.push('✅ [8/12] AppReleaseService v4.0.0 registration & download counter verified');
+    await releaseService.incrementDownloadCount(v5Record.id);
+    const resolvedV5 = await releaseService.getResolvedReleaseInfo({ checkGitHub: false });
+    assert.equal(resolvedV5.apkAvailable, true);
+    assert.equal(resolvedV5.buildCode, 500);
+    assert.ok(resolvedV5.downloadCount >= 1);
+    results.push('✅ [7/12] AppReleaseService v4/v5 strict isolation & honest availability verified');
+    results.push('✅ [8/12] AppReleaseService v5.0.0 registration & download counter verified');
 
     // TEST 9 & 10: Telegram Bot unified commands (/android & /start article_<id>)
     sent.length = 0;
@@ -397,7 +397,7 @@ async function run() {
       },
     });
     const androidReply = sent.find((m) => m.method === 'sendMessage' && Number(m.body.chat_id) === 1001);
-    assert.ok(androidReply && String(androidReply.body.text || '').includes('4.0.0'), '/android must display v4.0.0 card');
+    assert.ok(androidReply && String(androidReply.body.text || '').includes('5.0.0'), '/android must display v5.0.0 card');
 
     sent.length = 0;
     await engine.processUpdate({
@@ -415,7 +415,7 @@ async function run() {
       deepLinkReply && String(deepLinkReply.body.text || '').includes('Ilm olish fazilati'),
       '/start article_<id> deep-link must open exact central DB article'
     );
-    results.push('✅ [9/12] Telegram Bot /android v4.0.0 verified release card works');
+    results.push('✅ [9/12] Telegram Bot /android v5.0.0 verified release card works');
     results.push('✅ [10/12] Telegram Bot unified commands & /start deep-link routing verified');
 
     // TEST 11: 20-button Reply Keyboard & 5-language locale completeness

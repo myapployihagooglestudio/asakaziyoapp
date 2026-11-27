@@ -1,12 +1,13 @@
-name: ASAKA ZIYO Android v5.0.0 Release (APK & AAB)
+name: ASAKA ZIYO Android v7.0.0 Release (APK & AAB)
 
 on:
   push:
     branches:
       - main
     tags:
+      - 'v7.*'
+      - 'v6.*'
       - 'v5.*'
-      - 'v4.*'
       - 'android-v*'
   workflow_dispatch:
     inputs:
@@ -25,7 +26,7 @@ concurrency:
 
 jobs:
   build-android-release:
-    name: Build, Sign & Verify ASAKA ZIYO v5.0.0 (APK + AAB)
+    name: Build, Sign & Verify ASAKA ZIYO v7.0.0 (APK + AAB)
     runs-on: ubuntu-latest
     outputs:
       signed: ${{ steps.verify.outputs.signed }}
@@ -64,7 +65,7 @@ jobs:
       - name: 5. TypeScript static check (bun run lint)
         run: bun run lint
 
-      # 6. Automated Unit, Telegram Super Platform & Unified Ecosystem V4 tests
+      # 6. Automated Unit, Telegram Super Platform & Unified Ecosystem tests
       - name: 6. Run automated test suite
         run: |
           bunx tsx src/utils/newUzbekAlphabet.test.ts
@@ -73,31 +74,23 @@ jobs:
           bunx tsx src/utils/quran.test.ts
           bunx tsx src/utils/quranAudioSync.test.ts
           bunx tsx src/utils/quranQuiz.test.ts
+          bunx tsx src/utils/odiljonQoriEcosystem.test.ts
           bunx tsx telegram/tests/telegramPlatform.test.ts
           bunx tsx telegram/tests/unifiedEcosystemV4.test.ts
 
-      # 7. Production Vite web build
-      - name: 7. Build Vite production bundle
+      # 7. Production Vite web build (verify Web App stays 100% healthy)
+      - name: 7. Verify Vite production web build
         run: bun run build
 
-      # 8. Regenerate & validate unified Web/PWA/Android icons
-      - name: 8. Generate & validate icons (official mosque seal)
-        run: bun run icons:generate
-
-      # 9. Sync & verify WebView assets inside android/app/src/main/assets/public/
-      - name: 9. Sync & verify Android WebView assets + XML resources
-        run: bun run android:sync
-
-      # 10. Setup JDK 17
-      - name: 10. Setup Java 17 (Temurin)
+      # 8. Setup JDK 17
+      - name: 8. Setup Java 17 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 11. Configure Android SDK (API 36 + Build-Tools 35.0.0) using pre-installed runner SDK
-      #     Replaces deprecated/failing android-actions/setup-android@v3
-      - name: 11. Setup Android SDK (API 36 & Build-Tools 35.0.0)
+      # 9. Configure Android SDK (API 36 + Build-Tools 36.0.0)
+      - name: 9. Setup Android SDK (API 36 & Build-Tools 36.0.0)
         run: |
           SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           mkdir -p "$SDK_DIR"
@@ -127,21 +120,17 @@ jobs:
 
           echo "$SDK_DIR/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK_DIR/platform-tools" >> "$GITHUB_PATH"
-          echo "$SDK_DIR/build-tools/35.0.0" >> "$GITHUB_PATH"
+          echo "$SDK_DIR/build-tools/36.0.0" >> "$GITHUB_PATH"
 
           yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses > /dev/null || true
-          "$SDKMANAGER" --sdk_root="$SDK_DIR" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      # 12. Setup Gradle caching (uses committed android/gradlew wrapper)
-      - name: 12. Setup Gradle caching
+      # 10. Setup Gradle caching (uses committed android/gradlew wrapper)
+      - name: 10. Setup Gradle caching
         uses: gradle/actions/setup-gradle@v4
 
-      # 13. Configure signing without requiring manual secret creation:
-      #     - Mode A (ci_secrets): Uses existing signing keystore secrets if configured (never rotates cert).
-      #     - Mode B (verified_repo_apk): Compiles & verifies full Android source (Debug APK, Release APK, AAB)
-      #       and independently verifies the repository's pre-signed release APK (data/release/Asaka-Ziyo-v4.0.0.apk)
-      #       signed by the preserved persistent keystore — NEVER publishing unsigned APKs or switching certificates.
-      - name: 13. Resolve Android signing mode (preserve existing signing identity)
+      # 11. Resolve Android signing mode (preserve existing RSA-4096 signing identity)
+      - name: 11. Resolve Android signing mode (preserve existing signing identity)
         id: signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -159,31 +148,33 @@ jobs:
           EOF
             echo "signing_mode=ci_secrets" >> "$GITHUB_OUTPUT"
             echo "✅ Using configured release signing keystore."
-          elif [ -f "data/release/Asaka-Ziyo-v4.0.0.apk" ]; then
+          elif [ -f "data/release/Asaka-Ziyo-v7.0.0.apk" ]; then
             echo "signing_mode=verified_repo_apk" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  No CI signing secrets configured; compiling full source (Debug/Release APK + AAB) and independently verifying signed data/release/Asaka-Ziyo-v4.0.0.apk."
+            echo "ℹ️  No CI signing secrets configured; compiling full v7.0.0 Kotlin source (Unit Tests + Debug/Release APK + AAB) and independently verifying signed data/release/Asaka-Ziyo-v7.0.0.apk."
           else
             echo "signing_mode=unsigned_only" >> "$GITHUB_OUTPUT"
             echo "⚠️  No signing keystore or verified signed release APK available — will NOT publish unsigned artifacts."
           fi
 
-      # 14. Compile Debug APK, Release APK & Release AAB via committed Gradle wrapper
-      - name: 14. Compile Android Debug APK, Release APK & Release AAB (./gradlew)
+      # 12. Run Android v7.0.0 Unit Tests & Compile Debug APK, Release APK & Release AAB
+      - name: 12. Test & Compile Native Android v7.0.0 (./gradlew)
         working-directory: android
         run: |
+          sed -i 's/\r$//' ./gradlew
           chmod +x ./gradlew
+          ./gradlew testDebugUnitTest --no-daemon
           if [ "${{ steps.signing.outputs.signing_mode }}" = "ci_secrets" ]; then
             ./gradlew clean assembleDebug assembleRelease bundleRelease --no-daemon
           else
             ./gradlew clean assembleDebug assembleRelease bundleRelease -PallowUnsignedRelease=true --no-daemon
           fi
 
-      # 15. Verify compiled APK & AAB internal structure, embedded WebView assets, package ID, version & cryptographic signature
-      - name: 15. Verify APK signature (apksigner), package metadata (aapt2), ZIP & WebView assets
+      # 13. Verify compiled pure native APK & AAB structure, package ID, version & cryptographic signature
+      - name: 13. Verify APK signature (apksigner), package metadata (aapt2) & pure native ZIP structure
         id: verify
         run: |
-          AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
-          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          AAPT2="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
 
           BUILT_DEBUG_APK=$(ls android/app/build/outputs/apk/debug/*.apk | head -n 1)
           BUILT_RELEASE_APK=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
@@ -193,7 +184,7 @@ jobs:
           test -f "$BUILT_RELEASE_APK"
           test -f "$BUILT_RELEASE_AAB"
 
-          # Verify freshly compiled source APK & AAB structure
+          # Verify freshly compiled source APK & AAB structure (pure native — ZERO legacy WebView assets/public)
           unzip -t "$BUILT_DEBUG_APK" > /dev/null
           unzip -t "$BUILT_RELEASE_APK" > /dev/null
           unzip -t "$BUILT_RELEASE_AAB" > /dev/null
@@ -203,17 +194,18 @@ jobs:
           echo "$SRC_LISTING" | grep -q "classes.dex"
           echo "$SRC_LISTING" | grep -q "resources.arsc"
           echo "$SRC_LISTING" | grep -q "mipmap"
-          echo "$SRC_LISTING" | grep -q "assets/public/index.html"
-          echo "$SRC_LISTING" | grep -Eq "assets/public/assets/.*\.js"
-          echo "$SRC_LISTING" | grep -q "assets/public/images/asaka-ziyo-logo-seal.jpg"
-          echo "✅ Source build verified: Debug APK, Release APK, Release AAB (AXML, DEX, resources.arsc, HTML, JS, images)."
+          if echo "$SRC_LISTING" | grep -q "assets/public/index.html"; then
+            echo "❌ Unexpected legacy WebView assets/public/index.html found inside pure native v7.0.0 APK!"
+            exit 1
+          fi
+          echo "✅ Pure native v7.0.0 source build verified: Debug APK, Release APK, Release AAB (AXML, DEX, resources.arsc, mipmap, zero WebView bloat)."
 
           # Select release candidate APK (strictly signed only)
           if [ "${{ steps.signing.outputs.signing_mode }}" = "ci_secrets" ]; then
             RELEASE_APK="$BUILT_RELEASE_APK"
             RELEASE_AAB="$BUILT_RELEASE_AAB"
           elif [ "${{ steps.signing.outputs.signing_mode }}" = "verified_repo_apk" ]; then
-            RELEASE_APK="data/release/Asaka-Ziyo-v4.0.0.apk"
+            RELEASE_APK="data/release/Asaka-Ziyo-v7.0.0.apk"
             RELEASE_AAB=""
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
@@ -224,30 +216,24 @@ jobs:
             exit 0
           fi
 
-          # Independently verify release candidate APK integrity, badging, embedded WebView assets & cryptographic signature
+          # Independently verify release candidate APK integrity, badging & cryptographic signature
           unzip -t "$RELEASE_APK" > /dev/null
           REL_LISTING=$(unzip -l "$RELEASE_APK")
           echo "$REL_LISTING" | grep -q "AndroidManifest.xml"
           echo "$REL_LISTING" | grep -q "classes.dex"
           echo "$REL_LISTING" | grep -q "resources.arsc"
           echo "$REL_LISTING" | grep -q "mipmap"
-          echo "$REL_LISTING" | grep -q "assets/public/index.html"
-          echo "$REL_LISTING" | grep -Eq "assets/public/assets/.*\.js"
-          echo "$REL_LISTING" | grep -q "assets/public/images/asaka-ziyo-logo-seal.jpg"
 
           BADGING=$("$AAPT2" dump badging "$RELEASE_APK")
           echo "$BADGING" | head -n 15
           echo "$BADGING" | grep -q "name='uz.asakaziyo.app'"
-          if [ "${{ steps.signing.outputs.signing_mode }}" = "ci_secrets" ]; then
-            echo "$BADGING" | grep -q "versionCode='500'"
-            echo "$BADGING" | grep -q "versionName='5.0.0'"
-          else
-            echo "$BADGING" | grep -Eq "versionCode='(400|410|500)'"
-          fi
+          echo "$BADGING" | grep -q "versionCode='700'"
+          echo "$BADGING" | grep -q "versionName='7.0.0'"
 
           VERIFY_OUT=$("$APKSIGNER" verify --verbose --print-certs "$RELEASE_APK")
           echo "$VERIFY_OUT"
           echo "$VERIFY_OUT" | grep -q "Verifies"
+
           CERT_SHA=$(echo "$VERIFY_OUT" | grep -i "Signer #1 certificate SHA-256 digest:" | awk '{print $NF}' | head -n 1 | tr '[:upper:]' '[:lower:]')
           test -n "$CERT_SHA"
 
@@ -269,21 +255,16 @@ jobs:
           echo "RELEASE_AAB=$RELEASE_AAB" >> "$GITHUB_ENV"
           echo "✅ Cryptographic apksigner verification PASSED (cert SHA-256: $CERT_SHA)."
 
-      # 16. Package canonical release binaries, SHA256SUMS.txt & apk_release_metadata.json
-      - name: 16. Package verified release outputs, SHA256SUMS.txt & metadata
+      # 14. Package canonical release binaries, SHA256SUMS.txt & apk_release_metadata.json
+      - name: 14. Package verified release outputs, SHA256SUMS.txt & metadata
         id: package
         run: |
           mkdir -p release-output
           SIGNED_BOOL="${{ steps.verify.outputs.signed }}"
           CERT_SHA="${{ steps.verify.outputs.cert_sha256 }}"
           SIGNING_MODE="${{ steps.signing.outputs.signing_mode }}"
-          if [ "$SIGNING_MODE" = "ci_secrets" ]; then
-            APP_VER="5.0.0"
-            APP_CODE="500"
-          else
-            APP_VER="4.0.0"
-            APP_CODE="400"
-          fi
+          APP_VER="7.0.0"
+          APP_CODE="700"
           RELEASE_TAG="v${APP_VER}"
 
           if [ "$SIGNED_BOOL" = "true" ]; then
@@ -374,26 +355,26 @@ jobs:
           rm -f keystore.properties "$RUNNER_TEMP/asaka-ziyo-release.jks"
           ls -lh release-output/
 
-      # 17. Upload verified artifacts
-      - name: 17a. Upload APK artifact
+      # 15. Upload verified artifacts
+      - name: 15a. Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v5.0.0-apk
+          name: Asaka-Ziyo-v7.0.0-apk
           path: release-output/*.apk
           retention-days: 90
 
-      - name: 17b. Upload signed AAB artifact (when available)
+      - name: 15b. Upload signed AAB artifact (when available)
         if: steps.package.outputs.has_signed_aab == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v5.0.0-aab
+          name: Asaka-Ziyo-v7.0.0-aab
           path: release-output/*.aab
           retention-days: 90
 
-      - name: 17c. Upload Release Metadata & Checksums
+      - name: 15c. Upload Release Metadata & Checksums
         uses: actions/upload-artifact@v4
         with:
-          name: Asaka-Ziyo-v5.0.0-metadata
+          name: Asaka-Ziyo-v7.0.0-metadata
           path: |
             release-output/apk_release_metadata.json
             release-output/SHA256SUMS.txt
@@ -410,42 +391,42 @@ jobs:
       contents: write
 
     steps:
-      - name: 18. Download verified release artifacts
+      - name: 16. Download verified release artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
           merge-multiple: true
 
-      - name: 19. Verify checksums before publishing Release
+      - name: 17. Verify checksums before publishing Release
         working-directory: release-artifacts
         run: |
           ls -la
           sha256sum -c SHA256SUMS.txt
 
-      - name: 20. Publish permanent GitHub Release (preserving previous releases)
+      - name: 18. Publish permanent GitHub Release (preserving previous releases)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build-android-release.outputs.release_tag }}
-          name: ASAKA ZIYO ${{ needs.build-android-release.outputs.release_tag }} — Rasmiy Android Release
+          name: ASAKA ZIYO ${{ needs.build-android-release.outputs.release_tag }} — Rasmiy Native Android Release
           draft: false
           prerelease: false
           make_latest: true
           generate_release_notes: true
           body: |
-            ## ASAKA ZIYO ${{ needs.build-android-release.outputs.release_tag }} — Rasmiy Android Release
+            ## ASAKA ZIYO ${{ needs.build-android-release.outputs.release_tag }} — Rasmiy Native Android Release
 
             - **Package ID:** `uz.asakaziyo.app`
-            - **Release Tag:** `${{ needs.build-android-release.outputs.release_tag }}`
+            - **Release Tag:** `${{ needs.build-android-release.outputs.release_tag }}` (Build 700)
             - **Android Support:** Android 7.0 – Android 16 (API 24 – API 36)
             - **Signing Certificate SHA-256:** `${{ needs.build-android-release.outputs.cert_sha256 }}`
             - **APK SHA-256:** `${{ needs.build-android-release.outputs.apk_sha256 }}`
             - **Signing Mode:** `${{ needs.build-android-release.outputs.signing_mode }}`
 
-            ### Yangi imkoniyatlar (v5.0.0)
-            - Yagona Cross-Module Free & Premium Obuna Tizimi (17 boʻlim, 26 dinamik funksiya, server-side limit va 4 platforma sinxronizatsiyasi)
-            - Ultimate Qurʼon Ekotizimi: Qorilar 114-sura audio kutubxonasi, oflayn yuklab olish menejeri (`AsakaOfflineDownloadManager`), Media3 fon pleeri (`0.5x–2.0x`, takrorlash, uyqu taymeri)
-            - Yangi Qurʼon & Kunlik Zikr hamda Keyingi Namoz Home Screen Widgetlari (`AsakaQuranWidgetProvider`, `AsakaNextPrayerWidgetProvider`)
-            - Promokodlar, bepul hadya tanlovlari va Telegram bilan 6 xonali hisob bogʻlash
+            ### Yangi imkoniyatlar (v7.0.0)
+            - Web App, Telegram Mini App, Telegram Bot va Native Android v7 (Kotlin + Jetpack Compose) boʻylab yagona ekotizim
+            - **Odiljon qori (114 Sura)** doimiy audio xotira, mustaqil zaxira nusxa, SHA-256 nazorat va 4-platformali avtomatik sinxronizatsiya
+            - 7 ta uy ekrani vidjeti, 5 ta Quick Settings Tile va 6 ta Launcher App Shortcut
+            - 6 xonali yagona hisob bogʻlash, mavzu/til/sevimlilar/obuna real-time sinxronizatsiyasi
             - `Dev by Ulug‘bek Mirzayev` (https://t.me/Ulugbek_Mirzayev_uz)
           files: |
             release-artifacts/*.apk

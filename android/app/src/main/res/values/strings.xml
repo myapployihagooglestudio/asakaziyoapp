@@ -7,4 +7,25 @@
     <string name="channel_news_articles">Yangiliklar va Ilmiy Maqolalar</string>
     <string name="channel_chat_messages">Suhbat va Imom Savol-Javob Xabarlari</string>
     <string name="channel_daily_wisdom">Kunlik Oyat, Hadis va Zikrlar</string>
+
+    <!-- 6 Launcher App Shortcuts (v6.0.0) -->
+    <string name="shortcut_quran_short">Qurʼon Mushaf</string>
+    <string name="shortcut_quran_long">Qurʼoni Karim va Madina Mushafi</string>
+    <string name="shortcut_audio_short">Qurʼon MP3</string>
+    <string name="shortcut_audio_long">Qorilar tilovati va fon pleeri</string>
+    <string name="shortcut_prayer_short">Namoz vaqtlari</string>
+    <string name="shortcut_prayer_long">Namoz vaqtlari va ob-havo</string>
+    <string name="shortcut_tasbeh_short">Tasbeh</string>
+    <string name="shortcut_tasbeh_long">Raqamli Zikr va Tasbeh</string>
+    <string name="shortcut_qibla_short">Qibla</string>
+    <string name="shortcut_qibla_long">Qibla kompas (241°)</string>
+    <string name="shortcut_hifz_short">Hifz &amp; Murojaʼa</string>
+    <string name="shortcut_hifz_long">Hifz, Murojaʼa va Tajvid akademiyasi</string>
+
+    <!-- 5 Quick Settings Tiles (v6.0.0) -->
+    <string name="tile_tasbeh_label">Ziyo Tasbeh</string>
+    <string name="tile_quran_label">Ziyo Qurʼon</string>
+    <string name="tile_audio_label">Ziyo Audio</string>
+    <string name="tile_prayer_label">Namoz Vaqti</string>
+    <string name="tile_qibla_label">Qibla Kompas</string>
 </resources>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   getActiveEcosystemUserId,
+  setCanonicalEcosystemUserId,
   detectClientPlatform,
 } from '../../../utils/userIdentityClient';
 import { notifyEntitlementsChanged } from '../../../utils/entitlementClient';
@@ -28,7 +29,7 @@ function fmtUzs(val: number): string {
 }
 
 export const PremiumSubscriptionView: React.FC = () => {
-  const [userId] = useState<string>(() => getActiveEcosystemUserId());
+  const [userId, setUserId] = useState<string>(() => getActiveEcosystemUserId());
   const [catalog, setCatalog] = useState<any | null>(null);
   const [mySub, setMySub] = useState<any | null>(null);
   const [myFeatures, setMyFeatures] = useState<Record<string, any>>({});
@@ -50,6 +51,8 @@ export const PremiumSubscriptionView: React.FC = () => {
 
   // Cross-platform Telegram account linking code
   const [linkCodeData, setLinkCodeData] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [redeemCodeInput, setRedeemCodeInput] = useState('');
+  const [redeemingCode, setRedeemingCode] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -195,6 +198,40 @@ export const PremiumSubscriptionView: React.FC = () => {
     const json = await res.json();
     if (json?.success) {
       setLinkCodeData({ code: json.code, expiresAt: json.expiresAt });
+    }
+  };
+
+  const handleRedeemLinkCode = async () => {
+    const cleanCode = redeemCodeInput.replace(/\D/g, '').slice(0, 6);
+    if (cleanCode.length !== 6) {
+      setFeedback({ type: 'err', text: '6 xonali bogʻlash kodini toʻliq kiriting.' });
+      return;
+    }
+    setRedeemingCode(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/account-link/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: cleanCode, aliasUserId: userId }),
+      });
+      const json = await res.json();
+      if (json?.success && json?.canonicalUserId) {
+        setCanonicalEcosystemUserId(json.canonicalUserId);
+        setUserId(json.canonicalUserId);
+        setRedeemCodeInput('');
+        notifyEntitlementsChanged();
+        setFeedback({
+          type: 'ok',
+          text: `Hisob muvaffaqiyatli bogʻlandi! Yagona ID: ${json.canonicalUserId}`,
+        });
+      } else {
+        setFeedback({ type: 'err', text: json?.error || 'Bogʻlash kodi notoʻgʻri yoki muddati tugagan.' });
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'err', text: err?.message || 'Hisobni bogʻlashda xatolik.' });
+    } finally {
+      setRedeemingCode(false);
     }
   };
 
@@ -528,7 +565,7 @@ export const PremiumSubscriptionView: React.FC = () => {
             <p className="text-xs text-[#5F776F] dark:text-[#8FA69D]">
               Premium obunangiz, playlistlar va Hifz natijalaringiz Telegram Botda ham bir xil ishlashi uchun 6 xonali kod oling va Botda <code className="font-mono-numbers font-bold">/link KOD</code> deb yuboring.
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => void handleGenerateLinkCode()}
@@ -541,6 +578,25 @@ export const PremiumSubscriptionView: React.FC = () => {
                   /link {linkCodeData.code}
                 </div>
               )}
+            </div>
+            <div className="pt-2 border-t border-[#064E3B]/10 dark:border-white/10 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={redeemCodeInput}
+                onChange={(e) => setRedeemCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Boshqa qurilma kodi (6 raqam)"
+                className="px-3 py-2 rounded-xl bg-[#F7F5F0] dark:bg-[#0D1915] border border-[#064E3B]/15 dark:border-white/10 text-xs font-mono-numbers tracking-widest w-52"
+              />
+              <button
+                type="button"
+                disabled={redeemingCode || redeemCodeInput.length !== 6}
+                onClick={() => void handleRedeemLinkCode()}
+                className="px-3.5 py-2 rounded-xl bg-[#064E3B]/15 dark:bg-white/10 hover:bg-[#064E3B]/25 text-xs font-bold disabled:opacity-40 cursor-pointer"
+              >
+                {redeemingCode ? 'Bogʻlanmoqda...' : 'Kodni tasdiqlash'}
+              </button>
             </div>
             {mySub?.linkedAliases?.length > 0 && (
               <div className="text-[11px] text-emerald-600 dark:text-emerald-300 font-semibold">

@@ -21,10 +21,10 @@ import { toNewUzbekAlphabet } from '../../src/utils/newUzbekAlphabet';
 
 export const CANONICAL_PACKAGE_ID = 'uz.asakaziyo.app';
 export const CANONICAL_APP_NAME = 'ASAKA ZIYO';
-export const CANONICAL_TARGET_VERSION = '4.0.0';
-export const CANONICAL_TARGET_BUILD_CODE = 400;
-export const CANONICAL_APK_FILENAME = 'Asaka-Ziyo-v4.0.0.apk';
-export const CANONICAL_AAB_FILENAME = 'Asaka-Ziyo-v4.0.0.aab';
+export const CANONICAL_TARGET_VERSION = '5.0.0';
+export const CANONICAL_TARGET_BUILD_CODE = 500;
+export const CANONICAL_APK_FILENAME = 'Asaka-Ziyo-v5.0.0.apk';
+export const CANONICAL_AAB_FILENAME = 'Asaka-Ziyo-v5.0.0.aab';
 export const GITHUB_REPO_SLUG = 'myapployihagooglestudio/asakaziyoapp';
 
 export interface AppReleaseRecord {
@@ -551,7 +551,7 @@ export class AppReleaseService {
         {
           headers: {
             Accept: 'application/vnd.github+json',
-            'User-Agent': 'ASAKA-ZIYO-Server/4.0.0',
+            'User-Agent': 'ASAKA-ZIYO-Server/5.0.0',
           },
           signal: controller.signal,
         }
@@ -591,14 +591,14 @@ export class AppReleaseService {
 
         const tagStr = String(rel.tag_name || '').replace(/^v/i, '');
         const isV4 =
-          tagStr.startsWith('4.') &&
+          tagStr.startsWith('5.') &&
           apkAsset &&
           typeof apkAsset.size === 'number' &&
           apkAsset.size >= 65_536;
 
         history.push({
           version: tagStr || String(rel.name || 'unknown'),
-          buildCode: tagStr.startsWith('4.0.0') ? 400 : tagStr.startsWith('3.') ? 300 : 100,
+          buildCode: tagStr.startsWith('5.') ? 500 : tagStr.startsWith('4.') ? 400 : tagStr.startsWith('3.') ? 300 : 100,
           releaseDate: String(rel.published_at || rel.created_at || '').slice(0, 10),
           status: rel.prerelease ? 'prerelease' : 'published',
           notes: String(rel.name || rel.body || '').slice(0, 200),
@@ -635,13 +635,13 @@ export class AppReleaseService {
             apkDownloadUrl: apkAsset.browser_download_url,
             aabDownloadUrl: aabAsset?.browser_download_url || '',
             githubReleaseUrl: rel.html_url || `https://github.com/${GITHUB_REPO_SLUG}/releases/tag/${rel.tag_name}`,
-            githubTag: String(rel.tag_name || 'v4.0.0'),
+            githubTag: String(rel.tag_name || 'v5.0.0'),
             apkSizeBytes: Number(apkAsset.size || 0),
             aabSizeBytes: Number(aabAsset?.size || 0),
             sha256Checksum,
             minSdk: 24,
             targetSdk: 36,
-            releaseNotesUz: String(rel.body || 'ASAKA ZIYO v4.0.0 rasmiy Android relizi.').slice(0, 1800),
+            releaseNotesUz: String(rel.body || 'ASAKA ZIYO v5.0.0 yangi avlod native Android relizi.').slice(0, 1800),
             releaseDate: String(rel.published_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
             downloadCount: Number(apkAsset.download_count || 0),
             createdAt: rel.created_at || new Date().toISOString(),
@@ -726,11 +726,11 @@ export class AppReleaseService {
         remoteApkUrl: latestDbV4?.apkDownloadUrl || '',
         remoteAabUrl: latestDbV4?.aabDownloadUrl || '',
         githubReleaseUrl: latestDbV4?.githubReleaseUrl || localApk.meta.githubReleaseUrl || '',
-        githubTag: latestDbV4?.githubTag || 'v4.0.0',
-        releaseDate: latestDbV4?.releaseDate || localApk.meta.releaseDate || '2026-11-19',
+        githubTag: latestDbV4?.githubTag || 'v5.0.0',
+        releaseDate: latestDbV4?.releaseDate || localApk.meta.releaseDate || '2026-11-25',
         releaseNotesUz:
           latestDbV4?.releaseNotesUz ||
-          'ASAKA ZIYO v4.0.0 — yangilangan logotip, Android 16 (API 36) mosligi, Web+Android+Telegram yagona sinxronizatsiyasi.',
+          'ASAKA ZIYO v5.0.0 — yangi avlod native Kotlin + Jetpack Compose (Material 3) Android ilovasi, Media3 fon audio pleeri, oflayn Mushaf va 4 ta uy ekrani vidjeti.',
         downloadCount: Math.max(this.store.totalDownloads, latestDbV4?.downloadCount || 0),
         source: 'local_file',
         status: 'ready',
@@ -826,7 +826,7 @@ export class AppReleaseService {
           remoteApkUrl: r.apkDownloadUrl,
           remoteAabUrl: r.aabDownloadUrl || '',
           githubReleaseUrl: r.githubReleaseUrl || '',
-          githubTag: r.githubTag || 'v4.0.0',
+          githubTag: r.githubTag || 'v5.0.0',
           releaseDate: r.releaseDate,
           releaseNotesUz: r.releaseNotesUz,
           downloadCount: Math.max(this.store.totalDownloads, r.downloadCount || 0),
@@ -879,16 +879,16 @@ export class AppReleaseService {
       remoteApkUrl: '',
       remoteAabUrl: '',
       githubReleaseUrl: `https://github.com/${GITHUB_REPO_SLUG}/releases`,
-      githubTag: 'v4.0.0',
-      releaseDate: localMeta.releaseDate || '2026-11-20',
+      githubTag: 'v5.0.0',
+      releaseDate: localMeta.releaseDate || '2026-11-25',
       releaseNotesUz:
-        'ASAKA ZIYO v4.0.0 (Build 400): rasmiy masjid muhr logosi, Android 16 (API 36) mosligi, Web+Android+Telegram yagona sinxronizatsiyasi.',
+        'ASAKA ZIYO v5.0.0 (Build 500): yangi avlod native Kotlin + Jetpack Compose + Material 3 mobil ilovasi, Media3 fon pleeri va oflayn markaz.',
       downloadCount: this.store.totalDownloads,
       source: 'awaiting_ci_artifact',
       status: 'awaiting_ci_artifact',
       statusMessageUz:
         localMeta.statusMessageUz ||
-        'ASAKA ZIYO v4.0.0 (Build 400) imzolangan rasmiy APK uchun production keystore (ANDROID_KEYSTORE_PATH / keystore.properties) talab qilinadi.',
+        'ASAKA ZIYO v5.0.0 (Build 500) imzolangan rasmiy APK fayli serverda tayyorlanmoqda.',
       localFilePath: null,
       releaseHistory: mergedHistory,
       ...(localMeta.unsignedReleaseApkAvailable
@@ -968,7 +968,7 @@ export class AppReleaseService {
     if (mode === 'history') {
       const histLines =
         info.releaseHistory.length === 0
-          ? ['• v4.0.0 (Build 400) — Yangi yagona ekotizim relizi', '• v3.0.0 (Build 300) — Oldingi avlod relizi']
+          ? ['• v5.0.0 (Build 500) — Yangi avlod native Kotlin + Jetpack Compose relizi', '• v4.0.0 (Build 400) — Oldingi avlod relizi']
           : info.releaseHistory.slice(0, 6).map(
               (h) => `• v${h.version} (Build ${h.buildCode}) · ${h.releaseDate || '—'} [${h.status}]\n  ${h.notes.slice(0, 110)}`
             );
@@ -992,12 +992,12 @@ export class AppReleaseService {
             ? `{{emoji:success}} Тасдиқланган ва юклаб олишга тайёр (${info.fileSizeDisplay})`
             : adapt(`{{emoji:success}} Tasdiqlangan va yuklab olishga tayyor (${info.fileSizeDisplay})`)
       : locale === 'ru'
-        ? '{{emoji:notifications}} Подписанный APK v4.0.0 готовится к публикации на сервере'
+        ? `{{emoji:notifications}} Подписанный APK v${info.version} готовится к публикации на сервере`
         : locale === 'en'
-          ? '{{emoji:notifications}} Signed APK v4.0.0 is being prepared on the server'
+          ? `{{emoji:notifications}} Signed APK v${info.version} is being prepared on the server`
           : locale === 'uz-Cyrl'
-            ? '{{emoji:notifications}} Имзоланган APK v4.0.0 серверда тайёрланмоқда'
-            : adapt('{{emoji:notifications}} Imzolangan APK v4.0.0 serverda tayyorlanmoqda');
+            ? `{{emoji:notifications}} Имзоланган APK v${info.version} серверда тайёрланмоқда`
+            : adapt(`{{emoji:notifications}} Imzolangan APK v${info.version} serverda tayyorlanmoqda`);
 
     const shaLine = info.sha256Checksum
       ? `\n{{emoji:admin}} SHA-256: ${info.sha256Checksum.slice(0, 24)}…`

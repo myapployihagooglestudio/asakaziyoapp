@@ -67,6 +67,18 @@ class AsakaSecurePreferences(private val context: Context) {
 
     fun getAuthToken(): String? = encryptedPrefs.getString(KEY_AUTH_TOKEN, null)
 
+    fun saveAdminToken(token: String?) {
+        val editor = encryptedPrefs.edit()
+        if (token.isNullOrBlank()) editor.remove(KEY_ADMIN_TOKEN) else editor.putString(KEY_ADMIN_TOKEN, token)
+        editor.apply()
+    }
+
+    fun getAdminToken(): String? = encryptedPrefs.getString(KEY_ADMIN_TOKEN, null)
+
+    fun clearAdminToken() {
+        encryptedPrefs.edit().remove(KEY_ADMIN_TOKEN).apply()
+    }
+
     val settingsFlow: Flow<UserAppSettings> = context.asakaDataStore.data.map { prefs ->
         UserAppSettings(
             userId = getOrCreateDeviceUserId(),
@@ -86,9 +98,21 @@ class AsakaSecurePreferences(private val context: Context) {
             mushafLightPaper = prefs[KEY_MUSHAF_LIGHT_PAPER] ?: false,
             showPrayerCard = prefs[KEY_SHOW_PRAYER_CARD] ?: true,
             showQuranCard = prefs[KEY_SHOW_QURAN_CARD] ?: true,
+            showAudioCard = prefs[KEY_SHOW_AUDIO_CARD] ?: true,
             showHifzCard = prefs[KEY_SHOW_HIFZ_CARD] ?: true,
             showWisdomCard = prefs[KEY_SHOW_WISDOM_CARD] ?: true,
-            prayerNotificationsEnabled = prefs[KEY_PRAYER_NOTIFY] ?: true
+            showAiCard = prefs[KEY_SHOW_AI_CARD] ?: true,
+            homeBlockOrder = (prefs[KEY_HOME_BLOCK_ORDER] ?: "prayer,quran,audio,hifz,wisdom,ai")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .ifEmpty { listOf("prayer", "quran", "audio", "hifz", "wisdom", "ai") },
+            prayerNotificationsEnabled = prefs[KEY_PRAYER_NOTIFY] ?: true,
+            quranReminderEnabled = prefs[KEY_QURAN_NOTIFY] ?: true,
+            hifzReminderEnabled = prefs[KEY_HIFZ_NOTIFY] ?: true,
+            dhikrReminderEnabled = prefs[KEY_DHIKR_NOTIFY] ?: true,
+            dailyDhikrGoal = prefs[KEY_DAILY_DHIKR_GOAL] ?: 99,
+            onboardingCompleted = prefs[KEY_ONBOARDING_DONE] ?: false
         )
     }
 
@@ -134,6 +158,10 @@ class AsakaSecurePreferences(private val context: Context) {
         }
     }
 
+    suspend fun updateDailyGoalMinutes(minutes: Int) {
+        context.asakaDataStore.edit { it[KEY_DAILY_GOAL_MIN] = minutes.coerceIn(5, 180) }
+    }
+
     suspend fun updateMushafPreferences(fontSizeSp: Int, lightPaper: Boolean) {
         context.asakaDataStore.edit {
             it[KEY_MUSHAF_FONT_SP] = fontSizeSp.coerceIn(18, 42)
@@ -144,24 +172,54 @@ class AsakaSecurePreferences(private val context: Context) {
     suspend fun updateHomeCardVisibility(
         showPrayer: Boolean? = null,
         showQuran: Boolean? = null,
+        showAudio: Boolean? = null,
         showHifz: Boolean? = null,
-        showWisdom: Boolean? = null
+        showWisdom: Boolean? = null,
+        showAi: Boolean? = null
     ) {
         context.asakaDataStore.edit { prefs ->
             showPrayer?.let { prefs[KEY_SHOW_PRAYER_CARD] = it }
             showQuran?.let { prefs[KEY_SHOW_QURAN_CARD] = it }
+            showAudio?.let { prefs[KEY_SHOW_AUDIO_CARD] = it }
             showHifz?.let { prefs[KEY_SHOW_HIFZ_CARD] = it }
             showWisdom?.let { prefs[KEY_SHOW_WISDOM_CARD] = it }
+            showAi?.let { prefs[KEY_SHOW_AI_CARD] = it }
         }
+    }
+
+    suspend fun updateHomeBlockOrder(order: List<String>) {
+        if (order.isEmpty()) return
+        context.asakaDataStore.edit { it[KEY_HOME_BLOCK_ORDER] = order.joinToString(",") }
     }
 
     suspend fun updatePrayerNotifications(enabled: Boolean) {
         context.asakaDataStore.edit { it[KEY_PRAYER_NOTIFY] = enabled }
     }
 
+    suspend fun updateSmartReminders(
+        quran: Boolean? = null,
+        hifz: Boolean? = null,
+        dhikr: Boolean? = null
+    ) {
+        context.asakaDataStore.edit { prefs ->
+            quran?.let { prefs[KEY_QURAN_NOTIFY] = it }
+            hifz?.let { prefs[KEY_HIFZ_NOTIFY] = it }
+            dhikr?.let { prefs[KEY_DHIKR_NOTIFY] = it }
+        }
+    }
+
+    suspend fun updateDailyDhikrGoal(goal: Int) {
+        context.asakaDataStore.edit { it[KEY_DAILY_DHIKR_GOAL] = goal.coerceIn(33, 10000) }
+    }
+
+    suspend fun setOnboardingCompleted(done: Boolean) {
+        context.asakaDataStore.edit { it[KEY_ONBOARDING_DONE] = done }
+    }
+
     companion object {
         private const val KEY_SECURE_USER_ID = "secure_canonical_user_id"
         private const val KEY_AUTH_TOKEN = "secure_auth_token"
+        private const val KEY_ADMIN_TOKEN = "secure_admin_bearer_token"
 
         private val KEY_DISPLAY_NAME = stringPreferencesKey("display_name")
         private val KEY_LANGUAGE = stringPreferencesKey("language_code")
@@ -179,8 +237,16 @@ class AsakaSecurePreferences(private val context: Context) {
         private val KEY_MUSHAF_LIGHT_PAPER = booleanPreferencesKey("mushaf_light_paper")
         private val KEY_SHOW_PRAYER_CARD = booleanPreferencesKey("show_prayer_card")
         private val KEY_SHOW_QURAN_CARD = booleanPreferencesKey("show_quran_card")
+        private val KEY_SHOW_AUDIO_CARD = booleanPreferencesKey("show_audio_card")
         private val KEY_SHOW_HIFZ_CARD = booleanPreferencesKey("show_hifz_card")
         private val KEY_SHOW_WISDOM_CARD = booleanPreferencesKey("show_wisdom_card")
+        private val KEY_SHOW_AI_CARD = booleanPreferencesKey("show_ai_card")
+        private val KEY_HOME_BLOCK_ORDER = stringPreferencesKey("home_block_order")
         private val KEY_PRAYER_NOTIFY = booleanPreferencesKey("prayer_notifications")
+        private val KEY_QURAN_NOTIFY = booleanPreferencesKey("quran_notifications")
+        private val KEY_HIFZ_NOTIFY = booleanPreferencesKey("hifz_notifications")
+        private val KEY_DHIKR_NOTIFY = booleanPreferencesKey("dhikr_notifications")
+        private val KEY_DAILY_DHIKR_GOAL = intPreferencesKey("daily_dhikr_goal_v6")
+        private val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed_v6")
     }
 }

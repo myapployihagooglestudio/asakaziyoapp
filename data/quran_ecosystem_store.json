@@ -833,6 +833,48 @@
       ],
       "createdAt": "2026-11-25T08:11:03.945Z",
       "updatedAt": "2026-11-25T08:11:03.945Z"
+    },
+    "pl_usr_1795605269553_db0969": {
+      "id": "pl_usr_1795605269553_db0969",
+      "ownerUserId": "web_subtest_1795605268225_547f18_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_1-7432",
+      "titleUz": "E2E Playlist 1",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 1,
+          "addedAt": "2026-11-25T11:14:29.553Z"
+        }
+      ],
+      "createdAt": "2026-11-25T11:14:29.553Z",
+      "updatedAt": "2026-11-25T11:14:29.553Z"
+    },
+    "pl_usr_1795605269558_656a8b": {
+      "id": "pl_usr_1795605269558_656a8b",
+      "ownerUserId": "web_subtest_1795605268225_547f18_isolated_b",
+      "isOfficial": false,
+      "isPublic": true,
+      "shareSlug": "e2e_playlist_2-2427",
+      "titleUz": "E2E Playlist 2",
+      "descriptionUz": "",
+      "category": "custom",
+      "coverColor": "#064E3B",
+      "offlineRecommended": false,
+      "tracks": [
+        {
+          "qariId": "mishary_alafasy",
+          "surahNumber": 2,
+          "addedAt": "2026-11-25T11:14:29.558Z"
+        }
+      ],
+      "createdAt": "2026-11-25T11:14:29.558Z",
+      "updatedAt": "2026-11-25T11:14:29.558Z"
     }
   },
   "tajweedLessons": {
@@ -1611,5 +1653,5 @@
       "createdAt": "2026-11-25T05:12:24.590Z"
     }
   ],
-  "updatedAt": "2026-11-25T08:11:03.945Z"
+  "updatedAt": "2026-11-25T14:04:50.025Z"
 }

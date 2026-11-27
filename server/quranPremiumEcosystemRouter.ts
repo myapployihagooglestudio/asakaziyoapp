@@ -74,7 +74,7 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
         return res.status(403).json({ success: false, error: 'Ushbu audio hali eʼlon qilinmagan.' });
       }
 
-      const absPath = quranService.resolveAudioFilePath(audioId);
+      const absPath = quranService.resolveAudioFilePath(audioId, isPreview);
       if (!absPath || !fs.existsSync(absPath)) {
         return res.status(404).json({ success: false, error: 'Audio fayl server xotirasida topilmadi.' });
       }
@@ -219,6 +219,71 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
     }
   });
 
+  // Unified Cross-Platform User Sync State (Web App + Android + Telegram Mini App + Telegram Bot)
+  router.get('/api/user/sync-state/:userId', (req: Request, res: Response) => {
+    const rawUserId = String(req.params.userId || '').trim();
+    if (!rawUserId || rawUserId.length > 160) {
+      return res.status(400).json({ success: false, error: 'Yaroqsiz userId.' });
+    }
+    const canonical = subscriptionService.resolveCanonicalUserId(rawUserId);
+    const profile = quranService.getUserProfile(canonical);
+    const subscription = subscriptionService.getEffectiveSubscription(canonical);
+    return res.json({
+      success: true,
+      canonicalUserId: canonical,
+      language: profile.preferredLanguage || null,
+      theme: profile.preferredTheme || null,
+      favorites: Array.isArray(profile.favoriteItems) ? profile.favoriteItems : [],
+      bookmarks: Array.isArray(profile.bookmarks) ? profile.bookmarks : [],
+      hifzRanges: Array.isArray(profile.hifzRanges) ? profile.hifzRanges : [],
+      readingProgress: {
+        lastReadSurah: profile.lastReadSurah,
+        lastReadAyah: profile.lastReadAyah,
+        lastReadPage: profile.lastReadPage,
+        todayAyahsRead: profile.todayAyahsRead,
+        dailyGoalAyahs: profile.dailyGoalAyahs,
+        dailyGoalMinutes: profile.dailyGoalMinutes,
+        streakDays: profile.streakDays,
+      },
+      subscription,
+      lastPlatform: profile.lastPlatform || 'web',
+      updatedAt: profile.updatedAt,
+    });
+  });
+
+  router.put('/api/user/sync-state/:userId', async (req: Request, res: Response) => {
+    try {
+      const rawUserId = String(req.params.userId || '').trim();
+      if (!rawUserId || rawUserId.length > 160) {
+        return res.status(400).json({ success: false, error: 'Yaroqsiz userId.' });
+      }
+      const canonical = subscriptionService.resolveCanonicalUserId(rawUserId);
+      const profile = await quranService.mergeUserSyncState(canonical, req.body || {});
+      return res.json({
+        success: true,
+        canonicalUserId: canonical,
+        language: profile.preferredLanguage || null,
+        theme: profile.preferredTheme || null,
+        favorites: Array.isArray(profile.favoriteItems) ? profile.favoriteItems : [],
+        bookmarks: Array.isArray(profile.bookmarks) ? profile.bookmarks : [],
+        hifzRanges: Array.isArray(profile.hifzRanges) ? profile.hifzRanges : [],
+        readingProgress: {
+          lastReadSurah: profile.lastReadSurah,
+          lastReadAyah: profile.lastReadAyah,
+          lastReadPage: profile.lastReadPage,
+          todayAyahsRead: profile.todayAyahsRead,
+          dailyGoalAyahs: profile.dailyGoalAyahs,
+          dailyGoalMinutes: profile.dailyGoalMinutes,
+          streakDays: profile.streakDays,
+        },
+        lastPlatform: profile.lastPlatform || 'web',
+        updatedAt: profile.updatedAt,
+      });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err?.message || 'Foydalanuvchi holatini sinxronlashda xatolik' });
+    }
+  });
+
   // =========================================================================
   // B. QUR'ON ECOSYSTEM — ADMIN ROUTES (Qorilar, 114-Surah Upload, Education)
   // =========================================================================
@@ -309,11 +374,133 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
     return res.json({ success: true, ...out });
   });
 
+  router.post('/api/admin/quran-ecosystem/qaris/:qariId/avatar', requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { imageBase64 } = req.body || {};
+      if (!imageBase64 || typeof imageBase64 !== 'string') {
+        return res.status(400).json({ success: false, error: 'imageBase64 majburiy.' });
+      }
+      const cleaned = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+      const buf = Buffer.from(cleaned, 'base64');
+      const out = await quranService.uploadQariAvatar(req.params.qariId, buf, extractAdminEmail(req));
+      if (!out.ok) return res.status(400).json({ success: false, error: out.error });
+      return res.json({ success: true, avatarUrl: out.avatarUrl, qari: out.qari });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Profil rasmini yuklashda xatolik' });
+    }
+  });
+
+  // Resumable Chunked Audio Upload (supports large surahs + automatic retry on interruption)
+  router.post('/api/admin/quran-ecosystem/audio/upload-chunk', requireAdminAuth, (req: Request, res: Response) => {
+    try {
+      const { uploadId, chunkIndex, totalChunks, chunkBase64 } = req.body || {};
+      if (!uploadId || chunkBase64 === undefined || totalChunks === undefined) {
+        return res.status(400).json({ success: false, error: 'uploadId, chunkIndex, totalChunks va chunkBase64 majburiy.' });
+      }
+      const cleaned = String(chunkBase64).includes(',') ? String(chunkBase64).split(',')[1] : String(chunkBase64);
+      const chunkBuffer = Buffer.from(cleaned, 'base64');
+      const out = quranService.appendAudioUploadChunk({
+        uploadId: String(uploadId),
+        chunkIndex: Number(chunkIndex),
+        totalChunks: Number(totalChunks),
+        chunkBuffer,
+      });
+      if (!out.ok) return res.status(400).json({ success: false, error: out.error });
+      return res.json({ success: true, ...out });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Chunk yuklashda xatolik' });
+    }
+  });
+
+  router.post('/api/admin/quran-ecosystem/audio/upload-complete', requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { uploadId, totalChunks, qariId, surahNumber, mimeType, originalFilename, durationSec, autoPublish, allowDuplicateChecksum } = req.body || {};
+      if (!uploadId || !qariId || !surahNumber || !totalChunks) {
+        return res.status(400).json({ success: false, error: 'uploadId, totalChunks, qariId va surahNumber majburiy.' });
+      }
+      const out = await quranService.completeChunkedAudioUpload({
+        uploadId: String(uploadId),
+        totalChunks: Number(totalChunks),
+        qariId: String(qariId),
+        surahNumber: Number(surahNumber),
+        mimeType: mimeType ? String(mimeType) : undefined,
+        originalFilename: originalFilename ? String(originalFilename) : undefined,
+        durationSec: durationSec ? Number(durationSec) : undefined,
+        autoPublish: Boolean(autoPublish),
+        allowDuplicateChecksum: Boolean(allowDuplicateChecksum),
+        actor: extractAdminEmail(req),
+      });
+      if (!out.ok) {
+        return res.status(out.duplicateOf ? 409 : 400).json({
+          success: false,
+          error: out.error,
+          duplicateOf: out.duplicateOf,
+        });
+      }
+      return res.json({ success: true, record: out.record });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Yuklashni yakunlashda xatolik' });
+    }
+  });
+
+  // Batch ZIP archive import (up to 114 surahs at once with magic-byte + SHA-256 verification)
+  router.post('/api/admin/quran-ecosystem/qaris/:qariId/import-zip', requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { zipBase64, autoPublish, allowDuplicateChecksum } = req.body || {};
+      if (!zipBase64 || typeof zipBase64 !== 'string') {
+        return res.status(400).json({ success: false, error: 'zipBase64 majburiy.' });
+      }
+      const cleaned = zipBase64.includes(',') ? zipBase64.split(',')[1] : zipBase64;
+      const zipBuffer = Buffer.from(cleaned, 'base64');
+      const result = await quranService.importQariZipArchive({
+        qariId: req.params.qariId,
+        zipBuffer,
+        autoPublish: autoPublish !== false,
+        allowDuplicateChecksum: Boolean(allowDuplicateChecksum),
+        actor: extractAdminEmail(req),
+      });
+      if (!result.ok && result.importedCount === 0) {
+        return res.status(400).json({ success: false, ...result });
+      }
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'ZIP arxiv importida xatolik' });
+    }
+  });
+
+  // Live SHA-256 + Backup Integrity Verification
+  router.post('/api/admin/quran-ecosystem/qaris/:qariId/verify-integrity', requireAdminAuth, (req: Request, res: Response) => {
+    const report = quranService.verifyQariAudioIntegrity(req.params.qariId, extractAdminEmail(req));
+    if (!report) return res.status(404).json({ success: false, error: 'Qori topilmadi.' });
+    return res.json({ success: true, report });
+  });
+
+  // Independent Permanent Backup + Non-Destructive Restore Verification Test
+  router.post('/api/admin/quran-ecosystem/qaris/:qariId/backup-restore-test', requireAdminAuth, sensitiveActionLimiter, (req: Request, res: Response) => {
+    const report = quranService.runQariBackupAndRestoreTest(req.params.qariId, extractAdminEmail(req));
+    if (!report) return res.status(404).json({ success: false, error: 'Qori topilmadi.' });
+    return res.json({ success: true, report });
+  });
+
+  // Safe Archive (hide without erasing permanent files) & Restore
+  router.post('/api/admin/quran-ecosystem/audio/:audioId/archive', requireAdminAuth, async (req: Request, res: Response) => {
+    const out = await quranService.deleteAudio(req.params.audioId, extractAdminEmail(req), true);
+    if (!out.ok) return res.status(400).json({ success: false, error: out.error });
+    return res.json({ success: true, archivedOnly: true });
+  });
+
+  router.post('/api/admin/quran-ecosystem/audio/:audioId/restore', requireAdminAuth, async (req: Request, res: Response) => {
+    const publishImmediately = req.body?.publishImmediately !== false;
+    const out = await quranService.restoreArchivedAudio(req.params.audioId, extractAdminEmail(req), publishImmediately);
+    if (!out.ok) return res.status(400).json({ success: false, error: out.error });
+    return res.json({ success: true, record: out.record, restoredFromBackup: out.restoredFromBackup });
+  });
+
   router.delete('/api/admin/quran-ecosystem/audio/:audioId', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
     const confirmDeletePublished = req.query.confirm === 'true' || req.body?.confirmDeletePublished === true;
     const out = await quranService.deleteAudio(req.params.audioId, extractAdminEmail(req), confirmDeletePublished);
     if (!out.ok) return res.status(400).json({ success: false, error: out.error });
-    return res.json({ success: true });
+    return res.json({ success: true, archivedOnly: out.archivedOnly });
   });
 
   router.post('/api/admin/quran-ecosystem/playlists/official', requireAdminAuth, async (req: Request, res: Response) => {
@@ -530,6 +717,8 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
       telegramUser: verified.telegramUser,
       subscription,
       quranProfile,
+      favorites: Array.isArray(quranProfile.favoriteItems) ? quranProfile.favoriteItems : [],
+      language: quranProfile.preferredLanguage || null,
     });
   });
 

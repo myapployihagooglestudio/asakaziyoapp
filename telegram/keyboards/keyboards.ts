@@ -1705,9 +1705,9 @@ export function buildQuranRecitersKeyboard(
   emoji: CustomEmojiRegistry
 ): TelegramInlineKeyboardMarkup {
   const b = getTelegramLocaleBundle(locale).buttons;
-  const rows: TelegramInlineKeyboardButton[][] = QURAN_RECITERS.slice(0, 8).map((r) => [
+  const rows: TelegramInlineKeyboardButton[][] = QURAN_RECITERS.slice(0, 15).map((r) => [
     {
- text: `${r.id === currentReciterId ? '[ON]': ''} ${r.name}`,
+      text: `${r.id === currentReciterId ? '[ON]' : ''} ${r.name}`.trim(),
       callback_data: `quran:setreciter:${r.id}:${surahNumber}`,
     },
   ]);

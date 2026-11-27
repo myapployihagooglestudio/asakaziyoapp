@@ -23,7 +23,7 @@
       "nameUz": "Premium · 1 oylik",
       "taglineUz": "Barcha Qorilar, cheksiz offline va chuqur Tajvid kursi",
       "durationDays": 30,
-      "priceUzs": 29000,
+      "priceUzs": 15000,
       "oldPriceUzs": 39000,
       "discountPercent": 25,
       "badgeUz": "Eng mashhur",
@@ -36,14 +36,14 @@
         "Kengaytirilgan Hifz va Murojaʼa rejasi",
         "Ustuvor AI Ustoz va barcha qurilmalarda yagona Premium"
       ],
-      "updatedAt": "2026-11-25T08:08:21.890Z"
+      "updatedAt": "2026-11-25T12:19:24.971Z"
     },
     "premium_3m": {
       "id": "premium_3m",
       "nameUz": "Premium · 3 oylik",
       "taglineUz": "Muntazam Qurʼon va Tajvid oʻrganuvchilar uchun eng qulay tanlov",
       "durationDays": 90,
-      "priceUzs": 75000,
+      "priceUzs": 40000,
       "oldPriceUzs": 117000,
       "discountPercent": 36,
       "badgeUz": "Tavsiya etiladi",
@@ -55,14 +55,14 @@
         "Barcha offline Qori paketlari va Hifz tahlili",
         "Web, Android APK va Telegram Bot/Mini App sinxronizatsiyasi"
       ],
-      "updatedAt": "2026-11-25T05:12:03.045Z"
+      "updatedAt": "2026-11-25T12:19:35.594Z"
     },
     "premium_6m": {
       "id": "premium_6m",
       "nameUz": "Premium · 6 oylik",
       "taglineUz": "Maksimal tejamkorlik va yarim yillik uzluksiz ilm safri",
       "durationDays": 180,
-      "priceUzs": 129000,
+      "priceUzs": 150000,
       "oldPriceUzs": 234000,
       "discountPercent": 45,
       "badgeUz": "Eng foydali · -45%",
@@ -74,7 +74,7 @@
         "Barcha Tajvid sertifikatlari va audio testlar",
         "Ustuvor texnik yordam va yangi funksiyalarga erta kirish"
       ],
-      "updatedAt": "2026-11-25T05:12:03.045Z"
+      "updatedAt": "2026-11-25T12:19:46.761Z"
     }
   },
   "featureGates": {
@@ -399,7 +399,7 @@
         "telegram_miniapp",
         "telegram_bot"
       ],
-      "updatedAt": "2026-11-25T08:11:03.980Z",
+      "updatedAt": "2026-11-25T11:14:29.596Z",
       "updatedBy": "asakaziyo0@gmail.com"
     },
     "tajweed_beginner": {
@@ -599,7 +599,7 @@
         "telegram_miniapp",
         "telegram_bot"
       ],
-      "updatedAt": "2026-11-25T08:11:03.984Z",
+      "updatedAt": "2026-11-25T11:14:29.603Z",
       "updatedBy": "asakaziyo0@gmail.com"
     },
     "ai_deep_reasoning_mode": {
@@ -742,7 +742,7 @@
         "premium_6m"
       ],
       "audience": "all",
-      "isEnabled": false,
+      "isEnabled": true,
       "trialDays": 0,
       "platforms": [
         "web",
@@ -750,7 +750,7 @@
         "telegram_miniapp",
         "telegram_bot"
       ],
-      "updatedAt": "2026-11-25T08:03:02.061Z",
+      "updatedAt": "2026-11-25T12:20:19.471Z",
       "updatedBy": "asakaziyo0@gmail.com"
     },
     "custom_test_feature_ae6270": {
@@ -768,7 +768,7 @@
         "premium_6m"
       ],
       "audience": "all",
-      "isEnabled": false,
+      "isEnabled": true,
       "trialDays": 0,
       "platforms": [
         "web",
@@ -776,7 +776,7 @@
         "telegram_miniapp",
         "telegram_bot"
       ],
-      "updatedAt": "2026-11-25T08:04:27.609Z",
+      "updatedAt": "2026-11-25T12:20:29.033Z",
       "updatedBy": "asakaziyo0@gmail.com"
     },
     "custom_test_feature_0a305e": {
@@ -794,7 +794,7 @@
         "premium_6m"
       ],
       "audience": "all",
-      "isEnabled": false,
+      "isEnabled": true,
       "trialDays": 0,
       "platforms": [
         "web",
@@ -802,20 +802,46 @@
         "telegram_miniapp",
         "telegram_bot"
       ],
-      "updatedAt": "2026-11-25T08:11:03.968Z",
+      "updatedAt": "2026-11-25T12:20:35.150Z",
+      "updatedBy": "asakaziyo0@gmail.com"
+    },
+    "custom_test_feature_547f18": {
+      "key": "custom_test_feature_547f18",
+      "module": "education",
+      "labelUz": "Yangi Dinamik Test Funksiyasi",
+      "descriptionUz": "Admin tomonidan jonli qoʻshilgan funksiya",
+      "access": "premium",
+      "limitPeriod": "unlimited",
+      "freeLimit": 0,
+      "premiumLimit": -1,
+      "requiredPlans": [
+        "premium_1m",
+        "premium_3m",
+        "premium_6m"
+      ],
+      "audience": "all",
+      "isEnabled": true,
+      "trialDays": 0,
+      "platforms": [
+        "web",
+        "android",
+        "telegram_miniapp",
+        "telegram_bot"
+      ],
+      "updatedAt": "2026-11-25T12:20:37.273Z",
       "updatedBy": "asakaziyo0@gmail.com"
     }
   },
   "cardSettings": {
-    "cardholderName": "ASAKA ZIYO (Admin orqali sozlang)",
-    "cardNumber": "8600 0000 0000 0000",
-    "bankName": "Uzcard / Humo",
+    "cardholderName": "",
+    "cardNumber": "4916990349759198",
+    "bankName": "Uzcard / Humo / Visa",
     "paymentNoteUz": "Toʻlov izohiga buyurtma raqamini (Order ID) yozing va chek maʼlumotini yuboring.",
     "instructionsUz": "1. Tarifni tanlang va buyurtma yarating.\n2. Koʻrsatilgan karta raqamiga aniq summani oʻtkazing.\n3. Oʻtkazma cheki raqami yoki skrinshotini yuboring.\n4. Administrator haqiqiy oʻtkazmani tasdiqlagach, Premium darhol barcha qurilmalaringizda yoqiladi.\nEslatma: Hech qachon karta PIN-kodi, CVV yoki SMS tasdiqlash kodini hech kimga bermang!",
     "isActive": true,
     "supportTelegramUrl": "https://t.me/Ulugbek_Mirzayev_uz",
-    "updatedAt": "2026-11-25T05:12:03.045Z",
-    "updatedBy": "system_seed"
+    "updatedAt": "2026-11-25T12:23:28.185Z",
+    "updatedBy": "asakaziyo0@gmail.com"
   },
   "orders": {
     "ORD-20261125-A41435": {
@@ -1132,6 +1158,46 @@
       "reviewedAt": "2026-11-25T08:11:03.827Z",
       "reviewedBy": "asakaziyo0@gmail.com",
       "activatedSubscriptionId": "android_subtest_1795594262995_0a305e_u1"
+    },
+    "ORD-20261125-3B2019": {
+      "orderId": "ORD-20261125-3B2019",
+      "userId": "android_subtest_1795605268225_547f18_u1",
+      "userDisplayName": "Android E2E User",
+      "platform": "android",
+      "planId": "premium_1m",
+      "planNameUz": "Premium · 1 oylik",
+      "durationDays": 30,
+      "baseAmountUzs": 29000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 29000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "AND-subtest_1795605268225_547f18-991",
+      "status": "APPROVED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T11:14:29.393Z",
+      "reviewedAt": "2026-11-25T11:14:29.399Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "activatedSubscriptionId": "android_subtest_1795605268225_547f18_u1"
+    },
+    "ORD-20261125-F36DC6": {
+      "orderId": "ORD-20261125-F36DC6",
+      "userId": "web_365a4448de474f54",
+      "userDisplayName": "Ulugʻbek",
+      "platform": "web",
+      "planId": "premium_3m",
+      "planNameUz": "Premium · 3 oylik",
+      "durationDays": 90,
+      "baseAmountUzs": 40000,
+      "discountAmountUzs": 0,
+      "finalAmountUzs": 40000,
+      "paymentMethod": "manual_card",
+      "receiptReference": "5848383848",
+      "status": "APPROVED",
+      "duplicateRefWarning": false,
+      "createdAt": "2026-11-25T12:27:20.276Z",
+      "reviewedAt": "2026-11-25T12:28:48.640Z",
+      "reviewedBy": "asakaziyo0@gmail.com",
+      "activatedSubscriptionId": "web_365a4448de474f54"
     }
   },
   "subscriptions": {
@@ -1995,6 +2061,123 @@
           "timestamp": "2026-11-25T08:11:03.888Z"
         }
       ]
+    },
+    "web_subtest_1795605268225_547f18_prem": {
+      "userId": "web_subtest_1795605268225_547f18_prem",
+      "status": "EXPIRED",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T11:14:29.301Z",
+      "expiresAt": "2026-11-25T11:14:28.372Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T11:14:29.372Z",
+      "history": [
+        {
+          "action": "ADMIN_EXPIRE_NOW",
+          "planId": "premium_1m",
+          "status": "EXPIRED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "E2E expiry check",
+          "timestamp": "2026-11-25T11:14:29.372Z"
+        },
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "E2E Premium test",
+          "timestamp": "2026-11-25T11:14:29.301Z"
+        }
+      ]
+    },
+    "android_subtest_1795605268225_547f18_u1": {
+      "userId": "android_subtest_1795605268225_547f18_u1",
+      "status": "ACTIVE",
+      "planId": "premium_1m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T11:14:29.399Z",
+      "expiresAt": "2026-12-25T11:14:29.399Z",
+      "lastOrderId": "ORD-20261125-3B2019",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T11:14:29.399Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_1m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Karta toʻlovi tasdiqlandi (29000 UZS, ref: AND-subtest_1795605268225_547f18-991)",
+          "timestamp": "2026-11-25T11:14:29.399Z"
+        }
+      ]
+    },
+    "web_subtest_1795605268225_547f18_promo": {
+      "userId": "web_subtest_1795605268225_547f18_promo",
+      "status": "GIFTED",
+      "planId": "premium_1m",
+      "source": "promo_code",
+      "startsAt": "2026-11-25T11:14:29.481Z",
+      "expiresAt": "2026-12-02T11:14:29.481Z",
+      "grantedBy": "promo:FREE47F18",
+      "giftReason": "FREE47F18 promokodi orqali +7 kun Premium",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T11:14:29.481Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_1m",
+          "status": "GIFTED",
+          "actor": "promo:FREE47F18",
+          "note": "FREE47F18 promokodi orqali +7 kun Premium",
+          "timestamp": "2026-11-25T11:14:29.481Z"
+        }
+      ]
+    },
+    "web_subtest_1795605268225_547f18_gift": {
+      "userId": "web_subtest_1795605268225_547f18_gift",
+      "status": "GIFTED",
+      "planId": "premium_6m",
+      "source": "ADMIN_GIFT",
+      "startsAt": "2026-11-25T11:14:29.495Z",
+      "expiresAt": "2027-02-23T11:14:29.495Z",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "giftReason": "Ramadan Gift E2E",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T11:14:29.495Z",
+      "history": [
+        {
+          "action": "ADMIN_GIFT_GRANTED",
+          "planId": "premium_6m",
+          "status": "GIFTED",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Ramadan Gift E2E",
+          "timestamp": "2026-11-25T11:14:29.495Z"
+        }
+      ]
+    },
+    "web_365a4448de474f54": {
+      "userId": "web_365a4448de474f54",
+      "status": "ACTIVE",
+      "planId": "premium_3m",
+      "source": "manual_card",
+      "startsAt": "2026-11-25T12:28:48.640Z",
+      "expiresAt": "2027-02-23T12:28:48.640Z",
+      "lastOrderId": "ORD-20261125-F36DC6",
+      "grantedBy": "asakaziyo0@gmail.com",
+      "isSuspended": false,
+      "updatedAt": "2026-11-25T12:28:48.640Z",
+      "history": [
+        {
+          "action": "SUBSCRIPTION_ACTIVATED",
+          "planId": "premium_3m",
+          "status": "ACTIVE",
+          "actor": "asakaziyo0@gmail.com",
+          "note": "Karta toʻlovi tasdiqlandi (40000 UZS, ref: 5848383848)",
+          "timestamp": "2026-11-25T12:28:48.640Z"
+        }
+      ]
     }
   },
   "promoCodes": {
@@ -2197,6 +2380,42 @@
       ],
       "isActive": true,
       "createdAt": "2026-11-25T08:11:03.866Z",
+      "createdBy": "asakaziyo0@gmail.com"
+    },
+    "FREE47F18": {
+      "code": "FREE47F18",
+      "titleUz": "E2E 7 kun bepul",
+      "type": "free_premium_days",
+      "value": 7,
+      "maxUses": 10,
+      "usedCount": 1,
+      "usedByUserIds": [
+        "web_subtest_1795605268225_547f18_promo"
+      ],
+      "applicablePlans": [
+        "premium_1m",
+        "premium_3m",
+        "premium_6m"
+      ],
+      "isActive": true,
+      "createdAt": "2026-11-25T11:14:29.467Z",
+      "createdBy": "asakaziyo0@gmail.com"
+    },
+    "DISC47F18": {
+      "code": "DISC47F18",
+      "titleUz": "E2E 25% chegirma",
+      "type": "percent_discount",
+      "value": 25,
+      "maxUses": 10,
+      "usedCount": 0,
+      "usedByUserIds": [],
+      "applicablePlans": [
+        "premium_1m",
+        "premium_3m",
+        "premium_6m"
+      ],
+      "isActive": true,
+      "createdAt": "2026-11-25T11:14:29.473Z",
       "createdBy": "asakaziyo0@gmail.com"
     }
   },
@@ -2417,7 +2636,12 @@
     "tg:842899410": "android_subtest_1795593866644_ae6270_u1",
     "tg:880041480": "web_link_test_1795593940656",
     "tg:880002042": "web_link_test_1795594101187",
-    "tg:756437855": "android_subtest_1795594262995_0a305e_u1"
+    "tg:756437855": "android_subtest_1795594262995_0a305e_u1",
+    "tg:792070202": "android_subtest_1795605268225_547f18_u1",
+    "and_e2e_mww71iam": "web_e2e_mww71iam",
+    "and_e2e_mww72ac2": "web_e2e_mww72ac2",
+    "and_e2e_mww72yp9": "web_e2e_mww72yp9",
+    "and_e2e_mww73nbj": "web_e2e_mww73nbj"
   },
   "pendingLinkCodes": {
     "165021": {
@@ -2434,11 +2658,25 @@
       "expiresAt": "2026-11-25T08:26:03.833Z",
       "used": true
     },
+    "320026": {
+      "code": "320026",
+      "primaryUserId": "android_subtest_1795605268225_547f18_u1",
+      "createdAt": "2026-11-25T11:14:29.405Z",
+      "expiresAt": "2026-11-25T11:29:29.405Z",
+      "used": true
+    },
     "336266": {
       "code": "336266",
       "primaryUserId": "web_link_test_1795594101187",
       "createdAt": "2026-11-25T08:08:22.052Z",
       "expiresAt": "2026-11-25T08:23:22.052Z",
+      "used": true
+    },
+    "474029": {
+      "code": "474029",
+      "primaryUserId": "web_e2e_mww72yp9",
+      "createdAt": "2026-11-25T14:04:18.100Z",
+      "expiresAt": "2026-11-25T14:19:18.100Z",
       "used": true
     },
     "541908": {
@@ -2455,6 +2693,13 @@
       "expiresAt": "2026-11-25T08:19:27.465Z",
       "used": true
     },
+    "613485": {
+      "code": "613485",
+      "primaryUserId": "web_e2e_mww73nbj",
+      "createdAt": "2026-11-25T14:04:50.006Z",
+      "expiresAt": "2026-11-25T14:19:50.006Z",
+      "used": true
+    },
     "785762": {
       "code": "785762",
       "primaryUserId": "web_link_test_1795593940656",
@@ -2462,11 +2707,25 @@
       "expiresAt": "2026-11-25T08:20:41.488Z",
       "used": true
     },
+    "891905": {
+      "code": "891905",
+      "primaryUserId": "web_e2e_mww72ac2",
+      "createdAt": "2026-11-25T14:03:46.522Z",
+      "expiresAt": "2026-11-25T14:18:46.522Z",
+      "used": true
+    },
     "934363": {
       "code": "934363",
       "primaryUserId": "web_link_test_1795583543915",
       "createdAt": "2026-11-25T05:12:24.739Z",
       "expiresAt": "2026-11-25T05:27:24.739Z",
+      "used": true
+    },
+    "961913": {
+      "code": "961913",
+      "primaryUserId": "web_e2e_mww71iam",
+      "createdAt": "2026-11-25T14:03:10.194Z",
+      "expiresAt": "2026-11-25T14:18:10.194Z",
       "used": true
     }
   },
@@ -2495,17 +2754,28 @@
     "web_subtest_1795594262995_0a305e_prem::unlimited_playlists::all": 1,
     "web_subtest_1795594262995_0a305e_prem::islamic_courses_certificates::all": 1,
     "web_subtest_1795594262995_0a305e_prem::personal_growth_analytics::all": 1,
-    "web_subtest_1795594262995_0a305e_isolated_b::ai_ustoz_unlimited::2026-11-25": 2
+    "web_subtest_1795594262995_0a305e_isolated_b::ai_ustoz_unlimited::2026-11-25": 2,
+    "web_subtest_1795605268225_547f18_free::ai_ustoz_unlimited::2026-11-25": 2,
+    "web_subtest_1795605268225_547f18_prem::advanced_hifz_analytics::all": 1,
+    "web_subtest_1795605268225_547f18_prem::ai_ustoz_unlimited::2026-11-25": 1,
+    "web_subtest_1795605268225_547f18_prem::ai_deep_reasoning_mode::2026-11-25": 1,
+    "web_subtest_1795605268225_547f18_prem::quran_quiz_unlimited::2026-11-25": 1,
+    "web_subtest_1795605268225_547f18_prem::unlimited_offline_downloads::2026-11-25": 1,
+    "web_subtest_1795605268225_547f18_prem::unlimited_playlists::all": 1,
+    "web_subtest_1795605268225_547f18_prem::islamic_courses_certificates::all": 1,
+    "web_subtest_1795605268225_547f18_prem::personal_growth_analytics::all": 1,
+    "web_subtest_1795605268225_547f18_isolated_b::ai_ustoz_unlimited::2026-11-25": 2,
+    "guest_agent_user::ai_ustoz_unlimited::2026-11-25": 1
   },
   "featureUsageTotals": {
-    "ai_ustoz_unlimited": 14,
-    "unlimited_playlists": 8,
-    "advanced_hifz_analytics": 2,
-    "ai_deep_reasoning_mode": 2,
-    "quran_quiz_unlimited": 2,
-    "unlimited_offline_downloads": 2,
-    "islamic_courses_certificates": 2,
-    "personal_growth_analytics": 2
+    "ai_ustoz_unlimited": 20,
+    "unlimited_playlists": 9,
+    "advanced_hifz_analytics": 3,
+    "ai_deep_reasoning_mode": 3,
+    "quran_quiz_unlimited": 3,
+    "unlimited_offline_downloads": 3,
+    "islamic_courses_certificates": 3,
+    "personal_growth_analytics": 3
   },
   "trackedUsers": {
     "web_subtest_1795593781194_d8ad7e_free": {
@@ -2766,9 +3036,431 @@
         "web",
         "android"
       ]
+    },
+    "web_subtest_1795605268225_547f18_free": {
+      "userId": "web_subtest_1795605268225_547f18_free",
+      "firstSeenAt": "2026-11-25T11:14:29.127Z",
+      "lastSeenAt": "2026-11-25T11:14:29.297Z",
+      "platforms": [
+        "web",
+        "android",
+        "telegram_miniapp",
+        "telegram_bot"
+      ]
+    },
+    "web_subtest_1795605268225_547f18_prem": {
+      "userId": "web_subtest_1795605268225_547f18_prem",
+      "firstSeenAt": "2026-11-25T11:14:29.307Z",
+      "lastSeenAt": "2026-11-25T11:14:29.389Z",
+      "platforms": [
+        "web"
+      ]
+    },
+    "android_subtest_1795605268225_547f18_u1": {
+      "userId": "android_subtest_1795605268225_547f18_u1",
+      "firstSeenAt": "2026-11-25T11:14:29.393Z",
+      "lastSeenAt": "2026-11-25T11:14:29.587Z",
+      "platforms": [
+        "android",
+        "web",
+        "telegram_miniapp",
+        "telegram_bot"
+      ]
+    },
+    "web_subtest_1795605268225_547f18_promo": {
+      "userId": "web_subtest_1795605268225_547f18_promo",
+      "firstSeenAt": "2026-11-25T11:14:29.487Z",
+      "lastSeenAt": "2026-11-25T11:14:29.491Z",
+      "platforms": [
+        "web"
+      ]
+    },
+    "web_subtest_1795605268225_547f18_isolated_b": {
+      "userId": "web_subtest_1795605268225_547f18_isolated_b",
+      "firstSeenAt": "2026-11-25T11:14:29.523Z",
+      "lastSeenAt": "2026-11-25T11:14:29.574Z",
+      "platforms": [
+        "web",
+        "android"
+      ]
+    },
+    "guest_agent_user": {
+      "userId": "guest_agent_user",
+      "firstSeenAt": "2026-11-25T11:20:29.045Z",
+      "lastSeenAt": "2026-11-25T11:20:29.045Z",
+      "platforms": [
+        "web"
+      ]
+    },
+    "web_365a4448de474f54": {
+      "userId": "web_365a4448de474f54",
+      "firstSeenAt": "2026-11-25T12:13:38.241Z",
+      "lastSeenAt": "2026-11-25T12:27:20.792Z",
+      "platforms": [
+        "web"
+      ]
+    },
+    "test_android_v6": {
+      "userId": "test_android_v6",
+      "firstSeenAt": "2026-11-25T12:26:58.906Z",
+      "lastSeenAt": "2026-11-25T12:26:58.909Z",
+      "platforms": [
+        "android"
+      ]
     }
   },
   "auditLogs": [
+    {
+      "id": "saud_1795615490013_0d5983",
+      "actor": "and_e2e_mww73nbj",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_e2e_mww73nbj",
+      "details": "and_e2e_mww73nbj hisobi web_e2e_mww73nbj bilan bogʻlandi",
+      "createdAt": "2026-11-25T14:04:50.013Z"
+    },
+    {
+      "id": "saud_1795615458108_78480e",
+      "actor": "and_e2e_mww72yp9",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_e2e_mww72yp9",
+      "details": "and_e2e_mww72yp9 hisobi web_e2e_mww72yp9 bilan bogʻlandi",
+      "createdAt": "2026-11-25T14:04:18.109Z"
+    },
+    {
+      "id": "saud_1795615426531_63c82e",
+      "actor": "and_e2e_mww72ac2",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_e2e_mww72ac2",
+      "details": "and_e2e_mww72ac2 hisobi web_e2e_mww72ac2 bilan bogʻlandi",
+      "createdAt": "2026-11-25T14:03:46.531Z"
+    },
+    {
+      "id": "saud_1795615390202_e5c0c2",
+      "actor": "and_e2e_mww71iam",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "web_e2e_mww71iam",
+      "details": "and_e2e_mww71iam hisobi web_e2e_mww71iam bilan bogʻlandi",
+      "createdAt": "2026-11-25T14:03:10.202Z"
+    },
+    {
+      "id": "saud_1795609728644_bded18",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_APPROVED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-F36DC6",
+      "details": "web_365a4448de474f54 -> premium_3m (+90 kun)",
+      "createdAt": "2026-11-25T12:28:48.644Z"
+    },
+    {
+      "id": "saud_1795609728640_31c1df",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "web_365a4448de474f54",
+      "details": "premium_3m (+90 kun) -> 2027-02-23T12:28:48.640Z",
+      "createdAt": "2026-11-25T12:28:48.641Z"
+    },
+    {
+      "id": "saud_1795609640276_436cd7",
+      "actor": "web_365a4448de474f54",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-F36DC6",
+      "details": "Premium · 3 oylik · 40000 UZS · Ref: 5848383848",
+      "createdAt": "2026-11-25T12:27:20.276Z"
+    },
+    {
+      "id": "saud_1795609408185_dfc495",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "CARD_SETTINGS_UPDATED",
+      "targetType": "card_settings",
+      "targetId": "manual_card",
+      "details": "Karta egasi: , faol: true",
+      "createdAt": "2026-11-25T12:23:28.185Z"
+    },
+    {
+      "id": "saud_1795609237273_ddd65b",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_547f18",
+      "details": "Yangi Dinamik Test Funksiyasi -> PREMIUM (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:37.273Z"
+    },
+    {
+      "id": "saud_1795609235150_e3946a",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_0a305e",
+      "details": "Yangi Dinamik Test Funksiyasi -> PREMIUM (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:35.150Z"
+    },
+    {
+      "id": "saud_1795609229034_839b9a",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_ae6270",
+      "details": "Yangi Dinamik Test Funksiyasi -> PREMIUM (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:29.034Z"
+    },
+    {
+      "id": "saud_1795609219471_bf0a61",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_d8ad7e",
+      "details": "Yangi Dinamik Test Funksiyasi -> PREMIUM (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:19.471Z"
+    },
+    {
+      "id": "saud_1795609216135_bed96d",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_d8ad7e",
+      "details": "Yangi Dinamik Test Funksiyasi -> FREE (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:16.135Z"
+    },
+    {
+      "id": "saud_1795609215775_262608",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_d8ad7e",
+      "details": "Yangi Dinamik Test Funksiyasi -> FREE (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:15.775Z"
+    },
+    {
+      "id": "saud_1795609215049_8a1166",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_d8ad7e",
+      "details": "Yangi Dinamik Test Funksiyasi -> FREE (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:15.049Z"
+    },
+    {
+      "id": "saud_1795609213790_0b0f9b",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_d8ad7e",
+      "details": "Yangi Dinamik Test Funksiyasi -> FREE (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T12:20:13.790Z"
+    },
+    {
+      "id": "saud_1795609210589_36f285",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_d8ad7e",
+      "details": "Yangi Dinamik Test Funksiyasi -> FREE (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=false)",
+      "createdAt": "2026-11-25T12:20:10.589Z"
+    },
+    {
+      "id": "saud_1795609186761_6efcb8",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_6m",
+      "details": "Premium · 6 oylik -> 150000 UZS (180 kun)",
+      "createdAt": "2026-11-25T12:19:46.761Z"
+    },
+    {
+      "id": "saud_1795609175594_970244",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_3m",
+      "details": "Premium · 3 oylik -> 40000 UZS (90 kun)",
+      "createdAt": "2026-11-25T12:19:35.594Z"
+    },
+    {
+      "id": "saud_1795609164971_0e8526",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_1m",
+      "details": "Premium · 1 oylik -> 15000 UZS (30 kun)",
+      "createdAt": "2026-11-25T12:19:24.971Z"
+    },
+    {
+      "id": "saud_1795609043249_cda037",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PLAN_UPDATED",
+      "targetType": "plan",
+      "targetId": "premium_1m",
+      "details": "Premium · 1 oylik -> 29000 UZS (30 kun)",
+      "createdAt": "2026-11-25T12:17:23.250Z"
+    },
+    {
+      "id": "saud_1795605269603_44f818",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "ai_ustoz_unlimited",
+      "details": "Cheksiz AI Ustoz -> PREMIUM (freeLimit=5, premiumLimit=-1, period=daily, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.603Z"
+    },
+    {
+      "id": "saud_1795605269596_469f83",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "hifz_ai_voice_check",
+      "details": "AI Yordamida Hifz va Qiroat Tekshiruvi -> PREMIUM (freeLimit=1, premiumLimit=-1, period=daily, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.596Z"
+    },
+    {
+      "id": "saud_1795605269582_b6f342",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_547f18",
+      "details": "Yangi Dinamik Test Funksiyasi -> PREMIUM (freeLimit=0, premiumLimit=-1, period=unlimited, enabled=false)",
+      "createdAt": "2026-11-25T11:14:29.582Z"
+    },
+    {
+      "id": "saud_1795605269577_996914",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_CREATED",
+      "targetType": "feature_gate",
+      "targetId": "custom_test_feature_547f18",
+      "details": "Yangi Dinamik Test Funksiyasi [education] -> PREMIUM (freeLimit=0, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.578Z"
+    },
+    {
+      "id": "saud_1795605269495_fae99a",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "web_subtest_1795605268225_547f18_gift",
+      "details": "premium_6m (+90 kun) -> 2027-02-23T11:14:29.495Z",
+      "createdAt": "2026-11-25T11:14:29.495Z"
+    },
+    {
+      "id": "saud_1795605269481_76a753",
+      "actor": "promo:FREE47F18",
+      "action": "SUBSCRIPTION_GIFTED",
+      "targetType": "subscription",
+      "targetId": "web_subtest_1795605268225_547f18_promo",
+      "details": "premium_1m (+7 kun) -> 2026-12-02T11:14:29.481Z",
+      "createdAt": "2026-11-25T11:14:29.481Z"
+    },
+    {
+      "id": "saud_1795605269473_9d231b",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PROMO_SAVED",
+      "targetType": "promo",
+      "targetId": "DISC47F18",
+      "details": "percent_discount: 25",
+      "createdAt": "2026-11-25T11:14:29.473Z"
+    },
+    {
+      "id": "saud_1795605269467_143f75",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PROMO_SAVED",
+      "targetType": "promo",
+      "targetId": "FREE47F18",
+      "details": "free_premium_days: 7",
+      "createdAt": "2026-11-25T11:14:29.467Z"
+    },
+    {
+      "id": "saud_1795605269410_e50a70",
+      "actor": "tg:792070202",
+      "action": "ACCOUNT_LINKED",
+      "targetType": "account_link",
+      "targetId": "android_subtest_1795605268225_547f18_u1",
+      "details": "tg:792070202 hisobi android_subtest_1795605268225_547f18_u1 bilan bogʻlandi",
+      "createdAt": "2026-11-25T11:14:29.410Z"
+    },
+    {
+      "id": "saud_1795605269401_df69fb",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "PAYMENT_ORDER_APPROVED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-3B2019",
+      "details": "android_subtest_1795605268225_547f18_u1 -> premium_1m (+30 kun)",
+      "createdAt": "2026-11-25T11:14:29.401Z"
+    },
+    {
+      "id": "saud_1795605269399_fbf56e",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "android_subtest_1795605268225_547f18_u1",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T11:14:29.399Z",
+      "createdAt": "2026-11-25T11:14:29.399Z"
+    },
+    {
+      "id": "saud_1795605269393_2a0bf3",
+      "actor": "android_subtest_1795605268225_547f18_u1",
+      "action": "PAYMENT_ORDER_CREATED",
+      "targetType": "order",
+      "targetId": "ORD-20261125-3B2019",
+      "details": "Premium · 1 oylik · 29000 UZS · Ref: AND-subtest_1795605268225_547f18-991",
+      "createdAt": "2026-11-25T11:14:29.393Z"
+    },
+    {
+      "id": "saud_1795605269372_6888bf",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_EXPIRE_NOW",
+      "targetType": "subscription",
+      "targetId": "web_subtest_1795605268225_547f18_prem",
+      "details": "E2E expiry check",
+      "createdAt": "2026-11-25T11:14:29.372Z"
+    },
+    {
+      "id": "saud_1795605269301_ce3bee",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "SUBSCRIPTION_ACTIVATED",
+      "targetType": "subscription",
+      "targetId": "web_subtest_1795605268225_547f18_prem",
+      "details": "premium_1m (+30 kun) -> 2026-12-25T11:14:29.301Z",
+      "createdAt": "2026-11-25T11:14:29.301Z"
+    },
+    {
+      "id": "saud_1795605269281_0f8a5c",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "ai_ustoz_unlimited",
+      "details": "Cheksiz AI Ustoz -> PREMIUM (freeLimit=2, premiumLimit=-1, period=daily, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.281Z"
+    },
+    {
+      "id": "saud_1795605269219_c36b7d",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "ai_ustoz_unlimited",
+      "details": "Cheksiz AI Ustoz -> PREMIUM (freeLimit=10, premiumLimit=-1, period=daily, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.219Z"
+    },
+    {
+      "id": "saud_1795605269211_3f75c5",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "hifz_ai_voice_check",
+      "details": "AI Yordamida Hifz va Qiroat Tekshiruvi -> FREE (freeLimit=-1, premiumLimit=-1, period=unlimited, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.211Z"
+    },
+    {
+      "id": "saud_1795605269119_e962c7",
+      "actor": "asakaziyo0@gmail.com",
+      "action": "FEATURE_GATE_UPDATED",
+      "targetType": "feature_gate",
+      "targetId": "hifz_ai_voice_check",
+      "details": "AI Yordamida Hifz va Qiroat Tekshiruvi -> PREMIUM (freeLimit=0, premiumLimit=-1, period=daily, enabled=true)",
+      "createdAt": "2026-11-25T11:14:29.119Z"
+    },
     {
       "id": "saud_1795594263984_cf5add",
       "actor": "asakaziyo0@gmail.com",
@@ -4030,5 +4722,5 @@
       "createdAt": "2026-11-25T05:12:24.650Z"
     }
   ],
-  "updatedAt": "2026-11-25T08:11:03.984Z"
+  "updatedAt": "2026-11-25T14:04:50.013Z"
 }

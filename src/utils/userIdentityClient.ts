@@ -1,14 +1,52 @@
 /**
- * ASAKA ZIYO — Unified Cross-Platform User Identity & Telegram Mini App Auth Client (2026)
+ * ASAKA ZIYO — Unified Cross-Platform User Identity, Telegram Mini App Auth & Sync Client (2026)
  *
- * Ensures Web App, PWA, Android WebView, and Telegram Mini App share one consistent user ID,
- * with server-side HMAC-SHA256 verification whenever running inside Telegram Mini App.
+ * Ensures Web App, PWA, Android Native App, and Telegram Mini App share one consistent user ID,
+ * with server-side HMAC-SHA256 verification whenever running inside Telegram Mini App,
+ * and automatic cross-platform synchronization of favorites, language, reading progress, and hifz.
  */
 
 import { getTelegramWebApp } from './telegramMiniApp';
 
 const LOCAL_USER_ID_KEY = 'asaka_ziyo_ecosystem_uid_v1';
 const VERIFIED_TG_UID_KEY = 'asaka_ziyo_verified_tg_uid_v1';
+
+export interface UnifiedSyncedFavoriteItem {
+  id: string;
+  type: string;
+  title: string;
+  subtitle?: string;
+  snippet?: string;
+  routeTab?: string;
+  routeId?: string;
+  timestamp: number;
+}
+
+export interface UnifiedUserSyncStatePayload {
+  canonicalUserId: string;
+  language: 'uz-Latn' | 'uz-Cyrl' | 'uz-Latn-new' | 'ru' | 'en' | null;
+  theme: 'dark' | 'light' | 'system' | null;
+  favorites: UnifiedSyncedFavoriteItem[];
+  bookmarks: Array<{
+    id: string;
+    surahNumber: number;
+    ayahNumber: number;
+    pageNumber?: number;
+    note?: string;
+    createdAt: string;
+  }>;
+  hifzRanges: any[];
+  readingProgress?: {
+    lastReadSurah: number;
+    lastReadAyah: number;
+    lastReadPage: number;
+    todayAyahsRead: number;
+    dailyGoalAyahs: number;
+    dailyGoalMinutes: number;
+    streakDays: number;
+  };
+  updatedAt?: string;
+}
 
 export function getActiveEcosystemUserId(): string {
   if (typeof window === 'undefined') return 'web_ssr_guest';
@@ -49,6 +87,8 @@ export async function verifyAndSyncTelegramMiniAppSession(): Promise<{
   userId: string;
   telegramUser?: any;
   isPremium?: boolean;
+  language?: string | null;
+  favorites?: UnifiedSyncedFavoriteItem[];
 }> {
   const webApp = getTelegramWebApp();
   if (!webApp?.initData) {
@@ -73,6 +113,8 @@ export async function verifyAndSyncTelegramMiniAppSession(): Promise<{
         userId: json.userId,
         telegramUser: json.telegramUser,
         isPremium: Boolean(json.subscription?.isPremium),
+        language: json.language || null,
+        favorites: Array.isArray(json.favorites) ? json.favorites : [],
       };
     }
   } catch {
@@ -89,4 +131,59 @@ export function detectClientPlatform(): 'web' | 'android' | 'telegram_miniapp' {
     return 'android';
   }
   return 'web';
+}
+
+export async function pullUnifiedUserSyncState(
+  userId: string = getActiveEcosystemUserId()
+): Promise<UnifiedUserSyncStatePayload | null> {
+  if (typeof window === 'undefined' || !userId || userId === 'web_ssr_guest') return null;
+  try {
+    const res = await fetch(`/api/user/sync-state/${encodeURIComponent(userId)}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json?.success) return null;
+    return {
+      canonicalUserId: json.canonicalUserId || userId,
+      language: json.language || null,
+      theme: json.theme || null,
+      favorites: Array.isArray(json.favorites) ? json.favorites : [],
+      bookmarks: Array.isArray(json.bookmarks) ? json.bookmarks : [],
+      hifzRanges: Array.isArray(json.hifzRanges) ? json.hifzRanges : [],
+      readingProgress: json.readingProgress,
+      updatedAt: json.updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function pushUnifiedUserSyncState(
+  patch: {
+    language?: string;
+    theme?: string;
+    mergeMode?: 'merge' | 'replace';
+    favorites?: UnifiedSyncedFavoriteItem[];
+    removeFavoriteIds?: string[];
+    readingProgress?: Record<string, any>;
+    bookmarks?: any[];
+    hifzRanges?: any[];
+  },
+  userId: string = getActiveEcosystemUserId()
+): Promise<boolean> {
+  if (typeof window === 'undefined' || !userId || userId === 'web_ssr_guest') return false;
+  try {
+    const res = await fetch(`/api/user/sync-state/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...patch,
+        platform: detectClientPlatform(),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

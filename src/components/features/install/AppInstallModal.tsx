@@ -331,7 +331,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                       apkInfo.apkAvailable
                         ? "Haqiqiy Gradle orqali kompilatsiya qilingan, imzolangan va binar tekshiruvdan oʻtgan Android APK (Android 7.0–16, API 24–36). Telefoningizga toʻgʻridan-toʻgʻri yuklab olib oʻrnating."
                         : apkInfo.statusMessageUz ||
-                            "ASAKA ZIYO v4.0.0 imzolangan Android APK fayli hozircha serverda tayyor emas. Fayl tayyor boʻlgach, yuklab olish tugmasi avtomatik faollashadi."
+                            `ASAKA ZIYO v${apkInfo.version || '5.0.0'} imzolangan Android APK fayli hozircha serverda tayyor emas. Fayl tayyor boʻlgach, yuklab olish tugmasi avtomatik faollashadi.`
                     )}
                   </p>
                 </div>
@@ -341,7 +341,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Native Gradle v4.0</span>
+                  <span>Native Compose v{apkInfo.version || '5.0.0'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#04120e] border border-emerald-500/30 flex items-center gap-1.5 text-emerald-300">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -395,7 +395,7 @@ export const AppInstallModal: React.FC<AppInstallModalProps> = ({
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                     <span>
                       {getLocalized(
-                        "Imzolangan Asaka-Ziyo-v4.0.0.apk fayli ushbu serverda hali tayyor emas. Buzilgan yoki eski v3.0.0 faylni berish oʻrniga yuklab olish xavfsiz bloklangan."
+                        `Imzolangan ${apkInfo.apkFilename || 'Asaka-Ziyo-v5.0.0.apk'} fayli ushbu serverda hali tayyor emas. Buzilgan yoki eski faylni berish oʻrniga yuklab olish xavfsiz bloklangan.`
                       )}
                     </span>
                   </div>

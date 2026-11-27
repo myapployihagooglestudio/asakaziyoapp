@@ -266,7 +266,7 @@ export const Header: React.FC<HeaderProps> = ({
                           Platforma vositalari
                         </span>
                         <span className="text-[10px] font-mono-numbers text-emerald-600 dark:text-emerald-400 font-semibold">
-                          v4.0
+                          v5.0.0
                         </span>
                       </div>
 

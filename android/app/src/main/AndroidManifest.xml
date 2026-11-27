@@ -61,6 +61,11 @@
                 <data android:scheme="https" android:host="asakaziyo.ai.studio" />
                 <data android:scheme="asakaziyo" android:host="open" />
             </intent-filter>
+
+            <!-- Native Android Launcher App Shortcuts (Prayer, Qur'an, Audio, AI) -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Native Media3 ExoPlayer Background Quran & Adhan Audio Service -->
@@ -137,5 +142,113 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/asaka_next_prayer_widget_info" />
         </receiver>
+
+        <!-- Daily Dhikr & Qur'an Goal Home Screen AppWidget (4th Widget) -->
+        <receiver
+            android:name=".AsakaDhikrWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Zikr &amp; Maqsad">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_dhikr_widget_info" />
+        </receiver>
+
+        <!-- Daily Ayah Home Screen AppWidget (5th Widget - v6.0.0) -->
+        <receiver
+            android:name=".AsakaDailyAyahWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Kunlik Oyat">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_daily_ayah_widget_info" />
+        </receiver>
+
+        <!-- Daily Hadith Home Screen AppWidget (6th Widget - v6.0.0) -->
+        <receiver
+            android:name=".AsakaDailyHadithWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Kunlik Hadis">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_daily_hadith_widget_info" />
+        </receiver>
+
+        <!-- Hifz & Muroja'a Progress Home Screen AppWidget (7th Widget - v6.0.0) -->
+        <receiver
+            android:name=".AsakaHifzWidgetProvider"
+            android:exported="true"
+            android:label="Asaka Ziyo · Hifz Progressi">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/asaka_hifz_widget_info" />
+        </receiver>
+
+        <!-- 5 Native Android Quick Settings Tiles (v6.0.0) -->
+        <service
+            android:name=".AsakaTasbehTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_asaka_ziyo"
+            android:label="@string/tile_tasbeh_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".AsakaQuranTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_asaka_ziyo"
+            android:label="@string/tile_quran_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".AsakaAudioTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_asaka_ziyo"
+            android:label="@string/tile_audio_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".AsakaPrayerTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_asaka_ziyo"
+            android:label="@string/tile_prayer_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".AsakaQiblaTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_asaka_ziyo"
+            android:label="@string/tile_qibla_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

@@ -23,9 +23,49 @@ data class UserAppSettings(
     val mushafLightPaper: Boolean = false,
     val showPrayerCard: Boolean = true,
     val showQuranCard: Boolean = true,
+    val showAudioCard: Boolean = true,
     val showHifzCard: Boolean = true,
     val showWisdomCard: Boolean = true,
-    val prayerNotificationsEnabled: Boolean = true
+    val showAiCard: Boolean = true,
+    val homeBlockOrder: List<String> = listOf("prayer", "quran", "audio", "hifz", "wisdom", "ai"),
+    val prayerNotificationsEnabled: Boolean = true,
+    val quranReminderEnabled: Boolean = true,
+    val hifzReminderEnabled: Boolean = true,
+    val dhikrReminderEnabled: Boolean = true,
+    val dailyDhikrGoal: Int = 99,
+    val onboardingCompleted: Boolean = false
+)
+
+data class BookmarkItem(
+    val surahNumber: Int,
+    val ayahNumber: Int,
+    val surahName: String,
+    val note: String = ""
+)
+
+data class DownloadTaskState(
+    val trackKey: String,
+    val title: String,
+    val url: String,
+    val expectedSha256: String? = null,
+    val progressPercent: Int = 0,
+    val bytesDownloaded: Long = 0L,
+    val totalBytes: Long = -1L,
+    val status: String = "QUEUED", // QUEUED | DOWNLOADING | PAUSED | COMPLETED | FAILED
+    val error: String? = null
+)
+
+data class MediaPlaybackSnapshot(
+    val trackKey: String = "",
+    val title: String = "",
+    val artist: String = "",
+    val isPlaying: Boolean = false,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+    val speed: Float = 1.0f,
+    val repeatMode: String = "off", // off | one | all
+    val shuffleEnabled: Boolean = false,
+    val sleepTimerMinutes: Int = 0
 )
 
 data class PrayerScheduleSnapshot(
@@ -74,7 +114,8 @@ data class SurahSummary(
     val nameAr: String,
     val ayahCount: Int,
     val revelationType: String,
-    val juzStart: Int
+    val juzStart: Int,
+    val startPage: Int = 1
 )
 
 data class MushafAyah(
@@ -91,7 +132,11 @@ data class QariProfile(
     val styleUz: String,
     val bioUz: String,
     val publishedSurahsCount: Int,
-    val externalSurahBaseUrl: String? = null
+    val externalSurahBaseUrl: String? = null,
+    val avatarUrl: String = "",
+    val isCompleteReady: Boolean = false,
+    val missingSurahsCount: Int = 0,
+    val isProtectedPermanent: Boolean = false
 )
 
 data class QariSurahTrack(
@@ -105,7 +150,10 @@ data class QariSurahTrack(
     val sha256: String? = null,
     val durationSec: Int = 0,
     val isServerHosted: Boolean = false,
-    val isDownloadedOffline: Boolean = false
+    val isDownloadedOffline: Boolean = false,
+    val isAvailable: Boolean = true,
+    val audioSource: String = "",
+    val version: Int = 1
 )
 
 data class QuranPlaylist(

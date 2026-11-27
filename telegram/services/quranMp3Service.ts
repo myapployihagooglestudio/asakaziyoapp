@@ -292,17 +292,68 @@ export function matchFilenameToSurahNumber(rawPath: string): {
 }
 
 /**
- * Resolves a `/uploads/...` relative audio URL strictly inside `data/uploads`.
- * Protects against path traversal (`../`).
+ * Resolves a `/uploads/...` or `/api/quran-ecosystem/audio-stream/<audioId>` relative audio URL
+ * strictly inside `data/uploads`. Protects against path traversal (`../`).
  */
-export function resolveConfinedUploadPath(audioUrl: string): string | null {
-  if (!audioUrl.startsWith('/uploads/')) return null;
-  const rel = audioUrl.slice('/uploads/'.length).replace(/^\/+/, '');
-  const resolved = path.resolve(UPLOADS_ROOT_DIR, rel);
-  if (!resolved.startsWith(UPLOADS_ROOT_DIR + path.sep)) {
-    return null;
+export function resolveConfinedUploadPath(
+  audioUrl: string,
+  storagePath?: string,
+  uploadsRootDir: string = UPLOADS_ROOT_DIR
+): string | null {
+  const rootAbs = path.resolve(uploadsRootDir);
+  if (audioUrl.startsWith('/uploads/')) {
+    const rel = audioUrl.slice('/uploads/'.length).replace(/^\/+/, '');
+    const resolved = path.resolve(rootAbs, rel);
+    if (!resolved.startsWith(rootAbs + path.sep)) {
+      return null;
+    }
+    return resolved;
   }
-  return resolved;
+  if (audioUrl.startsWith('/api/quran-ecosystem/audio-stream/')) {
+    const quranAudioRoot = path.resolve(rootAbs, 'quran-audio');
+    if (storagePath && storagePath.trim()) {
+      const cleanRel = storagePath.trim().replace(/^\/+/, '').replace(/^quran-audio\//, '');
+      const directCandidate = path.resolve(quranAudioRoot, cleanRel);
+      if (directCandidate.startsWith(quranAudioRoot + path.sep) && fs.existsSync(directCandidate)) {
+        return directCandidate;
+      }
+    }
+    const rawId = decodeURIComponent(audioUrl.slice('/api/quran-ecosystem/audio-stream/'.length).split('?')[0] || '');
+    const m = rawId.match(/^([a-z0-9_-]+)_s(\d{3})$/i);
+    if (!m) return null;
+    const [, qariId, padded] = m;
+    const qariDir = path.resolve(quranAudioRoot, qariId);
+    if (!qariDir.startsWith(quranAudioRoot + path.sep)) return null;
+
+    // Prefer highest versioned permanent file: surah-001-v2.mp3 > surah-001-v1.mp3
+    if (fs.existsSync(qariDir)) {
+      const versionRe = new RegExp(`^surah-${padded}-v(\\d+)\\.(mp3|m4a|ogg|wav)$`, 'i');
+      let bestFile: string | null = null;
+      let bestVersion = -1;
+      for (const entry of fs.readdirSync(qariDir)) {
+        const vm = entry.match(versionRe);
+        if (vm) {
+          const ver = parseInt(vm[1], 10);
+          if (ver > bestVersion) {
+            bestVersion = ver;
+            bestFile = path.resolve(qariDir, entry);
+          }
+        }
+      }
+      if (bestFile && bestFile.startsWith(qariDir + path.sep) && fs.existsSync(bestFile)) {
+        return bestFile;
+      }
+    }
+
+    for (const ext of ['.mp3', '.m4a', '.ogg', '.wav']) {
+      const candidate = path.resolve(qariDir, `surah-${padded}${ext}`);
+      if (candidate.startsWith(qariDir + path.sep) && fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+    return path.resolve(qariDir, `surah-${padded}.mp3`);
+  }
+  return null;
 }
 
 export class TelegramQuranMp3Service {
@@ -312,6 +363,7 @@ export class TelegramQuranMp3Service {
   private readonly emojiRegistry?: CustomEmojiRegistry;
   private readonly centralAdminWriter?: TelegramCentralAdminWriter;
   private readonly fetchImpl?: typeof fetch;
+  private readonly uploadsRootDir: string;
   private readonly pendingBulkPlans = new Map<string, BulkImportPreviewPlan>();
   /** In-memory overlay for tests / serverless mode when centralAdminWriter is not attached */
   private readonly localReciterOverrides = new Map<string, QuranReciter>();
@@ -324,6 +376,7 @@ export class TelegramQuranMp3Service {
     emojiRegistry?: CustomEmojiRegistry;
     centralAdminWriter?: TelegramCentralAdminWriter;
     fetchImpl?: typeof fetch;
+    uploadsRootDir?: string;
   }) {
     this.repository = deps.repository;
     this.centralContent = deps.centralContent;
@@ -331,6 +384,7 @@ export class TelegramQuranMp3Service {
     this.emojiRegistry = deps.emojiRegistry;
     this.centralAdminWriter = deps.centralAdminWriter;
     this.fetchImpl = deps.fetchImpl;
+    this.uploadsRootDir = deps.uploadsRootDir || UPLOADS_ROOT_DIR;
   }
 
   private getMergedAudioOverrides(): Record<string, any> {
@@ -378,7 +432,7 @@ export class TelegramQuranMp3Service {
         const ov = overrides[`${r.id}_${s}`];
         if (ov && ov.audioUrl && ov.status !== 'missing' && ov.publicationStatus !== 'archived') {
           const url = String(ov.audioUrl).trim();
-          if (url.startsWith('/uploads/')) {
+          if (url.startsWith('/uploads/') || url.startsWith('/api/quran-ecosystem/audio-stream/')) {
             const diskPath = resolveConfinedUploadPath(url);
             if (!diskPath || !fs.existsSync(diskPath)) {
               brokenLocalFilesCount++;
@@ -489,8 +543,8 @@ export class TelegramQuranMp3Service {
       };
     }
 
-    if (audioUrl.startsWith('/uploads/')) {
-      const diskPath = resolveConfinedUploadPath(audioUrl);
+    if (audioUrl.startsWith('/uploads/') || audioUrl.startsWith('/api/quran-ecosystem/audio-stream/')) {
+      const diskPath = resolveConfinedUploadPath(audioUrl, storagePath, this.uploadsRootDir);
       const exists = Boolean(diskPath && fs.existsSync(diskPath));
       return {
         reciterId: reciter.id,

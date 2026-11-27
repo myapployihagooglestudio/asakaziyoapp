@@ -79,6 +79,35 @@ class AsakaLocalDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, 
             )
             """.trimIndent()
         )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS central_content_cache (
+                cache_key TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL,
+                content_version TEXT NOT NULL DEFAULT '',
+                updated_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS read_notifications (
+                notification_id TEXT PRIMARY KEY,
+                read_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS favorite_items (
+                fav_key TEXT PRIMARY KEY,
+                category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                subtitle TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -198,6 +227,14 @@ class AsakaLocalDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, 
         }
     }
 
+    fun listCachedMushafSurahNumbers(): Set<Int> {
+        val out = mutableSetOf<Int>()
+        readableDatabase.rawQuery("SELECT surah_number FROM cached_mushaf", null).use { c ->
+            while (c.moveToNext()) out.add(c.getInt(0))
+        }
+        return out
+    }
+
     // --- Bookmarks & Notes ---
     fun saveBookmark(surahNumber: Int, surahName: String, ayahNumber: Int, note: String = "") {
         val id = "${surahNumber}:${ayahNumber}"
@@ -212,17 +249,32 @@ class AsakaLocalDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, 
         writableDatabase.insertWithOnConflict("bookmarks", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    fun listBookmarks(): List<Triple<Int, Int, String>> {
-        val out = mutableListOf<Triple<Int, Int, String>>()
+    fun deleteBookmark(surahNumber: Int, ayahNumber: Int) {
+        writableDatabase.delete("bookmarks", "id = ?", arrayOf("${surahNumber}:${ayahNumber}"))
+    }
+
+    fun listBookmarkItems(): List<BookmarkItem> {
+        val out = mutableListOf<BookmarkItem>()
         readableDatabase.rawQuery(
-            "SELECT surah_number, ayah_number, surah_name FROM bookmarks ORDER BY created_at DESC LIMIT 60",
+            "SELECT surah_number, ayah_number, surah_name, note FROM bookmarks ORDER BY created_at DESC LIMIT 80",
             null
         ).use { c ->
             while (c.moveToNext()) {
-                out.add(Triple(c.getInt(0), c.getInt(1), c.getString(2)))
+                out.add(
+                    BookmarkItem(
+                        surahNumber = c.getInt(0),
+                        ayahNumber = c.getInt(1),
+                        surahName = c.getString(2),
+                        note = c.getString(3)
+                    )
+                )
             }
         }
         return out
+    }
+
+    fun listBookmarks(): List<Triple<Int, Int, String>> {
+        return listBookmarkItems().map { Triple(it.surahNumber, it.ayahNumber, it.surahName) }
     }
 
     // --- Hifz & Muroja'a Items ---
@@ -298,8 +350,92 @@ class AsakaLocalDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, 
         writableDatabase.delete("sync_queue", "id = ?", arrayOf(id.toString()))
     }
 
+    // --- Central Content Cache (Yields to newer server contentVersion) ---
+    fun saveCentralCache(cacheKey: String, payloadJson: String, contentVersion: String = "") {
+        val cv = ContentValues().apply {
+            put("cache_key", cacheKey)
+            put("payload_json", payloadJson)
+            put("content_version", contentVersion)
+            put("updated_at", System.currentTimeMillis())
+        }
+        writableDatabase.insertWithOnConflict("central_content_cache", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun getCentralCache(cacheKey: String): Pair<String, String>? {
+        readableDatabase.rawQuery(
+            "SELECT payload_json, content_version FROM central_content_cache WHERE cache_key = ?",
+            arrayOf(cacheKey)
+        ).use { c ->
+            if (!c.moveToFirst()) return null
+            return c.getString(0) to c.getString(1)
+        }
+    }
+
+    // --- Notification Read State ---
+    fun markNotificationRead(id: String) {
+        val cv = ContentValues().apply {
+            put("notification_id", id)
+            put("read_at", System.currentTimeMillis())
+        }
+        writableDatabase.insertWithOnConflict("read_notifications", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun listReadNotificationIds(): Set<String> {
+        val out = mutableSetOf<String>()
+        readableDatabase.rawQuery("SELECT notification_id FROM read_notifications", null).use { c ->
+            while (c.moveToNext()) out.add(c.getString(0))
+        }
+        return out
+    }
+
+    // --- Unified Favorites (Articles, News, Hadiths, Dhikrs, Books, Lessons) ---
+    fun toggleFavorite(favKey: String, category: String, title: String, subtitle: String = ""): Boolean {
+        val exists = readableDatabase.rawQuery(
+            "SELECT 1 FROM favorite_items WHERE fav_key = ?",
+            arrayOf(favKey)
+        ).use { it.moveToFirst() }
+        return if (exists) {
+            writableDatabase.delete("favorite_items", "fav_key = ?", arrayOf(favKey))
+            false
+        } else {
+            val cv = ContentValues().apply {
+                put("fav_key", favKey)
+                put("category", category)
+                put("title", title.take(180))
+                put("subtitle", subtitle.take(240))
+                put("created_at", System.currentTimeMillis())
+            }
+            writableDatabase.insertWithOnConflict("favorite_items", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            true
+        }
+    }
+
+    fun upsertFavorite(favKey: String, category: String, title: String, subtitle: String = "") {
+        val cv = ContentValues().apply {
+            put("fav_key", favKey.take(140))
+            put("category", category.take(40))
+            put("title", title.take(180))
+            put("subtitle", subtitle.take(240))
+            put("created_at", System.currentTimeMillis())
+        }
+        writableDatabase.insertWithOnConflict("favorite_items", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun listFavorites(): List<Triple<String, String, Pair<String, String>>> {
+        val out = mutableListOf<Triple<String, String, Pair<String, String>>>()
+        readableDatabase.rawQuery(
+            "SELECT fav_key, category, title, subtitle FROM favorite_items ORDER BY created_at DESC LIMIT 200",
+            null
+        ).use { c ->
+            while (c.moveToNext()) {
+                out.add(Triple(c.getString(0), c.getString(1), c.getString(2) to c.getString(3)))
+            }
+        }
+        return out
+    }
+
     companion object {
         private const val DB_NAME = "asaka_ziyo_offline_v5.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
     }
 }

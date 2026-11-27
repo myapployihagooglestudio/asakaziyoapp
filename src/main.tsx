@@ -270,10 +270,25 @@ if (
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  createRoot(rootEl).render(
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
+  try {
+    (window as unknown as { __ASAKA_APP_MOUNTED__?: boolean }).__ASAKA_APP_MOUNTED__ = true;
+    createRoot(rootEl).render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    );
+  } catch (err) {
+    console.error('[ASAKA ZIYO] Root mount error:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    rootEl.innerHTML =
+      '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#060B09;color:#F7F5F0;font-family:system-ui,sans-serif;padding:24px;text-align:center;">' +
+      '<div style="max-width:420px;padding:24px;border-radius:16px;border:1px solid rgba(197,168,105,0.35);background:#0B1411;">' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">ASAKA ZIYO yuklanishida xatolik yuz berdi</div>' +
+      '<div style="font-size:12px;color:#9CAFA7;margin-bottom:16px;">' +
+      msg.replace(/[<>&"]/g, '') +
+      '</div>' +
+      '<button onclick="window.location.reload()" style="padding:10px 18px;border-radius:10px;border:none;background:#10B981;color:#04120D;font-weight:700;font-size:13px;cursor:pointer;">Qayta yuklash</button>' +
+      '</div></div>';
+  }
 }
 

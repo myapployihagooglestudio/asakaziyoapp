@@ -1103,11 +1103,13 @@ export const CinematicSplashOverlay: React.FC = () => {
       return false;
     }
   });
+  const [hardDismissed, setHardDismissed] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     if (prefersReduced) {
       setVisible(false);
+      setHardDismissed(true);
       return;
     }
     const timer = window.setTimeout(() => {
@@ -1118,18 +1120,31 @@ export const CinematicSplashOverlay: React.FC = () => {
         // ignore
       }
     }, 680);
-    return () => window.clearTimeout(timer);
+    // Hard failsafe unmount in case AnimatePresence exit stalls in throttled background/iframe tab
+    const hardTimer = window.setTimeout(() => {
+      setVisible(false);
+      setHardDismissed(true);
+    }, 1350);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(hardTimer);
+    };
   }, [visible, prefersReduced]);
 
+  if (hardDismissed) return null;
+
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => setHardDismissed(true)}>
       {visible && (
         <motion.div
           key="az-cinematic-splash"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 1.03 }}
+          exit={{ opacity: 0, scale: 1.03, pointerEvents: 'none' }}
           transition={{ duration: 0.42, ease: PREMIUM_EASE }}
-          onClick={() => setVisible(false)}
+          onClick={() => {
+            setVisible(false);
+            setHardDismissed(true);
+          }}
           className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#030706] text-[#F7F4EC] cursor-pointer select-none"
           aria-label="ASAKA ZIYO kirish ekrani"
         >

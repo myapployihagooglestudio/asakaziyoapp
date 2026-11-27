@@ -10,6 +10,7 @@ export interface TelegramWebAppThemeParams {
   secondary_bg_color?: string;
   header_bg_color?: string;
   bottom_bar_bg_color?: string;
+  accent_text_color?: string;
 }
 
 export interface TelegramSafeAreaInset {
@@ -23,6 +24,28 @@ export interface TelegramBackButton {
   isVisible?: boolean;
   show: () => void;
   hide: () => void;
+  onClick: (cb: () => void) => void;
+  offClick: (cb: () => void) => void;
+}
+
+export interface TelegramMainButton {
+  text?: string;
+  color?: string;
+  textColor?: string;
+  isVisible?: boolean;
+  isActive?: boolean;
+  setText: (text: string) => void;
+  setParams?: (params: {
+    text?: string;
+    color?: string;
+    text_color?: string;
+    is_active?: boolean;
+    is_visible?: boolean;
+  }) => void;
+  show: () => void;
+  hide: () => void;
+  enable?: () => void;
+  disable?: () => void;
   onClick: (cb: () => void) => void;
   offClick: (cb: () => void) => void;
 }
@@ -50,14 +73,21 @@ export interface TelegramWebApp {
   colorScheme?: 'light' | 'dark';
   themeParams?: TelegramWebAppThemeParams;
   isExpanded?: boolean;
+  isFullscreen?: boolean;
   viewportHeight?: number;
   viewportStableHeight?: number;
   safeAreaInset?: TelegramSafeAreaInset;
   contentSafeAreaInset?: TelegramSafeAreaInset;
   BackButton?: TelegramBackButton;
+  MainButton?: TelegramMainButton;
   HapticFeedback?: TelegramHapticFeedback;
   ready?: () => void;
   expand?: () => void;
+  close?: () => void;
+  requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
+  openTelegramLink?: (url: string) => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
   setBottomBarColor?: (color: string) => void;
@@ -83,10 +113,19 @@ const TAB_ALIAS_MAP: Record<string, NavigationTab> = {
   prayer: 'prayer',
   namoz: 'prayer',
   vaqt: 'prayer',
+  qibla: 'prayer',
+  prayer_journal: 'prayer_journal',
+  namoz_jurnali: 'prayer_journal',
+  reminder_dashboard: 'reminder_dashboard',
+  eslatmalar: 'reminder_dashboard',
   taqvim: 'calendar',
   calendar: 'calendar',
   hijri: 'calendar',
-  qibla: 'prayer',
+  fasting: 'fasting',
+  roza: 'fasting',
+  ramazon: 'fasting',
+  mosque_events: 'mosque_events',
+  tadbirlar: 'mosque_events',
   quran: 'quran',
   quron: 'quran',
   sura: 'quran',
@@ -123,8 +162,21 @@ const TAB_ALIAS_MAP: Record<string, NavigationTab> = {
   articles: 'articles',
   maqolalar: 'articles',
   news: 'news',
+  yangiliklar: 'news',
   announcements: 'announcements',
+  elonlar: 'announcements',
+  daily_archive: 'daily_archive',
+  arxiv: 'daily_archive',
+  messages: 'messages',
+  xabarlar: 'messages',
+  notifications: 'notifications',
+  bildirishnomalar: 'notifications',
   favorites: 'favorites',
+  sevimlilar: 'favorites',
+  achievements: 'achievements',
+  yutuqlar: 'achievements',
+  search: 'search',
+  qidiruv: 'search',
   admin: 'admin',
   profile: 'profile',
   profil: 'profile',
@@ -142,6 +194,7 @@ const TAB_ALIAS_MAP: Record<string, NavigationTab> = {
 };
 
 let activeBackHandler: (() => void) | null = null;
+let activeMainButtonHandler: (() => void) | null = null;
 
 export function getTelegramWebApp(): TelegramWebApp | null {
   if (typeof window === 'undefined') return null;
@@ -219,6 +272,18 @@ export function applyTelegramThemeChrome(isDark: boolean): void {
   } catch {
     // Ignore unsupported method
   }
+
+  if (typeof document !== 'undefined' && webApp.themeParams) {
+    const root = document.documentElement;
+    const tp = webApp.themeParams;
+    if (tp.bg_color) root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
+    if (tp.text_color) root.style.setProperty('--tg-theme-text-color', tp.text_color);
+    if (tp.hint_color) root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
+    if (tp.button_color) root.style.setProperty('--tg-theme-button-color', tp.button_color);
+    if (tp.secondary_bg_color) {
+      root.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color);
+    }
+  }
 }
 
 function applySafeAreaCssVariables(webApp: TelegramWebApp): void {
@@ -228,13 +293,22 @@ function applySafeAreaCssVariables(webApp: TelegramWebApp): void {
     (webApp.safeAreaInset?.top ?? 0) + (webApp.contentSafeAreaInset?.top ?? 0);
   const bottomInset =
     (webApp.safeAreaInset?.bottom ?? 0) + (webApp.contentSafeAreaInset?.bottom ?? 0);
+  const leftInset =
+    (webApp.safeAreaInset?.left ?? 0) + (webApp.contentSafeAreaInset?.left ?? 0);
+  const rightInset =
+    (webApp.safeAreaInset?.right ?? 0) + (webApp.contentSafeAreaInset?.right ?? 0);
 
   root.style.setProperty('--tg-safe-top', `${Math.max(0, topInset)}px`);
   root.style.setProperty('--tg-safe-bottom', `${Math.max(0, bottomInset)}px`);
+  root.style.setProperty('--tg-safe-left', `${Math.max(0, leftInset)}px`);
+  root.style.setProperty('--tg-safe-right', `${Math.max(0, rightInset)}px`);
   if (typeof webApp.viewportStableHeight === 'number' && webApp.viewportStableHeight > 0) {
     root.style.setProperty('--tg-viewport-stable-height', `${webApp.viewportStableHeight}px`);
   }
   root.dataset.telegramMiniApp = 'true';
+  if (webApp.platform) {
+    root.dataset.telegramPlatform = webApp.platform;
+  }
 }
 
 export function initTelegramMiniApp(
@@ -249,6 +323,13 @@ export function initTelegramMiniApp(
   try {
     webApp.ready?.();
     webApp.expand?.();
+    // Enable fullscreen cleanly on Bot API 8.0+ mobile Telegram clients when supported
+    if (
+      typeof webApp.requestFullscreen === 'function' &&
+      (webApp.platform === 'android' || webApp.platform === 'ios')
+    ) {
+      webApp.requestFullscreen();
+    }
   } catch {
     // Ignore non-fatal Mini App bridge errors
   }
@@ -262,10 +343,15 @@ export function initTelegramMiniApp(
   }
 
   const handleViewportChange = () => applySafeAreaCssVariables(webApp);
+  const handleThemeChange = () => {
+    const darkNow = document.documentElement.classList.contains('dark');
+    applyTelegramThemeChrome(darkNow);
+  };
   try {
     webApp.onEvent?.('viewportChanged', handleViewportChange);
     webApp.onEvent?.('safeAreaChanged', handleViewportChange);
     webApp.onEvent?.('contentSafeAreaChanged', handleViewportChange);
+    webApp.onEvent?.('themeChanged', handleThemeChange);
   } catch {
     // Ignore if client lacks event subscription
   }
@@ -275,6 +361,7 @@ export function initTelegramMiniApp(
       webApp.offEvent?.('viewportChanged', handleViewportChange);
       webApp.offEvent?.('safeAreaChanged', handleViewportChange);
       webApp.offEvent?.('contentSafeAreaChanged', handleViewportChange);
+      webApp.offEvent?.('themeChanged', handleThemeChange);
     } catch {
       // Ignore cleanup errors
     }
@@ -286,6 +373,15 @@ export function initTelegramMiniApp(
         // Ignore cleanup errors
       }
       activeBackHandler = null;
+    }
+    if (activeMainButtonHandler && webApp.MainButton) {
+      try {
+        webApp.MainButton.offClick(activeMainButtonHandler);
+        webApp.MainButton.hide();
+      } catch {
+        // Ignore cleanup errors
+      }
+      activeMainButtonHandler = null;
     }
   };
 }
@@ -310,6 +406,89 @@ export function syncTelegramBackButton(canGoBack: boolean, onBack: () => void): 
     }
   } catch {
     // Ignore BackButton errors on older clients
+  }
+}
+
+export function syncTelegramMainButton(options: {
+  visible: boolean;
+  text?: string;
+  onClick?: () => void;
+  color?: string;
+  textColor?: string;
+}): void {
+  const webApp = getTelegramWebApp();
+  const mainButton = webApp?.MainButton;
+  if (!mainButton) return;
+
+  try {
+    if (activeMainButtonHandler) {
+      mainButton.offClick(activeMainButtonHandler);
+      activeMainButtonHandler = null;
+    }
+
+    if (options.visible && options.text && options.onClick) {
+      activeMainButtonHandler = options.onClick;
+      if (mainButton.setParams) {
+        mainButton.setParams({
+          text: options.text,
+          color: options.color || '#10B981',
+          text_color: options.textColor || '#04120D',
+          is_active: true,
+          is_visible: true,
+        });
+      } else {
+        mainButton.setText(options.text);
+        mainButton.show();
+      }
+      mainButton.onClick(options.onClick);
+    } else {
+      mainButton.hide();
+    }
+  } catch {
+    // Ignore MainButton errors on older clients
+  }
+}
+
+export function shareViaTelegram(text: string, url = 'https://asakaziyo.ai.studio'): boolean {
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  const webApp = getTelegramWebApp();
+  if (webApp?.openTelegramLink) {
+    try {
+      webApp.openTelegramLink(shareUrl);
+      return true;
+    } catch {
+      // fall through
+    }
+  }
+  return false;
+}
+
+export function openSafeTelegramLink(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    const webApp = getTelegramWebApp();
+    if (webApp) {
+      if (parsed.hostname === 't.me' && webApp.openTelegramLink) {
+        webApp.openTelegramLink(url);
+        return true;
+      }
+      if (webApp.openLink) {
+        webApp.openLink(url);
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function closeTelegramMiniApp(): void {
+  try {
+    getTelegramWebApp()?.close?.();
+  } catch {
+    // Ignore
   }
 }
 

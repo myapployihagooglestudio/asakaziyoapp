@@ -35,19 +35,19 @@ export interface APKReleaseInfo {
 }
 
 export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
-  version: '4.0.0',
-  buildCode: 400,
+  version: '5.0.0',
+  buildCode: 500,
   packageId: 'uz.asakaziyo.app',
   appName: 'ASAKA ZIYO',
-  releaseDate: '2026-11-19',
-  apkFilename: 'Asaka-Ziyo-v4.0.0.apk',
-  aabFilename: 'Asaka-Ziyo-v4.0.0.aab',
+  releaseDate: '2026-11-25',
+  apkFilename: 'Asaka-Ziyo-v5.0.0.apk',
+  aabFilename: 'Asaka-Ziyo-v5.0.0.aab',
   apkAvailable: false,
   aabAvailable: false,
   signed: false,
   status: 'awaiting_ci_artifact',
   statusMessageUz:
-    'ASAKA ZIYO v4.0.0 (Build 400) imzolangan APK fayli serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi.',
+    'ASAKA ZIYO v5.0.0 (Build 500) imzolangan APK fayli serverga yuklangach, yuklab olish tugmasi avtomatik faollashadi.',
   sizeBytes: 0,
   fileSizeDisplay: 'Tayyorlanmoqda',
   sha256Checksum: '',
@@ -76,18 +76,17 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
     'android.permission.WAKE_LOCK',
   ],
   featuresUz: [
-    'ASAKA ZIYO v4.0.0 (Build 400 · uz.asakaziyo.app) — Android 7.0–16 (API 24–36) uchun toʻliq qayta tiklangan native Gradle build tizimi',
-    'Rasmiy «MuhammadSolih Hoji» Jomeʼ masjidi muhr logosi asosida yagona Web, PWA va Android Adaptive Icon (66% safe-zone) tizimi',
-    'Android 12+ SplashScreen API, monoxrom status-bar bildirishnoma ikonkasi va chuqur havolalar (Deep Link) marshrutizatsiyasi',
-    'R8/ProGuard himoyasi bilan toʻliq ishlovchi AsakaNativeBridge (ruxsatlar, aniq namoz budilniklari, ulashish, vibratsiya)',
-    'Masjid Jamoat Smart TV (10 ta premium dizayn) va Qurʼon viktorinasi MP4 video eksporti',
-    'Qurʼoni Karim 114 surasi, Tafsiri Hilol va qorilar audiosi (Media3 fonda ijro + 100% oflayn ishlash)',
+    'ASAKA ZIYO v5.0.0 (Build 500 · uz.asakaziyo.app) — Kotlin, Jetpack Compose, Material 3 va MVVM asosida butunlay qayta qurilgan native Android ilovasi',
+    '5 ta asosiy native boʻlim (Home, Qurʼon, Oʻrganish, Audio, Profil), Madina Mushaf, 114 sura va 30 juz navigatsiyasi',
+    'Media3 ExoPlayer fon audio pleeri, SHA-256 oflayn yuklab olish menejeri, Lock Screen va Bluetooth boshqaruvi',
+    '4 ta uy ekrani vidjeti, 4 ta Launcher App Shortcut, sensorli Qibla kompasi, BiometricPrompt qulfi va ovozli AI Ustoz',
+    'Web App, Telegram Bot va Android boʻylab yagona Free/Premium obuna tizimi va 5 tilli mahalliylashtirish',
   ],
   installStepsUz: [
     {
       step: 1,
-      title: 'Rasmiy imzolangan APK v4.0.0 faylni yuklab oling',
-      desc: '«Rasmiy APK v4.0.0 Yuklab Olish» tugmasini bosing. Binar tekshiruvdan oʻtgan toʻliq APK smartfoningizga saqlanadi.',
+      title: 'Rasmiy imzolangan APK v5.0.0 faylni yuklab oling',
+      desc: '«Rasmiy APK v5.0.0 Yuklab Olish» tugmasini bosing. Binar tekshiruvdan oʻtgan toʻliq APK smartfoningizga saqlanadi.',
     },
     {
       step: 2,
@@ -96,8 +95,8 @@ export const ASAKA_ZIYO_APK_RELEASE: APKReleaseInfo = {
     },
     {
       step: 3,
-      title: 'Yangilang yoki toza oʻrnating',
-      desc: '«Oʻrnatish» (Install / Update) tugmasini bosing. Mavjud uz.asakaziyo.app foydalanuvchilari maʼlumotlarni yoʻqotmasdan v4.0.0 ga oʻtadi.',
+      title: 'Oʻrnating (agar eski v4 boshqa imzo bilan boʻlsa, avval uni oʻchiring)',
+      desc: '«Oʻrnatish» (Install) tugmasini bosing. Yangi imzo bilan yigʻilgan relizda eski v4.0.0 ni avval oʻchirib oʻrnatish talab etilishi mumkin.',
     },
   ],
 };
@@ -130,7 +129,7 @@ export async function fetchVerifiedApkInfo(): Promise<APKReleaseInfo> {
  */
 export async function downloadVerifiedApkWithProgress(
   onProgress?: (percent: number, loadedBytes: number, totalBytes: number) => void,
-  filename = 'Asaka-Ziyo-v4.0.0.apk'
+  filename = 'Asaka-Ziyo-v5.0.0.apk'
 ): Promise<{ success: boolean; sizeBytes: number; error?: string }> {
   try {
     // Inside the native Android WebView (appassets.androidplatform.net), delegate download
@@ -151,7 +150,7 @@ export async function downloadVerifiedApkWithProgress(
           : 'https://asakaziyo.ai.studio/api/apk/download';
       if (!info.apkAvailable) {
         throw new Error(
-          info.statusMessageUz || 'ASAKA ZIYO v4.0.0 APK fayli hozircha yuklab olishga tayyor emas.'
+          info.statusMessageUz || 'ASAKA ZIYO v5.0.0 APK fayli hozircha yuklab olishga tayyor emas.'
         );
       }
       onProgress?.(100, info.sizeBytes || 0, info.sizeBytes || 0);
@@ -175,7 +174,7 @@ export async function downloadVerifiedApkWithProgress(
         const errBody = await response.json().catch(() => null);
         throw new Error(
           errBody?.error ||
-            `ASAKA ZIYO v4.0.0 APK fayli hali serverda mavjud emas (HTTP ${response.status}).`
+            `ASAKA ZIYO v5.0.0 APK fayli hali serverda mavjud emas (HTTP ${response.status}).`
         );
       }
       throw new Error(`Server xatosi: HTTP ${response.status}`);
@@ -270,7 +269,7 @@ export async function downloadVerifiedApkWithProgress(
 /**
  * Verified download helper (checks availability & binary magic bytes before saving)
  */
-export async function triggerApkDownload(filename = 'Asaka-Ziyo-v4.0.0.apk'): Promise<{ success: boolean; error?: string }> {
+export async function triggerApkDownload(filename = 'Asaka-Ziyo-v5.0.0.apk'): Promise<{ success: boolean; error?: string }> {
   const result = await downloadVerifiedApkWithProgress(undefined, filename);
   return { success: result.success, error: result.error };
 }

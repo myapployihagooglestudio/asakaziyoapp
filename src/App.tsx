@@ -6,7 +6,7 @@
  * Phase 1: Product Foundation, Design System, and Application Shell
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { MotionConfig, AnimatePresence, motion } from 'motion/react';
 import {
   AppSettings,
@@ -32,7 +32,7 @@ import {
   subscribeToDatabase,
 } from './utils/databaseService';
 
-// Layout components
+// Layout components (eagerly loaded for instant Home shell paint)
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { MobileNav } from './components/layout/MobileNav';
@@ -40,56 +40,145 @@ import { DesktopSidebar } from './components/layout/DesktopSidebar';
 import { Modal } from './components/ui/Modal';
 import { ScrollProgressBar, CinematicSplashOverlay } from './components/ui/MotionPrimitives';
 import { LiquidGlassDefs } from './components/ui/LiquidGlassDefs';
-import { AppInstallModal } from './components/features/install/AppInstallModal';
 import { AppInstallBanner } from './components/features/install/AppInstallBanner';
-import { SupportChatModal } from './components/features/chat/SupportChatModal';
-
-// Feature Views
-import { HomeView } from './components/features/home/HomeView';
-import { QuranEcosystemHub } from './components/features/quran/QuranEcosystemHub';
-import { PremiumSubscriptionView } from './components/features/premium/PremiumSubscriptionView';
-import { HadithView } from './components/features/hadith/HadithView';
-import { DhikrView } from './components/features/dhikr/DhikrView';
-import { PrayerTimesView } from './components/features/prayer/PrayerTimesView';
-import { ArticlesView } from './components/features/articles/ArticlesView';
-import { NewsView } from './components/features/news/NewsView';
-import { AnnouncementsView } from './components/features/announcements/AnnouncementsView';
-import { FavoritesView } from './components/features/favorites/FavoritesView';
-import { UserProfileView } from './components/features/profile/UserProfileView';
-import { SettingsView } from './components/features/settings/SettingsView';
-import { AdminPortal } from './components/features/admin/AdminPortal';
-import { NotificationsView } from './components/features/notifications/NotificationsView';
-import { DailyArchiveView } from './components/features/daily/DailyArchiveView';
-import { QuizView } from './components/features/quiz/QuizView';
-import { DailyQuranQuizView } from './components/features/quran/DailyQuranQuizView';
-import { CalendarView } from './components/features/calendar/CalendarView';
-import { ReminderDashboard } from './components/features/prayer/ReminderDashboard';
-import { MessagesView } from './components/features/messages/MessagesView';
-import { KhatmPlannerView } from './components/features/quran/KhatmPlannerView';
-import { PrayerJournalView } from './components/features/prayer/PrayerJournalView';
-import { MosqueEventsView } from './components/features/calendar/MosqueEventsView';
-import { FastingView } from './components/features/fasting/FastingView';
-import { DigitalLibraryView } from './components/features/library/DigitalLibraryView';
-import { AskImamView } from './components/features/chat/AskImamView';
-import { AiAssistantView } from './components/features/chat/AiAssistantView';
-import { GlobalSearchView } from './components/features/search/GlobalSearchView';
-import { GlobalSearchModal } from './components/features/search/GlobalSearchModal';
-import { IslamicAchievementsView } from './components/features/profile/IslamicAchievementsView';
-import { SmartTvModal } from './components/features/tv/SmartTvModal';
-import { SmartMosqueDisplayPage } from './components/features/tv/SmartMosqueDisplayPage';
-import { MasjidTvTabloPage } from './components/features/tv/MasjidTvTabloPage';
-import { HifzIstiqomatView } from './components/features/academy/HifzIstiqomatView';
-import { QuranAcademyView } from './components/features/academy/QuranAcademyView';
-import { ScholarsView } from './components/features/scholars/ScholarsView';
-import { MosquesDirectoryView } from './components/features/mosques/MosquesDirectoryView';
-import { MediaCenterView } from './components/features/media/MediaCenterView';
-import { OnboardingModal } from './components/ui/OnboardingModal';
 import { PersistentAudioPlayer } from './components/ui/PersistentAudioPlayer';
 import { GlobalQuranMiniPlayer } from './components/ui/GlobalQuranMiniPlayer';
 import { DeveloperAttribution } from './components/layout/DeveloperAttribution';
-import { PrivacyPolicyModal } from './components/features/legal/PrivacyPolicyModal';
+
+// Primary Home View (eagerly loaded)
+import { HomeView } from './components/features/home/HomeView';
+
+// Secondary Feature Views & On-Demand Modals (lazy-loaded to prevent 150+ parallel module burst on startup)
+const AppInstallModal = lazy(() =>
+  import('./components/features/install/AppInstallModal').then((m) => ({ default: m.AppInstallModal }))
+);
+const SupportChatModal = lazy(() =>
+  import('./components/features/chat/SupportChatModal').then((m) => ({ default: m.SupportChatModal }))
+);
+const QuranEcosystemHub = lazy(() =>
+  import('./components/features/quran/QuranEcosystemHub').then((m) => ({ default: m.QuranEcosystemHub }))
+);
+const PremiumSubscriptionView = lazy(() =>
+  import('./components/features/premium/PremiumSubscriptionView').then((m) => ({ default: m.PremiumSubscriptionView }))
+);
+const HadithView = lazy(() =>
+  import('./components/features/hadith/HadithView').then((m) => ({ default: m.HadithView }))
+);
+const DhikrView = lazy(() =>
+  import('./components/features/dhikr/DhikrView').then((m) => ({ default: m.DhikrView }))
+);
+const PrayerTimesView = lazy(() =>
+  import('./components/features/prayer/PrayerTimesView').then((m) => ({ default: m.PrayerTimesView }))
+);
+const ArticlesView = lazy(() =>
+  import('./components/features/articles/ArticlesView').then((m) => ({ default: m.ArticlesView }))
+);
+const NewsView = lazy(() =>
+  import('./components/features/news/NewsView').then((m) => ({ default: m.NewsView }))
+);
+const AnnouncementsView = lazy(() =>
+  import('./components/features/announcements/AnnouncementsView').then((m) => ({ default: m.AnnouncementsView }))
+);
+const FavoritesView = lazy(() =>
+  import('./components/features/favorites/FavoritesView').then((m) => ({ default: m.FavoritesView }))
+);
+const UserProfileView = lazy(() =>
+  import('./components/features/profile/UserProfileView').then((m) => ({ default: m.UserProfileView }))
+);
+const SettingsView = lazy(() =>
+  import('./components/features/settings/SettingsView').then((m) => ({ default: m.SettingsView }))
+);
+const AdminPortal = lazy(() =>
+  import('./components/features/admin/AdminPortal').then((m) => ({ default: m.AdminPortal }))
+);
+const NotificationsView = lazy(() =>
+  import('./components/features/notifications/NotificationsView').then((m) => ({ default: m.NotificationsView }))
+);
+const DailyArchiveView = lazy(() =>
+  import('./components/features/daily/DailyArchiveView').then((m) => ({ default: m.DailyArchiveView }))
+);
+const QuizView = lazy(() =>
+  import('./components/features/quiz/QuizView').then((m) => ({ default: m.QuizView }))
+);
+const DailyQuranQuizView = lazy(() =>
+  import('./components/features/quran/DailyQuranQuizView').then((m) => ({ default: m.DailyQuranQuizView }))
+);
+const CalendarView = lazy(() =>
+  import('./components/features/calendar/CalendarView').then((m) => ({ default: m.CalendarView }))
+);
+const ReminderDashboard = lazy(() =>
+  import('./components/features/prayer/ReminderDashboard').then((m) => ({ default: m.ReminderDashboard }))
+);
+const MessagesView = lazy(() =>
+  import('./components/features/messages/MessagesView').then((m) => ({ default: m.MessagesView }))
+);
+const KhatmPlannerView = lazy(() =>
+  import('./components/features/quran/KhatmPlannerView').then((m) => ({ default: m.KhatmPlannerView }))
+);
+const PrayerJournalView = lazy(() =>
+  import('./components/features/prayer/PrayerJournalView').then((m) => ({ default: m.PrayerJournalView }))
+);
+const MosqueEventsView = lazy(() =>
+  import('./components/features/calendar/MosqueEventsView').then((m) => ({ default: m.MosqueEventsView }))
+);
+const FastingView = lazy(() =>
+  import('./components/features/fasting/FastingView').then((m) => ({ default: m.FastingView }))
+);
+const DigitalLibraryView = lazy(() =>
+  import('./components/features/library/DigitalLibraryView').then((m) => ({ default: m.DigitalLibraryView }))
+);
+const AskImamView = lazy(() =>
+  import('./components/features/chat/AskImamView').then((m) => ({ default: m.AskImamView }))
+);
+const AiAssistantView = lazy(() =>
+  import('./components/features/chat/AiAssistantView').then((m) => ({ default: m.AiAssistantView }))
+);
+const GlobalSearchView = lazy(() =>
+  import('./components/features/search/GlobalSearchView').then((m) => ({ default: m.GlobalSearchView }))
+);
+const GlobalSearchModal = lazy(() =>
+  import('./components/features/search/GlobalSearchModal').then((m) => ({ default: m.GlobalSearchModal }))
+);
+const IslamicAchievementsView = lazy(() =>
+  import('./components/features/profile/IslamicAchievementsView').then((m) => ({ default: m.IslamicAchievementsView }))
+);
+const SmartTvModal = lazy(() =>
+  import('./components/features/tv/SmartTvModal').then((m) => ({ default: m.SmartTvModal }))
+);
+const SmartMosqueDisplayPage = lazy(() =>
+  import('./components/features/tv/SmartMosqueDisplayPage').then((m) => ({ default: m.SmartMosqueDisplayPage }))
+);
+const MasjidTvTabloPage = lazy(() =>
+  import('./components/features/tv/MasjidTvTabloPage').then((m) => ({ default: m.MasjidTvTabloPage }))
+);
+const HifzIstiqomatView = lazy(() =>
+  import('./components/features/academy/HifzIstiqomatView').then((m) => ({ default: m.HifzIstiqomatView }))
+);
+const QuranAcademyView = lazy(() =>
+  import('./components/features/academy/QuranAcademyView').then((m) => ({ default: m.QuranAcademyView }))
+);
+const ScholarsView = lazy(() =>
+  import('./components/features/scholars/ScholarsView').then((m) => ({ default: m.ScholarsView }))
+);
+const MosquesDirectoryView = lazy(() =>
+  import('./components/features/mosques/MosquesDirectoryView').then((m) => ({ default: m.MosquesDirectoryView }))
+);
+const MediaCenterView = lazy(() =>
+  import('./components/features/media/MediaCenterView').then((m) => ({ default: m.MediaCenterView }))
+);
+const OnboardingModal = lazy(() =>
+  import('./components/ui/OnboardingModal').then((m) => ({ default: m.OnboardingModal }))
+);
+const PrivacyPolicyModal = lazy(() =>
+  import('./components/features/legal/PrivacyPolicyModal').then((m) => ({ default: m.PrivacyPolicyModal }))
+);
 import { pageTransitionVariants } from './utils/motionSystem';
-import { verifyAndSyncTelegramMiniAppSession } from './utils/userIdentityClient';
+import i18n, { SUPPORTED_LOCALES, SupportedLocale } from './i18n';
+import {
+  verifyAndSyncTelegramMiniAppSession,
+  pullUnifiedUserSyncState,
+  pushUnifiedUserSyncState,
+} from './utils/userIdentityClient';
 import {
   subscribeToMessages,
   getUnreadMessagesCount,
@@ -285,6 +374,7 @@ export default function App() {
     const nextTheme: AppSettings['theme'] =
       settings.theme === 'dark' ? 'light' : settings.theme === 'light' ? 'system' : 'dark';
     setSettings((prev) => ({ ...prev, theme: nextTheme }));
+    void pushUnifiedUserSyncState({ theme: nextTheme });
   };
 
   // Synchronize favorites
@@ -313,12 +403,28 @@ export default function App() {
     const exists = favorites.some((f) => f.id === item.id);
     if (exists) {
       setFavorites((prev) => prev.filter((f) => f.id !== item.id));
+      void pushUnifiedUserSyncState({ removeFavoriteIds: [item.id] });
     } else {
       const newFav: FavoriteItem = {
         ...item,
         timestamp: Date.now(),
       };
       setFavorites((prev) => [newFav, ...prev]);
+      void pushUnifiedUserSyncState({
+        mergeMode: 'merge',
+        favorites: [
+          {
+            id: newFav.id,
+            type: newFav.type,
+            title: newFav.title,
+            subtitle: newFav.subtitle,
+            snippet: newFav.snippet,
+            routeTab: newFav.routeTab,
+            routeId: newFav.routeId,
+            timestamp: newFav.timestamp,
+          },
+        ],
+      });
     }
   };
 
@@ -326,10 +432,12 @@ export default function App() {
 
   const handleRemoveFavorite = (id: string) => {
     setFavorites((prev) => prev.filter((f) => f.id !== id));
+    void pushUnifiedUserSyncState({ removeFavoriteIds: [id] });
   };
 
   const handleClearAllFavorites = () => {
     setFavorites([]);
+    void pushUnifiedUserSyncState({ mergeMode: 'replace', favorites: [] });
   };
 
   const handleUpdateSettings = (partial: Partial<AppSettings>) => {
@@ -370,13 +478,70 @@ export default function App() {
     setMobileMenuSearch('');
   };
 
-  // Initialize Telegram Mini App native bridge (ready, expand, safe-area insets, deep links & HMAC verification)
+  // Initialize Telegram Mini App native bridge (ready, expand, safe-area insets, deep links, HMAC verification & cross-platform sync)
   useEffect(() => {
     const isDarkNow = document.documentElement.classList.contains('dark');
     const cleanup = initTelegramMiniApp(isDarkNow, (startTab) => {
       setActiveTab(startTab);
     });
-    void verifyAndSyncTelegramMiniAppSession();
+
+    // Honor explicit ?lang= query param from Telegram Bot / Mini App deep links
+    try {
+      const langParam = new URLSearchParams(window.location.search).get('lang');
+      if (langParam && SUPPORTED_LOCALES.some((l) => l.code === langParam)) {
+        void i18n.changeLanguage(langParam as SupportedLocale);
+      }
+    } catch {
+      // ignore invalid URL params
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const tgAuth = await verifyAndSyncTelegramMiniAppSession();
+      if (cancelled) return;
+      const synced = await pullUnifiedUserSyncState(tgAuth.userId);
+      if (cancelled || !synced) return;
+
+      if (synced.language && SUPPORTED_LOCALES.some((l) => l.code === synced.language)) {
+        const hasExplicitQueryLang = Boolean(new URLSearchParams(window.location.search).get('lang'));
+        if (!hasExplicitQueryLang && synced.language !== i18n.language) {
+          void i18n.changeLanguage(synced.language);
+        }
+      }
+      if (Array.isArray(synced.favorites) && synced.favorites.length > 0) {
+        setFavorites((prev) => {
+          const byId = new Map(prev.map((f) => [f.id, f]));
+          for (const remote of synced.favorites) {
+            if (!remote?.id) continue;
+            const prevItem = byId.get(remote.id);
+            if (!prevItem || (remote.timestamp || 0) >= (prevItem.timestamp || 0)) {
+              const safeType = (['ayah', 'hadith', 'dhikr', 'article'].includes(remote.type)
+                ? remote.type
+                : 'article') as FavoriteItem['type'];
+              byId.set(remote.id, {
+                id: remote.id,
+                type: safeType,
+                title: remote.title || remote.id,
+                subtitle: remote.subtitle || '',
+                snippet: remote.snippet || '',
+                routeTab: (remote.routeTab as NavigationTab) || 'favorites',
+                routeId: remote.routeId || remote.id,
+                timestamp: remote.timestamp || Date.now(),
+              });
+            }
+          }
+          return Array.from(byId.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        });
+      }
+    })();
+
+    const onLanguageChanged = (lng: string) => {
+      if (SUPPORTED_LOCALES.some((l) => l.code === lng)) {
+        void pushUnifiedUserSyncState({ language: lng });
+      }
+    };
+    i18n.on('languageChanged', onLanguageChanged);
+
     const onGlobalNavigate = (e: Event) => {
       const target = (e as CustomEvent<{ tab?: NavigationTab }>)?.detail?.tab;
       if (target) {
@@ -385,6 +550,8 @@ export default function App() {
     };
     window.addEventListener('asaka_navigate_tab', onGlobalNavigate);
     return () => {
+      cancelled = true;
+      i18n.off('languageChanged', onLanguageChanged);
       window.removeEventListener('asaka_navigate_tab', onGlobalNavigate);
       cleanup();
     };
@@ -526,20 +693,31 @@ export default function App() {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
+  const lazyViewFallback = (
+    <div className="min-h-[45vh] flex items-center justify-center py-16">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#10B981]/30 border-t-[#10B981] animate-spin" />
+        <span className="text-xs text-[#5F736C] dark:text-[#9CAFA7] font-medium">Boʻlim yuklanmoqda...</span>
+      </div>
+    </div>
+  );
+
   // Standalone Uzbek Cyrillic Masjid Namoz Vaqtlari Tablosi (/masjid-tv)
   if (activeTab === 'masjid_tv') {
     return (
       <MotionConfig reducedMotion="user">
-        <MasjidTvTabloPage
-          onExitToApp={() => {
-            try {
-              window.history.pushState({ tab: 'home' }, '', '/');
-            } catch {
-              // ignore
-            }
-            setActiveTab('home');
-          }}
-        />
+        <Suspense fallback={lazyViewFallback}>
+          <MasjidTvTabloPage
+            onExitToApp={() => {
+              try {
+                window.history.pushState({ tab: 'home' }, '', '/');
+              } catch {
+                // ignore
+              }
+              setActiveTab('home');
+            }}
+          />
+        </Suspense>
       </MotionConfig>
     );
   }
@@ -548,16 +726,18 @@ export default function App() {
   if (activeTab === 'display') {
     return (
       <MotionConfig reducedMotion="user">
-        <SmartMosqueDisplayPage
-          onExitToApp={() => {
-            try {
-              window.history.pushState({ tab: 'home' }, '', '/');
-            } catch {
-              // ignore
-            }
-            setActiveTab('home');
-          }}
-        />
+        <Suspense fallback={lazyViewFallback}>
+          <SmartMosqueDisplayPage
+            onExitToApp={() => {
+              try {
+                window.history.pushState({ tab: 'home' }, '', '/');
+              } catch {
+                // ignore
+              }
+              setActiveTab('home');
+            }}
+          />
+        </Suspense>
       </MotionConfig>
     );
   }
@@ -643,6 +823,7 @@ export default function App() {
           />
         )}
 
+        <Suspense fallback={lazyViewFallback}>
         {activeTab === 'quran' && (
           <QuranEcosystemHub
             onToggleFavorite={handleToggleFavorite}
@@ -791,6 +972,7 @@ export default function App() {
         {activeTab === 'mosques' && <MosquesDirectoryView />}
 
         {activeTab === 'media_center' && <MediaCenterView />}
+        </Suspense>
               </motion.div>
             </AnimatePresence>
           </main>
@@ -847,7 +1029,7 @@ export default function App() {
                   <Download className="w-4 h-4 shrink-0" />
                   <span>Android APK yuklab olish</span>
                 </span>
-                <span className="text-[11px] font-mono-numbers opacity-85">v4.0</span>
+                <span className="text-[11px] font-mono-numbers opacity-85">v5.0.0</span>
               </button>
 
               <button
@@ -987,58 +1169,67 @@ export default function App() {
       {/* Floating Smart App Installation Banner */}
       <AppInstallBanner onOpenInstallModal={() => setIsInstallModalOpen(true)} />
 
-      {/* App Installation & APK v1.0 Download Modal */}
-      <AppInstallModal
-        isOpen={isInstallModalOpen}
-        onClose={() => setIsInstallModalOpen(false)}
-      />
+      {/* On-Demand Lazy Modals (loaded only when opened) */}
+      <Suspense fallback={null}>
+        {isInstallModalOpen && (
+          <AppInstallModal
+            isOpen={isInstallModalOpen}
+            onClose={() => setIsInstallModalOpen(false)}
+          />
+        )}
 
-      {/* Support Inquiry & Chat Modal */}
-      <SupportChatModal
-        isOpen={isChatModalOpen}
-        onClose={() => setIsChatModalOpen(false)}
-      />
+        {isChatModalOpen && (
+          <SupportChatModal
+            isOpen={isChatModalOpen}
+            onClose={() => setIsChatModalOpen(false)}
+          />
+        )}
 
-      {/* Global Intelligent Search Modal */}
-      <GlobalSearchModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-        onNavigate={handleNavigate}
-      />
+        {isSearchModalOpen && (
+          <GlobalSearchModal
+            isOpen={isSearchModalOpen}
+            onClose={() => setIsSearchModalOpen(false)}
+            onNavigate={handleNavigate}
+          />
+        )}
 
-      {/* Smart TV & Mosque 10-Foot Display Modal */}
-      <SmartTvModal
-        isOpen={isTvModalOpen}
-        onClose={() => setIsTvModalOpen(false)}
-        schedule={prayerSchedule}
-        dailyAyah={DAILY_FEATURED_AYAH}
-        dailyHadith={FEATURED_DAILY_HADITH}
-        onOpenSmartDisplay={(profile) => {
-          setIsTvModalOpen(false);
-          try {
-            const targetUrl = profile ? `/display?template=${encodeURIComponent(profile)}` : '/display';
-            window.history.pushState({}, '', targetUrl);
-          } catch {
-            // ignore history error
-          }
-          handleNavigate('display');
-        }}
-      />
+        {isTvModalOpen && (
+          <SmartTvModal
+            isOpen={isTvModalOpen}
+            onClose={() => setIsTvModalOpen(false)}
+            schedule={prayerSchedule}
+            dailyAyah={DAILY_FEATURED_AYAH}
+            dailyHadith={FEATURED_DAILY_HADITH}
+            onOpenSmartDisplay={(profile) => {
+              setIsTvModalOpen(false);
+              try {
+                const targetUrl = profile ? `/display?template=${encodeURIComponent(profile)}` : '/display';
+                window.history.pushState({}, '', targetUrl);
+              } catch {
+                // ignore history error
+              }
+              handleNavigate('display');
+            }}
+          />
+        )}
 
-      {/* First-Launch Skippable Onboarding & Personalization Modal */}
-      <OnboardingModal
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        settings={settings}
-        onUpdateSettings={handleUpdateSettings}
-      />
+        {isOnboardingOpen && (
+          <OnboardingModal
+            isOpen={isOnboardingOpen}
+            onClose={() => setIsOnboardingOpen(false)}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+          />
+        )}
 
-      {/* Privacy Policy & Data Safety Modal */}
-      <PrivacyPolicyModal
-        isOpen={isPrivacyModalOpen}
-        onClose={() => setIsPrivacyModalOpen(false)}
-        onOpenAccountDelete={() => handleNavigate('profile')}
-      />
+        {isPrivacyModalOpen && (
+          <PrivacyPolicyModal
+            isOpen={isPrivacyModalOpen}
+            onClose={() => setIsPrivacyModalOpen(false)}
+            onOpenAccountDelete={() => handleNavigate('profile')}
+          />
+        )}
+      </Suspense>
 
       {/* Persistent Global Audio Mini/Expanded Players */}
       <PersistentAudioPlayer />

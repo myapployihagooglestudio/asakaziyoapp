@@ -662,7 +662,7 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     adminAiToggleVoice: 'Ovozli javob (TTS)',
     adminAnalytics: 'Analitika',
     androidApp: 'Rasmiy Android ilova',
-    androidDownload: 'APK v4.0.0 yuklab olish',
+    androidDownload: 'APK v5.0.0 yuklab olish',
     androidInstallGuide: 'Oʻrnatish qoʻllanmasi',
     androidCheckUpdates: 'Yangilanishni tekshirish',
     androidReleaseHistory: 'Versiyalar tarixi',
@@ -723,7 +723,7 @@ const UZ_LATN_DICT: TelegramLocaleDictionary = {
     hifz: 'Qurʼon yodlash va Murojaa (HIFZ)',
     daily: 'Bugungi aqlli kunlik xulosa',
     qibla: 'Qibla yoʻnalishi (GPS)',
-    android: 'Rasmiy Android APK v4.0.0',
+    android: 'Rasmiy Android APK v5.0.0',
   },
 };
 
@@ -1033,7 +1033,7 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     adminAiToggleVoice: 'Овозли жавоб (TTS)',
     adminAnalytics: 'Аналитика',
     androidApp: 'Расмий Android илова',
-    androidDownload: 'APK v4.0.0 юклаб олиш',
+    androidDownload: 'APK v5.0.0 юклаб олиш',
     androidInstallGuide: 'Ўрнатиш қўлланмаси',
     androidCheckUpdates: 'Янгиланишни текшириш',
     androidReleaseHistory: 'Версиялар тарихи',
@@ -1094,7 +1094,7 @@ const UZ_CYRL_DICT: TelegramLocaleDictionary = {
     hifz: 'Қуръон ёдлаш ва Мурожаа (ҲИФЗ)',
     daily: 'Бугунги ақлли кунлик хулоса',
     qibla: 'Қибла йўналиши (GPS)',
-    android: 'Расмий Android APK v4.0.0',
+    android: 'Расмий Android APK v5.0.0',
   },
 };
 
@@ -1400,7 +1400,7 @@ const RU_DICT: TelegramLocaleDictionary = {
     adminAiToggleVoice: 'Голос (TTS)',
     adminAnalytics: 'Аналитика',
     androidApp: 'Приложение Android',
-    androidDownload: 'Скачать APK v4.0.0',
+    androidDownload: 'Скачать APK v5.0.0',
     androidInstallGuide: 'Инструкция установки',
     androidCheckUpdates: 'Проверить обновления',
     androidReleaseHistory: 'История версий',
@@ -1461,7 +1461,7 @@ const RU_DICT: TelegramLocaleDictionary = {
     hifz: 'Заучивание Корана и Мураджаа (ХИФЗ)',
     daily: 'Ежедневная умная сводка',
     qibla: 'Направление Киблы (GPS)',
-    android: 'Официальный Android APK v4.0.0',
+    android: 'Официальный Android APK v5.0.0',
   },
 };
 
@@ -1767,7 +1767,7 @@ const EN_DICT: TelegramLocaleDictionary = {
     adminAiToggleVoice: 'Voice Reply (TTS)',
     adminAnalytics: 'Analytics',
     androidApp: 'Official Android App',
-    androidDownload: 'Download APK v4.0.0',
+    androidDownload: 'Download APK v5.0.0',
     androidInstallGuide: 'Install Guide',
     androidCheckUpdates: 'Check Updates',
     androidReleaseHistory: 'Release History',
@@ -1828,7 +1828,7 @@ const EN_DICT: TelegramLocaleDictionary = {
     hifz: 'Quran Memorization & Murojaa (HIFZ)',
     daily: 'Today smart Islamic briefing',
     qibla: 'Qibla direction (GPS)',
-    android: 'Official Android APK v4.0.0',
+    android: 'Official Android APK v5.0.0',
   },
 };
 

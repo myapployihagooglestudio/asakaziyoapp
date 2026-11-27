@@ -78,11 +78,11 @@ export const AppInstallBanner: React.FC<AppInstallBannerProps> = ({
                 PWA
               </span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#c9a84c] text-[#04120e]">
-                APK v4.0.0
+                APK v5.0.0
               </span>
             </div>
             <p className="text-[11px] text-stone-300 truncate mt-0.5">
-              {getLocalized("Bosh ekranga oʻrnatish (PWA) yoki rasmiy Android APK v4.0.0 yuklash")}
+              {getLocalized("Bosh ekranga oʻrnatish (PWA) yoki rasmiy Android APK v5.0.0 yuklash")}
             </p>
           </div>
         </div>

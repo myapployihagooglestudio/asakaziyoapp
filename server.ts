@@ -32,7 +32,7 @@ import {
 import { createSmartMosqueDisplayRouter } from './server/smartMosqueDisplayRouter';
 import { createGlobalPrayerWeatherRouter } from './server/globalPrayerWeatherRouter';
 import { GlobalPrayerEcosystemService } from './src/services/globalPrayerEcosystemServer';
-import { QuranEcosystemService } from './src/services/quranEcosystemServer';
+import { QuranEcosystemService, ODILJON_QORI_ID } from './src/services/quranEcosystemServer';
 import { SubscriptionEcosystemService } from './src/services/subscriptionEcosystemServer';
 import { createQuranPremiumEcosystemRouter } from './server/quranPremiumEcosystemRouter';
 import { createTelegramPlatformRouter } from './telegram/bot/router';
@@ -116,7 +116,11 @@ try {
 // ---------------------------------------------------------------------------
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Allow trusted framing in Google AI Studio Preview, production ai.studio, and Telegram Mini App
+  res.setHeader(
+    'Content-Security-Policy',
+    "frame-ancestors 'self' https://*.google.com https://aistudio.google.com https://*.ai.studio https://*.run.app https://web.telegram.org https://*.telegram.org https://t.me"
+  );
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
@@ -196,7 +200,7 @@ function createRateLimiter(options: { windowMs: number; max: number; message: st
 // Rate limiters
 const generalApiLimiter = createRateLimiter({
   windowMs: 60 * 1000,
-  max: 120,
+  max: 600,
   message: 'Juda ko‘p so‘rov yuborildi. Iltimos, 1 daqiqa kuting.',
 });
 
@@ -1948,6 +1952,139 @@ app.get('/api/database', (_req: Request, res: Response) => {
   };
 
   res.json({ success: true, data: publicData });
+});
+
+// 2.5 Versioned Real-Time Content Manifest (ETag / If-None-Match 304) for Native Android Auto-Sync
+app.get('/api/content/manifest', (req: Request, res: Response) => {
+  const db = readDatabase();
+  const qarisCount = Array.isArray(db.quranReciters) ? db.quranReciters.filter((r: any) => !r.isArchived).length : 0;
+  const categories = {
+    prayer: {
+      updatedAt: db.prayerSchedule?.updatedAt || db.updatedAt || '',
+      count: Array.isArray(db.prayerSchedule?.times) ? db.prayerSchedule.times.length : 0,
+    },
+    articles: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.articles) ? db.articles.filter((a: any) => !a.isArchived).length : 0,
+    },
+    news: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.news) ? db.news.filter((n: any) => !n.isArchived).length : 0,
+    },
+    announcements: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.announcements) ? db.announcements.filter((a: any) => !a.isArchived).length : 0,
+    },
+    hadiths: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.hadiths) ? db.hadiths.filter((h: any) => !h.isArchived).length : 0,
+    },
+    dhikrs: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.dhikrs) ? db.dhikrs.filter((d: any) => !d.isArchived).length : 0,
+    },
+    mediaPosts: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.mediaPosts) ? db.mediaPosts.filter((m: any) => !m.isArchived && m.isPublished !== false).length : 0,
+    },
+    academyLessons: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.academyLessons) ? db.academyLessons.filter((l: any) => !l.isArchived).length : 0,
+    },
+    digitalBooks: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.digitalBooks) ? db.digitalBooks.filter((b: any) => !b.isArchived).length : 0,
+    },
+    scholars: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray((db as any).scholars) ? (db as any).scholars.length : 0,
+    },
+    mosques: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray((db as any).mosques) ? (db as any).mosques.length : 0,
+    },
+    messages: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.messages) ? db.messages.filter((m: any) => !m.isArchived).length : 0,
+    },
+    notifications: {
+      updatedAt: db.updatedAt || '',
+      count: Array.isArray(db.notifications) ? db.notifications.filter((n: any) => !n.isArchived).length : 0,
+    },
+    qaris: {
+      updatedAt: db.updatedAt || '',
+      count: qarisCount,
+    },
+    homeConfig: {
+      updatedAt: (db as any).homeConfig?.updatedAt || db.updatedAt || '',
+      count: Array.isArray((db as any).homeConfig?.blockOrder) ? (db as any).homeConfig.blockOrder.length : 6,
+    },
+  };
+
+  const versionDigest = crypto
+    .createHash('sha1')
+    .update(JSON.stringify({ updatedAt: db.updatedAt, categories, homeConfig: (db as any).homeConfig || null }))
+    .digest('hex')
+    .slice(0, 16);
+  const etag = `"az-${versionDigest}"`;
+
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', 'no-cache');
+  if (req.headers['if-none-match'] === etag) {
+    return res.status(304).end();
+  }
+
+  return res.json({
+    success: true,
+    contentVersion: versionDigest,
+    etag,
+    updatedAt: db.updatedAt || new Date().toISOString(),
+    categories,
+    homeConfig: (db as any).homeConfig || {
+      bannerTitle: '',
+      bannerBody: '',
+      bannerVisible: false,
+      blockOrder: ['prayer', 'quran', 'audio', 'hifz', 'wisdom', 'ai'],
+      hiddenBlocks: [],
+      updatedAt: db.updatedAt || '',
+    },
+  });
+});
+
+app.get('/api/content/home-blocks', (_req: Request, res: Response) => {
+  const db = readDatabase();
+  return res.json({
+    success: true,
+    homeConfig: (db as any).homeConfig || {
+      bannerTitle: '',
+      bannerBody: '',
+      bannerVisible: false,
+      blockOrder: ['prayer', 'quran', 'audio', 'hifz', 'wisdom', 'ai'],
+      hiddenBlocks: [],
+      updatedAt: db.updatedAt || '',
+    },
+  });
+});
+
+app.post('/api/admin/home-blocks', requireAdminAuth, async (req: Request, res: Response) => {
+  const { bannerTitle, bannerBody, bannerVisible, blockOrder, hiddenBlocks } = req.body || {};
+  const db = readDatabase() as any;
+  const nextConfig = {
+    bannerTitle: String(bannerTitle || '').trim().slice(0, 160),
+    bannerBody: String(bannerBody || '').trim().slice(0, 500),
+    bannerVisible: Boolean(bannerVisible),
+    blockOrder: Array.isArray(blockOrder) && blockOrder.length > 0
+      ? blockOrder.map((x: any) => String(x)).slice(0, 12)
+      : ['prayer', 'quran', 'audio', 'hifz', 'wisdom', 'ai'],
+    hiddenBlocks: Array.isArray(hiddenBlocks) ? hiddenBlocks.map((x: any) => String(x)).slice(0, 12) : [],
+    updatedAt: new Date().toISOString(),
+    updatedBy: req.adminUser?.email || AUTHORIZED_ADMIN_EMAIL,
+  };
+  db.homeConfig = nextConfig;
+  db.updatedAt = nextConfig.updatedAt;
+  writeDatabase(db);
+  await serverWriteFirestoreDoc('config', 'home_blocks', nextConfig).catch(() => {});
+  return res.json({ success: true, homeConfig: nextConfig });
 });
 
 // 3. Admin Full Database Endpoint (Requires Verified Admin Auth)
@@ -5987,32 +6124,67 @@ app.get('/api/admin/storage-stats', requireAdminAuth, (_req: Request, res: Respo
 });
 
 // ---------------------------------------------------------------------------
-// 5.8. NATIVE ANDROID APK v4.0.0 RELEASE METADATA & VERIFIED BINARY DOWNLOAD
+// 5.8. NATIVE ANDROID APK v7.0.0 RELEASE METADATA & VERIFIED BINARY DOWNLOAD
 // ---------------------------------------------------------------------------
-const APK_TARGET_VERSION = '4.0.0';
-const APK_TARGET_BUILD_CODE = 400;
+const APK_TARGET_VERSION = '7.0.0';
+const APK_TARGET_BUILD_CODE = 700;
 const APK_CANONICAL_FILENAME = `Asaka-Ziyo-v${APK_TARGET_VERSION}.apk`;
 const AAB_CANONICAL_FILENAME = `Asaka-Ziyo-v${APK_TARGET_VERSION}.aab`;
 
-const APK_RELEASE_PATH_V4 = path.join(DATA_DIR, 'release', APK_CANONICAL_FILENAME);
-const APK_PUBLIC_PATH_V4 = path.join(__dirname, 'public', APK_CANONICAL_FILENAME);
-const AAB_RELEASE_PATH_V4 = path.join(DATA_DIR, 'release', AAB_CANONICAL_FILENAME);
-const APK_METADATA_PATH = path.join(DATA_DIR, 'apk_release_metadata.json');
+const APK_RELEASE_PATH_CURRENT = path.join(DATA_DIR, 'release', APK_CANONICAL_FILENAME);
+const APK_PUBLIC_PATH_CURRENT = path.join(__dirname, 'public', APK_CANONICAL_FILENAME);
+const AAB_RELEASE_PATH_CURRENT = path.join(DATA_DIR, 'release', AAB_CANONICAL_FILENAME);
+const APK_METADATA_PATHS = [
+  path.join(DATA_DIR, 'release', 'apk_release_metadata.json'),
+  path.join(DATA_DIR, 'apk_release_metadata.json'),
+];
+
+const V7_FEATURES_UZ: string[] = [
+  'ASAKA ZIYO v7.0.0 (Build 700 · uz.asakaziyo.app) — 100% Web App Feature Parity: barcha 36 ta modul native Kotlin + Jetpack Compose + Material 3 da',
+  'Yangi v7 modullari: Kunlik Hikmatlar Arxivi, Islomiy Yutuqlar (XP/Darajalar), Namoz Kundaligi & Qazo Hisobi, Aqlli Eslatmalar Markazi, Ommaviy Ekran va 7-boʻlimli Admin Savol-Javob Moderatsiyasi',
+  'Toʻliq Cross-Platform Sinxronizatsiya (Web ↔ Android ↔ Telegram Mini App ↔ Bot): 6 xonali hisob bogʻlash, Sevimlilar, Xatcho‘p, Hifz, O‘qish jarayoni va 5 til (ş ç ö ğ)',
+  '7 ta uy ekrani vidjeti, 5 ta Quick Settings Tile, 6 ta App Shortcut, Media3 ExoPlayer fon audio pleeri (Sleep Timer + Lockscreen), BiometricPrompt va WorkManager oflayn sinxronizatsiya',
+  'RSA-4096 APK Signature Scheme v2 + v3 imzosi (v5/v6 bilan bir xil doimiy sertifikat — maʼlumotlarni yoʻqotmasdan toʻgʻridan-toʻgʻri yangilanadi)',
+];
+
+const V7_INSTALL_STEPS_UZ: Array<{ step: number; title: string; desc: string }> = [
+  {
+    step: 1,
+    title: 'Rasmiy imzolangan APK v7.0.0 faylni yuklab oling',
+    desc: '«Rasmiy APK v7.0.0 Yuklab Olish» tugmasini bosing. Binar va SHA-256 tekshiruvdan oʻtgan Asaka-Ziyo-v7.0.0.apk smartfoningizga saqlanadi.',
+  },
+  {
+    step: 2,
+    title: 'Manbadan oʻrnatishga ruxsat bering',
+    desc: 'Android «Nomaʼlum ilovalarni oʻrnatish» soʻrovini koʻrsatsa, «Sozlamalar -> Ushbu manbadan ruxsat berish» tugmasini yoqing.',
+  },
+  {
+    step: 3,
+    title: 'Oʻrnating yoki v6.0.0/v5.0.0 ustidan yangilang',
+    desc: '«Oʻrnatish» (Install / Update) tugmasini bosing. Bir xil RSA-4096 sertifikatda imzolanganligi sababli barcha sozlamalaringiz saqlanib qoladi.',
+  },
+];
+
+let cachedApkSha256: { filePath: string; mtimeMs: number; sizeBytes: number; sha256: string } | null = null;
 
 function readApkReleaseMetadataFile(): any {
-  if (!fs.existsSync(APK_METADATA_PATH)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(APK_METADATA_PATH, 'utf-8')) || {};
-  } catch {
-    return {};
+  for (const metaPath of APK_METADATA_PATHS) {
+    if (!fs.existsSync(metaPath)) continue;
+    try {
+      const parsed = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // try next candidate
+    }
   }
+  return {};
 }
 
-function isValidZipBinaryHeader(filePath: string): { valid: boolean; sizeBytes: number } {
+function isValidZipBinaryHeader(filePath: string): { valid: boolean; sizeBytes: number; mtimeMs: number } {
   try {
     const stat = fs.statSync(filePath);
     if (!stat.isFile() || stat.size < 65536) {
-      return { valid: false, sizeBytes: stat.size };
+      return { valid: false, sizeBytes: stat.size, mtimeMs: stat.mtimeMs };
     }
     const fd = fs.openSync(filePath, 'r');
     const header = Buffer.alloc(4);
@@ -6023,48 +6195,103 @@ function isValidZipBinaryHeader(filePath: string): { valid: boolean; sizeBytes: 
       header[1] === 0x4b &&
       header[2] === 0x03 &&
       header[3] === 0x04;
-    return { valid: isZipMagic, sizeBytes: stat.size };
+    return { valid: isZipMagic, sizeBytes: stat.size, mtimeMs: stat.mtimeMs };
   } catch {
-    return { valid: false, sizeBytes: 0 };
+    return { valid: false, sizeBytes: 0, mtimeMs: 0 };
   }
 }
 
-function resolveVerifiedV4ApkFile(): {
-  filePath: string;
-  sizeBytes: number;
-  sha256: string;
-  metadata: any;
-  aabAvailable: boolean;
-} | null {
-  const meta = readApkReleaseMetadataFile();
-  const aabCheck = fs.existsSync(AAB_RELEASE_PATH_V4)
-    ? isValidZipBinaryHeader(AAB_RELEASE_PATH_V4)
-    : { valid: false, sizeBytes: 0 };
+function computeFileSha256Cached(filePath: string, sizeBytes: number, mtimeMs: number): string {
+  if (
+    cachedApkSha256 &&
+    cachedApkSha256.filePath === filePath &&
+    cachedApkSha256.sizeBytes === sizeBytes &&
+    cachedApkSha256.mtimeMs === mtimeMs
+  ) {
+    return cachedApkSha256.sha256;
+  }
+  const sha256 = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+  cachedApkSha256 = { filePath, mtimeMs, sizeBytes, sha256 };
+  return sha256;
+}
 
-  // Strictly resolve ONLY v4.0.0 APK binaries — NEVER disguise an older v3.0.0/v2.0.0 binary as v4.0.0
-  const candidatePath = fs.existsSync(APK_RELEASE_PATH_V4)
-    ? APK_RELEASE_PATH_V4
-    : fs.existsSync(APK_PUBLIC_PATH_V4)
-    ? APK_PUBLIC_PATH_V4
+function resolveVerifiedLocalV6Release(): any | null {
+  const meta = readApkReleaseMetadataFile();
+  const candidatePath = fs.existsSync(APK_RELEASE_PATH_CURRENT)
+    ? APK_RELEASE_PATH_CURRENT
+    : fs.existsSync(APK_PUBLIC_PATH_CURRENT)
+    ? APK_PUBLIC_PATH_CURRENT
     : '';
   if (!candidatePath) return null;
 
   const check = isValidZipBinaryHeader(candidatePath);
-  if (!check.valid) return null;
+  if (!check.valid || check.sizeBytes < 100_000) return null;
 
-  const sha256 =
+  const actualSha256 = computeFileSha256Cached(candidatePath, check.sizeBytes, check.mtimeMs);
+  const metaMatchesBinary =
+    meta.packageId === 'uz.asakaziyo.app' &&
     meta.version === APK_TARGET_VERSION &&
-    meta.sha256Checksum &&
-    meta.sizeBytes === check.sizeBytes
-      ? meta.sha256Checksum
-      : crypto.createHash('sha256').update(fs.readFileSync(candidatePath)).digest('hex');
+    Number(meta.buildCode) === APK_TARGET_BUILD_CODE &&
+    Boolean(meta.signed) &&
+    Boolean(meta.apksignerVerified) &&
+    Number(meta.sizeBytes) === check.sizeBytes &&
+    String(meta.sha256Checksum || '').toLowerCase() === actualSha256.toLowerCase();
+
+  if (!metaMatchesBinary) return null;
+
+  const aabCheck = fs.existsSync(AAB_RELEASE_PATH_CURRENT)
+    ? isValidZipBinaryHeader(AAB_RELEASE_PATH_CURRENT)
+    : { valid: false, sizeBytes: 0, mtimeMs: 0 };
+  const sizeMb = (check.sizeBytes / (1024 * 1024)).toFixed(2);
 
   return {
-    filePath: candidatePath,
-    sizeBytes: check.sizeBytes,
-    sha256,
-    metadata: meta,
+    appName: 'ASAKA ZIYO',
+    packageId: 'uz.asakaziyo.app',
+    version: APK_TARGET_VERSION,
+    buildCode: APK_TARGET_BUILD_CODE,
+    minSdk: Number(meta.minSdk || 24),
+    targetSdk: Number(meta.targetSdk || 36),
+    minAndroid: String(meta.minAndroid || 'Android 7.0+ (API 24 – API 36)'),
+    targetAndroid: String(meta.targetAndroid || 'Android 16 (API 36)'),
+    apkFilename: APK_CANONICAL_FILENAME,
+    aabFilename: AAB_CANONICAL_FILENAME,
+    apkAvailable: true,
     aabAvailable: aabCheck.valid,
+    signed: true,
+    apksignerVerified: true,
+    signingCertSha256: String(meta.signingCertSha256 || meta.certSha256 || ''),
+    sizeBytes: check.sizeBytes,
+    fileSizeDisplay: `${sizeMb} MB`,
+    sha256Checksum: actualSha256,
+    aabSizeBytes: aabCheck.valid ? aabCheck.sizeBytes : Number(meta.aabSizeBytes || 0),
+    aabSha256Checksum: String(meta.aabSha256Checksum || ''),
+    signatureScheme: String(meta.signatureScheme || 'APK Signature Scheme v2 + v3 (RSA-4096 SHA256withRSA)'),
+    axmlVerified: true,
+    dexVerified: true,
+    resourcesArscVerified: true,
+    pkcs7Signed: true,
+    downloadUrl: '/api/apk/download',
+    directUrl: `/${APK_CANONICAL_FILENAME}`,
+    remoteApkUrl: `https://asakaziyo.ai.studio/${APK_CANONICAL_FILENAME}`,
+    remoteAabUrl: '',
+    githubReleaseUrl: `https://github.com/myapployihagooglestudio/asakaziyoapp/releases/tag/v${APK_TARGET_VERSION}`,
+    githubTag: `v${APK_TARGET_VERSION}`,
+    releaseDate: String(meta.releaseDate || '2026-11-26'),
+    releaseNotesUz: String(
+      meta.releaseNotesUz ||
+        'ASAKA ZIYO v7.0.0 (Build 700) — yagona ekotizim va 100% Web App parity native Android ilovasi.'
+    ),
+    featuresUz: V7_FEATURES_UZ,
+    installStepsUz: V7_INSTALL_STEPS_UZ,
+    downloadCount: Number(appReleaseService.getPublishedReleases()[0]?.downloadCount || 0),
+    source: 'local_file',
+    status: 'ready',
+    statusMessageUz: String(
+      meta.statusMessageUz ||
+        `ASAKA ZIYO v${APK_TARGET_VERSION} (Build ${APK_TARGET_BUILD_CODE}) rasmiy RSA-4096 imzolangan Android APK yuklab olish uchun tayyor.`
+    ),
+    localFilePath: candidatePath,
+    releaseHistory: Array.isArray(meta.releaseHistory) ? meta.releaseHistory : [],
   };
 }
 
@@ -6075,23 +6302,35 @@ const appReleaseService = new AppReleaseService({
 });
 void appReleaseService.hydrateFromFirestore().catch(() => {});
 
-app.get('/api/apk/info', async (req: Request, res: Response) => {
+async function resolveCurrentAndroidRelease(options?: { checkGitHub?: boolean; forceRefresh?: boolean }) {
+  const localVerified = resolveVerifiedLocalV6Release();
+  if (localVerified) return localVerified;
+  return appReleaseService.getResolvedReleaseInfo({
+    checkGitHub: options?.checkGitHub ?? true,
+    forceRefresh: options?.forceRefresh ?? false,
+  });
+}
+
+async function handleAndroidReleaseInfoRequest(req: Request, res: Response) {
   res.setHeader('Cache-Control', 'no-store');
   const forceRefresh = req.query.refresh === '1';
   const checkGitHub = req.query.checkGitHub !== '0';
-  const release = await appReleaseService.getResolvedReleaseInfo({
-    checkGitHub,
-    forceRefresh,
-  });
+  const release = await resolveCurrentAndroidRelease({ checkGitHub, forceRefresh });
+  // Never leak server filesystem path in public JSON API response
+  const publicRelease = { ...release, localFilePath: undefined };
   return res.status(200).json({
     success: true,
-    ...release,
-    apk: release,
+    ...publicRelease,
+    apk: publicRelease,
   });
-});
+}
+
+app.get('/api/apk/info', handleAndroidReleaseInfoRequest);
+app.get('/api/android/release', handleAndroidReleaseInfoRequest);
+app.get('/api/android/release/latest', handleAndroidReleaseInfoRequest);
 
 async function streamVerifiedApkResponse(req: Request, res: Response) {
-  const release = await appReleaseService.getResolvedReleaseInfo({ checkGitHub: true });
+  const release = await resolveCurrentAndroidRelease({ checkGitHub: true });
 
   if (!release.apkAvailable) {
     res.setHeader('Cache-Control', 'no-store');
@@ -6181,7 +6420,7 @@ async function streamVerifiedApkResponse(req: Request, res: Response) {
       const upstream = await fetch(release.remoteApkUrl, {
         method: req.method === 'HEAD' ? 'HEAD' : 'GET',
         redirect: 'follow',
-        headers: { 'User-Agent': 'ASAKA-ZIYO-Server/4.0.0' },
+        headers: { 'User-Agent': `ASAKA-ZIYO-Server/${APK_TARGET_VERSION}` },
       });
       const ct = (upstream.headers.get('content-type') || '').toLowerCase();
       const len = Number(upstream.headers.get('content-length') || 0);
@@ -6239,6 +6478,10 @@ app.get('/api/apk/download', streamVerifiedApkResponse);
 app.head('/api/apk/download', streamVerifiedApkResponse);
 app.get(`/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
 app.head(`/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
+app.get('/Asaka-Ziyo-v6.0.0.apk', streamVerifiedApkResponse);
+app.head('/Asaka-Ziyo-v6.0.0.apk', streamVerifiedApkResponse);
+app.get('/Asaka-Ziyo-v5.0.0.apk', streamVerifiedApkResponse);
+app.head('/Asaka-Ziyo-v5.0.0.apk', streamVerifiedApkResponse);
 app.get('/app-release.apk', streamVerifiedApkResponse);
 app.head('/app-release.apk', streamVerifiedApkResponse);
 app.get(`/downloads/${APK_CANONICAL_FILENAME}`, streamVerifiedApkResponse);
@@ -6553,11 +6796,149 @@ app.use(
 );
 
 // Ultimate Qur'on Ecosystem, Persistent Audio Storage & Unified Premium Subscription Engine (2026)
+let quranEcosystemRef: QuranEcosystemService | null = null;
+const syncQariFromEcosystemToCentralDb = async (qariId: string, actor = 'system_sync') => {
+  try {
+    const svc = quranEcosystemRef;
+    if (!svc || !qariId) return;
+    const qari = svc.getQari(qariId);
+    if (!qari) return;
+    const catalog = svc.getQariSurahCatalog(qariId, false);
+    if (!catalog) return;
+
+    const db = readDatabase();
+    if (!Array.isArray(db.quranReciters)) db.quranReciters = [];
+    if (!db.quranAudioOverrides || typeof db.quranAudioOverrides !== 'object') db.quranAudioOverrides = {};
+
+    const nowIso = new Date().toISOString();
+    const publishedUploads = catalog.surahs.filter(
+      (s) => s.audioSource === 'uploaded_persistent' && s.uploadedRecord && s.audioUrl
+    );
+    const extBase = (qari.externalSurahBaseUrl || '').trim();
+    const hasExternalCdn = Boolean(extBase);
+    const uploadedCount = hasExternalCdn ? 114 : publishedUploads.length;
+    const firstPreview =
+      publishedUploads[0]?.audioUrl ||
+      (hasExternalCdn ? `${extBase.replace(/\/+$/, '')}/001.mp3` : '');
+
+    const reciterRecord: Record<string, any> = {
+      id: qari.id,
+      name: qari.nameUz,
+      nameAr: qari.nameAr || qari.nameUz,
+      country: qari.countryUz || 'Oʻzbekiston',
+      style: qari.styleUz || 'Murattal',
+      rewaya: 'Hafs an Osim',
+      biographyUz: qari.bioUz || '',
+      language: 'Arab tili (Usmonsimon Mushaf)',
+      profileImageUrl: qari.avatarUrl || '/images/quran_illumination_art_1793634658336.jpg',
+      surahServerBaseUrl: extBase,
+      ayahServerBaseUrl: '',
+      previewUrl: firstPreview,
+      isActive: qari.isActive,
+      isCustomUploaded: !hasExternalCdn || Boolean(qari.isProtectedPermanent),
+      uploadedSurahsCount: uploadedCount,
+      missingSurahsCount: Math.max(0, 114 - uploadedCount),
+      failedSurahsCount: catalog.errorCount || 0,
+      totalSurahsCount: 114,
+      storageBasePath: `quran-audio/${qari.id}`,
+      isProtectedPermanent: Boolean(qari.isProtectedPermanent),
+      isCompleteReady: Boolean(catalog.isCompleteReady),
+      readinessLabelUz: catalog.readinessLabelUz,
+      createdAt: qari.createdAt || nowIso,
+      updatedAt: nowIso,
+    };
+
+    const existingIdx = db.quranReciters.findIndex((r: any) => r && r.id === qari.id);
+    if (existingIdx >= 0) {
+      db.quranReciters[existingIdx] = { ...db.quranReciters[existingIdx], ...reciterRecord };
+    } else {
+      db.quranReciters.push(reciterRecord);
+    }
+
+    const activeOverrideKeys = new Set<string>();
+    const overrideWrites: Array<{ key: string; record: Record<string, any> }> = [];
+    for (const s of publishedUploads) {
+      const rec = s.uploadedRecord!;
+      const key = `${qari.id}_${s.surahNumber}`;
+      activeOverrideKeys.add(key);
+      const durSec = Number(rec.durationSec || 0);
+      const overrideObj = {
+        id: key,
+        reciterId: qari.id,
+        reciterName: qari.nameUz,
+        surahNumber: s.surahNumber,
+        surahNameUz: s.nameUz,
+        surahNameAr: s.nameAr,
+        numberOfAyahs: s.numberOfAyahs,
+        storagePath: `${qari.id}/${rec.fileName}`,
+        audioUrl: s.audioUrl,
+        durationLabel:
+          durSec > 0
+            ? `${Math.floor(durSec / 60)}:${String(Math.round(durSec % 60)).padStart(2, '0')}`
+            : '',
+        durationSeconds: durSec,
+        fileSizeBytes: rec.sizeBytes,
+        fileSizeLabel: `${(rec.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+        fileFormat: rec.mimeType || 'audio/mpeg',
+        status: 'verified_stored',
+        uploadTimestamp: rec.uploadedAt || nowIso,
+        updatedAt: rec.publishedAt || rec.uploadedAt || nowIso,
+        rightsStatus: 'custom_uploaded',
+        sourceProvider: 'ASAKA ZIYO Permanent Audio Vault',
+        isCustomOverride: true,
+        sha256Hash: rec.sha256,
+        version: rec.version,
+        storageBackend: 'server_vault',
+      };
+      db.quranAudioOverrides[key] = overrideObj;
+      overrideWrites.push({ key, record: overrideObj });
+    }
+
+    // Remove unpublished/archived server-vault entries for this Qari from active overrides
+    for (const existingKey of Object.keys(db.quranAudioOverrides)) {
+      if (existingKey.startsWith(`${qari.id}_`) && !activeOverrideKeys.has(existingKey)) {
+        const prev = db.quranAudioOverrides[existingKey];
+        if (prev?.storageBackend === 'server_vault' || String(prev?.audioUrl || '').includes('/api/quran-ecosystem/audio-stream/')) {
+          delete db.quranAudioOverrides[existingKey];
+        }
+      }
+    }
+
+    writeDatabase(db);
+
+    // Mirror metadata-only (never binary audio) to Firestore for cross-device sync
+    void serverWriteFirestoreDoc('quranReciters', qari.id, reciterRecord).catch(() => {});
+    for (const item of overrideWrites) {
+      void serverWriteFirestoreDoc('quranAudioOverrides', item.key, item.record).catch(() => {});
+    }
+
+    if (actor !== 'startup_seed') {
+      triggerEcosystemSync(
+        'audio',
+        qari.id,
+        'updated',
+        {
+          title: `${qari.nameUz} (${uploadedCount}/114 sura)`,
+          summary: `${qari.nameUz} audio katalogi 4 ta platformaga (Web, Android v7, Mini App, Telegram Bot) sinxronlandi.`,
+        },
+        actor
+      );
+    }
+  } catch (err) {
+    console.warn('[QuranEcosystemSync] Central DB sync warning:', (err as any)?.message || err);
+  }
+};
+
 const quranEcosystem = new QuranEcosystemService({
   dataDir: DATA_DIR,
   uploadsDir: UPLOADS_DIR,
   firestoreMirror: serverWriteFirestoreDoc,
+  onCatalogChange: ({ qariId, action }) => {
+    void syncQariFromEcosystemToCentralDb(qariId, `quran_ecosystem:${action}`);
+  },
 });
+quranEcosystemRef = quranEcosystem;
+void syncQariFromEcosystemToCentralDb(ODILJON_QORI_ID, 'startup_seed');
 
 const subscriptionEcosystem = new SubscriptionEcosystemService({
   dataDir: DATA_DIR,

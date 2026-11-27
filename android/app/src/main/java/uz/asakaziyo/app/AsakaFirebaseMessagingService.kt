@@ -10,12 +10,40 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import uz.asakaziyo.app.data.AsakaOfflineSyncWorker
 
 /**
- * ASAKA ZIYO — Firebase Cloud Messaging Service (v4.0.0)
- * Handles real Android push notifications with Telegram-style High-Importance Heads-Up banners
- * for Prayer Pre-Reminders (5/10/15/30 min), Exact Adhan Alerts, Mosque Announcements,
- * News/Articles, and Community Chat Messages.
+ * Pure testable ring-buffer deduplicator for FCM push & reminder events.
+ */
+object AsakaNotificationDeduplicator {
+    private const val MAX_SEEN = 60
+
+    fun shouldAcceptAndRecord(existingIdsCsv: String, eventKey: String): Pair<Boolean, String> {
+        val cleanKey = eventKey.trim()
+        if (cleanKey.isBlank()) return true to existingIdsCsv
+        val list = existingIdsCsv
+            .split("|")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toMutableList()
+        if (list.contains(cleanKey)) {
+            return false to list.joinToString("|")
+        }
+        list.add(cleanKey)
+        while (list.size > MAX_SEEN) {
+            list.removeAt(0)
+        }
+        return true to list.joinToString("|")
+    }
+}
+
+/**
+ * ASAKA ZIYO v6.0.0 — Smart Firebase Cloud Messaging Service
+ *
+ * Features:
+ * - Event ID deduplication (zero duplicate push spam)
+ * - Automatic background content manifest sync when Admin publishes new content
+ * - Category-aware routing to 6 dedicated Android NotificationChannels
  */
 class AsakaFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -25,10 +53,28 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        val title = remoteMessage.notification?.title ?: remoteMessage.data["title"] ?: "ASAKA ZIYO"
-        val body = remoteMessage.notification?.body ?: remoteMessage.data["body"] ?: ""
-        val channelId = remoteMessage.data["channelId"] ?: CHANNEL_PRAYER_ADHAN
-        val targetView = remoteMessage.data["targetView"] ?: "home"
+        val data = remoteMessage.data
+        // Trigger background manifest & widget sync whenever backend pushes content update signal
+        if (data["type"] == "content_sync" || data["refreshManifest"] == "true") {
+            AsakaOfflineSyncWorker.enqueueImmediateSync(applicationContext)
+            if (remoteMessage.notification == null && data["title"].isNullOrBlank()) {
+                return
+            }
+        }
+
+        val title = remoteMessage.notification?.title ?: data["title"] ?: "ASAKA ZIYO"
+        val body = remoteMessage.notification?.body ?: data["body"] ?: ""
+        val channelId = data["channelId"] ?: CHANNEL_ANNOUNCEMENTS
+        val targetView = data["targetView"] ?: "home"
+        val eventId = data["eventId"]
+            ?: remoteMessage.messageId
+            ?: "${channelId}_${title.hashCode()}_${body.hashCode()}"
+
+        val prefs = getSharedPreferences(PREFS_DEDUP, Context.MODE_PRIVATE)
+        val existingCsv = prefs.getString(KEY_SEEN_IDS, "").orEmpty()
+        val (accepted, updatedCsv) = AsakaNotificationDeduplicator.shouldAcceptAndRecord(existingCsv, eventId)
+        if (!accepted) return
+        prefs.edit().putString(KEY_SEEN_IDS, updatedCsv).apply()
 
         showNotification(title, body, channelId, targetView)
     }
@@ -39,7 +85,9 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
             putExtra("targetView", targetView)
         }
         val pendingIntent = PendingIntent.getActivity(
-            this, (System.currentTimeMillis() % 10000).toInt(), intent,
+            this,
+            (System.currentTimeMillis() % 10000).toInt(),
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -100,6 +148,9 @@ class AsakaFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
+        private const val PREFS_DEDUP = "asaka_fcm_dedup_v6"
+        private const val KEY_SEEN_IDS = "seen_event_ids_csv"
+
         const val CHANNEL_PRAYER_PRE_REMINDER = "asaka_ziyo_prayer_pre_reminder"
         const val CHANNEL_PRAYER_ADHAN = "asaka_ziyo_prayer_adhan"
         const val CHANNEL_ANNOUNCEMENTS = "asaka_ziyo_announcements"

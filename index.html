@@ -105,6 +105,8 @@
     <noscript>
       <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet" />
     </noscript>
+    <!-- Official Telegram Mini App SDK (deferred, non-blocking for regular Web App & offline startup) -->
+    <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
     <script>
       (function() {
         try {
@@ -132,8 +134,39 @@
         </div>
         <div style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#F7F5F0;margin-bottom:4px;">ASAKA ZIYO</div>
         <div style="font-size:12px;color:#9CAFA7;">Islomiy Raqamli Ekotizim</div>
+        <div id="az-premount-recovery" style="display:none;margin-top:20px;max-width:340px;">
+          <div id="az-premount-msg" style="font-size:12px;color:#E5C88B;margin-bottom:12px;line-height:1.5;">
+            Ilova yuklanishi kutilganidan uzoq davom etmoqda. Qayta urinib ko‘ring.
+          </div>
+          <button
+            type="button"
+            onclick="window.location.reload()"
+            style="padding:9px 18px;border-radius:10px;border:1px solid rgba(16,185,129,0.4);background:#10B981;color:#04120D;font-weight:700;font-size:12px;cursor:pointer;"
+          >
+            Qayta yuklash
+          </button>
+        </div>
       </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        var revealRecovery = function(reason) {
+          if (window.__ASAKA_APP_MOUNTED__) return;
+          var box = document.getElementById('az-premount-recovery');
+          var msg = document.getElementById('az-premount-msg');
+          if (box) box.style.display = 'block';
+          if (msg && reason) msg.textContent = reason;
+        };
+        window.setTimeout(function() {
+          revealRecovery('Ilova yuklanishi kutilganidan uzoq davom etdi. Sahifani qayta yuklang.');
+        }, 12000);
+        window.__ASAKA_REVEAL_PREMOUNT_RECOVERY__ = revealRecovery;
+      })();
+    </script>
+    <script
+      type="module"
+      src="/src/main.tsx"
+      onerror="window.__ASAKA_REVEAL_PREMOUNT_RECOVERY__ && window.__ASAKA_REVEAL_PREMOUNT_RECOVERY__('Asosiy skript yuklanmadi. Internet aloqasini tekshirib, qayta yuklang.')"
+    ></script>
   </body>
 </html>

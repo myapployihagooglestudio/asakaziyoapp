@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_daily_hadith_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_asaka_prayer_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ASAKA ZIYO · KUNLIK HADIS"
+        android:textColor="@color/asaka_gold_accent"
+        android:textSize="10sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_daily_hadith_text"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="3"
+        android:text="Sizlarning eng yaxshilaringiz Qurʼonni oʻrganib, uni boshqalarga oʻrgatganlaringizdir."
+        android:textColor="@color/asaka_white"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/widget_daily_hadith_source"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Imom Buxoriy rivoyati"
+        android:textColor="@color/asaka_ivory_bg"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+</LinearLayout>

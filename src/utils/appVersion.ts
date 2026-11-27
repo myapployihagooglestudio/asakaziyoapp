@@ -48,19 +48,19 @@ export function detectCurrentPlatform(): AppPlatform {
 }
 
 export const CURRENT_APP_BUILD_INFO: AppBuildInfo = {
-  appVersion: '4.0.0',
-  buildNumber: 400,
-  gitCommit: 'main-release-20261119-v400',
-  buildDate: '2026-11-19',
+  appVersion: '5.0.0',
+  buildNumber: 500,
+  gitCommit: 'main-release-20261125-v500',
+  buildDate: '2026-11-25',
   platform: typeof window !== 'undefined' ? detectCurrentPlatform() : 'web',
   appName: 'ASAKA ZIYO',
   packageId: 'uz.asakaziyo.app',
   releaseNotesUz: [
-    'Android native loyihasi (uz.asakaziyo.app) toʻliq taʼmirlandi: Android 12+ SplashScreen API, monoxrom bildirishnoma ikonkasi va ProGuard/R8 bridge himoyasi.',
-    'Rasmiy «MuhammadSolih Hoji» Jomeʼ masjidi muhr logosi barcha Web, PWA va Android Adaptive (mdpi–xxxhdpi) ikonkalari uchun yagona manbadan qayta yaratildi.',
-    'Yangi v4.0.0 (Build 400) native Gradle + GitHub Actions CI/CD (APK + Google Play AAB) yigʻish tizimi joriy etildi.',
-    'APK yuklab olish markazi faqat binar tekshiruvdan oʻtgan haqiqiy v4.0.0 arxivi bilan ishlaydigan qilib mustahkamlandi.',
-    'Masjid Jamoat Smart TV (10 ta dizayn) va Telegram Super Platformasi bilan toʻliq sinxronizatsiya saqlandi.',
+    'ASAKA ZIYO v5.0.0 (Build 500) — Kotlin, Jetpack Compose, Material 3 va MVVM asosida butunlay qayta qurilgan yangi avlod native Android ilovasi.',
+    '5 ta native boʻlim (Home, Qurʼon, Oʻrganish, Audio, Profil), Madina Mushaf, Media3 fon pleeri va SHA-256 oflayn yuklab olish menejeri.',
+    '4 ta uy ekrani vidjeti, 4 ta tezkor Launcher App Shortcut, BiometricPrompt qulfi va 5 tilli mahalliylashtirish.',
+    'Web App, Telegram Bot va Android ilovasi boʻylab yagona Free/Premium obuna tizimi (26 ta funksiya, 17 ta modul).',
+    'Global namoz vaqtlari (Asaka MANUAL_ADMIN + 14 hudud + Jahon AUTO) va Open-Meteo ob-havo integratsiyasi.',
   ],
 };
 
@@ -97,7 +97,7 @@ export async function checkForAppUpdates(): Promise<UpdateCheckResult> {
     }
 
     const serverBuild = typeof data.buildCode === 'number' ? data.buildCode : parseInt(data.buildCode || '0', 10);
-    const serverVer = data.version || '4.0.0';
+    const serverVer = data.version || '5.0.0';
     const hasUpdate = Boolean(data.apkAvailable) && serverBuild > currentBuild;
 
     return {
