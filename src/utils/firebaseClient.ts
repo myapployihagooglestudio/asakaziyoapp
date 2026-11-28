@@ -163,6 +163,22 @@ export function getActiveAdminToken(): string | null {
   return activeAdminServerToken;
 }
 
+/**
+ * Returns the active Firebase Auth ID token if the current browser user is signed into
+ * Firebase Auth (e.g., for direct Firebase Cloud Storage REST authorization), or null otherwise.
+ * Never alters or interrupts the existing server-authenticated admin session.
+ */
+export async function getActiveFirebaseIdToken(): Promise<string | null> {
+  try {
+    const user = auth?.currentUser;
+    if (!user || typeof user.getIdToken !== 'function') return null;
+    const token = await user.getIdToken();
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
 export function isAdminAuthenticated(): boolean {
   const session = getActiveAdminSession();
   const token = getActiveAdminToken();
@@ -647,6 +663,12 @@ export const ADMIN_WRITE_COLLECTIONS = new Set([
   'imamQuestions',
   'quranReciters',
   'quranAudioOverrides',
+  'qariProfiles',
+  'quranAudioFiles',
+  'quranPlaylists',
+  'userQuranProfiles',
+  'quranAudioAlignments',
+  'config',
   'adhanLibrary',
   'ownAudioLibrary',
   'displayMonitors',

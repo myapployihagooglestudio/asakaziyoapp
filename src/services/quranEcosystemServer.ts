@@ -16,10 +16,19 @@ import path from 'path';
 import crypto from 'crypto';
 import zlib from 'zlib';
 import { QURAN_RECITERS, SURAHS_LIST } from '../data/quranData';
+import {
+  AudioObjectStorageDriver,
+  AudioStorageError,
+  AudioStorageHealthStatus,
+  FirebaseAudioStorageDriver,
+  buildImmutableAudioStoragePath,
+  buildImmutableAvatarStoragePath,
+} from './firebaseAudioStorage';
 
 export const ODILJON_QORI_ID = 'odiljon_qori';
 
 export type AudioPublishStatus = 'DRAFT' | 'VERIFIED' | 'PUBLISHED' | 'ARCHIVED';
+export type AudioStorageBackendType = 'firebase_storage' | 'legacy_local_disk';
 
 export interface QariProfileRecord {
   id: string;
@@ -30,6 +39,10 @@ export interface QariProfileRecord {
   styleUz: string;
   bioUz: string;
   avatarUrl?: string;
+  avatarStorageBackend?: AudioStorageBackendType;
+  avatarStorageBucket?: string;
+  avatarStoragePath?: string;
+  avatarMimeType?: string;
   isActive: boolean;
   isVerified: boolean;
   isFeatured: boolean;
@@ -55,12 +68,18 @@ export interface QariProfileRecord {
 export interface QariAudioVersionEntry {
   version: number;
   fileName: string;
-  relativePath: string;
+  storageBackend: AudioStorageBackendType;
+  storageBucket?: string;
+  storagePath: string;
+  relativePath?: string; // Legacy compatibility field
   backupRelativePath?: string;
+  mimeType?: string;
   sha256: string;
   sizeBytes: number;
+  durationSec?: number;
   uploadedAt: string;
   uploadedBy: string;
+  restoredFromVersion?: number;
 }
 
 export interface QariSurahAudioRecord {
@@ -70,8 +89,11 @@ export interface QariSurahAudioRecord {
   surahNameUz: string;
   surahNameAr: string;
   fileName: string;
-  relativePath: string; // confined within uploads/quran-audio
-  backupRelativePath?: string; // confined within backups/permanent-audio
+  storageBackend: AudioStorageBackendType;
+  storageBucket?: string;
+  storagePath: string; // Canonical Firebase Storage object path (or legacy relative path)
+  relativePath: string; // Legacy compatibility alias
+  backupRelativePath?: string;
   backupVerified?: boolean;
   streamUrl: string; // /api/quran-ecosystem/audio-stream/:id
   mimeType: string;
@@ -80,9 +102,11 @@ export interface QariSurahAudioRecord {
   sha256: string;
   status: AudioPublishStatus;
   integrityStatus?: 'ok' | 'corrupted' | 'missing_file' | 'unchecked';
+  reconciliationStatus?: 'synced' | 'pending_firestore_retry' | 'failed';
   lastIntegrityCheckAt?: string;
   version: number;
   versionHistory?: QariAudioVersionEntry[];
+  previousVersions?: QariAudioVersionEntry[];
   uploadedBy: string;
   uploadedAt: string;
   verifiedAt?: string;
@@ -93,6 +117,44 @@ export interface QariSurahAudioRecord {
   isDeleted?: boolean;
   deletedAt?: string;
   deletedBy?: string;
+}
+
+export interface FirestoreReconciliationItem {
+  id: string;
+  collection: string;
+  docId: string;
+  payload: Record<string, any>;
+  attempts: number;
+  lastError: string;
+  lastErrorCode?: string;
+  createdAt: string;
+  lastAttemptAt: string;
+}
+
+export interface QuranStorageErrorEntry {
+  id: string;
+  operation: string;
+  targetId: string;
+  code: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface LegacyAudioInventoryItem {
+  source: 'quran_ecosystem_store' | 'legacy_quran_audio_overrides' | 'orphaned_disk_file';
+  recordId: string;
+  qariId: string;
+  surahNumber: number;
+  surahNameUz: string;
+  legacyPath: string;
+  legacyUrl?: string;
+  existsOnDisk: boolean;
+  validAudioBinary: boolean;
+  fileSizeBytes: number;
+  expectedSha256?: string;
+  actualSha256?: string;
+  migrationStatus: 'ready_to_migrate' | 'already_migrated' | 'missing_file' | 'corrupted_file';
+  reasonUz: string;
 }
 
 export interface QuranPlaylistTrack {
@@ -275,7 +337,15 @@ interface QuranEcosystemStore {
 export interface QuranEcosystemDeps {
   dataDir: string;
   uploadsDir: string;
-  firestoreMirror?: (collection: string, docId: string, data: Record<string, any>) => Promise<any>;
+  audioStorage?: AudioObjectStorageDriver;
+  firestoreMirror?: (
+    collection: string,
+    docId: string,
+    data: Record<string, any>
+  ) => Promise<{ success?: boolean; error?: string; code?: string } | void>;
+  firestoreReadCollection?: (collection: string) => Promise<{ ok: boolean; docs: any[]; error?: string }>;
+  legacyOverridesReader?: () => Record<string, any>;
+  legacyOverrideUpdater?: (key: string, patch: Record<string, any>) => Promise<void> | void;
   onCatalogChange?: (event: {
     kind: 'qari' | 'audio' | 'backup';
     qariId: string;
@@ -813,23 +883,39 @@ function createOfficialPlaylists(): Record<string, QuranPlaylistRecord> {
 
 export class QuranEcosystemService {
   private readonly storePath: string;
+  private readonly reconciliationQueuePath: string;
+  private readonly uploadsRootDir: string;
   private readonly audioRootDir: string;
   private readonly avatarRootDir: string;
   private readonly chunkTempDir: string;
   private readonly backupsDir: string;
   private readonly permanentAudioBackupDir: string;
+  private readonly audioStorage: AudioObjectStorageDriver;
   private readonly firestoreMirror?: QuranEcosystemDeps['firestoreMirror'];
+  private readonly firestoreReadCollection?: QuranEcosystemDeps['firestoreReadCollection'];
+  private readonly legacyOverridesReader?: QuranEcosystemDeps['legacyOverridesReader'];
+  private readonly legacyOverrideUpdater?: QuranEcosystemDeps['legacyOverrideUpdater'];
   private readonly onCatalogChange?: QuranEcosystemDeps['onCatalogChange'];
+  private readonly uploadLocks = new Map<string, Promise<void>>();
+  private reconciliationQueue: FirestoreReconciliationItem[] = [];
+  private errorLogs: QuranStorageErrorEntry[] = [];
+  private lastHydratedFromFirestoreAt: string | null = null;
   private store: QuranEcosystemStore;
 
   constructor(deps: QuranEcosystemDeps) {
     this.storePath = path.join(deps.dataDir, 'quran_ecosystem_store.json');
+    this.reconciliationQueuePath = path.join(deps.dataDir, 'quran_reconciliation_queue.json');
+    this.uploadsRootDir = deps.uploadsDir;
     this.audioRootDir = path.join(deps.uploadsDir, 'quran-audio');
     this.avatarRootDir = path.join(deps.uploadsDir, 'qari-avatars');
     this.chunkTempDir = path.join(deps.uploadsDir, '.tmp-audio-chunks');
     this.backupsDir = path.join(deps.dataDir, 'backups');
     this.permanentAudioBackupDir = path.join(deps.dataDir, 'backups', 'permanent-audio');
+    this.audioStorage = deps.audioStorage || new FirebaseAudioStorageDriver();
     this.firestoreMirror = deps.firestoreMirror;
+    this.firestoreReadCollection = deps.firestoreReadCollection;
+    this.legacyOverridesReader = deps.legacyOverridesReader;
+    this.legacyOverrideUpdater = deps.legacyOverrideUpdater;
     this.onCatalogChange = deps.onCatalogChange;
 
     fs.mkdirSync(deps.dataDir, { recursive: true });
@@ -839,7 +925,333 @@ export class QuranEcosystemService {
     fs.mkdirSync(this.backupsDir, { recursive: true });
     fs.mkdirSync(this.permanentAudioBackupDir, { recursive: true });
 
+    this.reconciliationQueue = this.loadReconciliationQueue();
     this.store = this.loadOrInitStore();
+  }
+
+  public getAudioStorageDriver(): AudioObjectStorageDriver {
+    return this.audioStorage;
+  }
+
+  private loadReconciliationQueue(): FirestoreReconciliationItem[] {
+    try {
+      if (fs.existsSync(this.reconciliationQueuePath)) {
+        const parsed = JSON.parse(fs.readFileSync(this.reconciliationQueuePath, 'utf-8'));
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (err) {
+      console.error('[QuranEcosystem] Failed reading reconciliation queue:', err);
+    }
+    return [];
+  }
+
+  private persistReconciliationQueue(): void {
+    try {
+      const tmp = `${this.reconciliationQueuePath}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(this.reconciliationQueue.slice(0, 500), null, 2), 'utf-8');
+      fs.renameSync(tmp, this.reconciliationQueuePath);
+    } catch (err) {
+      console.error('[QuranEcosystem] Failed persisting reconciliation queue:', err);
+    }
+  }
+
+  private recordErrorLog(operation: string, targetId: string, code: string, message: string): void {
+    const entry: QuranStorageErrorEntry = {
+      id: `qerr_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+      operation,
+      targetId,
+      code,
+      message,
+      createdAt: new Date().toISOString(),
+    };
+    this.errorLogs.unshift(entry);
+    if (this.errorLogs.length > 200) {
+      this.errorLogs = this.errorLogs.slice(0, 200);
+    }
+    console.error(`[QuranEcosystem Error] [${operation}] (${targetId}) ${code}: ${message}`);
+  }
+
+  /**
+   * Serializes concurrent uploads/restores per `(qariId, surahNumber)` key so two simultaneous
+   * admin operations cannot corrupt version numbers or Firestore pointers.
+   */
+  private async withSurahLock<T>(lockKey: string, task: () => Promise<T>): Promise<T> {
+    const prev = this.uploadLocks.get(lockKey) || Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const chained = prev.then(() => gate);
+    this.uploadLocks.set(lockKey, chained);
+    await prev;
+    try {
+      return await task();
+    } finally {
+      release();
+      if (this.uploadLocks.get(lockKey) === chained) {
+        this.uploadLocks.delete(lockKey);
+      }
+    }
+  }
+
+  /**
+   * Mirrors metadata to Firestore WITHOUT EVER swallowing errors!
+   * On failure, logs the error and enqueues into the persistent reconciliation retry queue
+   * so already-uploaded Firebase Storage binaries are never orphaned or deleted.
+   */
+  private async writeFirestoreMetadataVerified(
+    collection: string,
+    docId: string,
+    payload: Record<string, any>,
+    operationLabel: string
+  ): Promise<{ ok: boolean; error?: string; code?: string }> {
+    if (!this.firestoreMirror) {
+      return { ok: true };
+    }
+    try {
+      const res = await this.firestoreMirror(collection, docId, payload);
+      if (
+        res &&
+        typeof res === 'object' &&
+        (('success' in res && res.success === false) || ('ok' in res && (res as any).ok === false))
+      ) {
+        const errMsg = res.error || `Firestore write returned success=false (${collection}/${docId})`;
+        const errCode = res.code || 'firestore_write_failed';
+        this.enqueueReconciliation(collection, docId, payload, errMsg, errCode);
+        this.recordErrorLog(operationLabel, `${collection}/${docId}`, errCode, errMsg);
+        return { ok: false, error: errMsg, code: errCode };
+      }
+      // Remove from retry queue if a previous attempt had failed
+      const idx = this.reconciliationQueue.findIndex((i) => i.collection === collection && i.docId === docId);
+      if (idx >= 0) {
+        this.reconciliationQueue.splice(idx, 1);
+        this.persistReconciliationQueue();
+      }
+      return { ok: true };
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      const errCode = String(err?.code || 'firestore_exception');
+      this.enqueueReconciliation(collection, docId, payload, errMsg, errCode);
+      this.recordErrorLog(operationLabel, `${collection}/${docId}`, errCode, errMsg);
+      return { ok: false, error: errMsg, code: errCode };
+    }
+  }
+
+  private enqueueReconciliation(
+    collection: string,
+    docId: string,
+    payload: Record<string, any>,
+    lastError: string,
+    lastErrorCode?: string
+  ): void {
+    const now = new Date().toISOString();
+    const existing = this.reconciliationQueue.find((i) => i.collection === collection && i.docId === docId);
+    if (existing) {
+      existing.payload = payload;
+      existing.attempts += 1;
+      existing.lastError = lastError;
+      existing.lastErrorCode = lastErrorCode;
+      existing.lastAttemptAt = now;
+    } else {
+      this.reconciliationQueue.unshift({
+        id: `rec_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+        collection,
+        docId,
+        payload,
+        attempts: 1,
+        lastError,
+        lastErrorCode,
+        createdAt: now,
+        lastAttemptAt: now,
+      });
+    }
+    this.persistReconciliationQueue();
+  }
+
+  /**
+   * Retries all pending Firestore metadata writes in the reconciliation queue.
+   */
+  public async reconcilePendingFirestoreWrites(actor = 'system_reconciler'): Promise<{
+    totalPendingBefore: number;
+    reconciledCount: number;
+    stillPendingCount: number;
+    errors: Array<{ target: string; error: string }>;
+  }> {
+    const items = [...this.reconciliationQueue];
+    const totalPendingBefore = items.length;
+    let reconciledCount = 0;
+    const errors: Array<{ target: string; error: string }> = [];
+
+    for (const item of items) {
+      const res = await this.writeFirestoreMetadataVerified(
+        item.collection,
+        item.docId,
+        item.payload,
+        'reconcile_firestore'
+      );
+      if (res.ok) {
+        reconciledCount += 1;
+        if (item.collection === 'quranAudioFiles' && this.store.audioFiles[item.docId]) {
+          this.store.audioFiles[item.docId].reconciliationStatus = 'synced';
+        }
+      } else {
+        errors.push({ target: `${item.collection}/${item.docId}`, error: res.error || 'Unknown error' });
+      }
+    }
+
+    if (reconciledCount > 0) {
+      this.recordAudit(
+        actor,
+        'FIRESTORE_RECONCILIATION_RUN',
+        'backup',
+        'reconciliation_queue',
+        `Firestore qayta sinxronlash: ${reconciledCount}/${totalPendingBefore} hujjat tiklandi`
+      );
+      this.persistStore();
+    }
+
+    return {
+      totalPendingBefore,
+      reconciledCount,
+      stillPendingCount: this.reconciliationQueue.length,
+      errors,
+    };
+  }
+
+  /**
+   * Non-destructive startup hydration from Firestore (`qariProfiles`, `quranAudioFiles`,
+   * `quranPlaylists`, `userQuranProfiles`). Ensures a fresh Cloud Run instance immediately
+   * recovers all Qaris and Firebase Storage audio metadata from Firestore without relying on local disk!
+   * Empty or failed Firestore reads NEVER wipe valid existing records.
+   */
+  public async hydrateFromFirestore(): Promise<{
+    ok: boolean;
+    qarisHydrated: number;
+    audioFilesHydrated: number;
+    playlistsHydrated: number;
+    userProfilesHydrated: number;
+    errors: string[];
+  }> {
+    if (!this.firestoreReadCollection) {
+      return {
+        ok: false,
+        qarisHydrated: 0,
+        audioFilesHydrated: 0,
+        playlistsHydrated: 0,
+        userProfilesHydrated: 0,
+        errors: ['firestoreReadCollection not provided'],
+      };
+    }
+
+    const errors: string[] = [];
+    let qarisHydrated = 0;
+    let audioFilesHydrated = 0;
+    let playlistsHydrated = 0;
+    let userProfilesHydrated = 0;
+
+    const isRemoteNewerOrEqual = (remoteTs?: string, localTs?: string): boolean => {
+      if (!localTs) return true;
+      if (!remoteTs) return false;
+      return remoteTs >= localTs;
+    };
+
+    try {
+      const qRes = await this.firestoreReadCollection('qariProfiles');
+      if (!qRes.ok) {
+        errors.push(`qariProfiles: ${qRes.error || 'read failed'}`);
+      } else if (qRes.docs.length > 0) {
+        for (const docItem of qRes.docs) {
+          if (!docItem?.id) continue;
+          const existing = this.store.qaris[docItem.id];
+          if (!existing || isRemoteNewerOrEqual(docItem.updatedAt || docItem._serverSyncedAt, existing.updatedAt)) {
+            this.store.qaris[docItem.id] = {
+              ...(existing || {}),
+              ...docItem,
+              isProtectedPermanent: docItem.id === ODILJON_QORI_ID ? true : Boolean(docItem.isProtectedPermanent),
+            };
+            qarisHydrated += 1;
+          }
+        }
+      }
+
+      const aRes = await this.firestoreReadCollection('quranAudioFiles');
+      if (!aRes.ok) {
+        errors.push(`quranAudioFiles: ${aRes.error || 'read failed'}`);
+      } else if (aRes.docs.length > 0) {
+        for (const docItem of aRes.docs) {
+          if (!docItem?.id) continue;
+          const existing = this.store.audioFiles[docItem.id];
+          const remoteTs = docItem.publishedAt || docItem.uploadedAt || docItem._serverSyncedAt;
+          const localTs = existing?.publishedAt || existing?.uploadedAt;
+          if (!existing || isRemoteNewerOrEqual(remoteTs, localTs)) {
+            const normalized: QariSurahAudioRecord = {
+              ...(existing || {}),
+              ...docItem,
+              storageBackend:
+                docItem.storageBackend === 'firebase_storage'
+                  ? 'firebase_storage'
+                  : docItem.storageBackend || 'legacy_local_disk',
+              storagePath: docItem.storagePath || docItem.relativePath || '',
+              relativePath: docItem.relativePath || docItem.storagePath || '',
+              versionHistory: Array.isArray(docItem.versionHistory)
+                ? docItem.versionHistory
+                : Array.isArray(docItem.previousVersions)
+                  ? docItem.previousVersions
+                  : existing?.versionHistory || [],
+              previousVersions: Array.isArray(docItem.previousVersions)
+                ? docItem.previousVersions
+                : Array.isArray(docItem.versionHistory)
+                  ? docItem.versionHistory
+                  : existing?.previousVersions || [],
+              reconciliationStatus: 'synced',
+            };
+            this.store.audioFiles[docItem.id] = normalized;
+            audioFilesHydrated += 1;
+          }
+        }
+      }
+
+      const pRes = await this.firestoreReadCollection('quranPlaylists');
+      if (pRes.ok && pRes.docs.length > 0) {
+        for (const docItem of pRes.docs) {
+          if (!docItem?.id) continue;
+          const existing = this.store.playlists[docItem.id];
+          if (!existing || isRemoteNewerOrEqual(docItem.updatedAt, existing.updatedAt)) {
+            this.store.playlists[docItem.id] = { ...(existing || {}), ...docItem };
+            playlistsHydrated += 1;
+          }
+        }
+      }
+
+      const uRes = await this.firestoreReadCollection('userQuranProfiles');
+      if (uRes.ok && uRes.docs.length > 0) {
+        for (const docItem of uRes.docs) {
+          const uid = docItem?.userId || docItem?.id;
+          if (!uid) continue;
+          const existing = this.store.userProfiles[uid];
+          if (!existing || isRemoteNewerOrEqual(docItem.updatedAt, existing.updatedAt)) {
+            this.store.userProfiles[uid] = { ...(existing || {}), ...docItem, userId: uid };
+            userProfilesHydrated += 1;
+          }
+        }
+      }
+
+      this.recomputeQariCounters(this.store);
+      this.persistStore();
+      this.lastHydratedFromFirestoreAt = new Date().toISOString();
+    } catch (err: any) {
+      errors.push(err?.message || String(err));
+      this.recordErrorLog('hydrate_from_firestore', 'quranEcosystem', 'hydration_error', err?.message || String(err));
+    }
+
+    return {
+      ok: errors.length === 0,
+      qarisHydrated,
+      audioFilesHydrated,
+      playlistsHydrated,
+      userProfilesHydrated,
+      errors,
+    };
   }
 
   private emitCatalogChange(event: {
@@ -852,10 +1264,12 @@ export class QuranEcosystemService {
     try {
       const maybePromise = this.onCatalogChange(event);
       if (maybePromise && typeof (maybePromise as Promise<void>).catch === 'function') {
-        (maybePromise as Promise<void>).catch(() => {});
+        (maybePromise as Promise<void>).catch((err) => {
+          this.recordErrorLog('onCatalogChange', event.qariId, 'catalog_sync_error', err?.message || String(err));
+        });
       }
-    } catch {
-      // non-fatal
+    } catch (err: any) {
+      this.recordErrorLog('onCatalogChange', event.qariId, 'catalog_sync_error', err?.message || String(err));
     }
   }
 
@@ -1071,6 +1485,10 @@ export class QuranEcosystemService {
       styleUz: (input.styleUz || existing?.styleUz || 'Murattal').trim().slice(0, 80),
       bioUz: (input.bioUz || existing?.bioUz || '').trim().slice(0, 800),
       avatarUrl: input.avatarUrl !== undefined ? input.avatarUrl : existing?.avatarUrl,
+      avatarStorageBackend: existing?.avatarStorageBackend,
+      avatarStorageBucket: existing?.avatarStorageBucket,
+      avatarStoragePath: existing?.avatarStoragePath,
+      avatarMimeType: existing?.avatarMimeType,
       isActive: input.isActive !== undefined ? Boolean(input.isActive) : existing ? existing.isActive : true,
       isVerified: input.isVerified !== undefined ? Boolean(input.isVerified) : existing ? existing.isVerified : true,
       isFeatured: input.isFeatured !== undefined ? Boolean(input.isFeatured) : existing ? existing.isFeatured : false,
@@ -1109,47 +1527,92 @@ export class QuranEcosystemService {
     this.recordAudit(actor, existing ? 'QARI_UPDATED' : 'QARI_CREATED', 'qari', id, `Qori: ${record.nameUz}`);
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('qariProfiles', id, record).catch(() => {});
-    }
+    await this.writeFirestoreMetadataVerified('qariProfiles', id, record, 'upsert_qari');
     this.emitCatalogChange({ kind: 'qari', qariId: id, action: existing ? 'updated' : 'created' });
     return record;
   }
 
+  /**
+   * Uploads Qari profile avatar to permanent Firebase Storage.
+   * ZERO silent fallback to Cloud Run ephemeral local disk.
+   */
   public async uploadQariAvatar(
     qariId: string,
     buffer: Buffer,
-    actor: string
-  ): Promise<{ ok: boolean; avatarUrl?: string; qari?: QariProfileRecord; error?: string }> {
+    actor: string,
+    firebaseIdToken?: string
+  ): Promise<{
+    ok: boolean;
+    avatarUrl?: string;
+    qari?: QariProfileRecord;
+    errorCode?: string;
+    httpStatus?: number;
+    error?: string;
+  }> {
     const qari = this.store.qaris[qariId];
-    if (!qari) return { ok: false, error: 'Qori topilmadi.' };
-    if (!buffer || buffer.length < 32) return { ok: false, error: 'Rasm fayli boʻsh.' };
-    if (buffer.length > 5 * 1024 * 1024) return { ok: false, error: 'Profil rasmi 5 MB dan oshmasligi kerak.' };
+    if (!qari) return { ok: false, httpStatus: 404, error: 'Qori topilmadi.' };
+    if (!buffer || buffer.length < 32) return { ok: false, httpStatus: 400, error: 'Rasm fayli boʻsh.' };
+    if (buffer.length > 5 * 1024 * 1024) {
+      return { ok: false, httpStatus: 400, error: 'Profil rasmi 5 MB dan oshmasligi kerak.' };
+    }
 
     const magic = validateImageMagicBytes(buffer);
     if (!magic.valid) {
-      return { ok: false, error: 'Faqat haqiqiy JPEG, PNG yoki WebP rasm fayllari qabul qilinadi.' };
+      return { ok: false, httpStatus: 400, error: 'Faqat haqiqiy JPEG, PNG yoki WebP rasm fayllari qabul qilinadi.' };
     }
 
-    const safeName = `${this.safeSlug(qariId)}${magic.detectedExt}`;
-    const targetAbs = path.resolve(this.avatarRootDir, safeName);
-    if (!targetAbs.startsWith(path.resolve(this.avatarRootDir) + path.sep)) {
-      return { ok: false, error: 'Xavfsizlik: yaroqsiz fayl nomi.' };
-    }
-    const tmp = `${targetAbs}.tmp`;
-    fs.writeFileSync(tmp, buffer);
-    fs.renameSync(tmp, targetAbs);
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+    const storagePath = buildImmutableAvatarStoragePath({
+      qariId: this.safeSlug(qariId),
+      sha256,
+      ext: magic.detectedExt,
+    });
 
-    const avatarUrl = `/uploads/qari-avatars/${safeName}?v=${Date.now()}`;
+    try {
+      await this.audioStorage.uploadObject({
+        objectPath: storagePath,
+        buffer,
+        contentType: magic.detectedMime,
+        customMetadata: {
+          qariId: qari.id,
+          sha256,
+          uploadedBy: actor,
+        },
+        firebaseIdToken,
+      });
+
+      const meta = await this.audioStorage.getObjectMetadata(storagePath, firebaseIdToken);
+      if (!meta || meta.sizeBytes !== buffer.length) {
+        const msg = `Firebase Storage profil rasmi hajmi tasdiqlanmadi (kutilgan ${buffer.length}B, olingan ${meta?.sizeBytes ?? 0}B).`;
+        this.recordErrorLog('upload_qari_avatar', qariId, 'STORAGE_VERIFY_FAILED', msg);
+        return { ok: false, errorCode: 'STORAGE_VERIFY_FAILED', httpStatus: 502, error: msg };
+      }
+    } catch (err: any) {
+      const code = err instanceof AudioStorageError ? err.code : 'STORAGE_UNAVAILABLE';
+      const status = err instanceof AudioStorageError ? err.httpStatus : 503;
+      const msg = err?.message || 'Firebase Storage profil rasmini saqlay olmadi (lokal diskka jim oʻtish bloklangan).';
+      this.recordErrorLog('upload_qari_avatar', qariId, code, msg);
+      return { ok: false, errorCode: code, httpStatus: status, error: msg };
+    }
+
+    const avatarUrl = `/api/quran-ecosystem/avatar/${encodeURIComponent(qari.id)}?v=${Date.now()}`;
     qari.avatarUrl = avatarUrl;
+    qari.avatarStorageBackend = 'firebase_storage';
+    qari.avatarStorageBucket = this.audioStorage.bucketName;
+    qari.avatarStoragePath = storagePath;
+    qari.avatarMimeType = magic.detectedMime;
     qari.updatedAt = new Date().toISOString();
     qari.updatedBy = actor;
-    this.recordAudit(actor, 'QARI_AVATAR_UPDATED', 'qari', qariId, `Profil rasmi yangilandi (${buffer.length} bayt)`);
+    this.recordAudit(
+      actor,
+      'QARI_AVATAR_UPDATED',
+      'qari',
+      qariId,
+      `Profil rasmi Firebase Storage'ga saqlandi (${storagePath}, ${buffer.length} bayt)`
+    );
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('qariProfiles', qariId, qari).catch(() => {});
-    }
+    await this.writeFirestoreMetadataVerified('qariProfiles', qariId, qari, 'upload_qari_avatar');
     this.emitCatalogChange({ kind: 'qari', qariId, action: 'avatar_updated' });
     return { ok: true, avatarUrl, qari };
   }
@@ -1175,75 +1638,13 @@ export class QuranEcosystemService {
     qari.updatedBy = actor;
     this.recordAudit(actor, 'QARI_DEACTIVATED', 'qari', qariId, `Qori vaqtincha yashirildi: ${qari.nameUz}`);
     this.persistStore();
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('qariProfiles', qariId, qari).catch(() => {});
-    }
+    await this.writeFirestoreMetadataVerified('qariProfiles', qariId, qari, 'delete_qari');
     this.emitCatalogChange({ kind: 'qari', qariId, action: 'deactivated' });
     return { ok: true };
   }
 
   /**
-   * Mirrors a verified audio buffer into the independent permanent backup directory
-   * (`data/backups/permanent-audio/<qariId>/`) with SHA-256 manifest.
-   */
-  private mirrorAudioToPermanentBackup(
-    qariId: string,
-    surahNum: number,
-    version: number,
-    ext: string,
-    buffer: Buffer,
-    sha256: string
-  ): { backupRelativePath: string; backupVerified: boolean } {
-    const safeBackupQariDir = path.resolve(this.permanentAudioBackupDir, qariId);
-    if (!safeBackupQariDir.startsWith(path.resolve(this.permanentAudioBackupDir) + path.sep)) {
-      return { backupRelativePath: '', backupVerified: false };
-    }
-    fs.mkdirSync(safeBackupQariDir, { recursive: true });
-    const backupFileName = `surah-${String(surahNum).padStart(3, '0')}-v${version}${ext}`;
-    const backupAbs = path.resolve(safeBackupQariDir, backupFileName);
-    if (!backupAbs.startsWith(safeBackupQariDir + path.sep)) {
-      return { backupRelativePath: '', backupVerified: false };
-    }
-
-    const tmpPath = `${backupAbs}.tmp`;
-    fs.writeFileSync(tmpPath, buffer);
-    fs.renameSync(tmpPath, backupAbs);
-
-    // Re-read backup to confirm byte-for-byte SHA-256 integrity
-    const verifyHash = crypto.createHash('sha256').update(fs.readFileSync(backupAbs)).digest('hex');
-    const verified = verifyHash === sha256;
-
-    // Update per-Qari independent backup manifest.json
-    const manifestPath = path.join(safeBackupQariDir, 'manifest.json');
-    let manifest: Record<string, any> = { qariId, updatedAt: new Date().toISOString(), files: {} };
-    try {
-      if (fs.existsSync(manifestPath)) {
-        manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-        if (!manifest.files || typeof manifest.files !== 'object') manifest.files = {};
-      }
-    } catch {
-      manifest = { qariId, updatedAt: new Date().toISOString(), files: {} };
-    }
-    manifest.updatedAt = new Date().toISOString();
-    manifest.files[String(surahNum).padStart(3, '0')] = {
-      surahNumber: surahNum,
-      version,
-      fileName: backupFileName,
-      sha256,
-      sizeBytes: buffer.length,
-      verified,
-      backedUpAt: new Date().toISOString(),
-    };
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
-
-    return {
-      backupRelativePath: path.posix.join(qariId, backupFileName),
-      backupVerified: verified,
-    };
-  }
-
-  /**
-   * Lists all 114 surah slots for a Qari with real persistent upload status + verified external fallback URL (if any).
+   * Lists all 114 surah slots for a Qari with real persistent Firebase Storage status + verified external fallback URL (if any).
    */
   public getQariSurahCatalog(qariId: string, includeUnpublished = false) {
     const qari = this.store.qaris[qariId];
@@ -1257,7 +1658,10 @@ export class QuranEcosystemService {
       const uploaded = this.store.audioFiles[audioId];
       const isArchived = Boolean(uploaded && (uploaded.isDeleted || uploaded.status === 'ARCHIVED'));
       const hasActivePersistent = Boolean(uploaded && !isArchived);
-      const canServeUploaded = hasActivePersistent && (includeUnpublished || uploaded.status === 'PUBLISHED');
+      const isBroken = Boolean(
+        hasActivePersistent && (uploaded.integrityStatus === 'corrupted' || uploaded.integrityStatus === 'missing_file')
+      );
+      const canServeUploaded = hasActivePersistent && !isBroken && (includeUnpublished || uploaded.status === 'PUBLISHED');
 
       let resolvedAudioUrl: string | null = null;
       let audioSource: 'uploaded_persistent' | 'verified_cdn' | 'unavailable' = 'unavailable';
@@ -1274,14 +1678,16 @@ export class QuranEcosystemService {
       if (!hasActivePersistent && !qari.externalSurahBaseUrl) {
         missingSurahs.push(surah.number);
       }
-      if (hasActivePersistent && (uploaded.integrityStatus === 'corrupted' || uploaded.integrityStatus === 'missing_file')) {
+      if (isBroken && uploaded) {
         errorSurahs.push({
           surahNumber: surah.number,
           nameUz: surah.nameUz,
           reason:
             uploaded.integrityStatus === 'corrupted'
               ? 'SHA-256 nazorati mos kelmadi (fayl shikastlangan)'
-              : 'Asosiy diskdagi fayl topilmadi (zaxiradan tiklash kerak)',
+              : uploaded.storageBackend === 'firebase_storage'
+                ? 'Firebase Storage obyekti topilmadi (oldingi versiyadan tiklang yoki qayta yuklang)'
+                : 'Eski lokal diskdagi fayl yoʻqolgan (Cloud Run qayta ishga tushganda oʻchgan — qayta yuklash kerak)',
         });
       }
 
@@ -1304,6 +1710,9 @@ export class QuranEcosystemService {
               status: uploaded.status,
               mimeType: uploaded.mimeType,
               fileName: uploaded.fileName,
+              storageBackend: uploaded.storageBackend || 'legacy_local_disk',
+              storageBucket: uploaded.storageBucket || null,
+              storagePath: uploaded.storagePath || uploaded.relativePath,
               sizeBytes: uploaded.sizeBytes,
               durationSec: uploaded.durationSec,
               sha256: uploaded.sha256,
@@ -1311,6 +1720,7 @@ export class QuranEcosystemService {
               backupVerified: Boolean(uploaded.backupVerified),
               backupRelativePath: uploaded.backupRelativePath,
               integrityStatus: uploaded.integrityStatus || 'ok',
+              reconciliationStatus: uploaded.reconciliationStatus || 'synced',
               lastIntegrityCheckAt: uploaded.lastIntegrityCheckAt,
               uploadedAt: uploaded.uploadedAt,
               verifiedAt: uploaded.verifiedAt,
@@ -1318,6 +1728,8 @@ export class QuranEcosystemService {
               archivedAt: uploaded.archivedAt,
               isDeleted: Boolean(uploaded.isDeleted),
               versionCount: uploaded.versionHistory?.length || 1,
+              versionHistory: uploaded.versionHistory || [],
+              previousVersions: uploaded.previousVersions || [],
             }
           : null,
       };
@@ -1325,15 +1737,38 @@ export class QuranEcosystemService {
 
     const uploadedCount = surahs.filter((s) => s.uploadedRecord !== null && !s.isArchived).length;
     const verifiedCount = surahs.filter(
-      (s) => s.uploadedRecord && !s.isArchived && (s.uploadedRecord.status === 'VERIFIED' || s.uploadedRecord.status === 'PUBLISHED')
+      (s) =>
+        s.uploadedRecord &&
+        !s.isArchived &&
+        s.uploadedRecord.integrityStatus !== 'missing_file' &&
+        s.uploadedRecord.integrityStatus !== 'corrupted' &&
+        (s.uploadedRecord.status === 'VERIFIED' || s.uploadedRecord.status === 'PUBLISHED')
     ).length;
-    const publishedCount = surahs.filter((s) => s.uploadedRecord && !s.isArchived && s.uploadedRecord.status === 'PUBLISHED').length;
+    const publishedCount = surahs.filter(
+      (s) =>
+        s.uploadedRecord &&
+        !s.isArchived &&
+        s.uploadedRecord.integrityStatus !== 'missing_file' &&
+        s.uploadedRecord.integrityStatus !== 'corrupted' &&
+        s.uploadedRecord.status === 'PUBLISHED'
+    ).length;
     const archivedCount = surahs.filter((s) => s.isArchived).length;
-    const backedUpCount = surahs.filter((s) => s.uploadedRecord && !s.isArchived && s.uploadedRecord.backupVerified).length;
+    const cloudStoredCount = surahs.filter(
+      (s) => s.uploadedRecord && !s.isArchived && s.uploadedRecord.storageBackend === 'firebase_storage'
+    ).length;
+    const legacyDiskCount = surahs.filter(
+      (s) => s.uploadedRecord && !s.isArchived && s.uploadedRecord.storageBackend !== 'firebase_storage'
+    ).length;
+    const backedUpCount = surahs.filter(
+      (s) =>
+        s.uploadedRecord &&
+        !s.isArchived &&
+        (s.uploadedRecord.storageBackend === 'firebase_storage' || s.uploadedRecord.backupVerified)
+    ).length;
     const playableCount = surahs.filter((s) => Boolean(s.audioUrl)).length;
     const isCompleteReady = Boolean(qari.externalSurahBaseUrl)
       ? true
-      : publishedCount === 114 && errorSurahs.length === 0;
+      : publishedCount === 114 && errorSurahs.length === 0 && legacyDiskCount === 0;
 
     return {
       qari,
@@ -1345,6 +1780,8 @@ export class QuranEcosystemService {
       syncedCount: Boolean(qari.externalSurahBaseUrl) ? 114 : publishedCount,
       archivedCount,
       backedUpCount,
+      cloudStoredCount,
+      legacyDiskCount,
       missingCount: missingSurahs.length,
       errorCount: errorSurahs.length,
       missingSurahs,
@@ -1352,13 +1789,20 @@ export class QuranEcosystemService {
       playableCount,
       isCompleteReady,
       readinessLabelUz: isCompleteReady
-        ? 'Toʻliq tayyor (114/114 sura tasdiqlangan va sinxronlangan)'
-        : `Toʻliq emas (${publishedCount}/114 sura tayyor, ${missingSurahs.length} ta yetishmayapti)`,
+        ? 'Toʻliq tayyor (114/114 sura Firebase Storageʼda tasdiqlangan va sinxronlangan)'
+        : `Toʻliq emas (${publishedCount}/114 sura tayyor, ${missingSurahs.length} ta yetishmayapti${errorSurahs.length > 0 ? `, ${errorSurahs.length} ta xatolik` : ''})`,
       storageSummary: {
-        primaryVaultPath: `data/uploads/quran-audio/${qari.id}`,
-        independentBackupPath: `data/backups/permanent-audio/${qari.id}`,
+        provider: this.audioStorage.provider,
+        bucketName: this.audioStorage.bucketName,
+        primaryVaultPath: `gs://${this.audioStorage.bucketName}/quran-audio/${qari.id}/`,
+        independentBackupPath: `gs://${this.audioStorage.bucketName}/quran-audio/${qari.id}/ (immutable versioned objects)`,
+        cloudStoredCount,
+        legacyDiskCount,
+        pendingReconciliationCount: this.reconciliationQueue.length,
         permanentDeleteProtected: Boolean(qari.isProtectedPermanent),
         firestoreStoresOnlyMetadata: true,
+        localDiskFallbackEnabled: false,
+        lastHydratedFromFirestoreAt: this.lastHydratedFromFirestoreAt,
         lastIntegrityCheckAt: qari.lastIntegrityCheckAt || null,
         lastBackupAt: qari.lastBackupAt || null,
         lastRestoreTestAt: qari.lastRestoreTestAt || null,
@@ -1368,14 +1812,24 @@ export class QuranEcosystemService {
         webApp: { synced: true, availableSurahs: playableCount, endpoint: `/api/quran-ecosystem/qaris/${qari.id}/surahs` },
         telegramMiniApp: { synced: true, availableSurahs: playableCount, endpoint: `/api/quran-ecosystem/qaris/${qari.id}/surahs` },
         androidV7: { synced: true, availableSurahs: playableCount, endpoint: `/api/quran-ecosystem/qaris/${qari.id}/surahs` },
-        telegramBot: { synced: true, availableSurahs: playableCount, source: 'CentralContent + QuranEcosystem' },
+        telegramBot: { synced: true, availableSurahs: playableCount, source: 'CentralContent + QuranEcosystem + FirebaseStorage' },
       },
     };
   }
 
   /**
-   * Persistent audio upload with magic-byte verification, SHA-256 checksum, duplicate detection,
-   * versioned immutable storage, independent permanent backup mirror, and DRAFT -> VERIFIED -> PUBLISHED gating.
+   * Safe 10-step persistent audio upload pipeline:
+   * 1. Validate size & MIME type.
+   * 2. Validate real binary audio magic bytes (MP3, M4A, OGG, WAV).
+   * 3. Compute SHA-256 checksum & detect accidental duplicates.
+   * 4. Acquire per-(qariId, surahNumber) concurrency lock.
+   * 5. Upload immutable versioned object to Firebase Cloud Storage (ZERO silent local disk fallback!).
+   * 6. Re-verify uploaded Storage object metadata & exact byte size.
+   * 7. Read back uploaded Storage object & verify byte-for-byte SHA-256 checksum.
+   * 8. Preserve existing working version inside `previousVersions` & `versionHistory`.
+   * 9. Write ONLY metadata (NO Base64 binaries) to Firestore with verified error handling
+   *    (if Firestore fails, NEVER delete uploaded Storage object — enqueue in reconciliation retry queue!).
+   * 10. Emit catalog update for Web, Android, PWA, Telegram Mini App & Telegram Bot.
    */
   public async uploadQariSurahAudio(params: {
     qariId: string;
@@ -1387,161 +1841,273 @@ export class QuranEcosystemService {
     autoPublish?: boolean;
     allowDuplicateChecksum?: boolean;
     actor: string;
-  }): Promise<{ ok: boolean; record?: QariSurahAudioRecord; duplicateOf?: string; error?: string }> {
+    firebaseIdToken?: string;
+  }): Promise<{
+    ok: boolean;
+    record?: QariSurahAudioRecord;
+    duplicateOf?: string;
+    firestoreSynced?: boolean;
+    firestoreError?: string;
+    errorCode?: string;
+    httpStatus?: number;
+    error?: string;
+  }> {
     const qari = this.store.qaris[params.qariId];
-    if (!qari) return { ok: false, error: 'Qori topilmadi.' };
+    if (!qari) return { ok: false, httpStatus: 404, error: 'Qori topilmadi.' };
 
     const surahNum = Math.floor(Number(params.surahNumber));
     const surahInfo = SURAHS_LIST.find((s) => s.number === surahNum);
-    if (!surahInfo) return { ok: false, error: 'Sura raqami 1 dan 114 gacha boʻlishi shart.' };
+    if (!surahInfo) return { ok: false, httpStatus: 400, error: 'Sura raqami 1 dan 114 gacha boʻlishi shart.' };
 
+    // Step 1: Size & MIME check
     if (!params.buffer || params.buffer.length < 32) {
-      return { ok: false, error: 'Audio fayl boʻsh yoki juda kichik.' };
+      return { ok: false, httpStatus: 400, error: 'Audio fayl boʻsh yoki juda kichik.' };
     }
     if (params.buffer.length > MAX_AUDIO_FILE_BYTES) {
-      return { ok: false, error: 'Audio fayl hajmi 85 MB limitidan oshib ketdi.' };
+      return { ok: false, httpStatus: 413, error: 'Audio fayl hajmi 85 MB limitidan oshib ketdi.' };
     }
     if (params.mimeType && !ALLOWED_AUDIO_MIME_TYPES.has(params.mimeType.toLowerCase())) {
-      return { ok: false, error: `Ruxsat etilmagan fayl turi: ${params.mimeType}` };
+      return { ok: false, httpStatus: 400, error: `Ruxsat etilmagan fayl turi: ${params.mimeType}` };
     }
 
+    // Step 2: Real binary magic-byte validation
     const magic = validateAudioMagicBytes(params.buffer);
     if (!magic.valid) {
       return {
         ok: false,
+        httpStatus: 400,
         error: 'Fayl haqiqiy audio (MP3/M4A/OGG/WAV) formatida emas. Soxta yoki notoʻgʻri fayl rad etildi.',
       };
     }
 
+    // Step 3: SHA-256 & duplicate check
     const sha256 = crypto.createHash('sha256').update(params.buffer).digest('hex');
     const audioId = `${qari.id}_s${String(surahNum).padStart(3, '0')}`;
 
-    // Duplicate checksum check across other surahs for same Qari
-    if (!params.allowDuplicateChecksum) {
-      const dup = Object.values(this.store.audioFiles).find(
-        (f) => !f.isDeleted && f.status !== 'ARCHIVED' && f.qariId === qari.id && f.id !== audioId && f.sha256 === sha256
-      );
-      if (dup) {
-        return {
-          ok: false,
-          duplicateOf: dup.id,
-          error: `Ushbu audio fayl allaqachon ${dup.surahNumber}-sura (${dup.surahNameUz}) sifatida yuklangan (SHA-256 mos keldi).`,
-        };
+    return this.withSurahLock(`${qari.id}:${surahNum}`, async () => {
+      if (!params.allowDuplicateChecksum) {
+        const dup = Object.values(this.store.audioFiles).find(
+          (f) => !f.isDeleted && f.status !== 'ARCHIVED' && f.qariId === qari.id && f.id !== audioId && f.sha256 === sha256
+        );
+        if (dup) {
+          return {
+            ok: false,
+            httpStatus: 409,
+            duplicateOf: dup.id,
+            error: `Ushbu audio fayl allaqachon ${dup.surahNumber}-sura (${dup.surahNameUz}) sifatida yuklangan (SHA-256 mos keldi).`,
+          };
+        }
       }
-    }
 
-    // Strict path confinement inside data/uploads/quran-audio/<qariId>/
-    const safeQariDir = path.resolve(this.audioRootDir, qari.id);
-    if (!safeQariDir.startsWith(path.resolve(this.audioRootDir) + path.sep)) {
-      return { ok: false, error: 'Xavfsizlik: ruxsat etilmagan papka yoʻli.' };
-    }
-    fs.mkdirSync(safeQariDir, { recursive: true });
+      const existing = this.store.audioFiles[audioId];
+      const nextVersion = (existing?.version || 0) + 1;
+      const padded = String(surahNum).padStart(3, '0');
+      const versionedFileName = `surah-${padded}-v${nextVersion}-${sha256.slice(0, 12)}${magic.detectedExt}`;
+      const storagePath = buildImmutableAudioStoragePath({
+        qariId: qari.id,
+        surahNumber: surahNum,
+        version: nextVersion,
+        sha256,
+        ext: magic.detectedExt,
+      });
 
-    const existing = this.store.audioFiles[audioId];
-    const nextVersion = (existing?.version || 0) + 1;
-    const padded = String(surahNum).padStart(3, '0');
+      // Step 5: Upload immutable versioned object to Firebase Storage — ZERO silent local fallback!
+      let uploadedMeta: { bucket: string; objectPath: string; sizeBytes: number; contentType: string };
+      try {
+        uploadedMeta = await this.audioStorage.uploadObject({
+          objectPath: storagePath,
+          buffer: params.buffer,
+          contentType: magic.detectedMime,
+          customMetadata: {
+            qariId: qari.id,
+            surahNumber: String(surahNum),
+            version: String(nextVersion),
+            sha256,
+            originalFilename: (params.originalFilename || versionedFileName).slice(0, 180),
+            uploadedBy: params.actor,
+          },
+          firebaseIdToken: params.firebaseIdToken,
+        });
+      } catch (err: any) {
+        const code = err instanceof AudioStorageError ? err.code : 'STORAGE_UNAVAILABLE';
+        const httpStatus =
+          err instanceof AudioStorageError && err.httpStatus >= 500
+            ? err.httpStatus
+            : 503;
+        const msg =
+          err?.message ||
+          `Firebase Storage (${this.audioStorage.bucketName}) ga audio yuklab boʻlmadi. Cloud Run lokal diskiga jim oʻtish bloklandi.`;
+        this.recordErrorLog('upload_surah_audio', audioId, code, msg);
+        return { ok: false, errorCode: code, httpStatus, error: msg };
+      }
 
-    // Immutable versioned file + canonical latest file so older versions are never overwritten
-    const versionedFileName = `surah-${padded}-v${nextVersion}${magic.detectedExt}`;
-    const canonicalFileName = `surah-${padded}${magic.detectedExt}`;
-    const versionedAbsPath = path.resolve(safeQariDir, versionedFileName);
-    const canonicalAbsPath = path.resolve(safeQariDir, canonicalFileName);
-    if (
-      !versionedAbsPath.startsWith(safeQariDir + path.sep) ||
-      !canonicalAbsPath.startsWith(safeQariDir + path.sep)
-    ) {
-      return { ok: false, error: 'Xavfsizlik: yaroqsiz fayl nomi.' };
-    }
+      // Step 6: Re-verify Storage object metadata & size
+      try {
+        const verifiedMeta = await this.audioStorage.getObjectMetadata(storagePath, params.firebaseIdToken);
+        if (!verifiedMeta || verifiedMeta.sizeBytes !== params.buffer.length) {
+          const msg = `Firebase Storage obyekt hajmi tekshiruvdan oʻtmadi (kutilgan ${params.buffer.length}B, saqlangan ${verifiedMeta?.sizeBytes ?? 0}B).`;
+          this.recordErrorLog('verify_uploaded_metadata', audioId, 'STORAGE_SIZE_MISMATCH', msg);
+          return { ok: false, errorCode: 'STORAGE_SIZE_MISMATCH', httpStatus: 502, error: msg };
+        }
+      } catch (err: any) {
+        const code = err instanceof AudioStorageError ? err.code : 'STORAGE_VERIFY_FAILED';
+        const httpStatus = err instanceof AudioStorageError ? err.httpStatus : 502;
+        const msg = `Yuklangan audio metamaʼlumoti Firebase Storageʼdan qayta tekshirilmadi: ${err?.message || String(err)}`;
+        this.recordErrorLog('verify_uploaded_metadata', audioId, code, msg);
+        return { ok: false, errorCode: code, httpStatus, error: msg };
+      }
 
-    const tmpVer = `${versionedAbsPath}.tmp`;
-    fs.writeFileSync(tmpVer, params.buffer);
-    fs.renameSync(tmpVer, versionedAbsPath);
+      // Step 7: Read back from Firebase Storage & verify byte-for-byte SHA-256 checksum
+      try {
+        const readBackBuffer = await this.audioStorage.downloadObjectBuffer(storagePath, params.firebaseIdToken);
+        const readBackSha = crypto.createHash('sha256').update(readBackBuffer).digest('hex');
+        if (readBackBuffer.length !== params.buffer.length || readBackSha !== sha256) {
+          const msg = `Firebase Storage qayta oʻqish SHA-256 nazorati mos kelmadi (kutilgan ${sha256.slice(0, 16)}, olingan ${readBackSha.slice(0, 16)}).`;
+          this.recordErrorLog('verify_readback_sha256', audioId, 'SHA256_MISMATCH', msg);
+          return { ok: false, errorCode: 'SHA256_MISMATCH', httpStatus: 502, error: msg };
+        }
+      } catch (err: any) {
+        const code = err instanceof AudioStorageError ? err.code : 'STORAGE_READBACK_FAILED';
+        const httpStatus = err instanceof AudioStorageError ? err.httpStatus : 502;
+        const msg = `Firebase Storage qayta oʻqish nazorati muvaffaqiyatsiz tugadi: ${err?.message || String(err)}`;
+        this.recordErrorLog('verify_readback_sha256', audioId, code, msg);
+        return { ok: false, errorCode: code, httpStatus, error: msg };
+      }
 
-    const tmpCan = `${canonicalAbsPath}.tmp`;
-    fs.writeFileSync(tmpCan, params.buffer);
-    fs.renameSync(tmpCan, canonicalAbsPath);
+      // Step 8: Preserve previous active version immutably before moving active pointer
+      const now = new Date().toISOString();
+      const status: AudioPublishStatus = params.autoPublish ? 'PUBLISHED' : 'VERIFIED';
 
-    // Mirror immediately to independent permanent backup vault
-    const backup = this.mirrorAudioToPermanentBackup(
-      qari.id,
-      surahNum,
-      nextVersion,
-      magic.detectedExt,
-      params.buffer,
-      sha256
-    );
+      const prevHistory: QariAudioVersionEntry[] = Array.isArray(existing?.versionHistory)
+        ? existing.versionHistory.map((v) => ({
+            ...v,
+            storageBackend: v.storageBackend || existing?.storageBackend || 'legacy_local_disk',
+            storagePath: v.storagePath || v.relativePath || '',
+          }))
+        : [];
 
-    const now = new Date().toISOString();
-    const status: AudioPublishStatus = params.autoPublish ? 'PUBLISHED' : 'VERIFIED';
-    const prevHistory = Array.isArray(existing?.versionHistory) ? existing.versionHistory : [];
-    const newVersionEntry: QariAudioVersionEntry = {
-      version: nextVersion,
-      fileName: versionedFileName,
-      relativePath: path.posix.join(qari.id, versionedFileName),
-      backupRelativePath: backup.backupRelativePath || undefined,
-      sha256,
-      sizeBytes: params.buffer.length,
-      uploadedAt: now,
-      uploadedBy: params.actor,
-    };
+      // If existing record had an active version not yet in prevHistory, snapshot it too
+      if (existing && !prevHistory.some((v) => v.version === existing.version)) {
+        prevHistory.push({
+          version: existing.version,
+          fileName: existing.fileName,
+          storageBackend: existing.storageBackend || 'legacy_local_disk',
+          storageBucket: existing.storageBucket,
+          storagePath: existing.storagePath || existing.relativePath,
+          relativePath: existing.relativePath,
+          backupRelativePath: existing.backupRelativePath,
+          mimeType: existing.mimeType,
+          sha256: existing.sha256,
+          sizeBytes: existing.sizeBytes,
+          durationSec: existing.durationSec,
+          uploadedAt: existing.uploadedAt,
+          uploadedBy: existing.uploadedBy,
+        });
+      }
 
-    const record: QariSurahAudioRecord = {
-      id: audioId,
-      qariId: qari.id,
-      surahNumber: surahNum,
-      surahNameUz: surahInfo.nameUz,
-      surahNameAr: surahInfo.nameAr,
-      fileName: versionedFileName,
-      relativePath: path.posix.join(qari.id, versionedFileName),
-      backupRelativePath: backup.backupRelativePath || undefined,
-      backupVerified: backup.backupVerified,
-      streamUrl: `/api/quran-ecosystem/audio-stream/${encodeURIComponent(audioId)}`,
-      mimeType: magic.detectedMime,
-      sizeBytes: params.buffer.length,
-      durationSec:
-        typeof params.durationSec === 'number' && params.durationSec > 0
-          ? Math.round(params.durationSec)
-          : Math.max(1, Math.round(params.buffer.length / 16000)),
-      sha256,
-      status,
-      integrityStatus: 'ok',
-      lastIntegrityCheckAt: now,
-      version: nextVersion,
-      versionHistory: [...prevHistory, newVersionEntry].slice(-25),
-      uploadedBy: params.actor,
-      uploadedAt: now,
-      verifiedAt: now,
-      publishedAt: status === 'PUBLISHED' ? now : existing?.publishedAt,
-      publishedBy: status === 'PUBLISHED' ? params.actor : existing?.publishedBy,
-      archivedAt: undefined,
-      archivedBy: undefined,
-      isDeleted: false,
-    };
+      const newVersionEntry: QariAudioVersionEntry = {
+        version: nextVersion,
+        fileName: versionedFileName,
+        storageBackend: 'firebase_storage',
+        storageBucket: uploadedMeta.bucket,
+        storagePath,
+        relativePath: storagePath,
+        mimeType: magic.detectedMime,
+        sha256,
+        sizeBytes: params.buffer.length,
+        durationSec:
+          typeof params.durationSec === 'number' && params.durationSec > 0
+            ? Math.round(params.durationSec)
+            : Math.max(1, Math.round(params.buffer.length / 16000)),
+        uploadedAt: now,
+        uploadedBy: params.actor,
+      };
 
-    this.store.audioFiles[audioId] = record;
-    qari.lastBackupAt = now;
-    this.recomputeQariCounters(this.store);
-    this.recordAudit(
-      params.actor,
-      status === 'PUBLISHED' ? 'AUDIO_UPLOADED_AND_PUBLISHED' : 'AUDIO_UPLOADED_VERIFIED',
-      'audio',
-      audioId,
-      `${qari.nameUz} · ${surahNum}-sura (${surahInfo.nameUz}) v${nextVersion} · ${params.buffer.length} bayt · Backup:${backup.backupVerified ? 'OK' : 'WARN'}`
-    );
-    this.persistStore();
+      const fullHistory = [...prevHistory, newVersionEntry].slice(-30);
+      const previousVersions = prevHistory.slice(-29);
 
-    if (this.firestoreMirror) {
-      // Only metadata, path & SHA-256 stored in Firestore (NEVER binary audio)
-      await this.firestoreMirror('quranAudioFiles', audioId, record).catch(() => {});
-      await this.firestoreMirror('qariProfiles', qari.id, this.store.qaris[qari.id]).catch(() => {});
-    }
-    this.emitCatalogChange({ kind: 'audio', qariId: qari.id, surahNumber: surahNum, action: 'uploaded' });
+      const record: QariSurahAudioRecord = {
+        id: audioId,
+        qariId: qari.id,
+        surahNumber: surahNum,
+        surahNameUz: surahInfo.nameUz,
+        surahNameAr: surahInfo.nameAr,
+        fileName: versionedFileName,
+        storageBackend: 'firebase_storage',
+        storageBucket: uploadedMeta.bucket,
+        storagePath,
+        relativePath: storagePath,
+        backupVerified: true,
+        streamUrl: `/api/quran-ecosystem/audio-stream/${encodeURIComponent(audioId)}`,
+        mimeType: magic.detectedMime,
+        sizeBytes: params.buffer.length,
+        durationSec: newVersionEntry.durationSec || Math.max(1, Math.round(params.buffer.length / 16000)),
+        sha256,
+        status,
+        integrityStatus: 'ok',
+        reconciliationStatus: 'synced',
+        lastIntegrityCheckAt: now,
+        version: nextVersion,
+        versionHistory: fullHistory,
+        previousVersions,
+        uploadedBy: params.actor,
+        uploadedAt: now,
+        verifiedAt: now,
+        publishedAt: status === 'PUBLISHED' ? now : existing?.publishedAt,
+        publishedBy: status === 'PUBLISHED' ? params.actor : existing?.publishedBy,
+        archivedAt: undefined,
+        archivedBy: undefined,
+        isDeleted: false,
+      };
 
-    return { ok: true, record };
+      this.store.audioFiles[audioId] = record;
+      qari.lastBackupAt = now;
+      qari.updatedAt = now;
+      this.recomputeQariCounters(this.store);
+      this.recordAudit(
+        params.actor,
+        status === 'PUBLISHED' ? 'AUDIO_UPLOADED_AND_PUBLISHED' : 'AUDIO_UPLOADED_VERIFIED',
+        'audio',
+        audioId,
+        `${qari.nameUz} · ${surahNum}-sura (${surahInfo.nameUz}) v${nextVersion} · ${params.buffer.length} bayt · Firebase Storage (${uploadedMeta.bucket}/${storagePath}) · SHA-256 readback OK`
+      );
+
+      // Step 9: Verified Firestore metadata write (ONLY metadata, ZERO Base64 binaries!)
+      // If Firestore write fails, NEVER delete the uploaded Storage object — keep in reconciliation queue.
+      const fsAudioRes = await this.writeFirestoreMetadataVerified(
+        'quranAudioFiles',
+        audioId,
+        record,
+        'upload_surah_audio'
+      );
+      const fsQariRes = await this.writeFirestoreMetadataVerified(
+        'qariProfiles',
+        qari.id,
+        this.store.qaris[qari.id],
+        'upload_surah_audio_qari'
+      );
+
+      const firestoreSynced = fsAudioRes.ok && fsQariRes.ok;
+      if (!firestoreSynced) {
+        record.reconciliationStatus = 'pending_firestore_retry';
+        this.store.audioFiles[audioId] = record;
+      }
+      this.persistStore();
+
+      // Step 10: Notify cross-platform catalog listeners
+      this.emitCatalogChange({ kind: 'audio', qariId: qari.id, surahNumber: surahNum, action: 'uploaded' });
+
+      return {
+        ok: true,
+        record,
+        firestoreSynced,
+        firestoreError: firestoreSynced ? undefined : fsAudioRes.error || fsQariRes.error,
+      };
+    });
   }
 
   /**
-   * Resumable chunked upload — stores each chunk safely in isolated temp folder (never touches permanent vault).
+   * Resumable chunked upload — stores chunks temporarily during assembly before uploading final verified binary to Firebase Storage.
    */
   public appendAudioUploadChunk(params: {
     uploadId: string;
@@ -1579,11 +2145,21 @@ export class QuranEcosystemService {
     autoPublish?: boolean;
     allowDuplicateChecksum?: boolean;
     actor: string;
-  }): Promise<{ ok: boolean; record?: QariSurahAudioRecord; duplicateOf?: string; error?: string }> {
+    firebaseIdToken?: string;
+  }): Promise<{
+    ok: boolean;
+    record?: QariSurahAudioRecord;
+    duplicateOf?: string;
+    firestoreSynced?: boolean;
+    firestoreError?: string;
+    errorCode?: string;
+    httpStatus?: number;
+    error?: string;
+  }> {
     const safeId = this.safeSlug(params.uploadId);
     const dir = path.resolve(this.chunkTempDir, safeId);
     if (!dir.startsWith(path.resolve(this.chunkTempDir) + path.sep) || !fs.existsSync(dir)) {
-      return { ok: false, error: 'Yuklash sessiyasi topilmadi.' };
+      return { ok: false, httpStatus: 404, error: 'Yuklash sessiyasi topilmadi.' };
     }
     try {
       const parts: Buffer[] = [];
@@ -1591,12 +2167,12 @@ export class QuranEcosystemService {
       for (let i = 0; i < params.totalChunks; i++) {
         const p = path.join(dir, `chunk_${String(i).padStart(5, '0')}.part`);
         if (!fs.existsSync(p)) {
-          return { ok: false, error: `${i + 1}-boʻlak yetishmayapti — qayta yuklang (resumable).` };
+          return { ok: false, httpStatus: 400, error: `${i + 1}-boʻlak yetishmayapti — qayta yuklang (resumable).` };
         }
         const buf = fs.readFileSync(p);
         totalBytes += buf.length;
         if (totalBytes > MAX_AUDIO_FILE_BYTES) {
-          return { ok: false, error: 'Umumiy fayl hajmi 85 MB limitidan oshdi.' };
+          return { ok: false, httpStatus: 413, error: 'Umumiy fayl hajmi 85 MB limitidan oshdi.' };
         }
         parts.push(buf);
       }
@@ -1611,18 +2187,19 @@ export class QuranEcosystemService {
         autoPublish: params.autoPublish,
         allowDuplicateChecksum: params.allowDuplicateChecksum,
         actor: params.actor,
+        firebaseIdToken: params.firebaseIdToken,
       });
       if (res.ok) {
         fs.rmSync(dir, { recursive: true, force: true });
       }
       return res;
     } catch (err: any) {
-      return { ok: false, error: err?.message || 'Boʻlaklarni birlashtirishda xatolik.' };
+      return { ok: false, httpStatus: 500, error: err?.message || 'Boʻlaklarni birlashtirishda xatolik.' };
     }
   }
 
   /**
-   * Batch imports up to 114 surah audio files from a ZIP archive with strict per-file validation.
+   * Batch imports up to 114 surah audio files from a ZIP archive directly into permanent Firebase Storage.
    */
   public async importQariZipArchive(params: {
     qariId: string;
@@ -1630,17 +2207,20 @@ export class QuranEcosystemService {
     autoPublish?: boolean;
     allowDuplicateChecksum?: boolean;
     actor: string;
+    firebaseIdToken?: string;
   }): Promise<{
     ok: boolean;
     importedCount: number;
     failedCount: number;
-    imported: Array<{ surahNumber: number; fileName: string; sha256: string; version: number }>;
-    errors: Array<{ fileName: string; error: string }>;
+    imported: Array<{ surahNumber: number; fileName: string; sha256: string; version: number; storagePath: string }>;
+    errors: Array<{ fileName: string; error: string; errorCode?: string }>;
+    errorCode?: string;
+    httpStatus?: number;
     error?: string;
   }> {
     const qari = this.store.qaris[params.qariId];
     if (!qari) {
-      return { ok: false, importedCount: 0, failedCount: 0, imported: [], errors: [], error: 'Qori topilmadi.' };
+      return { ok: false, importedCount: 0, failedCount: 0, imported: [], errors: [], httpStatus: 404, error: 'Qori topilmadi.' };
     }
 
     let entries: Array<{ fileName: string; buffer: Buffer }>;
@@ -1653,6 +2233,7 @@ export class QuranEcosystemService {
         failedCount: 0,
         imported: [],
         errors: [],
+        httpStatus: 400,
         error: err?.message || 'ZIP faylni ochib boʻlmadi.',
       };
     }
@@ -1664,12 +2245,15 @@ export class QuranEcosystemService {
         failedCount: 0,
         imported: [],
         errors: [],
+        httpStatus: 400,
         error: 'ZIP arxiv ichida qoʻllab-quvvatlanadigan audio fayllar (.mp3/.m4a/.ogg/.wav) topilmadi.',
       };
     }
 
-    const imported: Array<{ surahNumber: number; fileName: string; sha256: string; version: number }> = [];
-    const errors: Array<{ fileName: string; error: string }> = [];
+    const imported: Array<{ surahNumber: number; fileName: string; sha256: string; version: number; storagePath: string }> = [];
+    const errors: Array<{ fileName: string; error: string; errorCode?: string }> = [];
+    let storageFatalCode: string | undefined;
+    let storageFatalStatus: number | undefined;
 
     for (const entry of entries) {
       const surahNum = detectSurahNumberFromFilename(entry.fileName);
@@ -1685,6 +2269,7 @@ export class QuranEcosystemService {
         autoPublish: params.autoPublish,
         allowDuplicateChecksum: params.allowDuplicateChecksum,
         actor: params.actor,
+        firebaseIdToken: params.firebaseIdToken,
       });
       if (res.ok && res.record) {
         imported.push({
@@ -1692,9 +2277,15 @@ export class QuranEcosystemService {
           fileName: entry.fileName,
           sha256: res.record.sha256,
           version: res.record.version,
+          storagePath: res.record.storagePath,
         });
       } else {
-        errors.push({ fileName: entry.fileName, error: res.error || 'Yuklash xatosi' });
+        errors.push({ fileName: entry.fileName, error: res.error || 'Yuklash xatosi', errorCode: res.errorCode });
+        if (res.errorCode === 'STORAGE_BUCKET_NOT_FOUND' || res.errorCode === 'STORAGE_PERMISSION_DENIED') {
+          storageFatalCode = res.errorCode;
+          storageFatalStatus = res.httpStatus || 503;
+          break;
+        }
       }
     }
 
@@ -1703,38 +2294,91 @@ export class QuranEcosystemService {
       'AUDIO_ZIP_BATCH_IMPORTED',
       'qari',
       params.qariId,
-      `ZIP import: ${imported.length} ta muvaffaqiyatli, ${errors.length} ta xatolik`
+      `ZIP import (Firebase Storage): ${imported.length} ta muvaffaqiyatli, ${errors.length} ta xatolik`
     );
     this.persistStore();
 
     return {
-      ok: imported.length > 0,
+      ok: imported.length > 0 && !storageFatalCode,
       importedCount: imported.length,
       failedCount: errors.length,
       imported,
       errors,
+      errorCode: storageFatalCode,
+      httpStatus: storageFatalStatus,
+      error: storageFatalCode ? errors[errors.length - 1]?.error : undefined,
     };
+  }
+
+  /**
+   * Verifies that an audio record's binary exists in Firebase Storage (or legacy disk for unmigrated records)
+   * and matches its SHA-256 checksum byte-for-byte.
+   */
+  private async verifyRecordBinaryIntegrity(
+    rec: QariSurahAudioRecord,
+    firebaseIdToken?: string
+  ): Promise<{ ok: boolean; status: 'ok' | 'corrupted' | 'missing_file'; actualSize?: number; reason?: string }> {
+    if (rec.storageBackend === 'firebase_storage') {
+      try {
+        const objPath = rec.storagePath || rec.relativePath;
+        const buf = await this.audioStorage.downloadObjectBuffer(objPath, firebaseIdToken);
+        const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+        if (actualSha !== rec.sha256 || buf.length !== rec.sizeBytes) {
+          return {
+            ok: false,
+            status: 'corrupted',
+            actualSize: buf.length,
+            reason: `Firebase Storage SHA-256 yoki hajm mos kelmadi (kutilgan ${rec.sizeBytes}B, haqiqiy ${buf.length}B)`,
+          };
+        }
+        return { ok: true, status: 'ok', actualSize: buf.length };
+      } catch (err: any) {
+        if (err instanceof AudioStorageError && err.code === 'STORAGE_OBJECT_NOT_FOUND') {
+          return { ok: false, status: 'missing_file', reason: `Firebase Storage obyekti topilmadi: ${rec.storagePath}` };
+        }
+        return { ok: false, status: 'missing_file', reason: err?.message || 'Firebase Storage oʻqish xatosi' };
+      }
+    }
+
+    // Legacy local disk record (read-only verification)
+    const absPath = this.resolveLegacyLocalAudioFilePath(rec.relativePath);
+    if (!absPath || !fs.existsSync(absPath)) {
+      return {
+        ok: false,
+        status: 'missing_file',
+        reason: 'Eski lokal diskdagi fayl topilmadi (Cloud Run lokal diski tozalangan).',
+      };
+    }
+    const buf = fs.readFileSync(absPath);
+    const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+    if (actualSha !== rec.sha256 || buf.length !== rec.sizeBytes) {
+      return {
+        ok: false,
+        status: 'corrupted',
+        actualSize: buf.length,
+        reason: `Lokal fayl SHA-256 yoki hajm mos kelmadi (kutilgan ${rec.sizeBytes}B, haqiqiy ${buf.length}B)`,
+      };
+    }
+    return { ok: true, status: 'ok', actualSize: buf.length };
   }
 
   public async setAudioStatus(
     audioId: string,
     status: AudioPublishStatus,
-    actor: string
+    actor: string,
+    firebaseIdToken?: string
   ): Promise<{ ok: boolean; record?: QariSurahAudioRecord; error?: string }> {
     const rec = this.store.audioFiles[audioId];
     if (!rec) return { ok: false, error: 'Audio yozuv topilmadi.' };
 
-    // Verify file still exists on disk before publishing or verifying
     if (status === 'PUBLISHED' || status === 'VERIFIED') {
-      const absPath = this.resolveAudioFilePath(audioId, true);
-      if (!absPath || !fs.existsSync(absPath)) {
-        return { ok: false, error: 'Audio fayl server diskida topilmadi — eʼlon qilish bloklandi.' };
-      }
-      const diskSha = crypto.createHash('sha256').update(fs.readFileSync(absPath)).digest('hex');
-      if (diskSha !== rec.sha256) {
-        rec.integrityStatus = 'corrupted';
+      const check = await this.verifyRecordBinaryIntegrity(rec, firebaseIdToken);
+      if (!check.ok) {
+        rec.integrityStatus = check.status;
+        rec.lastIntegrityCheckAt = new Date().toISOString();
         this.persistStore();
-        return { ok: false, error: 'SHA-256 nazorati mos kelmadi — fayl shikastlangan boʻlishi mumkin!' };
+        await this.writeFirestoreMetadataVerified('quranAudioFiles', audioId, rec, 'set_audio_status_failed_verify');
+        return { ok: false, error: check.reason || 'Audio fayl tekshiruvdan oʻtmadi — eʼlon qilish bloklandi.' };
       }
       rec.isDeleted = false;
       rec.integrityStatus = 'ok';
@@ -1760,39 +2404,62 @@ export class QuranEcosystemService {
     this.recordAudit(actor, `AUDIO_STATUS_${status}`, 'audio', audioId, `${rec.qariId} · ${rec.surahNumber}-sura -> ${status}`);
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('quranAudioFiles', audioId, rec).catch(() => {});
-      await this.firestoreMirror('qariProfiles', rec.qariId, this.store.qaris[rec.qariId]).catch(() => {});
+    const fsRes = await this.writeFirestoreMetadataVerified('quranAudioFiles', audioId, rec, 'set_audio_status');
+    await this.writeFirestoreMetadataVerified('qariProfiles', rec.qariId, this.store.qaris[rec.qariId], 'set_audio_status_qari');
+    if (!fsRes.ok) {
+      rec.reconciliationStatus = 'pending_firestore_retry';
+      this.persistStore();
     }
+
     this.emitCatalogChange({ kind: 'audio', qariId: rec.qariId, surahNumber: rec.surahNumber, action: `status_${status}` });
     return { ok: true, record: rec };
   }
 
-  public async publishAllVerifiedForQari(qariId: string, actor: string): Promise<{ ok: boolean; publishedCount: number }> {
+  public async publishAllVerifiedForQari(
+    qariId: string,
+    actor: string,
+    firebaseIdToken?: string
+  ): Promise<{ ok: boolean; publishedCount: number; failedCount: number }> {
     let count = 0;
+    let failedCount = 0;
     const now = new Date().toISOString();
     for (const rec of Object.values(this.store.audioFiles)) {
       if (rec.qariId === qariId && !rec.isDeleted && (rec.status === 'VERIFIED' || rec.status === 'DRAFT')) {
-        const abs = this.resolveAudioFilePath(rec.id, true);
-        if (abs && fs.existsSync(abs)) {
+        const check = await this.verifyRecordBinaryIntegrity(rec, firebaseIdToken);
+        if (check.ok) {
           rec.status = 'PUBLISHED';
+          rec.integrityStatus = 'ok';
+          rec.lastIntegrityCheckAt = now;
           rec.publishedAt = now;
           rec.publishedBy = actor;
+          await this.writeFirestoreMetadataVerified('quranAudioFiles', rec.id, rec, 'publish_all_verified');
           count += 1;
+        } else {
+          rec.integrityStatus = check.status;
+          failedCount += 1;
         }
       }
     }
     this.recomputeQariCounters(this.store);
-    this.recordAudit(actor, 'AUDIO_BULK_PUBLISHED', 'qari', qariId, `${count} ta sura ommaviy eʼlon qilindi`);
+    if (this.store.qaris[qariId]) {
+      await this.writeFirestoreMetadataVerified('qariProfiles', qariId, this.store.qaris[qariId], 'publish_all_verified_qari');
+    }
+    this.recordAudit(
+      actor,
+      'AUDIO_BULK_PUBLISHED',
+      'qari',
+      qariId,
+      `${count} ta sura ommaviy eʼlon qilindi (${failedCount} ta tekshiruvdan oʻtmadi)`
+    );
     this.persistStore();
     if (count > 0) {
       this.emitCatalogChange({ kind: 'audio', qariId, action: 'bulk_published' });
     }
-    return { ok: true, publishedCount: count };
+    return { ok: true, publishedCount: count, failedCount };
   }
 
   /**
-   * Archives/hides a surah audio WITHOUT ever deleting permanent files or backup copies from disk.
+   * Archives/hides a surah audio WITHOUT ever deleting immutable objects from Firebase Storage.
    */
   public async deleteAudio(
     audioId: string,
@@ -1814,7 +2481,6 @@ export class QuranEcosystemService {
     rec.status = 'ARCHIVED';
     rec.archivedAt = now;
     rec.archivedBy = actor;
-    // For permanent protected Qaris (like Odiljon qori), NEVER set hard-delete or erase files from disk!
     if (!qari?.isProtectedPermanent) {
       rec.isDeleted = true;
       rec.deletedAt = now;
@@ -1827,53 +2493,33 @@ export class QuranEcosystemService {
       'AUDIO_ARCHIVED_SAFE',
       'audio',
       audioId,
-      `${rec.qariId} · ${rec.surahNumber}-sura xavfsiz arxivlandi (disk va zaxira fayllari saqlab qolindi)`
+      `${rec.qariId} · ${rec.surahNumber}-sura xavfsiz arxivlandi (Firebase Storage obyekti oʻchirilmadi)`
     );
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('quranAudioFiles', audioId, rec).catch(() => {});
-      if (qari) await this.firestoreMirror('qariProfiles', qari.id, qari).catch(() => {});
+    await this.writeFirestoreMetadataVerified('quranAudioFiles', audioId, rec, 'archive_audio');
+    if (qari) {
+      await this.writeFirestoreMetadataVerified('qariProfiles', qari.id, qari, 'archive_audio_qari');
     }
     this.emitCatalogChange({ kind: 'audio', qariId: rec.qariId, surahNumber: rec.surahNumber, action: 'archived' });
     return { ok: true, archivedOnly: true };
   }
 
   /**
-   * Restores an archived surah audio back to VERIFIED or PUBLISHED after verifying its SHA-256 integrity.
+   * Restores an archived surah audio back to VERIFIED or PUBLISHED after verifying SHA-256 integrity in Storage.
    */
   public async restoreArchivedAudio(
     audioId: string,
     actor: string,
-    publishImmediately = true
+    publishImmediately = true,
+    firebaseIdToken?: string
   ): Promise<{ ok: boolean; record?: QariSurahAudioRecord; restoredFromBackup?: boolean; error?: string }> {
     const rec = this.store.audioFiles[audioId];
     if (!rec) return { ok: false, error: 'Audio yozuv topilmadi.' };
 
-    let absPath = this.resolveAudioFilePath(audioId, true);
-    let restoredFromBackup = false;
-
-    // Auto-heal from independent permanent backup if primary disk copy is missing
-    if ((!absPath || !fs.existsSync(absPath)) && rec.backupRelativePath) {
-      const backupAbs = path.resolve(this.permanentAudioBackupDir, rec.backupRelativePath);
-      if (
-        backupAbs.startsWith(path.resolve(this.permanentAudioBackupDir) + path.sep) &&
-        fs.existsSync(backupAbs) &&
-        absPath
-      ) {
-        fs.mkdirSync(path.dirname(absPath), { recursive: true });
-        fs.copyFileSync(backupAbs, absPath);
-        restoredFromBackup = true;
-      }
-    }
-
-    if (!absPath || !fs.existsSync(absPath)) {
-      return { ok: false, error: 'Asosiy va zaxira diskda audio fayl topilmadi.' };
-    }
-
-    const sha = crypto.createHash('sha256').update(fs.readFileSync(absPath)).digest('hex');
-    if (sha !== rec.sha256) {
-      return { ok: false, error: 'Faylning SHA-256 nazorat summasi mos kelmadi.' };
+    const check = await this.verifyRecordBinaryIntegrity(rec, firebaseIdToken);
+    if (!check.ok) {
+      return { ok: false, error: check.reason || 'Audio fayl Storageʼda topilmadi yoki SHA-256 mos kelmadi.' };
     }
 
     const now = new Date().toISOString();
@@ -1889,26 +2535,146 @@ export class QuranEcosystemService {
     }
 
     this.recomputeQariCounters(this.store);
-    this.recordAudit(
-      actor,
-      'AUDIO_RESTORED_FROM_ARCHIVE',
-      'audio',
-      audioId,
-      `${rec.qariId} · ${rec.surahNumber}-sura tiklandi${restoredFromBackup ? ' (zaxiradan)' : ''}`
-    );
+    this.recordAudit(actor, 'AUDIO_RESTORED_FROM_ARCHIVE', 'audio', audioId, `${rec.qariId} · ${rec.surahNumber}-sura arxivdan tiklandi`);
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('quranAudioFiles', audioId, rec).catch(() => {});
+    await this.writeFirestoreMetadataVerified('quranAudioFiles', audioId, rec, 'restore_archived_audio');
+    if (this.store.qaris[rec.qariId]) {
+      await this.writeFirestoreMetadataVerified('qariProfiles', rec.qariId, this.store.qaris[rec.qariId], 'restore_archived_qari');
     }
     this.emitCatalogChange({ kind: 'audio', qariId: rec.qariId, surahNumber: rec.surahNumber, action: 'restored' });
-    return { ok: true, record: rec, restoredFromBackup };
+    return { ok: true, record: rec, restoredFromBackup: false };
   }
 
   /**
-   * Performs a live byte-for-byte SHA-256 & backup mirror integrity verification across all uploaded surahs for a Qari.
+   * Restores a specific previous immutable version (e.g. v1 after v2 was uploaded) from Firebase Storage.
+   * Verifies target object exists & matches SHA-256 byte-for-byte BEFORE updating active Firestore pointer.
+   * Preserves the current version inside `previousVersions` so rollback is always reversible!
    */
-  public verifyQariAudioIntegrity(qariId: string, actor: string) {
+  public async restoreAudioVersion(
+    audioId: string,
+    targetVersion: number,
+    actor: string,
+    firebaseIdToken?: string
+  ): Promise<{ ok: boolean; record?: QariSurahAudioRecord; restoredFromVersion?: number; error?: string }> {
+    const rec = this.store.audioFiles[audioId];
+    if (!rec) return { ok: false, error: 'Audio yozuv topilmadi.' };
+
+    return this.withSurahLock(`${rec.qariId}:${rec.surahNumber}`, async () => {
+      const current = this.store.audioFiles[audioId];
+      if (!current) return { ok: false, error: 'Audio yozuv topilmadi.' };
+
+      const history = Array.isArray(current.versionHistory) ? current.versionHistory : [];
+      const targetEntry = history.find((v) => v.version === Number(targetVersion));
+      if (!targetEntry) {
+        return { ok: false, error: `v${targetVersion} versiya tarixda topilmadi.` };
+      }
+
+      const targetBackend: AudioStorageBackendType = targetEntry.storageBackend || current.storageBackend || 'legacy_local_disk';
+      const targetPath = targetEntry.storagePath || targetEntry.relativePath || '';
+
+      // Read & verify target version byte-for-byte BEFORE touching active pointer
+      let verifiedBytes = 0;
+      if (targetBackend === 'firebase_storage') {
+        try {
+          const buf = await this.audioStorage.downloadObjectBuffer(targetPath, firebaseIdToken);
+          const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+          if (actualSha !== targetEntry.sha256 || buf.length !== targetEntry.sizeBytes) {
+            return {
+              ok: false,
+              error: `v${targetVersion} Firebase Storage SHA-256 nazorati mos kelmadi — tiklash bloklandi.`,
+            };
+          }
+          verifiedBytes = buf.length;
+        } catch (err: any) {
+          return {
+            ok: false,
+            error: `v${targetVersion} obyektini Firebase Storageʼdan oʻqib boʻlmadi: ${err?.message || String(err)}`,
+          };
+        }
+      } else {
+        const abs = this.resolveLegacyLocalAudioFilePath(targetPath);
+        if (!abs || !fs.existsSync(abs)) {
+          return { ok: false, error: `v${targetVersion} eski lokal disk fayli topilmadi.` };
+        }
+        const buf = fs.readFileSync(abs);
+        const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+        if (actualSha !== targetEntry.sha256) {
+          return { ok: false, error: `v${targetVersion} lokal fayl SHA-256 mos kelmadi.` };
+        }
+        verifiedBytes = buf.length;
+      }
+
+      const now = new Date().toISOString();
+      const newVersionNumber = (current.version || 0) + 1;
+
+      const restoredHistoryEntry: QariAudioVersionEntry = {
+        version: newVersionNumber,
+        fileName: targetEntry.fileName,
+        storageBackend: targetBackend,
+        storageBucket: targetEntry.storageBucket || current.storageBucket,
+        storagePath: targetPath,
+        relativePath: targetPath,
+        mimeType: targetEntry.mimeType || current.mimeType,
+        sha256: targetEntry.sha256,
+        sizeBytes: verifiedBytes,
+        durationSec: targetEntry.durationSec || current.durationSec,
+        uploadedAt: now,
+        uploadedBy: actor,
+        restoredFromVersion: targetEntry.version,
+      };
+
+      const nextHistory = [...history, restoredHistoryEntry].slice(-30);
+      current.fileName = targetEntry.fileName;
+      current.storageBackend = targetBackend;
+      current.storageBucket = targetEntry.storageBucket || current.storageBucket;
+      current.storagePath = targetPath;
+      current.relativePath = targetPath;
+      current.mimeType = targetEntry.mimeType || current.mimeType;
+      current.sha256 = targetEntry.sha256;
+      current.sizeBytes = verifiedBytes;
+      current.durationSec = targetEntry.durationSec || current.durationSec;
+      current.version = newVersionNumber;
+      current.versionHistory = nextHistory;
+      current.previousVersions = history.slice(-29);
+      current.integrityStatus = 'ok';
+      current.lastIntegrityCheckAt = now;
+      current.isDeleted = false;
+      current.archivedAt = undefined;
+      current.archivedBy = undefined;
+      if (current.status === 'ARCHIVED') {
+        current.status = 'PUBLISHED';
+        current.publishedAt = now;
+        current.publishedBy = actor;
+      }
+
+      this.recomputeQariCounters(this.store);
+      this.recordAudit(
+        actor,
+        'AUDIO_VERSION_RESTORED',
+        'audio',
+        audioId,
+        `${current.qariId} · ${current.surahNumber}-sura v${targetEntry.version} dan tiklandi -> aktiv v${newVersionNumber} (SHA-256 OK)`
+      );
+
+      const fsRes = await this.writeFirestoreMetadataVerified('quranAudioFiles', audioId, current, 'restore_audio_version');
+      if (!fsRes.ok) {
+        current.reconciliationStatus = 'pending_firestore_retry';
+      } else {
+        current.reconciliationStatus = 'synced';
+      }
+      this.persistStore();
+
+      this.emitCatalogChange({ kind: 'audio', qariId: current.qariId, surahNumber: current.surahNumber, action: 'version_restored' });
+      return { ok: true, record: current, restoredFromVersion: targetEntry.version };
+    });
+  }
+
+  /**
+   * Performs a live byte-for-byte SHA-256 integrity verification across all active surahs for a Qari
+   * directly against Firebase Cloud Storage (and honestly flags vanished legacy disk files as `missing_file`).
+   */
+  public async verifyQariAudioIntegrity(qariId: string, actor: string, firebaseIdToken?: string) {
     const qari = this.store.qaris[qariId];
     if (!qari) return null;
     const now = new Date().toISOString();
@@ -1918,51 +2684,33 @@ export class QuranEcosystemService {
     );
 
     let verifiedOk = 0;
-    let backupOk = 0;
-    const corrupted: Array<{ surahNumber: number; audioId: string; reason: string }> = [];
-    const missingBackups: number[] = [];
+    let cloudStoredCount = 0;
+    const corrupted: Array<{ surahNumber: number; audioId: string; storageBackend: string; reason: string }> = [];
+    const legacyDiskSurahs: number[] = [];
 
     for (const rec of records) {
-      const absPath = this.resolveAudioFilePath(rec.id, true);
-      if (!absPath || !fs.existsSync(absPath)) {
-        rec.integrityStatus = 'missing_file';
-        rec.lastIntegrityCheckAt = now;
-        corrupted.push({ surahNumber: rec.surahNumber, audioId: rec.id, reason: 'Asosiy fayl topilmadi' });
-        continue;
+      if (rec.storageBackend === 'firebase_storage') {
+        cloudStoredCount += 1;
+      } else {
+        legacyDiskSurahs.push(rec.surahNumber);
       }
 
-      const buf = fs.readFileSync(absPath);
-      const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
-      if (actualSha !== rec.sha256 || buf.length !== rec.sizeBytes) {
-        rec.integrityStatus = 'corrupted';
-        rec.lastIntegrityCheckAt = now;
+      const check = await this.verifyRecordBinaryIntegrity(rec, firebaseIdToken);
+      rec.integrityStatus = check.status;
+      rec.lastIntegrityCheckAt = now;
+      if (check.ok) {
+        rec.backupVerified = rec.storageBackend === 'firebase_storage';
+        verifiedOk += 1;
+      } else {
+        rec.backupVerified = false;
         corrupted.push({
           surahNumber: rec.surahNumber,
           audioId: rec.id,
-          reason: `SHA-256 yoki hajm mos kelmadi (kutilgan ${rec.sizeBytes}B, haqiqiy ${buf.length}B)`,
+          storageBackend: rec.storageBackend || 'legacy_local_disk',
+          reason: check.reason || 'Audio fayl tekshiruvdan oʻtmadi',
         });
-      } else {
-        rec.integrityStatus = 'ok';
-        rec.lastIntegrityCheckAt = now;
-        verifiedOk += 1;
       }
-
-      // Check independent backup mirror
-      if (rec.backupRelativePath) {
-        const bAbs = path.resolve(this.permanentAudioBackupDir, rec.backupRelativePath);
-        if (bAbs.startsWith(path.resolve(this.permanentAudioBackupDir) + path.sep) && fs.existsSync(bAbs)) {
-          const bSha = crypto.createHash('sha256').update(fs.readFileSync(bAbs)).digest('hex');
-          rec.backupVerified = bSha === rec.sha256;
-          if (rec.backupVerified) backupOk += 1;
-          else missingBackups.push(rec.surahNumber);
-        } else {
-          rec.backupVerified = false;
-          missingBackups.push(rec.surahNumber);
-        }
-      } else {
-        rec.backupVerified = false;
-        missingBackups.push(rec.surahNumber);
-      }
+      await this.writeFirestoreMetadataVerified('quranAudioFiles', rec.id, rec, 'verify_qari_integrity');
     }
 
     qari.lastIntegrityCheckAt = now;
@@ -1972,29 +2720,31 @@ export class QuranEcosystemService {
       'QARI_INTEGRITY_VERIFIED',
       'qari',
       qariId,
-      `SHA-256 tekshiruvi: ${verifiedOk}/${records.length} sogʻlom, zaxira: ${backupOk}/${records.length}, xato: ${corrupted.length}`
+      `SHA-256 tekshiruvi: ${verifiedOk}/${records.length} sogʻlom, Firebase Storage: ${cloudStoredCount}/${records.length}, xato: ${corrupted.length}`
     );
     this.persistStore();
+    await this.writeFirestoreMetadataVerified('qariProfiles', qariId, qari, 'verify_qari_integrity_profile');
 
     return {
       qariId,
       checkedAt: now,
       totalChecked: records.length,
       verifiedOkCount: verifiedOk,
-      backupVerifiedCount: backupOk,
+      backupVerifiedCount: cloudStoredCount,
+      cloudStoredCount,
+      legacyDiskCount: legacyDiskSurahs.length,
       corruptedCount: corrupted.length,
-      missingBackupCount: missingBackups.length,
+      missingBackupCount: legacyDiskSurahs.length,
       corrupted,
-      missingBackups,
-      passed: corrupted.length === 0,
+      missingBackups: legacyDiskSurahs,
+      passed: corrupted.length === 0 && legacyDiskSurahs.length === 0,
     };
   }
 
   /**
-   * Synchronizes all active surah audio files to independent permanent backup storage
-   * AND executes a real non-destructive restore verification test (plus auto-heals any missing/corrupted primary files).
+   * Executes a real non-destructive Firebase Storage read-back & restore verification test across all active surahs.
    */
-  public runQariBackupAndRestoreTest(qariId: string, actor: string) {
+  public async runQariBackupAndRestoreTest(qariId: string, actor: string, firebaseIdToken?: string) {
     const qari = this.store.qaris[qariId];
     if (!qari) return null;
     const now = new Date().toISOString();
@@ -2005,68 +2755,49 @@ export class QuranEcosystemService {
 
     let backedUpCount = 0;
     let restoreVerifiedCount = 0;
-    let autoHealedCount = 0;
     const failures: Array<{ surahNumber: number; reason: string }> = [];
 
     for (const rec of records) {
-      const primaryAbs = this.resolveAudioFilePath(rec.id, true);
-      const ext = path.extname(rec.fileName) || '.mp3';
+      if (rec.storageBackend !== 'firebase_storage') {
+        failures.push({
+          surahNumber: rec.surahNumber,
+          reason: 'Audio hali Firebase Storageʼga koʻchirilmagan (legacy_local_disk). Migratsiyani ishga tushiring.',
+        });
+        continue;
+      }
 
-      // Step 1: Ensure backup exists from primary (if primary exists & matches SHA-256)
-      if (primaryAbs && fs.existsSync(primaryAbs)) {
-        const primaryBuf = fs.readFileSync(primaryAbs);
-        const primarySha = crypto.createHash('sha256').update(primaryBuf).digest('hex');
-        if (primarySha === rec.sha256) {
-          const mirrored = this.mirrorAudioToPermanentBackup(
-            qariId,
-            rec.surahNumber,
-            rec.version,
-            ext,
-            primaryBuf,
-            rec.sha256
-          );
-          rec.backupRelativePath = mirrored.backupRelativePath || rec.backupRelativePath;
-          rec.backupVerified = mirrored.backupVerified;
-          if (mirrored.backupVerified) backedUpCount += 1;
+      try {
+        const meta = await this.audioStorage.getObjectMetadata(rec.storagePath, firebaseIdToken);
+        if (!meta || meta.sizeBytes !== rec.sizeBytes) {
+          failures.push({
+            surahNumber: rec.surahNumber,
+            reason: `Firebase Storage hajmi mos kelmadi (kutilgan ${rec.sizeBytes}B, topilgan ${meta?.sizeBytes ?? 0}B)`,
+          });
+          continue;
         }
-      }
-
-      // Step 2: Restore verification test — read independent backup, verify SHA-256 & magic bytes
-      if (!rec.backupRelativePath) {
-        failures.push({ surahNumber: rec.surahNumber, reason: 'Zaxira nusxa yoʻli topilmadi' });
-        continue;
-      }
-      const backupAbs = path.resolve(this.permanentAudioBackupDir, rec.backupRelativePath);
-      if (!backupAbs.startsWith(path.resolve(this.permanentAudioBackupDir) + path.sep) || !fs.existsSync(backupAbs)) {
-        failures.push({ surahNumber: rec.surahNumber, reason: 'Zaxira fayl diskda mavjud emas' });
-        continue;
-      }
-      const backupBuf = fs.readFileSync(backupAbs);
-      const backupSha = crypto.createHash('sha256').update(backupBuf).digest('hex');
-      const magic = validateAudioMagicBytes(backupBuf);
-      if (backupSha !== rec.sha256 || !magic.valid) {
-        failures.push({ surahNumber: rec.surahNumber, reason: 'Zaxira fayl SHA-256 yoki audio formati buzilgan' });
-        continue;
-      }
-
-      // Step 3: If primary file is missing or corrupted, auto-restore from verified backup!
-      if (primaryAbs) {
-        const primaryOk =
-          fs.existsSync(primaryAbs) &&
-          crypto.createHash('sha256').update(fs.readFileSync(primaryAbs)).digest('hex') === rec.sha256;
-        if (!primaryOk) {
-          fs.mkdirSync(path.dirname(primaryAbs), { recursive: true });
-          const tmp = `${primaryAbs}.restore.tmp`;
-          fs.writeFileSync(tmp, backupBuf);
-          fs.renameSync(tmp, primaryAbs);
-          rec.integrityStatus = 'ok';
-          autoHealedCount += 1;
+        const buf = await this.audioStorage.downloadObjectBuffer(rec.storagePath, firebaseIdToken);
+        const sha = crypto.createHash('sha256').update(buf).digest('hex');
+        const magic = validateAudioMagicBytes(buf);
+        if (sha !== rec.sha256 || !magic.valid) {
+          failures.push({
+            surahNumber: rec.surahNumber,
+            reason: 'Firebase Storage obyekti SHA-256 yoki binary imzo tekshiruvidan oʻtmadi',
+          });
+          continue;
         }
+        rec.backupVerified = true;
+        rec.integrityStatus = 'ok';
+        rec.lastIntegrityCheckAt = now;
+        backedUpCount += 1;
+        restoreVerifiedCount += 1;
+      } catch (err: any) {
+        failures.push({
+          surahNumber: rec.surahNumber,
+          reason: err?.message || 'Firebase Storage oʻqib tekshirishda xato',
+        });
       }
-      restoreVerifiedCount += 1;
     }
 
-    // Also snapshot metadata JSON
     const metaBackup = this.createMetadataBackup(actor);
     const passed = failures.length === 0;
     qari.lastBackupAt = now;
@@ -2078,9 +2809,10 @@ export class QuranEcosystemService {
       'QARI_BACKUP_RESTORE_TEST',
       'backup',
       qariId,
-      `Backup & Restore sinovi: ${restoreVerifiedCount}/${records.length} tasdiqlandi, auto-heal: ${autoHealedCount}, xato: ${failures.length}`
+      `Firebase Storage Readback & Restore sinovi: ${restoreVerifiedCount}/${records.length} tasdiqlandi, xato: ${failures.length}`
     );
     this.persistStore();
+    await this.writeFirestoreMetadataVerified('qariProfiles', qariId, qari, 'backup_restore_test');
     this.emitCatalogChange({ kind: 'backup', qariId, action: 'backup_restore_tested' });
 
     return {
@@ -2089,11 +2821,11 @@ export class QuranEcosystemService {
       totalActiveSurahs: records.length,
       backedUpCount,
       restoreVerifiedCount,
-      autoHealedCount,
+      autoHealedCount: 0,
       failures,
       passed,
       metadataBackupFile: metaBackup.filename,
-      backupDirectory: `data/backups/permanent-audio/${qariId}`,
+      backupDirectory: `gs://${this.audioStorage.bucketName}/quran-audio/${qariId}/`,
     };
   }
 
@@ -2104,14 +2836,617 @@ export class QuranEcosystemService {
     return rec;
   }
 
+  private resolveLegacyLocalAudioFilePath(relativePath: string): string | null {
+    if (!relativePath) return null;
+    const resolvedRoot = path.resolve(this.audioRootDir);
+    const resolvedTarget = path.resolve(resolvedRoot, relativePath);
+    if (!resolvedTarget.startsWith(resolvedRoot + path.sep)) return null;
+    return resolvedTarget;
+  }
+
   public resolveAudioFilePath(audioId: string, includeArchived = false): string | null {
     const rec = this.store.audioFiles[audioId];
     if (!rec) return null;
     if (!includeArchived && (rec.isDeleted || rec.status === 'ARCHIVED')) return null;
-    const resolvedRoot = path.resolve(this.audioRootDir);
-    const resolvedTarget = path.resolve(resolvedRoot, rec.relativePath);
-    if (!resolvedTarget.startsWith(resolvedRoot + path.sep)) return null;
-    return resolvedTarget;
+    if (rec.storageBackend === 'firebase_storage') return null;
+    return this.resolveLegacyLocalAudioFilePath(rec.relativePath);
+  }
+
+  /**
+   * Canonical audio reader for HTTP streaming (`GET /api/quran-ecosystem/audio-stream/:audioId`)
+   * with HTTP Range support. Reads directly from Firebase Storage (or read-only legacy local disk
+   * ONLY for unmigrated legacy records).
+   */
+  public async readAudioRangeForStream(
+    audioId: string,
+    options: {
+      start?: number;
+      end?: number;
+      includeUnpublished?: boolean;
+      firebaseIdToken?: string;
+    } = {}
+  ): Promise<
+    | {
+        ok: true;
+        record: QariSurahAudioRecord;
+        chunk: Buffer;
+        totalSize: number;
+        start: number;
+        end: number;
+        isPartial: boolean;
+        mimeType: string;
+        storageBackend: AudioStorageBackendType;
+      }
+    | { ok: false; httpStatus: number; errorCode: string; error: string }
+  > {
+    const rec = this.getAudioRecord(audioId, Boolean(options.includeUnpublished));
+    if (!rec) {
+      return { ok: false, httpStatus: 404, errorCode: 'AUDIO_NOT_FOUND', error: 'Audio fayl topilmadi.' };
+    }
+    if (!options.includeUnpublished && rec.status !== 'PUBLISHED') {
+      return {
+        ok: false,
+        httpStatus: 403,
+        errorCode: 'AUDIO_NOT_PUBLISHED',
+        error: 'Audio fayl hali ommaga eʼlon qilinmagan.',
+      };
+    }
+
+    if (rec.storageBackend === 'firebase_storage') {
+      try {
+        const objPath = rec.storagePath || rec.relativePath;
+        const isPartial = options.start !== undefined || options.end !== undefined;
+        if (isPartial) {
+          const totalExpected = rec.sizeBytes > 0 ? rec.sizeBytes : (await this.audioStorage.getObjectMetadata(objPath, options.firebaseIdToken))?.sizeBytes || 0;
+          const start = options.start !== undefined ? Math.max(0, options.start) : 0;
+          const end =
+            options.end !== undefined
+              ? options.end
+              : totalExpected > 0
+                ? totalExpected - 1
+                : start + 1024 * 1024 - 1;
+          const rangeRes = await this.audioStorage.downloadObjectRange(
+            objPath,
+            start,
+            end,
+            options.firebaseIdToken
+          );
+          return {
+            ok: true,
+            record: rec,
+            chunk: rangeRes.buffer,
+            totalSize: rangeRes.totalSize,
+            start: rangeRes.start,
+            end: rangeRes.end,
+            isPartial: true,
+            mimeType: rec.mimeType || rangeRes.contentType || 'audio/mpeg',
+            storageBackend: 'firebase_storage',
+          };
+        }
+        const fullBuf = await this.audioStorage.downloadObjectBuffer(objPath, options.firebaseIdToken);
+        return {
+          ok: true,
+          record: rec,
+          chunk: fullBuf,
+          totalSize: fullBuf.length,
+          start: 0,
+          end: Math.max(0, fullBuf.length - 1),
+          isPartial: false,
+          mimeType: rec.mimeType || 'audio/mpeg',
+          storageBackend: 'firebase_storage',
+        };
+      } catch (err: any) {
+        const code = err instanceof AudioStorageError ? err.code : 'STORAGE_STREAM_ERROR';
+        const httpStatus = err instanceof AudioStorageError ? err.httpStatus : 503;
+        return {
+          ok: false,
+          httpStatus,
+          errorCode: code,
+          error: err?.message || 'Firebase Storageʼdan audio oqimini oʻqib boʻlmadi.',
+        };
+      }
+    }
+
+    // Legacy read-only local disk fallback ONLY for unmigrated legacy records
+    const absPath = this.resolveLegacyLocalAudioFilePath(rec.relativePath);
+    if (!absPath || !fs.existsSync(absPath)) {
+      return {
+        ok: false,
+        httpStatus: 404,
+        errorCode: 'LEGACY_AUDIO_FILE_MISSING',
+        error: 'Eski lokal diskdagi audio fayl mavjud emas (Cloud Run qayta ishga tushganda yoʻqolgan).',
+      };
+    }
+    const stat = fs.statSync(absPath);
+    const totalSize = stat.size;
+    const isPartial = options.start !== undefined || options.end !== undefined;
+    const start = options.start !== undefined ? Math.max(0, options.start) : 0;
+    const end = options.end !== undefined ? Math.min(totalSize - 1, options.end) : Math.max(0, totalSize - 1);
+    if (start >= totalSize || start > end) {
+      return { ok: false, httpStatus: 416, errorCode: 'RANGE_NOT_SATISFIABLE', error: 'Range chegarasi notoʻgʻri.' };
+    }
+    const len = end - start + 1;
+    const chunk = Buffer.alloc(len);
+    const fd = fs.openSync(absPath, 'r');
+    try {
+      fs.readSync(fd, chunk, 0, len, start);
+    } finally {
+      fs.closeSync(fd);
+    }
+    return {
+      ok: true,
+      record: rec,
+      chunk,
+      totalSize,
+      start,
+      end,
+      isPartial,
+      mimeType: rec.mimeType || 'audio/mpeg',
+      storageBackend: 'legacy_local_disk',
+    };
+  }
+
+  /**
+   * Streams Qari avatar image from Firebase Storage (with read-only legacy disk fallback for old avatars).
+   */
+  public async readAvatarForStream(
+    qariId: string,
+    firebaseIdToken?: string
+  ): Promise<{ ok: true; buffer: Buffer; mimeType: string } | { ok: false; httpStatus: number; error: string }> {
+    const qari = this.store.qaris[qariId];
+    if (!qari) return { ok: false, httpStatus: 404, error: 'Qori topilmadi.' };
+
+    if (qari.avatarStorageBackend === 'firebase_storage' && qari.avatarStoragePath) {
+      try {
+        const buffer = await this.audioStorage.downloadObjectBuffer(qari.avatarStoragePath, firebaseIdToken);
+        return { ok: true, buffer, mimeType: qari.avatarMimeType || 'image/jpeg' };
+      } catch (err: any) {
+        return {
+          ok: false,
+          httpStatus: err instanceof AudioStorageError ? err.httpStatus : 503,
+          error: err?.message || 'Avatar rasmini Storageʼdan yuklab boʻlmadi.',
+        };
+      }
+    }
+
+    // Legacy disk avatar read-only fallback
+    if (qari.avatarUrl && qari.avatarUrl.startsWith('/uploads/qari-avatars/')) {
+      const cleanName = path.basename(qari.avatarUrl.split('?')[0]);
+      const targetAbs = path.resolve(this.avatarRootDir, cleanName);
+      if (targetAbs.startsWith(path.resolve(this.avatarRootDir) + path.sep) && fs.existsSync(targetAbs)) {
+        const ext = path.extname(cleanName).toLowerCase();
+        const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+        return { ok: true, buffer: fs.readFileSync(targetAbs), mimeType };
+      }
+    }
+
+    return { ok: false, httpStatus: 404, error: 'Qori profil rasmi topilmadi.' };
+  }
+
+  /**
+   * Full non-destructive inventory of all legacy audio records & local files across:
+   * 1. `quran_ecosystem_store.json` (`legacy_local_disk` entries)
+   * 2. Legacy `quranAudioOverrides` (from `asaka_ziyo_db.json` / Firestore)
+   * 3. Any surviving local files inside `data/uploads/quran-audio/` or `data/uploads/quran-reciter-audio/`
+   * NEVER fakes URLs, NEVER deletes old metadata. Honestly flags vanished ephemeral files as `missing_file`.
+   */
+  public inventoryLegacyAudio(): {
+    scannedAt: string;
+    totalItems: number;
+    readyToMigrateCount: number;
+    alreadyMigratedCount: number;
+    missingFileCount: number;
+    corruptedFileCount: number;
+    items: LegacyAudioInventoryItem[];
+  } {
+    const items: LegacyAudioInventoryItem[] = [];
+    const seenPaths = new Set<string>();
+
+    // 1. Scan QuranEcosystem store records
+    for (const rec of Object.values(this.store.audioFiles)) {
+      const surahNameUz = SURAHS_LIST.find((s) => s.number === rec.surahNumber)?.nameUz || rec.surahNameUz || `Sura ${rec.surahNumber}`;
+      if (rec.storageBackend === 'firebase_storage') {
+        items.push({
+          source: 'quran_ecosystem_store',
+          recordId: rec.id,
+          qariId: rec.qariId,
+          surahNumber: rec.surahNumber,
+          surahNameUz,
+          legacyPath: rec.storagePath,
+          legacyUrl: rec.streamUrl,
+          existsOnDisk: false,
+          validAudioBinary: true,
+          fileSizeBytes: rec.sizeBytes,
+          expectedSha256: rec.sha256,
+          actualSha256: rec.sha256,
+          migrationStatus: 'already_migrated',
+          reasonUz: `Firebase Storageʼda (${rec.storageBucket || this.audioStorage.bucketName})`,
+        });
+        continue;
+      }
+
+      const absPath = this.resolveLegacyLocalAudioFilePath(rec.relativePath);
+      if (absPath) seenPaths.add(absPath);
+      const existsOnDisk = Boolean(absPath && fs.existsSync(absPath));
+      if (!existsOnDisk) {
+        items.push({
+          source: 'quran_ecosystem_store',
+          recordId: rec.id,
+          qariId: rec.qariId,
+          surahNumber: rec.surahNumber,
+          surahNameUz,
+          legacyPath: rec.relativePath,
+          legacyUrl: rec.streamUrl,
+          existsOnDisk: false,
+          validAudioBinary: false,
+          fileSizeBytes: rec.sizeBytes,
+          expectedSha256: rec.sha256,
+          migrationStatus: 'missing_file',
+          reasonUz: 'Eski lokal fayl Cloud Run diskida topilmadi (qayta yuklash kerak).',
+        });
+        continue;
+      }
+
+      const buf = fs.readFileSync(absPath!);
+      const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+      const magic = validateAudioMagicBytes(buf);
+      const corrupted = !magic.valid || (rec.sha256 && actualSha !== rec.sha256);
+      items.push({
+        source: 'quran_ecosystem_store',
+        recordId: rec.id,
+        qariId: rec.qariId,
+        surahNumber: rec.surahNumber,
+        surahNameUz,
+        legacyPath: rec.relativePath,
+        legacyUrl: rec.streamUrl,
+        existsOnDisk: true,
+        validAudioBinary: magic.valid,
+        fileSizeBytes: buf.length,
+        expectedSha256: rec.sha256,
+        actualSha256: actualSha,
+        migrationStatus: corrupted ? 'corrupted_file' : 'ready_to_migrate',
+        reasonUz: corrupted
+          ? 'Lokal fayl shikastlangan yoki SHA-256 mos kelmaydi.'
+          : 'Lokal diskda mavjud — Firebase Storageʼga xavfsiz koʻchirishga tayyor.',
+      });
+    }
+
+    // 2. Scan legacy `quranAudioOverrides` (e.g. reciter-1794216702087_1, reciter-1794216702087_114)
+    if (this.legacyOverridesReader) {
+      const legacyOverrides = this.legacyOverridesReader() || {};
+      for (const [overrideKey, ov] of Object.entries(legacyOverrides)) {
+        if (!ov || typeof ov !== 'object') continue;
+        const reciterId = String(ov.reciterId || overrideKey.split('_')[0] || 'unknown');
+        const surahNumber = Number(ov.surahNumber || overrideKey.split('_')[1] || 0);
+        const surahNameUz = SURAHS_LIST.find((s) => s.number === surahNumber)?.nameUz || `Sura ${surahNumber}`;
+        const audioUrl = String(ov.audioUrl || '');
+
+        if (ov.storageBackend === 'firebase_storage' && ov.storagePath) {
+          items.push({
+            source: 'legacy_quran_audio_overrides',
+            recordId: overrideKey,
+            qariId: reciterId,
+            surahNumber,
+            surahNameUz,
+            legacyPath: String(ov.storagePath),
+            legacyUrl: audioUrl,
+            existsOnDisk: false,
+            validAudioBinary: true,
+            fileSizeBytes: Number(ov.fileSizeBytes || 0),
+            expectedSha256: ov.sha256Hash ? String(ov.sha256Hash) : undefined,
+            actualSha256: ov.sha256Hash ? String(ov.sha256Hash) : undefined,
+            migrationStatus: 'already_migrated',
+            reasonUz: 'Firebase Storageʼga koʻchirilgan.',
+          });
+          continue;
+        }
+
+        // Resolve legacy disk path from relativePath or `/uploads/...` URL
+        let candidateAbs: string | null = null;
+        if (audioUrl.startsWith('/uploads/')) {
+          const relFromUploads = audioUrl.replace(/^\/uploads\//, '');
+          const resolvedUploads = path.resolve(this.uploadsRootDir);
+          const candidate = path.resolve(resolvedUploads, relFromUploads);
+          if (candidate.startsWith(resolvedUploads + path.sep)) {
+            candidateAbs = candidate;
+          }
+        }
+        if (!candidateAbs && typeof ov.relativePath === 'string' && ov.relativePath) {
+          candidateAbs = this.resolveLegacyLocalAudioFilePath(ov.relativePath);
+        }
+
+        if (candidateAbs) seenPaths.add(candidateAbs);
+        const existsOnDisk = Boolean(candidateAbs && fs.existsSync(candidateAbs));
+
+        if (!existsOnDisk) {
+          items.push({
+            source: 'legacy_quran_audio_overrides',
+            recordId: overrideKey,
+            qariId: reciterId,
+            surahNumber,
+            surahNameUz,
+            legacyPath: candidateAbs ? path.relative(this.uploadsRootDir, candidateAbs) : audioUrl,
+            legacyUrl: audioUrl,
+            existsOnDisk: false,
+            validAudioBinary: false,
+            fileSizeBytes: Number(ov.fileSizeBytes || 0),
+            expectedSha256: ov.sha256Hash ? String(ov.sha256Hash) : undefined,
+            migrationStatus: 'missing_file',
+            reasonUz: 'Eski yuklangan fayl Cloud Run lokal diskidan yoʻqolgan (metadata saqlab qolindi, faylni qayta yuklash zarur).',
+          });
+          continue;
+        }
+
+        const buf = fs.readFileSync(candidateAbs!);
+        const actualSha = crypto.createHash('sha256').update(buf).digest('hex');
+        const magic = validateAudioMagicBytes(buf);
+        const corrupted = !magic.valid || (ov.sha256Hash && actualSha !== ov.sha256Hash);
+        items.push({
+          source: 'legacy_quran_audio_overrides',
+          recordId: overrideKey,
+          qariId: reciterId,
+          surahNumber,
+          surahNameUz,
+          legacyPath: path.relative(this.uploadsRootDir, candidateAbs!),
+          legacyUrl: audioUrl,
+          existsOnDisk: true,
+          validAudioBinary: magic.valid,
+          fileSizeBytes: buf.length,
+          expectedSha256: ov.sha256Hash ? String(ov.sha256Hash) : undefined,
+          actualSha256: actualSha,
+          migrationStatus: corrupted ? 'corrupted_file' : 'ready_to_migrate',
+          reasonUz: corrupted
+            ? 'Eski lokal fayl shikastlangan yoki SHA-256 mos kelmadi.'
+            : 'Eski lokal fayl topildi — Firebase Storageʼga xavfsiz koʻchirishga tayyor.',
+        });
+      }
+    }
+
+    return {
+      scannedAt: new Date().toISOString(),
+      totalItems: items.length,
+      readyToMigrateCount: items.filter((i) => i.migrationStatus === 'ready_to_migrate').length,
+      alreadyMigratedCount: items.filter((i) => i.migrationStatus === 'already_migrated').length,
+      missingFileCount: items.filter((i) => i.migrationStatus === 'missing_file').length,
+      corruptedFileCount: items.filter((i) => i.migrationStatus === 'corrupted_file').length,
+      items,
+    };
+  }
+
+  /**
+   * Non-destructive migration of surviving legacy local audio files to Firebase Storage:
+   * - Validates binary & SHA-256
+   * - Uploads to Firebase Storage & verifies read-back SHA-256
+   * - Switches active metadata pointer ONLY AFTER Storage read-back passes
+   * - Marks vanished ephemeral local files honestly as `missing_file` (NEVER fakes URLs, NEVER deletes legacy records!)
+   */
+  public async migrateLegacyAudioToStorage(
+    actor: string,
+    firebaseIdToken?: string
+  ): Promise<{
+    ok: boolean;
+    migratedCount: number;
+    missingMarkedCount: number;
+    skippedCount: number;
+    failedCount: number;
+    results: Array<{ recordId: string; status: string; storagePath?: string; error?: string }>;
+  }> {
+    const inventory = this.inventoryLegacyAudio();
+    const results: Array<{ recordId: string; status: string; storagePath?: string; error?: string }> = [];
+    let migratedCount = 0;
+    let missingMarkedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+
+    for (const item of inventory.items) {
+      if (item.migrationStatus === 'already_migrated') {
+        skippedCount += 1;
+        results.push({ recordId: item.recordId, status: 'already_migrated', storagePath: item.legacyPath });
+        continue;
+      }
+
+      if (item.migrationStatus === 'missing_file') {
+        missingMarkedCount += 1;
+        if (item.source === 'quran_ecosystem_store' && this.store.audioFiles[item.recordId]) {
+          this.store.audioFiles[item.recordId].integrityStatus = 'missing_file';
+          this.store.audioFiles[item.recordId].lastIntegrityCheckAt = new Date().toISOString();
+          await this.writeFirestoreMetadataVerified(
+            'quranAudioFiles',
+            item.recordId,
+            this.store.audioFiles[item.recordId],
+            'migrate_mark_missing'
+          );
+        } else if (item.source === 'legacy_quran_audio_overrides' && this.legacyOverrideUpdater) {
+          await this.legacyOverrideUpdater(item.recordId, {
+            integrityStatus: 'missing_file',
+            migrationStatus: 'missing_file',
+            migrationCheckedAt: new Date().toISOString(),
+          });
+        }
+        results.push({ recordId: item.recordId, status: 'missing_file', error: item.reasonUz });
+        continue;
+      }
+
+      if (item.migrationStatus === 'corrupted_file') {
+        failedCount += 1;
+        results.push({ recordId: item.recordId, status: 'corrupted_file', error: item.reasonUz });
+        continue;
+      }
+
+      // Ready to migrate! Read binary, upload to Firebase Storage, verify read-back, then update pointer
+      const absPath =
+        item.source === 'quran_ecosystem_store'
+          ? this.resolveLegacyLocalAudioFilePath(item.legacyPath)
+          : path.resolve(this.uploadsRootDir, item.legacyPath);
+      if (!absPath || !fs.existsSync(absPath)) {
+        missingMarkedCount += 1;
+        results.push({ recordId: item.recordId, status: 'missing_file', error: 'Migratsiya paytida fayl topilmadi.' });
+        continue;
+      }
+
+      const buffer = fs.readFileSync(absPath);
+      const magic = validateAudioMagicBytes(buffer);
+      if (!magic.valid) {
+        failedCount += 1;
+        results.push({ recordId: item.recordId, status: 'corrupted_file', error: 'Audio magic-byte tekshiruvidan oʻtmadi.' });
+        continue;
+      }
+      const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+
+      if (item.source === 'quran_ecosystem_store' && this.store.audioFiles[item.recordId]) {
+        const rec = this.store.audioFiles[item.recordId];
+        const storagePath = buildImmutableAudioStoragePath({
+          qariId: rec.qariId,
+          surahNumber: rec.surahNumber,
+          version: rec.version || 1,
+          sha256,
+          ext: magic.detectedExt,
+        });
+        try {
+          const uploaded = await this.audioStorage.uploadObject({
+            objectPath: storagePath,
+            buffer,
+            contentType: magic.detectedMime,
+            customMetadata: { migratedFromLegacyPath: item.legacyPath, qariId: rec.qariId, surahNumber: String(rec.surahNumber), sha256 },
+            firebaseIdToken,
+          });
+          const readBack = await this.audioStorage.downloadObjectBuffer(storagePath, firebaseIdToken);
+          const readBackSha = crypto.createHash('sha256').update(readBack).digest('hex');
+          if (readBackSha !== sha256 || readBack.length !== buffer.length) {
+            throw new Error('Firebase Storage read-back SHA-256 mos kelmadi');
+          }
+
+          const now = new Date().toISOString();
+          rec.storageBackend = 'firebase_storage';
+          rec.storageBucket = uploaded.bucket;
+          rec.storagePath = storagePath;
+          rec.relativePath = storagePath;
+          rec.sha256 = sha256;
+          rec.sizeBytes = buffer.length;
+          rec.integrityStatus = 'ok';
+          rec.backupVerified = true;
+          rec.lastIntegrityCheckAt = now;
+          const prevHist = Array.isArray(rec.versionHistory) ? rec.versionHistory : [];
+          const migratedEntry: QariAudioVersionEntry = {
+            version: rec.version || 1,
+            fileName: rec.fileName,
+            storageBackend: 'firebase_storage',
+            storageBucket: uploaded.bucket,
+            storagePath,
+            relativePath: storagePath,
+            mimeType: magic.detectedMime,
+            sha256,
+            sizeBytes: buffer.length,
+            durationSec: rec.durationSec,
+            uploadedAt: now,
+            uploadedBy: `${actor} (migrated)`,
+          };
+          rec.versionHistory = [...prevHist, migratedEntry].slice(-30);
+
+          const fsRes = await this.writeFirestoreMetadataVerified('quranAudioFiles', rec.id, rec, 'migrate_legacy_audio');
+          rec.reconciliationStatus = fsRes.ok ? 'synced' : 'pending_firestore_retry';
+          migratedCount += 1;
+          results.push({ recordId: item.recordId, status: 'migrated', storagePath });
+        } catch (err: any) {
+          failedCount += 1;
+          results.push({ recordId: item.recordId, status: 'failed', error: err?.message || String(err) });
+        }
+      } else if (item.source === 'legacy_quran_audio_overrides' && this.legacyOverrideUpdater) {
+        const storagePath = buildImmutableAudioStoragePath({
+          qariId: item.qariId,
+          surahNumber: item.surahNumber || 1,
+          version: 1,
+          sha256,
+          ext: magic.detectedExt,
+        });
+        try {
+          const uploaded = await this.audioStorage.uploadObject({
+            objectPath: storagePath,
+            buffer,
+            contentType: magic.detectedMime,
+            customMetadata: { migratedFromLegacyOverride: item.recordId, sha256 },
+            firebaseIdToken,
+          });
+          const readBack = await this.audioStorage.downloadObjectBuffer(storagePath, firebaseIdToken);
+          if (crypto.createHash('sha256').update(readBack).digest('hex') !== sha256) {
+            throw new Error('Firebase Storage read-back SHA-256 mos kelmadi');
+          }
+          await this.legacyOverrideUpdater(item.recordId, {
+            storageBackend: 'firebase_storage',
+            storageBucket: uploaded.bucket,
+            storagePath,
+            sha256Hash: sha256,
+            fileSizeBytes: buffer.length,
+            integrityStatus: 'ok',
+            migrationStatus: 'migrated',
+            migratedAt: new Date().toISOString(),
+            migratedBy: actor,
+          });
+          migratedCount += 1;
+          results.push({ recordId: item.recordId, status: 'migrated', storagePath });
+        } catch (err: any) {
+          failedCount += 1;
+          results.push({ recordId: item.recordId, status: 'failed', error: err?.message || String(err) });
+        }
+      }
+    }
+
+    this.recomputeQariCounters(this.store);
+    this.recordAudit(
+      actor,
+      'LEGACY_AUDIO_MIGRATION_RUN',
+      'backup',
+      'legacy_migration',
+      `Migratsiya: ${migratedCount} ta koʻchirildi, ${missingMarkedCount} ta yoʻqolgan deb belgilandi, ${failedCount} ta xato`
+    );
+    this.persistStore();
+
+    return {
+      ok: failedCount === 0,
+      migratedCount,
+      missingMarkedCount,
+      skippedCount,
+      failedCount,
+      results,
+    };
+  }
+
+  /**
+   * Returns live Firebase Storage bucket health, Firestore reconciliation queue, error logs,
+   * and legacy audio migration summary for Admin Panel observability.
+   */
+  public async getStorageAndSyncDiagnostics(firebaseIdToken?: string): Promise<{
+    storageHealth: AudioStorageHealthStatus;
+    firestoreHydratedAt: string | null;
+    reconciliationQueueCount: number;
+    reconciliationQueue: Array<Omit<FirestoreReconciliationItem, 'payload'>>;
+    recentErrors: QuranStorageErrorEntry[];
+    legacyInventorySummary: {
+      totalItems: number;
+      readyToMigrateCount: number;
+      alreadyMigratedCount: number;
+      missingFileCount: number;
+      corruptedFileCount: number;
+    };
+    systemStats: ReturnType<QuranEcosystemService['getSystemStorageStats']>;
+  }> {
+    const storageHealth = await this.audioStorage.getHealthStatus({ forceProbe: true, firebaseIdToken });
+    const inv = this.inventoryLegacyAudio();
+    return {
+      storageHealth,
+      firestoreHydratedAt: this.lastHydratedFromFirestoreAt,
+      reconciliationQueueCount: this.reconciliationQueue.length,
+      reconciliationQueue: this.reconciliationQueue.slice(0, 50).map(({ payload: _omit, ...rest }) => rest),
+      recentErrors: this.errorLogs.slice(0, 50),
+      legacyInventorySummary: {
+        totalItems: inv.totalItems,
+        readyToMigrateCount: inv.readyToMigrateCount,
+        alreadyMigratedCount: inv.alreadyMigratedCount,
+        missingFileCount: inv.missingFileCount,
+        corruptedFileCount: inv.corruptedFileCount,
+      },
+      systemStats: this.getSystemStorageStats(),
+    };
   }
 
   public createMetadataBackup(actor: string): { filename: string; path: string; createdAt: string; stats: any } {
@@ -2205,9 +3540,7 @@ export class QuranEcosystemService {
 
     this.store.playlists[id] = record;
     this.persistStore();
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('quranPlaylists', id, record).catch(() => {});
-    }
+    await this.writeFirestoreMetadataVerified('quranPlaylists', id, record, 'upsert_playlist');
     return record;
   }
 
@@ -2360,9 +3693,12 @@ export class QuranEcosystemService {
     this.store.userProfiles[userId] = merged;
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('userQuranProfiles', userId.replace(/[^a-zA-Z0-9_.:-]/g, '_'), merged).catch(() => {});
-    }
+    await this.writeFirestoreMetadataVerified(
+      'userQuranProfiles',
+      userId.replace(/[^a-zA-Z0-9_.:-]/g, '_'),
+      merged,
+      'update_user_quran_profile'
+    );
     return merged;
   }
 
@@ -2544,11 +3880,18 @@ export class QuranEcosystemService {
   public getSystemStorageStats() {
     const activeFiles = Object.values(this.store.audioFiles).filter((f) => !f.isDeleted);
     const totalBytes = activeFiles.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
+    const firebaseStorageAudioCount = activeFiles.filter((f) => f.storageBackend === 'firebase_storage').length;
+    const legacyLocalDiskAudioCount = activeFiles.filter((f) => f.storageBackend !== 'firebase_storage').length;
     return {
+      storageProvider: this.audioStorage.provider,
+      storageBucket: this.audioStorage.bucketName,
       totalQaris: Object.keys(this.store.qaris).length,
       activeQaris: Object.values(this.store.qaris).filter((q) => q.isActive).length,
       uploadedAudioCount: activeFiles.length,
       publishedAudioCount: activeFiles.filter((f) => f.status === 'PUBLISHED').length,
+      firebaseStorageAudioCount,
+      legacyLocalDiskAudioCount,
+      pendingReconciliationCount: this.reconciliationQueue.length,
       totalAudioBytes: totalBytes,
       totalPlaylists: Object.keys(this.store.playlists).length,
       totalLessons: Object.keys(this.store.tajweedLessons).length,

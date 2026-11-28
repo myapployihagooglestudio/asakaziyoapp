@@ -8,6 +8,7 @@ import {
   QuranEcosystemService,
   ODILJON_QORI_ID,
 } from '../services/quranEcosystemServer';
+import { InMemoryAudioStorageDriver } from '../services/firebaseAudioStorage';
 import { TelegramQuranMp3Service } from '../../telegram/services/quranMp3Service';
 
 function makeValidMp3Buffer(tagText: string, bodyLen = 2048): Buffer {
@@ -112,9 +113,11 @@ async function runTests() {
   const catalogEvents: Array<{ kind: string; qariId: string; action: string }> = [];
 
   try {
+    const cloudStorage = new InMemoryAudioStorageDriver({ bucketName: 'basic-petal-001dl.firebasestorage.app' });
     const svc = new QuranEcosystemService({
       dataDir,
       uploadsDir,
+      audioStorage: cloudStorage,
       onCatalogChange: (evt) => {
         catalogEvents.push(evt);
       },
@@ -150,7 +153,7 @@ async function runTests() {
     ]);
     const okAvatar = await svc.uploadQariAvatar(ODILJON_QORI_ID, jpegBytes, 'admin_test');
     assert.equal(okAvatar.ok, true, 'Valid JPEG avatar must succeed');
-    assert.ok(okAvatar.avatarUrl?.startsWith('/uploads/qari-avatars/'));
+    assert.ok(okAvatar.avatarUrl?.startsWith('/api/quran-ecosystem/avatar/'));
 
     // 3. Reject spoofed non-audio file
     const spoofedAudio = await svc.uploadQariSurahAudio({
@@ -178,10 +181,11 @@ async function runTests() {
     assert.equal(up1.ok, true, 'Surah 1 upload should succeed');
     assert.ok(up1.record);
     assert.equal(up1.record.version, 1);
+    assert.equal(up1.record.storageBackend, 'firebase_storage');
     assert.equal(up1.record.backupVerified, true);
     assert.equal(up1.record.status, 'PUBLISHED');
-    const primaryPath1 = svc.resolveAudioFilePath(up1.record.id);
-    assert.ok(primaryPath1 && fs.existsSync(primaryPath1), 'Primary audio file must exist on disk');
+    const storedBuf1 = await cloudStorage.downloadObjectBuffer(up1.record.storagePath);
+    assert.equal(Buffer.compare(storedBuf1, mp3Surah1), 0, 'Audio bytes must exist identically in Cloud Storage');
 
     // Cross-surah duplicate SHA-256 detection (accidentally uploading Surah 1 audio to Surah 3)
     const dupCrossSurah = await svc.uploadQariSurahAudio({
@@ -249,28 +253,23 @@ async function runTests() {
     assert.equal(midCatalog.missingCount, 110);
     assert.equal(midCatalog.isCompleteReady, false, '4/114 must STILL not be marked complete ready!');
 
-    // 7. Simulate primary disk loss on Surah 1 -> verify integrity flags it, then Backup & Restore Test auto-heals it byte-for-byte!
-    fs.unlinkSync(primaryPath1);
-    assert.equal(fs.existsSync(primaryPath1), false);
+    // 7. Verify SHA-256 integrity & read-back restore test directly against Cloud Storage
+    const integrityReport = await svc.verifyQariAudioIntegrity(ODILJON_QORI_ID, 'admin_test');
+    assert.ok(integrityReport);
+    assert.equal(integrityReport.corruptedCount, 0, 'All 4 uploaded surahs must pass Cloud Storage SHA-256 audit');
+    assert.equal(integrityReport.verifiedOkCount, 4);
 
-    const integrityBefore = svc.verifyQariAudioIntegrity(ODILJON_QORI_ID, 'admin_test')!;
-    assert.equal(integrityBefore.corruptedCount, 1, 'Integrity check must detect missing primary file');
-
-    const backupRestore = svc.runQariBackupAndRestoreTest(ODILJON_QORI_ID, 'admin_test')!;
-    assert.equal(backupRestore.passed, true, 'Non-destructive SHA-256 restore test must pass');
-    assert.equal(backupRestore.autoHealedCount, 1, 'Primary file must be auto-healed from independent backup');
-    assert.equal(fs.existsSync(primaryPath1), true, 'Primary Surah 1 file must exist again after auto-heal');
-    assert.equal(
-      crypto.createHash('sha256').update(fs.readFileSync(primaryPath1)).digest('hex'),
-      up1.record.sha256,
-      'Auto-healed primary file must match original SHA-256 byte-for-byte'
-    );
+    const backupRestore = await svc.runQariBackupAndRestoreTest(ODILJON_QORI_ID, 'admin_test');
+    assert.ok(backupRestore);
+    assert.equal(backupRestore.passed, true, 'Non-destructive Cloud Storage SHA-256 read-back test must pass');
+    assert.equal(backupRestore.restoreVerifiedCount, 4);
 
     // 8. Safe archive (zero hard-delete) + restore
     const archRes = await svc.deleteAudio(up1.record.id, 'admin_test', true);
     assert.equal(archRes.ok, true);
     assert.equal(archRes.archivedOnly, true, 'Protected qari delete must archive safely, never hard-delete');
-    assert.equal(fs.existsSync(primaryPath1), true, 'Primary file on disk MUST remain intact after safe archive');
+    const stillInCloud = await cloudStorage.downloadObjectBuffer(up1.record.storagePath);
+    assert.equal(Buffer.compare(stillInCloud, mp3Surah1), 0, 'Cloud Storage object MUST remain intact after safe archive');
 
     const restoredRes = await svc.restoreArchivedAudio(up1.record.id, 'admin_test', true);
     assert.equal(restoredRes.ok, true);
@@ -304,7 +303,8 @@ async function runTests() {
       quranAudioOverrides: {
         [`${ODILJON_QORI_ID}_1`]: {
           audioUrl: `/api/quran-ecosystem/audio-stream/${up1.record.id}`,
-          storagePath: up1.record.relativePath,
+          storageBackend: 'firebase_storage',
+          storagePath: up1.record.storagePath,
           status: 'verified_stored',
         },
       },
@@ -329,8 +329,7 @@ async function runTests() {
     const botSurah1 = tgQuran.resolveSurahTrack(ODILJON_QORI_ID, 1);
     assert.ok(botSurah1, 'Surah 1 track must resolve');
     assert.equal(botSurah1.status, 'ready', 'Odiljon qori uploaded Surah 1 must be ready in Telegram Bot');
-    assert.equal(botSurah1.sourceKind, 'local_vault');
-    assert.equal(botSurah1.localFileExists, true);
+    assert.equal(botSurah1.sourceKind, 'cloud_storage');
     assert.equal(botSurah1.available, true);
 
     const botSurah5 = tgQuran.resolveSurahTrack(ODILJON_QORI_ID, 5);

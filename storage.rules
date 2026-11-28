@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// ASAKA ZIYO — Firebase Storage Security Rules (2026)
+// Protects permanent Qur'on audio files and Qari avatars inside `basic-petal-001dl.firebasestorage.app`.
+// - Public read allowed ONLY for immutable Qur'on audio tracks and Qari avatars.
+// - Write allowed ONLY to authorized ASAKA ZIYO administrators (never public, never unauthenticated).
+// - Overwrite and delete of immutable versioned Surah audio objects are BLOCKED (`allow update, delete: if false`).
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAsakaAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'asakaziyo0@gmail.com' ||
+        request.auth.uid == 'admin-asakaziyo0'
+      );
+    }
+
+    function isValidAudioUpload() {
+      return request.resource != null &&
+        request.resource.size > 32 &&
+        request.resource.size <= 85 * 1024 * 1024 &&
+        request.resource.contentType.matches('audio/(mpeg|mp3|mp4|m4a|x-m4a|ogg|wav|x-wav|webm)');
+    }
+
+    function isValidImageUpload() {
+      return request.resource != null &&
+        request.resource.size > 32 &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    // Permanent immutable versioned Qur'on audio objects:
+    // quran-audio/{qariId}/surah-{001..114}/v{version}-{sha12}.{ext}
+    match /quran-audio/{qariId}/{surahSlot}/{fileName} {
+      allow read: if true;
+      // Only create new immutable versions — NEVER overwrite or delete an existing version!
+      allow create: if isAsakaAdmin() && isValidAudioUpload();
+      allow update: if isAsakaAdmin() && resource.size == request.resource.size; // metadata patch only
+      allow delete: if false;
+    }
+
+    // Legacy reciter migration prefix (immutable create only)
+    match /quran-reciter-audio/{reciterId}/{fileName} {
+      allow read: if true;
+      allow create: if isAsakaAdmin() && isValidAudioUpload();
+      allow update, delete: if false;
+    }
+
+    // Qari profile avatars
+    match /qari-avatars/{qariId}/{fileName} {
+      allow read: if true;
+      allow create: if isAsakaAdmin() && isValidImageUpload();
+      allow update, delete: if false;
+    }
+
+    // Default deny for all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

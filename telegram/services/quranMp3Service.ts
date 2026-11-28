@@ -62,7 +62,7 @@ export interface ResolvedSurahTrack {
   numberOfAyahs: number;
   audioUrl: string;
   storagePath?: string;
-  sourceKind: 'remote_https' | 'local_vault' | 'missing';
+  sourceKind: 'remote_https' | 'local_vault' | 'cloud_storage' | 'missing';
   localFileExists?: boolean;
   available: boolean;
   mimeType: string;
@@ -432,6 +432,15 @@ export class TelegramQuranMp3Service {
         const ov = overrides[`${r.id}_${s}`];
         if (ov && ov.audioUrl && ov.status !== 'missing' && ov.publicationStatus !== 'archived') {
           const url = String(ov.audioUrl).trim();
+          if (ov.storageBackend === 'firebase_storage') {
+            if (ov.integrityStatus === 'missing_file' || ov.integrityStatus === 'corrupted') {
+              brokenLocalFilesCount++;
+              if (!isCanonical && !hasBaseServer) {
+                missingSurahNumbers.push(s);
+              }
+            }
+            continue;
+          }
           if (url.startsWith('/uploads/') || url.startsWith('/api/quran-ecosystem/audio-stream/')) {
             const diskPath = resolveConfinedUploadPath(url);
             if (!diskPath || !fs.existsSync(diskPath)) {
@@ -540,6 +549,33 @@ export class TelegramQuranMp3Service {
         durationSeconds: effectiveDuration,
         durationLabel,
         status: 'missing',
+      };
+    }
+
+    if (ov?.storageBackend === 'firebase_storage' && audioUrl) {
+      const isBroken = ov.integrityStatus === 'missing_file' || ov.integrityStatus === 'corrupted';
+      return {
+        reciterId: reciter.id,
+        reciterName: reciter.name,
+        reciterNameAr: reciter.nameAr || '',
+        surahNumber: surah.number,
+        surahNameUz: surah.nameUz,
+        surahNameAr: surah.nameAr,
+        numberOfAyahs: surah.numberOfAyahs,
+        audioUrl,
+        storagePath,
+        sourceKind: 'cloud_storage',
+        available: !isBroken,
+        mimeType,
+        fileSizeBytes,
+        durationSeconds: effectiveDuration,
+        durationLabel,
+        checksum: checksum || (ov.sha256Hash ? String(ov.sha256Hash) : undefined),
+        status: isBroken ? 'broken_local_file' : 'ready',
+        cachedTelegramFileId:
+          cached && cached.sourceUrlOrPath === audioUrl ? cached.fileId : undefined,
+        updatedAt,
+        uploadedBy,
       };
     }
 
@@ -686,9 +722,15 @@ export class TelegramQuranMp3Service {
       };
     }
 
+    const targetUrl =
+      track.sourceKind === 'cloud_storage' && track.audioUrl.startsWith('/')
+        ? `http://127.0.0.1:${process.env.PORT || 3000}${track.audioUrl}`
+        : track.audioUrl;
+
     try {
-      const resp = await fetchFn(track.audioUrl, {
-        method: 'HEAD',
+      const resp = await fetchFn(targetUrl, {
+        method: track.sourceKind === 'cloud_storage' ? 'GET' : 'HEAD',
+        headers: track.sourceKind === 'cloud_storage' ? { Range: 'bytes=0-63' } : undefined,
         signal: AbortSignal.timeout(7000),
       });
       const ct = resp.headers.get('content-type') || '';
@@ -785,7 +827,36 @@ export class TelegramQuranMp3Service {
 
     // Strategy 2: Local server vault binary upload
     if (!res || !res.ok) {
-      if (track.sourceKind === 'local_vault') {
+      if (track.sourceKind === 'cloud_storage') {
+        const streamTarget = track.audioUrl.startsWith('/')
+          ? `http://127.0.0.1:${process.env.PORT || 3000}${track.audioUrl}`
+          : track.audioUrl;
+        const resp = await fetch(streamTarget, { signal: AbortSignal.timeout(30000) });
+        if (!resp.ok) {
+          return {
+            ok: false,
+            usedCachedFileId: false,
+            track,
+            error: `Firebase Storage audio oqimi xatosi (HTTP ${resp.status}).`,
+          };
+        }
+        const audioBuffer = Buffer.from(await resp.arrayBuffer());
+        const val = validateAudioBuffer(audioBuffer, track.mimeType);
+        if (!val.valid) {
+          return { ok: false, usedCachedFileId: false, track, error: val.error };
+        }
+        res = await this.apiClient.sendAudioBuffer({
+          chat_id: params.chatId,
+          audioBuffer,
+          filename: `${track.reciterId}_${padNumber(track.surahNumber, 3)}.mp3`,
+          mimeType: val.detectedFormat || 'audio/mpeg',
+          title,
+          performer,
+          duration: track.durationSeconds,
+          caption: formattedCaption.text,
+          reply_markup: params.replyMarkup,
+        });
+      } else if (track.sourceKind === 'local_vault') {
         const diskPath = resolveConfinedUploadPath(track.audioUrl);
         if (!diskPath || !fs.existsSync(diskPath)) {
           return {

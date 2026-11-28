@@ -781,6 +781,26 @@ export class SubscriptionEcosystemService {
     this.store = this.loadOrInitStore();
   }
 
+  private async mirrorToFirestoreVerified(
+    collection: string,
+    docId: string,
+    payload: Record<string, any>
+  ): Promise<void> {
+    if (!this.firestoreMirror) return;
+    try {
+      const res = await this.firestoreMirror(collection, docId, payload);
+      if (res && typeof res === 'object' && 'success' in res && res.success === false) {
+        console.error(
+          `[SubscriptionEcosystem Firestore Error] (${collection}/${docId}): ${res.code || 'write_failed'} - ${res.error || 'Unknown error'}`
+        );
+      }
+    } catch (err: any) {
+      console.error(
+        `[SubscriptionEcosystem Firestore Exception] (${collection}/${docId}): ${err?.message || err}`
+      );
+    }
+  }
+
   private loadOrInitStore(): SubscriptionEcosystemStore {
     const now = new Date().toISOString();
     let parsed: Partial<SubscriptionEcosystemStore> | null = null;
@@ -1152,9 +1172,7 @@ export class SubscriptionEcosystemService {
     this.store.plans[planId] = updated;
     this.recordAudit(actor, 'PLAN_UPDATED', 'plan', planId, `${updated.nameUz} -> ${updated.priceUzs} UZS (${updated.durationDays} kun)`);
     this.persistStore();
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('subscriptionPlans', planId, updated).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('subscriptionPlans', planId, updated);
     return updated;
   }
 
@@ -1190,13 +1208,11 @@ export class SubscriptionEcosystemService {
       `${created.labelUz} [${created.module}] -> ${created.access.toUpperCase()} (freeLimit=${created.freeLimit}, enabled=${created.isEnabled})`
     );
     this.persistStore();
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('subscriptionConfig', 'feature_gates', {
-        gates: this.store.featureGates,
-        updatedAt: now,
-        updatedBy: actor,
-      }).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('subscriptionConfig', 'feature_gates', {
+      gates: this.store.featureGates,
+      updatedAt: now,
+      updatedBy: actor,
+    });
     return created;
   }
 
@@ -1227,13 +1243,11 @@ export class SubscriptionEcosystemService {
       `${updated.labelUz} -> ${updated.access.toUpperCase()} (freeLimit=${updated.freeLimit}, premiumLimit=${updated.premiumLimit}, period=${updated.limitPeriod}, enabled=${updated.isEnabled})`
     );
     this.persistStore();
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('subscriptionConfig', 'feature_gates', {
-        gates: this.store.featureGates,
-        updatedAt: now,
-        updatedBy: actor,
-      }).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('subscriptionConfig', 'feature_gates', {
+      gates: this.store.featureGates,
+      updatedAt: now,
+      updatedBy: actor,
+    });
     return updated;
   }
 
@@ -1254,9 +1268,7 @@ export class SubscriptionEcosystemService {
     this.store.cardSettings = updated;
     this.recordAudit(actor, 'CARD_SETTINGS_UPDATED', 'card_settings', 'manual_card', `Karta egasi: ${updated.cardholderName}, faol: ${updated.isActive}`);
     this.persistStore();
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('subscriptionConfig', 'manual_card', updated).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('subscriptionConfig', 'manual_card', updated);
     return updated;
   }
 
@@ -1700,11 +1712,7 @@ export class SubscriptionEcosystemService {
       `${plan.nameUz} · ${finalAmount} UZS · Ref: ${receiptRef}${duplicateRefWarning ? ' [DUPLICATE_REF_WARNING]' : ''}`
     );
     this.persistStore();
-
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('paymentOrders', orderId, order).catch(() => {});
-    }
-
+    await this.mirrorToFirestoreVerified('paymentOrders', orderId, order);
     return { ok: true, order };
   }
 
@@ -1770,11 +1778,7 @@ export class SubscriptionEcosystemService {
     order.activatedSubscriptionId = sub.userId;
     this.recordAudit(actor, 'PAYMENT_ORDER_APPROVED', 'order', orderId, `${order.userId} -> ${order.planId} (+${order.durationDays} kun)`);
     this.persistStore();
-
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('paymentOrders', orderId, order).catch(() => {});
-    }
-
+    await this.mirrorToFirestoreVerified('paymentOrders', orderId, order);
     return { ok: true, order, subscription: sub };
   }
 
@@ -1797,9 +1801,7 @@ export class SubscriptionEcosystemService {
     this.recordAudit(actor, 'PAYMENT_ORDER_REJECTED', 'order', orderId, `Sabab: ${order.rejectionReason}`);
     this.persistStore();
 
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('paymentOrders', orderId, order).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('paymentOrders', orderId, order);
     return { ok: true, order };
   }
 
@@ -1868,10 +1870,7 @@ export class SubscriptionEcosystemService {
       `${params.planId} (+${params.durationDays} kun) -> ${nextExpIso}`
     );
     this.persistStore();
-
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('userSubscriptions', userId.replace(/[^a-zA-Z0-9_.:-]/g, '_'), record).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('userSubscriptions', userId.replace(/[^a-zA-Z0-9_.:-]/g, '_'), record);
     return record;
   }
 
@@ -1947,10 +1946,7 @@ export class SubscriptionEcosystemService {
     this.store.subscriptions[userId] = existing;
     this.recordAudit(params.actor, `SUBSCRIPTION_${params.action.toUpperCase()}`, 'subscription', userId, params.reason || params.action);
     this.persistStore();
-
-    if (this.firestoreMirror) {
-      await this.firestoreMirror('userSubscriptions', userId.replace(/[^a-zA-Z0-9_.:-]/g, '_'), existing).catch(() => {});
-    }
+    await this.mirrorToFirestoreVerified('userSubscriptions', userId.replace(/[^a-zA-Z0-9_.:-]/g, '_'), existing);
     return existing;
   }
 

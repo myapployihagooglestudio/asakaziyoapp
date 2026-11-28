@@ -1260,7 +1260,23 @@ service cloud.firestore {
 
     match /quranAudioFiles/{audioId} {
       allow read: if true;
-      allow write: if isValidId(audioId) && (isContentAdmin() || isVerifiedServerWrite('quranAudioFiles', audioId));
+      allow write: if isValidId(audioId) &&
+        !('audioBase64' in incoming()) &&
+        !('fileBufferBase64' in incoming()) &&
+        !('binaryData' in incoming()) &&
+        (isContentAdmin() || isVerifiedServerWrite('quranAudioFiles', audioId));
+    }
+
+    match /quranAudioAlignments/{alignmentId} {
+      allow read: if true;
+      allow write: if isValidId(alignmentId) &&
+        (isContentAdmin() || isVerifiedServerWrite('quranAudioAlignments', alignmentId));
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isValidId(configId) &&
+        (isSuperAdmin() || isContentAdmin() || isVerifiedServerWrite('config', configId));
     }
 
     match /quranPlaylists/{playlistId} {

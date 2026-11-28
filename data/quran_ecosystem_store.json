@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "qaris": {
     "alijon": {
       "id": "alijon",
@@ -18,7 +18,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "jahongir_nematov": {
       "id": "jahongir_nematov",
@@ -37,7 +42,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false
     },
     "mishary": {
       "id": "mishary",
@@ -56,7 +66,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "suwayd": {
       "id": "suwayd",
@@ -75,7 +90,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "hussary": {
       "id": "hussary",
@@ -94,7 +114,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "dussary": {
       "id": "dussary",
@@ -113,7 +138,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "sudais": {
       "id": "sudais",
@@ -132,7 +162,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "juhany": {
       "id": "juhany",
@@ -151,7 +186,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "ghamidi": {
       "id": "ghamidi",
@@ -170,7 +210,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "shatri": {
       "id": "shatri",
@@ -189,7 +234,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:03.043Z",
       "updatedAt": "2026-11-25T05:12:03.043Z",
-      "updatedBy": "system_seed"
+      "updatedBy": "system_seed",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 114,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 0,
+      "isCompleteReady": true
     },
     "jahongir_qori_ne_matov_e2e_test_1795583543915": {
       "id": "jahongir_qori_ne_matov_e2e_test_1795583543915",
@@ -207,7 +257,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:12:24.590Z",
       "updatedAt": "2026-11-25T05:12:24.752Z",
-      "updatedBy": "asakaziyo0@gmail.com"
+      "updatedBy": "asakaziyo0@gmail.com",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 1,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false
     },
     "jahongir_qori_ne_matov_e2e_test_1795583658654": {
       "id": "jahongir_qori_ne_matov_e2e_test_1795583658654",
@@ -225,7 +280,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:14:19.453Z",
       "updatedAt": "2026-11-25T05:14:19.811Z",
-      "updatedBy": "asakaziyo0@gmail.com"
+      "updatedBy": "asakaziyo0@gmail.com",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 1,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false
     },
     "jahongir_qori_ne_matov_e2e_test_1795583717541": {
       "id": "jahongir_qori_ne_matov_e2e_test_1795583717541",
@@ -243,7 +303,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T05:15:18.050Z",
       "updatedAt": "2026-11-25T05:15:18.246Z",
-      "updatedBy": "asakaziyo0@gmail.com"
+      "updatedBy": "asakaziyo0@gmail.com",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 1,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false
     },
     "jahongir_qori_ne_matov_e2e_test_1795593940656": {
       "id": "jahongir_qori_ne_matov_e2e_test_1795593940656",
@@ -261,7 +326,12 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T08:05:41.275Z",
       "updatedAt": "2026-11-25T08:05:41.511Z",
-      "updatedBy": "asakaziyo0@gmail.com"
+      "updatedBy": "asakaziyo0@gmail.com",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 1,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false
     },
     "jahongir_qori_ne_matov_e2e_test_1795594101187": {
       "id": "jahongir_qori_ne_matov_e2e_test_1795594101187",
@@ -279,7 +349,37 @@
       "publishedSurahsCount": 0,
       "createdAt": "2026-11-25T08:08:21.823Z",
       "updatedAt": "2026-11-25T08:08:22.078Z",
-      "updatedBy": "asakaziyo0@gmail.com"
+      "updatedBy": "asakaziyo0@gmail.com",
+      "verifiedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 1,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false
+    },
+    "odiljon_qori": {
+      "id": "odiljon_qori",
+      "nameUz": "Odiljon qori",
+      "nameAr": "عادل جان قارئ",
+      "nameLatn": "Odiljon qori",
+      "countryUz": "Oʻzbekiston",
+      "styleUz": "Murattal · 114 Sura Doimiy Arxiv",
+      "bioUz": "Oʻzbekistonlik qori Odiljon qori tilovatlari — 114 ta sura doimiy xavfsiz xotirada, SHA-256 nazorati va mustaqil zaxira nusxa bilan Web, Android v7, Telegram Mini App va Telegram Bot boʻylab yagona sinxronlanadi.",
+      "avatarUrl": "/images/quran_illumination_art_1793634658336.jpg",
+      "isActive": true,
+      "isVerified": true,
+      "isFeatured": true,
+      "isProtectedPermanent": true,
+      "sortOrder": 2,
+      "uploadedSurahsCount": 0,
+      "verifiedSurahsCount": 0,
+      "publishedSurahsCount": 0,
+      "syncedSurahsCount": 0,
+      "archivedSurahsCount": 0,
+      "missingSurahsCount": 114,
+      "isCompleteReady": false,
+      "createdAt": "2026-11-28T01:21:39.263Z",
+      "updatedAt": "2026-11-28T01:21:39.263Z",
+      "updatedBy": "system_seed_v7"
     }
   },
   "audioFiles": {
@@ -1653,5 +1753,5 @@
       "createdAt": "2026-11-25T05:12:24.590Z"
     }
   ],
-  "updatedAt": "2026-11-25T14:04:50.025Z"
+  "updatedAt": "2026-11-28T01:57:29.210Z"
 }

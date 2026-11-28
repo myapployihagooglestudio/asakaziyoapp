@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { getActiveAdminToken } from '../../../utils/firebaseClient';
+import { getActiveAdminToken, getActiveFirebaseIdToken } from '../../../utils/firebaseClient';
 import { SURAHS_LIST } from '../../../data/quranData';
 import {
   Headphones,
@@ -190,9 +190,14 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
 
       try {
         const b64 = await fileToBase64(file);
-        const res = await fetch('/api/admin/quran-ecosystem/audio/upload', {
+        const fbToken = await getActiveFirebaseIdToken();
+        const headers: Record<string, string> = {
+          ...authHeaders(),
+          ...(fbToken ? { 'X-Firebase-Id-Token': fbToken } : {}),
+        };
+        const resp = await fetch('/api/admin/quran-ecosystem/audio/upload', {
           method: 'POST',
-          headers: authHeaders(),
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             qariId: selectedQariId,
@@ -202,9 +207,14 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
             originalFilename: file.name,
             autoPublish: uploadAutoPublish,
           }),
-        }).then((r) => r.json());
-        if (res?.success) okCount += 1;
-        else lastError = res?.error || 'Yuklashda xatolik';
+        });
+        const res = await resp.json();
+        if (res?.success) {
+          okCount += 1;
+        } else {
+          const codeTag = res?.code ? `[${res.code}] ` : '';
+          lastError = `${codeTag}${res?.error || `HTTP ${resp.status} yuklashda xatolik`}`;
+        }
       } catch (e: any) {
         lastError = e?.message || 'Yuklashda xatolik';
       }
@@ -214,12 +224,12 @@ export const UltimateEcosystemAdminPanel: React.FC = () => {
     if (okCount > 0) {
       setNotice({
         type: 'ok',
-        msg: `${okCount} ta sura audio fayli server xotirasiga doimiy saqlandi (SHA-256 tasdiqlangan).${lastError ? ` Izoh: ${lastError}` : ''}`,
+        msg: `${okCount} ta sura audio fayli Firebase Storage doimiy omboriga saqlandi va SHA-256 qayta oʻqish orqali tasdiqlandi.${lastError ? ` Izoh: ${lastError}` : ''}`,
       });
       void loadQariSurahs(selectedQariId);
       void loadAll();
     } else {
-      setNotice({ type: 'err', msg: lastError || 'Audio yuklab boʻlmadi.' });
+      setNotice({ type: 'err', msg: lastError || 'Audio faylni Firebase Storageʼga yuklab boʻlmadi.' });
     }
   };
 

@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getActiveAdminToken } from '../../../utils/firebaseClient';
+import { getActiveAdminToken, getActiveFirebaseIdToken } from '../../../utils/firebaseClient';
 import {
   Archive,
   CheckCircle2,
+  Cloud,
+  CloudOff,
   Database,
   FileArchive,
   HardDrive,
   Headphones,
+  History,
   Image as ImageIcon,
   Play,
   RefreshCw,
@@ -22,11 +25,27 @@ import {
   Layers,
   XCircle,
   Volume2,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 const ODILJON_QORI_ID = 'odiljon_qori';
 const CHUNK_SIZE_BYTES = 512 * 1024; // 512 KB chunks for resumable uploads with retry
 const MAX_CHUNK_RETRIES = 3;
+
+interface AudioVersionHistoryEntry {
+  version: number;
+  storageBackend?: 'firebase_storage' | 'legacy_local_disk';
+  storageBucket?: string;
+  storagePath?: string;
+  relativePath?: string;
+  mimeType: string;
+  sha256: string;
+  sizeBytes: number;
+  durationSec?: number;
+  uploadedAt: string;
+  uploadedBy: string;
+  note?: string;
+}
 
 interface SurahCatalogRow {
   surahNumber: number;
@@ -41,13 +60,19 @@ interface SurahCatalogRow {
     fileName: string;
     originalFilename: string;
     relativePath: string;
+    storageBackend?: 'firebase_storage' | 'legacy_local_disk';
+    storageBucket?: string;
+    storagePath?: string;
     backupRelativePath?: string;
     backupVerified?: boolean;
     mimeType: string;
     sizeBytes: number;
+    durationSec?: number;
     durationSeconds?: number;
     sha256: string;
     version: number;
+    versionHistory?: AudioVersionHistoryEntry[];
+    reconciliationStatus?: 'synced' | 'pending_firestore_retry' | 'firestore_failed';
     status: 'UPLOADED' | 'VERIFIED' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED';
     integrityStatus?: 'ok' | 'missing_file' | 'corrupted' | 'unchecked';
     uploadedAt: string;
@@ -56,6 +81,70 @@ interface SurahCatalogRow {
     archivedAt?: string;
     isDeleted?: boolean;
   } | null;
+}
+
+interface DiagnosticsPayload {
+  storageHealth: {
+    provider: string;
+    bucketName: string;
+    projectId: string;
+    authMode: string;
+    healthy: boolean;
+    writable: boolean;
+    statusCode: 'ready' | 'bucket_not_found' | 'permission_denied' | 'not_configured' | 'unreachable';
+    messageUz: string;
+    httpStatus?: number;
+    checkedAt: string;
+    details?: string;
+  };
+  firestoreHydratedAt: string | null;
+  reconciliationQueueCount: number;
+  reconciliationQueue: Array<{
+    id: string;
+    collection: string;
+    docId: string;
+    reason: string;
+    attempts: number;
+    lastError: string;
+    updatedAt: string;
+  }>;
+  recentErrors: Array<{
+    id: string;
+    timestamp: string;
+    stage: string;
+    code: string;
+    message: string;
+    qariId?: string;
+    surahNumber?: number;
+  }>;
+  legacyInventorySummary: {
+    totalItems: number;
+    readyToMigrateCount: number;
+    alreadyMigratedCount: number;
+    missingFileCount: number;
+    corruptedFileCount: number;
+  };
+}
+
+interface LegacyInventoryPayload {
+  scannedAt: string;
+  totalItems: number;
+  readyToMigrateCount: number;
+  alreadyMigratedCount: number;
+  missingFileCount: number;
+  corruptedFileCount: number;
+  items: Array<{
+    source: string;
+    recordId: string;
+    qariId: string;
+    surahNumber: number;
+    surahNameUz: string;
+    legacyPath: string;
+    existsOnDisk: boolean;
+    fileSizeBytes: number;
+    migrationStatus: 'ready_to_migrate' | 'already_migrated' | 'missing_file' | 'corrupted_file';
+    reasonUz: string;
+  }>;
 }
 
 interface CatalogResponse {
@@ -75,6 +164,9 @@ interface CatalogResponse {
   isCompleteReady: boolean;
   readinessLabelUz: string;
   storageSummary?: {
+    storageBackend?: string;
+    storageBucket?: string;
+    localDiskFallbackEnabled?: boolean;
     primaryVaultPath: string;
     permanentBackupPath: string;
     isProtectedPermanent: boolean;
@@ -166,6 +258,15 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
   const [integrityReport, setIntegrityReport] = useState<any | null>(null);
   const [backupReport, setBackupReport] = useState<any | null>(null);
 
+  // Firebase Storage & Firestore Sync Diagnostics + Legacy Audio Migration
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsPayload | null>(null);
+  const [legacyInventory, setLegacyInventory] = useState<LegacyInventoryPayload | null>(null);
+  const [reconcilingFirestore, setReconcilingFirestore] = useState(false);
+  const [runningMigration, setRunningMigration] = useState(false);
+  const [showErrorLogs, setShowErrorLogs] = useState(false);
+  const [expandedVersionAudioId, setExpandedVersionAudioId] = useState<string | null>(null);
+  const [restoringVersionKey, setRestoringVersionKey] = useState<string | null>(null);
+
   // Checklist filtering & audio preview
   const [filterMode, setFilterMode] = useState<'all' | 'uploaded' | 'missing' | 'archived' | 'errors'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,20 +280,37 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
   const rowUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [rowUploadTargetSurah, setRowUploadTargetSurah] = useState<number | null>(null);
 
-  const authHeaders = () => {
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const token = getActiveAdminToken();
+    const fbToken = await getActiveFirebaseIdToken();
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(fbToken ? { 'X-Firebase-Id-Token': fbToken } : {}),
     };
-  };
+  }, []);
+
+  const loadDiagnosticsAndInventory = useCallback(async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const [diagRes, invRes] = await Promise.all([
+        fetch('/api/admin/quran-ecosystem/diagnostics', { headers, credentials: 'include' }).then((r) => r.json()),
+        fetch('/api/admin/quran-ecosystem/migration/inventory', { headers, credentials: 'include' }).then((r) => r.json()),
+      ]);
+      if (diagRes?.success) setDiagnostics(diagRes);
+      if (invRes?.success) setLegacyInventory(invRes);
+    } catch {
+      // Non-blocking diagnostics refresh
+    }
+  }, [getAuthHeaders]);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(
         `/api/admin/quran-ecosystem/qaris/${encodeURIComponent(ODILJON_QORI_ID)}/surahs`,
-        { headers: authHeaders(), credentials: 'include' }
+        { headers, credentials: 'include' }
       ).then((r) => r.json());
       if (res?.success) {
         setCatalog(res);
@@ -210,12 +328,13 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
       } else {
         setNotice({ type: 'err', msg: res?.error || 'Odiljon qori katalogini yuklab boʻlmadi.' });
       }
+      await loadDiagnosticsAndInventory();
     } catch (err: any) {
       setNotice({ type: 'err', msg: err?.message || 'Server bilan ulanishda xatolik.' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getAuthHeaders, loadDiagnosticsAndInventory]);
 
   useEffect(() => {
     void loadCatalog();
@@ -226,9 +345,10 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     setSavingProfile(true);
     setNotice(null);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch('/api/admin/quran-ecosystem/qaris', {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           id: ODILJON_QORI_ID,
@@ -257,11 +377,12 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     setNotice(null);
     try {
       const imageBase64 = await fileToDataUrl(file);
+      const headers = await getAuthHeaders();
       const res = await fetch(
         `/api/admin/quran-ecosystem/qaris/${encodeURIComponent(ODILJON_QORI_ID)}/avatar`,
         {
           method: 'POST',
-          headers: authHeaders(),
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             imageBase64,
@@ -271,10 +392,11 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
         }
       ).then((r) => r.json());
       if (res?.success) {
-        setNotice({ type: 'ok', msg: 'Odiljon qori profil rasmi saqlandi va 4 platformada yangilandi.' });
+        setNotice({ type: 'ok', msg: 'Odiljon qori profil rasmi Firebase Storageʼga saqlandi va 4 platformada yangilandi.' });
         await loadCatalog();
       } else {
-        setNotice({ type: 'err', msg: res?.error || 'Rasmni yuklashda xatolik.' });
+        const codeTag = res?.code ? `[${res.code}] ` : '';
+        setNotice({ type: 'err', msg: `${codeTag}${res?.error || 'Rasmni yuklashda xatolik.'}` });
       }
     } catch (err: any) {
       setNotice({ type: 'err', msg: err?.message || 'Rasmni yuklashda xatolik.' });
@@ -302,9 +424,10 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
       let lastErr = '';
       for (let attempt = 1; attempt <= MAX_CHUNK_RETRIES; attempt++) {
         try {
+          const headers = await getAuthHeaders();
           const res = await fetch('/api/admin/quran-ecosystem/audio/upload-chunk', {
             method: 'POST',
-            headers: authHeaders(),
+            headers,
             credentials: 'include',
             body: JSON.stringify({
               uploadId,
@@ -332,9 +455,10 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
       onChunkProgress?.(Math.round(((idx + 1) / totalChunks) * 90));
     }
 
-    const completeRes = await fetch('/api/admin/quran-ecosystem/audio/upload-complete', {
+    const completeHeaders = await getAuthHeaders();
+    const completeResp = await fetch('/api/admin/quran-ecosystem/audio/upload-complete', {
       method: 'POST',
-      headers: authHeaders(),
+      headers: completeHeaders,
       credentials: 'include',
       body: JSON.stringify({
         uploadId,
@@ -345,11 +469,16 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
         originalFilename: file.name,
         autoPublish,
       }),
-    }).then((r) => r.json());
+    });
+    const completeRes = await completeResp.json();
 
     onChunkProgress?.(100);
     if (!completeRes?.success) {
-      return { ok: false, error: `Sura #${surahNumber}: ${completeRes?.error || 'Yakunlashda xatolik'}` };
+      const codeTag = completeRes?.code ? `[${completeRes.code}] ` : '';
+      return {
+        ok: false,
+        error: `Sura #${surahNumber}: ${codeTag}${completeRes?.error || `HTTP ${completeResp.status} yakunlashda xatolik`}`,
+      };
     }
     return { ok: true, version: completeRes.record?.version };
   };
@@ -408,7 +537,7 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     if (okCount > 0 && errors.length === 0) {
       setNotice({
         type: 'ok',
-        msg: `${okCount} ta sura audio fayli doimiy xotiraga + zaxira nusxaga saqlandi (SHA-256 tasdiqlandi) va 4 platformaga sinxronlandi.`,
+        msg: `${okCount} ta sura audio fayli Firebase Storage doimiy bulut omboriga saqlandi (SHA-256 qayta oʻqib tasdiqlandi) va 4 platformaga sinxronlandi.`,
       });
     } else if (okCount > 0) {
       setNotice({
@@ -418,7 +547,7 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     } else {
       setNotice({
         type: 'err',
-        msg: errors[0] || 'Audio fayllarni yuklab boʻlmadi.',
+        msg: errors[0] || 'Audio fayllarni Firebase Storageʼga yuklab boʻlmadi.',
       });
     }
   };
@@ -429,11 +558,12 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     setNotice(null);
     try {
       const zipBase64 = await fileToDataUrl(file);
+      const headers = await getAuthHeaders();
       const res = await fetch(
         `/api/admin/quran-ecosystem/qaris/${encodeURIComponent(ODILJON_QORI_ID)}/import-zip`,
         {
           method: 'POST',
-          headers: authHeaders(),
+          headers,
           credentials: 'include',
           body: JSON.stringify({ zipBase64, autoPublish }),
         }
@@ -441,11 +571,12 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
       if (res?.success) {
         setNotice({
           type: 'ok',
-          msg: `ZIP import yakunlandi: ${res.importedCount} ta sura yuklandi, ${res.failedCount || 0} ta xatolik.`,
+          msg: `ZIP import yakunlandi: ${res.importedCount} ta sura Firebase Storageʼga yuklandi, ${res.failedCount || 0} ta xatolik.`,
         });
         await loadCatalog();
       } else {
-        setNotice({ type: 'err', msg: res?.error || 'ZIP arxivni import qilib boʻlmadi.' });
+        const codeTag = res?.code ? `[${res.code}] ` : '';
+        setNotice({ type: 'err', msg: `${codeTag}${res?.error || 'ZIP arxivni import qilib boʻlmadi.'}` });
       }
     } catch (err: any) {
       setNotice({ type: 'err', msg: err?.message || 'ZIP yuklashda xatolik.' });
@@ -456,9 +587,10 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
 
   const handlePublishAll = async () => {
     setNotice(null);
+    const headers = await getAuthHeaders();
     const res = await fetch(
       `/api/admin/quran-ecosystem/qaris/${encodeURIComponent(ODILJON_QORI_ID)}/publish-all`,
-      { method: 'POST', headers: authHeaders(), credentials: 'include' }
+      { method: 'POST', headers, credentials: 'include' }
     ).then((r) => r.json());
     if (res?.success) {
       setNotice({
@@ -472,9 +604,10 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
   };
 
   const handleStatusChange = async (audioId: string, status: 'VERIFIED' | 'PUBLISHED' | 'ARCHIVED') => {
+    const headers = await getAuthHeaders();
     const res = await fetch(`/api/admin/quran-ecosystem/audio/${encodeURIComponent(audioId)}/status`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers,
       credentials: 'include',
       body: JSON.stringify({ status }),
     }).then((r) => r.json());
@@ -487,16 +620,17 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
   };
 
   const handleArchiveAudio = async (audioId: string, surahNumber: number) => {
+    const headers = await getAuthHeaders();
     const res = await fetch(`/api/admin/quran-ecosystem/audio/${encodeURIComponent(audioId)}/archive`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers,
       credentials: 'include',
       body: JSON.stringify({ reason: `Admin tomonidan #${surahNumber} sura vaqtincha yashirildi` }),
     }).then((r) => r.json());
     if (res?.success) {
       setNotice({
         type: 'ok',
-        msg: `Sura #${surahNumber} xavfsiz arxivlandi (diskdagi asosiy va zaxira fayllar saqlab qolindi).`,
+        msg: `Sura #${surahNumber} xavfsiz arxivlandi (Firebase Storageʼdagi immutable audio obyekt saqlab qolindi).`,
       });
       await loadCatalog();
     } else {
@@ -505,16 +639,17 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
   };
 
   const handleRestoreAudio = async (audioId: string, surahNumber: number) => {
+    const headers = await getAuthHeaders();
     const res = await fetch(`/api/admin/quran-ecosystem/audio/${encodeURIComponent(audioId)}/restore`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers,
       credentials: 'include',
       body: JSON.stringify({ publishImmediately: true }),
     }).then((r) => r.json());
     if (res?.success) {
       setNotice({
         type: 'ok',
-        msg: `Sura #${surahNumber} qayta tiklandi${res.restoredFromBackup ? ' (zaxira nusxadan avtomatik tiklandi)' : ''} va sinxronlandi.`,
+        msg: `Sura #${surahNumber} qayta tiklandi va 4 platformaga sinxronlandi.`,
       });
       await loadCatalog();
     } else {
@@ -522,20 +657,100 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     }
   };
 
+  const handleRestoreVersion = async (audioId: string, surahNumber: number, targetVersion: number) => {
+    const key = `${audioId}:v${targetVersion}`;
+    setRestoringVersionKey(key);
+    setNotice(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(
+        `/api/admin/quran-ecosystem/audio/${encodeURIComponent(audioId)}/restore-version`,
+        {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify({ version: targetVersion }),
+        }
+      ).then((r) => r.json());
+      if (res?.success) {
+        setNotice({
+          type: 'ok',
+          msg: `Sura #${surahNumber} eski v${targetVersion} versiyasi Firebase Storage SHA-256 nazoratidan oʻtib, faol versiya (v${res.record?.version}) sifatida tiklandi.`,
+        });
+        await loadCatalog();
+      } else {
+        setNotice({ type: 'err', msg: res?.error || `v${targetVersion} versiyani tiklab boʻlmadi.` });
+      }
+    } finally {
+      setRestoringVersionKey(null);
+    }
+  };
+
+  const handleReconcileFirestore = async () => {
+    setReconcilingFirestore(true);
+    setNotice(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/quran-ecosystem/reconcile', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      }).then((r) => r.json());
+      if (res?.success && res.report) {
+        const rep = res.report;
+        setNotice({
+          type: (rep.stillPendingCount ?? 0) === 0 ? 'ok' : 'err',
+          msg: `Firestore qayta sinxronlash: ${rep.reconciledCount ?? 0} ta muvaffaqiyatli, navbatda ${rep.stillPendingCount ?? 0} ta qoldi.`,
+        });
+        await loadDiagnosticsAndInventory();
+      } else {
+        setNotice({ type: 'err', msg: res?.error || 'Firestore qayta sinxronlashda xatolik.' });
+      }
+    } finally {
+      setReconcilingFirestore(false);
+    }
+  };
+
+  const handleRunLegacyMigration = async () => {
+    setRunningMigration(true);
+    setNotice(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/quran-ecosystem/migration/run', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      }).then((r) => r.json());
+      if (res?.success && res.report) {
+        const rep = res.report;
+        setNotice({
+          type: rep.failedCount === 0 ? 'ok' : 'err',
+          msg: `Eski audio migratsiya: ${rep.migratedCount} ta Firebase Storageʼga koʻchirildi, ${rep.missingMarkedCount} ta yoʻqolgan deb belgilandi, ${rep.failedCount} ta xato.`,
+        });
+        await loadCatalog();
+      } else {
+        setNotice({ type: 'err', msg: res?.error || 'Migratsiya jarayonida xatolik.' });
+      }
+    } finally {
+      setRunningMigration(false);
+    }
+  };
+
   const handleVerifyIntegrity = async () => {
     setRunningIntegrity(true);
     setNotice(null);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(
         `/api/admin/quran-ecosystem/qaris/${encodeURIComponent(ODILJON_QORI_ID)}/verify-integrity`,
-        { method: 'POST', headers: authHeaders(), credentials: 'include' }
+        { method: 'POST', headers, credentials: 'include' }
       ).then((r) => r.json());
       if (res?.success && res?.report) {
         const rep = res.report;
         setIntegrityReport(rep);
         setNotice({
           type: rep.corruptedCount === 0 ? 'ok' : 'err',
-          msg: `SHA-256 tekshiruvi: ${rep.verifiedOkCount}/${rep.totalChecked} fayl sogʻlom, ${rep.backupVerifiedCount} zaxirada tasdiqlangan, ${rep.corruptedCount} xato.`,
+          msg: `Firebase Storage SHA-256 tekshiruvi: ${rep.verifiedOkCount}/${rep.totalChecked} fayl sogʻlom, ${rep.corruptedCount} xato.`,
         });
         await loadCatalog();
       } else {
@@ -550,20 +765,21 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
     setRunningBackupTest(true);
     setNotice(null);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(
         `/api/admin/quran-ecosystem/qaris/${encodeURIComponent(ODILJON_QORI_ID)}/backup-restore-test`,
-        { method: 'POST', headers: authHeaders(), credentials: 'include' }
+        { method: 'POST', headers, credentials: 'include' }
       ).then((r) => r.json());
       if (res?.success && res?.report) {
         const rep = res.report;
         setBackupReport(rep);
         setNotice({
           type: rep.passed ? 'ok' : 'err',
-          msg: `Zaxira + Tiklash sinovi: ${rep.backedUpCount} fayl zaxiralandi, ${rep.restoreVerifiedCount}/${rep.totalActiveSurahs} fayl SHA-256 boʻyicha qayta tiklash sinovidan ${rep.passed ? 'MUVAFFAQIYATLI' : 'XATOLIK BILAN'} oʻtdi.`,
+          msg: `Storage Read-Back & Restore sinovi: ${rep.restoreVerifiedCount}/${rep.totalActiveSurahs} fayl SHA-256 boʻyicha ${rep.passed ? 'MUVAFFAQIYATLI' : 'XATOLIK BILAN'} oʻtdi.`,
         });
         await loadCatalog();
       } else {
-        setNotice({ type: 'err', msg: res?.error || 'Zaxira va tiklash sinovida xatolik.' });
+        setNotice({ type: 'err', msg: res?.error || 'Storage read-back sinovida xatolik.' });
       }
     } finally {
       setRunningBackupTest(false);
@@ -647,7 +863,7 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
                 Odiljon qori — 114 Sura Qurʼon Audio Ekotizimi
               </h2>
               <p className="mt-1 text-xs text-[#A3B8B0] max-w-2xl">
-                Audio fayllar Firestore ichiga emas, doimiy server xotirasi + mustaqil zaxira nusxaga SHA-256 nazorati bilan saqlanadi. Oddiy oʻchirish bloklangan — faqat xavfsiz arxivlash ishlaydi.
+                Audio fayllarning haqiqiy binary maʼlumotlari doimiy Firebase Cloud Storage omborida immutable versiyalar sifatida saqlanadi; Firestoreʼda faqat metadata va SHA-256 checksum yoziladi. Cloud Run vaqtinchalik diskiga jim fallback qatʼiyan bloklangan.
               </p>
             </div>
           </div>
@@ -724,6 +940,181 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
         >
           {notice.type === 'ok' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
           <span>{notice.msg}</span>
+        </div>
+      )}
+
+      {/* Firebase Storage Health & Firestore Sync Diagnostics + Legacy Audio Migration */}
+      {diagnostics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Firebase Storage & Firestore Sync Health Card */}
+          <div
+            className={`rounded-3xl p-4 sm:p-5 border space-y-3 ${
+              diagnostics.storageHealth.healthy
+                ? 'bg-emerald-500/[0.06] border-emerald-500/30'
+                : 'bg-rose-500/[0.07] border-rose-500/35'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {diagnostics.storageHealth.healthy ? (
+                  <Cloud className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                ) : (
+                  <CloudOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                )}
+                <div>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#091813] dark:text-[#F7F4EC]">
+                    Firebase Cloud Storage & Firestore Sinxron Holati
+                  </h3>
+                  <div className="text-[11px] font-mono-numbers opacity-75">
+                    Bucket: {diagnostics.storageHealth.bucketName} · Auth: {diagnostics.storageHealth.authMode}
+                  </div>
+                </div>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold shrink-0 ${
+                  diagnostics.storageHealth.healthy
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                }`}
+              >
+                {diagnostics.storageHealth.healthy
+                  ? 'BUCKET FAOL'
+                  : diagnostics.storageHealth.statusCode === 'bucket_not_found'
+                  ? '404 BUCKET YOQILMAGAN'
+                  : diagnostics.storageHealth.statusCode === 'permission_denied'
+                  ? `${diagnostics.storageHealth.httpStatus || 403} RUXSAT YOʻQ`
+                  : diagnostics.storageHealth.statusCode.toUpperCase()}
+              </span>
+            </div>
+
+            {!diagnostics.storageHealth.healthy && diagnostics.storageHealth.messageUz && (
+              <div className="p-2.5 rounded-xl bg-rose-500/12 border border-rose-500/25 text-[11px] text-rose-800 dark:text-rose-200 leading-relaxed">
+                <strong>Diqqat (Local Disk Fallback Oʻchirilgan):</strong> {diagnostics.storageHealth.messageUz}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+              <div className="flex flex-wrap items-center gap-2 font-mono-numbers">
+                <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10">
+                  Local Disk Fallback: <strong>OFF</strong>
+                </span>
+                <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10">
+                  Firestore Navbat: <strong>{diagnostics.reconciliationQueueCount}</strong>
+                </span>
+                {diagnostics.recentErrors.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowErrorLogs((v) => !v)}
+                    className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold cursor-pointer"
+                  >
+                    Xatolar ({diagnostics.recentErrors.length}) {showErrorLogs ? '▲' : '▼'}
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleReconcileFirestore()}
+                disabled={reconcilingFirestore}
+                className="px-3 py-1.5 rounded-xl bg-[#064E3B] dark:bg-[#10B981] text-white dark:text-[#04120D] text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${reconcilingFirestore ? 'animate-spin' : ''}`} />
+                <span>{reconcilingFirestore ? 'Sinxronlanmoqda...' : 'Qayta sinxronlash'}</span>
+              </button>
+            </div>
+
+            {showErrorLogs && diagnostics.recentErrors.length > 0 && (
+              <div className="max-h-36 overflow-y-auto rounded-xl bg-black/5 dark:bg-black/30 p-2.5 space-y-1 text-[10px] font-mono-numbers">
+                {diagnostics.recentErrors.slice(0, 10).map((err) => (
+                  <div key={err.id} className="text-rose-700 dark:text-rose-300">
+                    [{err.stage} · {err.code}] {err.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Legacy Audio Inventory & Non-Destructive Storage Migration Card */}
+          <div className="rounded-3xl az-liquid-glass p-4 sm:p-5 border border-[#064E3B]/15 dark:border-white/10 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-[#C8A85E] shrink-0" />
+                <div>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#091813] dark:text-[#F7F4EC]">
+                    Eski Audio Inventarizatsiya va Storageʼga Koʻchirish
+                  </h3>
+                  <div className="text-[11px] opacity-75">
+                    Lokal diskdagi mavjud fayllarni SHA-256 tekshiruvi bilan Firebase Storageʼga xavfsiz koʻchiradi.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 text-center font-mono-numbers">
+              <div className="p-2 rounded-xl bg-sky-500/10">
+                <div className="text-[10px] opacity-70">Koʻchirishga tayyor</div>
+                <div className="text-sm font-extrabold text-sky-700 dark:text-sky-300">
+                  {legacyInventory?.readyToMigrateCount ?? diagnostics.legacyInventorySummary.readyToMigrateCount}
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-emerald-500/10">
+                <div className="text-[10px] opacity-70">Storageʼda</div>
+                <div className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">
+                  {legacyInventory?.alreadyMigratedCount ?? diagnostics.legacyInventorySummary.alreadyMigratedCount}
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-amber-500/12">
+                <div className="text-[10px] opacity-70">Yoʻqolgan</div>
+                <div className="text-sm font-extrabold text-amber-700 dark:text-amber-300">
+                  {legacyInventory?.missingFileCount ?? diagnostics.legacyInventorySummary.missingFileCount}
+                </div>
+              </div>
+              <div className="p-2 rounded-xl bg-rose-500/10">
+                <div className="text-[10px] opacity-70">Buzilgan</div>
+                <div className="text-sm font-extrabold text-rose-700 dark:text-rose-300">
+                  {legacyInventory?.corruptedFileCount ?? diagnostics.legacyInventorySummary.corruptedFileCount}
+                </div>
+              </div>
+            </div>
+
+            {legacyInventory && legacyInventory.missingFileCount > 0 && (
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-900 dark:text-amber-200 space-y-1">
+                <div className="font-bold">
+                  Avvalgi Cloud Run diskidan yoʻqolgan audio yozuvlar ({legacyInventory.missingFileCount} ta — metadata saqlanib qoldi):
+                </div>
+                <div className="max-h-20 overflow-y-auto space-y-0.5 font-mono-numbers text-[10px]">
+                  {legacyInventory.items
+                    .filter((it) => it.migrationStatus === 'missing_file')
+                    .slice(0, 6)
+                    .map((it) => (
+                      <div key={it.recordId}>
+                        • #{it.surahNumber} {it.surahNameUz} ({it.recordId}) — {it.reasonUz}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void loadDiagnosticsAndInventory()}
+                className="px-3 py-1.5 rounded-xl bg-[#064E3B]/10 dark:bg-white/10 text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Search className="w-3 h-3" />
+                <span>Inventarizatsiya</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRunLegacyMigration()}
+                disabled={runningMigration}
+                className="px-3 py-1.5 rounded-xl bg-[#C8A85E] text-[#050C09] text-[11px] font-extrabold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <ArrowRightLeft className="w-3 h-3" />
+                <span>{runningMigration ? 'Koʻchirilmoqda...' : 'Storageʼga koʻchirish'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1150,18 +1541,74 @@ export const OdiljonQoriAdminPanel: React.FC = () => {
                     </td>
                     <td className="py-2.5 px-3 font-mono-numbers text-[11px]">
                       {rec ? (
-                        <div className="space-y-0.5">
-                          <div>
-                            v{rec.version} · {formatFileSize(rec.sizeBytes)} · {rec.mimeType}
-                          </div>
-                          <div className="opacity-70 flex items-center gap-2">
-                            <span>SHA: {rec.sha256.slice(0, 12)}…</span>
-                            {rec.backupVerified && (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                                ✓ Zaxira
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span>
+                              v{rec.version} · {formatFileSize(rec.sizeBytes)}
+                              {(rec.durationSec || rec.durationSeconds) ? ` · ${rec.durationSec || rec.durationSeconds}s` : ''} · {rec.mimeType}
+                            </span>
+                            {rec.storageBackend === 'firebase_storage' ? (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                                Firebase Storage
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+                                Legacy Disk
                               </span>
                             )}
                           </div>
+                          <div className="opacity-75 flex flex-wrap items-center gap-2">
+                            <span>SHA: {rec.sha256.slice(0, 12)}…</span>
+                            {rec.reconciliationStatus === 'pending_firestore_retry' && (
+                              <span className="text-amber-600 dark:text-amber-300 font-bold">
+                                ⏳ Firestore navbatda
+                              </span>
+                            )}
+                            {rec.versionHistory && rec.versionHistory.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedVersionAudioId((cur) => (cur === rec.id ? null : rec.id))
+                                }
+                                className="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300 font-bold hover:underline cursor-pointer"
+                              >
+                                <History className="w-3 h-3" />
+                                <span>Versiyalar ({rec.versionHistory.length})</span>
+                              </button>
+                            )}
+                          </div>
+                          {expandedVersionAudioId === rec.id && rec.versionHistory && rec.versionHistory.length > 1 && (
+                            <div className="mt-1.5 p-2 rounded-xl bg-black/5 dark:bg-white/[0.05] space-y-1">
+                              {rec.versionHistory.map((vh) => {
+                                const isActive = vh.version === rec.version;
+                                const restoreKey = `${rec.id}:v${vh.version}`;
+                                return (
+                                  <div
+                                    key={`${rec.id}_vh_${vh.version}_${vh.uploadedAt}`}
+                                    className="flex items-center justify-between gap-2 text-[10px]"
+                                  >
+                                    <span className="truncate">
+                                      <strong>v{vh.version}</strong> · {formatFileSize(vh.sizeBytes)} · SHA:{vh.sha256.slice(0, 8)}
+                                    </span>
+                                    {isActive ? (
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                                        Faol
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={restoringVersionKey === restoreKey}
+                                        onClick={() => void handleRestoreVersion(rec.id, row.surahNumber, vh.version)}
+                                        className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-700 dark:text-sky-300 font-bold shrink-0 cursor-pointer disabled:opacity-50"
+                                      >
+                                        {restoringVersionKey === restoreKey ? 'Tiklanmoqda...' : `Tiklash (v${vh.version})`}
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="opacity-50">Audio fayl hali yuklanmagan</span>

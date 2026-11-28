@@ -3,7 +3,6 @@
  * Manual Card Payment, Fair Random Draw, Telegram Mini App HMAC Auth & Account Link REST Router (2026)
  */
 
-import fs from 'fs';
 import { Router, Request, Response, NextFunction } from 'express';
 import { QuranEcosystemService, AudioPublishStatus } from '../src/services/quranEcosystemServer';
 import {
@@ -20,14 +19,23 @@ export interface QuranPremiumRouterDeps {
   requireAdminAuth: (req: Request, res: Response, next: NextFunction) => void;
   sensitiveActionLimiter: (req: Request, res: Response, next: NextFunction) => void;
   extractAdminEmail: (req: Request) => string;
+  isAdminRequest?: (req: Request) => boolean;
 }
 
 const VALID_PLAN_IDS = new Set<string>(['free', 'premium_1m', 'premium_3m', 'premium_6m']);
 const VALID_AUDIO_STATUSES = new Set<string>(['DRAFT', 'VERIFIED', 'PUBLISHED', 'ARCHIVED']);
 
+function extractFirebaseIdToken(req: Request): string | undefined {
+  const headerVal = req.headers['x-firebase-id-token'];
+  if (typeof headerVal === 'string' && headerVal.trim().length > 20) {
+    return headerVal.trim();
+  }
+  return undefined;
+}
+
 export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps): Router {
   const router = Router();
-  const { quranService, subscriptionService, requireAdminAuth, sensitiveActionLimiter, extractAdminEmail } = deps;
+  const { quranService, subscriptionService, requireAdminAuth, sensitiveActionLimiter, extractAdminEmail, isAdminRequest } = deps;
 
   // =========================================================================
   // A. QUR'ON ECOSYSTEM — PUBLIC / USER ROUTES
@@ -59,58 +67,80 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
     }
   });
 
-  // HTTP Range-capable Persistent Audio Streaming Endpoint (supports seeking, ExoPlayer, PWA Cache, Telegram)
-  router.get('/api/quran-ecosystem/audio-stream/:audioId', (req: Request, res: Response) => {
+  // HTTP Range-capable Persistent Audio Streaming Endpoint (Firebase Storage primary + Range 206 support)
+  router.get('/api/quran-ecosystem/audio-stream/:audioId', async (req: Request, res: Response) => {
     try {
       const audioId = String(req.params.audioId || '').trim();
-      const rec = quranService.getAudioRecord(audioId);
-      if (!rec) {
-        return res.status(404).json({ success: false, error: 'Audio fayl topilmadi.' });
-      }
-      // Unpublished files only allowed for preview if admin session cookie/header is present,
-      // otherwise strictly require PUBLISHED or VERIFIED (for admin preview param)
-      const isPreview = req.query.preview === '1';
-      if (rec.status !== 'PUBLISHED' && !isPreview) {
-        return res.status(403).json({ success: false, error: 'Ushbu audio hali eʼlon qilinmagan.' });
-      }
+      const wantsPreview = req.query.preview === '1';
+      const allowUnpublished = wantsPreview && (isAdminRequest ? isAdminRequest(req) : false);
 
-      const absPath = quranService.resolveAudioFilePath(audioId, isPreview);
-      if (!absPath || !fs.existsSync(absPath)) {
-        return res.status(404).json({ success: false, error: 'Audio fayl server xotirasida topilmadi.' });
-      }
-
-      const stat = fs.statSync(absPath);
-      const fileSize = stat.size;
+      let start: number | undefined;
+      let end: number | undefined;
       const range = req.headers.range;
-
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Content-Type', rec.mimeType || 'audio/mpeg');
-      res.setHeader('Cache-Control', 'public, max-age=604800');
-      res.setHeader('ETag', `"${rec.sha256}"`);
-      res.setHeader('X-Audio-SHA256', rec.sha256);
-
       if (range) {
         const match = /bytes=(\d*)-(\d*)/.exec(range);
         if (!match) {
           return res.status(416).end();
         }
-        const start = match[1] ? parseInt(match[1], 10) : 0;
-        const end = match[2] ? Math.min(parseInt(match[2], 10), fileSize - 1) : fileSize - 1;
-        if (start >= fileSize || start > end) {
-          res.setHeader('Content-Range', `bytes */${fileSize}`);
-          return res.status(416).end();
-        }
-        const chunkSize = end - start + 1;
-        res.status(206);
-        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
-        res.setHeader('Content-Length', chunkSize);
-        return fs.createReadStream(absPath, { start, end }).pipe(res);
+        start = match[1] ? parseInt(match[1], 10) : 0;
+        end = match[2] ? parseInt(match[2], 10) : undefined;
       }
 
-      res.setHeader('Content-Length', fileSize);
-      return fs.createReadStream(absPath).pipe(res);
+      const streamRes = await quranService.readAudioRangeForStream(audioId, {
+        start,
+        end,
+        includeUnpublished: allowUnpublished,
+        firebaseIdToken: extractFirebaseIdToken(req),
+      });
+
+      if (!streamRes.ok) {
+        if (streamRes.httpStatus === 416) {
+          return res.status(416).end();
+        }
+        return res.status(streamRes.httpStatus).json({
+          success: false,
+          code: streamRes.errorCode,
+          error: streamRes.error,
+        });
+      }
+
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Type', streamRes.mimeType || 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      res.setHeader('ETag', `"${streamRes.record.sha256}"`);
+      res.setHeader('X-Audio-SHA256', streamRes.record.sha256);
+      res.setHeader('X-Storage-Backend', streamRes.storageBackend);
+
+      if (streamRes.isPartial) {
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${streamRes.start}-${streamRes.end}/${streamRes.totalSize}`);
+        res.setHeader('Content-Length', streamRes.chunk.length);
+        return res.send(streamRes.chunk);
+      }
+
+      res.setHeader('Content-Length', streamRes.chunk.length);
+      return res.send(streamRes.chunk);
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message || 'Audio oqimida xatolik' });
+    }
+  });
+
+  // Canonical Qari Avatar Streaming Endpoint (Firebase Storage primary + legacy disk read-only fallback)
+  router.get('/api/quran-ecosystem/avatar/:qariId', async (req: Request, res: Response) => {
+    try {
+      const out = await quranService.readAvatarForStream(
+        String(req.params.qariId || '').trim(),
+        extractFirebaseIdToken(req)
+      );
+      if (!out.ok) {
+        return res.status(out.httpStatus).json({ success: false, error: out.error });
+      }
+      res.setHeader('Content-Type', out.mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Content-Length', out.buffer.length);
+      return res.send(out.buffer);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Qori rasmini yuklashda xatolik' });
     }
   });
 
@@ -324,7 +354,7 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
     return res.json({ success: true });
   });
 
-  // Upload a single Surah audio (base64 data URI or base64 payload) with SHA-256 & magic-byte validation
+  // Upload a single Surah audio to Firebase Storage (ZERO silent local disk fallback!)
   router.post('/api/admin/quran-ecosystem/audio/upload', requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { qariId, surahNumber, audioBase64, mimeType, originalFilename, durationSec, autoPublish, allowDuplicateChecksum } = req.body || {};
@@ -344,16 +374,23 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
         autoPublish: Boolean(autoPublish),
         allowDuplicateChecksum: Boolean(allowDuplicateChecksum),
         actor: extractAdminEmail(req),
+        firebaseIdToken: extractFirebaseIdToken(req),
       });
 
       if (!result.ok) {
-        return res.status(result.duplicateOf ? 409 : 400).json({
+        return res.status(result.httpStatus || (result.duplicateOf ? 409 : 400)).json({
           success: false,
+          code: result.errorCode,
           error: result.error,
           duplicateOf: result.duplicateOf,
         });
       }
-      return res.json({ success: true, record: result.record });
+      return res.json({
+        success: true,
+        record: result.record,
+        firestoreSynced: result.firestoreSynced,
+        firestoreError: result.firestoreError,
+      });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message || 'Audio yuklashda xatolik' });
     }
@@ -364,13 +401,22 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
     if (!VALID_AUDIO_STATUSES.has(status)) {
       return res.status(400).json({ success: false, error: 'Yaroqsiz status (DRAFT, VERIFIED, PUBLISHED, ARCHIVED).' });
     }
-    const result = await quranService.setAudioStatus(req.params.audioId, status as AudioPublishStatus, extractAdminEmail(req));
+    const result = await quranService.setAudioStatus(
+      req.params.audioId,
+      status as AudioPublishStatus,
+      extractAdminEmail(req),
+      extractFirebaseIdToken(req)
+    );
     if (!result.ok) return res.status(400).json({ success: false, error: result.error });
     return res.json({ success: true, record: result.record });
   });
 
   router.post('/api/admin/quran-ecosystem/qaris/:qariId/publish-all', requireAdminAuth, async (req: Request, res: Response) => {
-    const out = await quranService.publishAllVerifiedForQari(req.params.qariId, extractAdminEmail(req));
+    const out = await quranService.publishAllVerifiedForQari(
+      req.params.qariId,
+      extractAdminEmail(req),
+      extractFirebaseIdToken(req)
+    );
     return res.json({ success: true, ...out });
   });
 
@@ -382,15 +428,22 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
       }
       const cleaned = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
       const buf = Buffer.from(cleaned, 'base64');
-      const out = await quranService.uploadQariAvatar(req.params.qariId, buf, extractAdminEmail(req));
-      if (!out.ok) return res.status(400).json({ success: false, error: out.error });
+      const out = await quranService.uploadQariAvatar(
+        req.params.qariId,
+        buf,
+        extractAdminEmail(req),
+        extractFirebaseIdToken(req)
+      );
+      if (!out.ok) {
+        return res.status(out.httpStatus || 400).json({ success: false, code: out.errorCode, error: out.error });
+      }
       return res.json({ success: true, avatarUrl: out.avatarUrl, qari: out.qari });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message || 'Profil rasmini yuklashda xatolik' });
     }
   });
 
-  // Resumable Chunked Audio Upload (supports large surahs + automatic retry on interruption)
+  // Resumable Chunked Audio Upload (assembles chunks then verifies & saves directly to Firebase Storage)
   router.post('/api/admin/quran-ecosystem/audio/upload-chunk', requireAdminAuth, (req: Request, res: Response) => {
     try {
       const { uploadId, chunkIndex, totalChunks, chunkBase64 } = req.body || {};
@@ -429,21 +482,28 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
         autoPublish: Boolean(autoPublish),
         allowDuplicateChecksum: Boolean(allowDuplicateChecksum),
         actor: extractAdminEmail(req),
+        firebaseIdToken: extractFirebaseIdToken(req),
       });
       if (!out.ok) {
-        return res.status(out.duplicateOf ? 409 : 400).json({
+        return res.status(out.httpStatus || (out.duplicateOf ? 409 : 400)).json({
           success: false,
+          code: out.errorCode,
           error: out.error,
           duplicateOf: out.duplicateOf,
         });
       }
-      return res.json({ success: true, record: out.record });
+      return res.json({
+        success: true,
+        record: out.record,
+        firestoreSynced: out.firestoreSynced,
+        firestoreError: out.firestoreError,
+      });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message || 'Yuklashni yakunlashda xatolik' });
     }
   });
 
-  // Batch ZIP archive import (up to 114 surahs at once with magic-byte + SHA-256 verification)
+  // Batch ZIP archive import directly into Firebase Storage
   router.post('/api/admin/quran-ecosystem/qaris/:qariId/import-zip', requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { zipBase64, autoPublish, allowDuplicateChecksum } = req.body || {};
@@ -458,9 +518,10 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
         autoPublish: autoPublish !== false,
         allowDuplicateChecksum: Boolean(allowDuplicateChecksum),
         actor: extractAdminEmail(req),
+        firebaseIdToken: extractFirebaseIdToken(req),
       });
       if (!result.ok && result.importedCount === 0) {
-        return res.status(400).json({ success: false, ...result });
+        return res.status(result.httpStatus || 400).json({ success: false, code: result.errorCode, ...result });
       }
       return res.json({ success: true, ...result });
     } catch (err: any) {
@@ -468,21 +529,37 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
     }
   });
 
-  // Live SHA-256 + Backup Integrity Verification
-  router.post('/api/admin/quran-ecosystem/qaris/:qariId/verify-integrity', requireAdminAuth, (req: Request, res: Response) => {
-    const report = quranService.verifyQariAudioIntegrity(req.params.qariId, extractAdminEmail(req));
-    if (!report) return res.status(404).json({ success: false, error: 'Qori topilmadi.' });
-    return res.json({ success: true, report });
+  // Live SHA-256 Integrity Verification against Firebase Storage
+  router.post('/api/admin/quran-ecosystem/qaris/:qariId/verify-integrity', requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const report = await quranService.verifyQariAudioIntegrity(
+        req.params.qariId,
+        extractAdminEmail(req),
+        extractFirebaseIdToken(req)
+      );
+      if (!report) return res.status(404).json({ success: false, error: 'Qori topilmadi.' });
+      return res.json({ success: true, report });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'SHA-256 tekshiruvda xatolik' });
+    }
   });
 
-  // Independent Permanent Backup + Non-Destructive Restore Verification Test
-  router.post('/api/admin/quran-ecosystem/qaris/:qariId/backup-restore-test', requireAdminAuth, sensitiveActionLimiter, (req: Request, res: Response) => {
-    const report = quranService.runQariBackupAndRestoreTest(req.params.qariId, extractAdminEmail(req));
-    if (!report) return res.status(404).json({ success: false, error: 'Qori topilmadi.' });
-    return res.json({ success: true, report });
+  // Firebase Storage Read-Back & Restore Verification Test
+  router.post('/api/admin/quran-ecosystem/qaris/:qariId/backup-restore-test', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
+    try {
+      const report = await quranService.runQariBackupAndRestoreTest(
+        req.params.qariId,
+        extractAdminEmail(req),
+        extractFirebaseIdToken(req)
+      );
+      if (!report) return res.status(404).json({ success: false, error: 'Qori topilmadi.' });
+      return res.json({ success: true, report });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Backup/Restore sinovida xatolik' });
+    }
   });
 
-  // Safe Archive (hide without erasing permanent files) & Restore
+  // Safe Archive (hide without erasing immutable Firebase Storage objects) & Restore
   router.post('/api/admin/quran-ecosystem/audio/:audioId/archive', requireAdminAuth, async (req: Request, res: Response) => {
     const out = await quranService.deleteAudio(req.params.audioId, extractAdminEmail(req), true);
     if (!out.ok) return res.status(400).json({ success: false, error: out.error });
@@ -491,9 +568,76 @@ export function createQuranPremiumEcosystemRouter(deps: QuranPremiumRouterDeps):
 
   router.post('/api/admin/quran-ecosystem/audio/:audioId/restore', requireAdminAuth, async (req: Request, res: Response) => {
     const publishImmediately = req.body?.publishImmediately !== false;
-    const out = await quranService.restoreArchivedAudio(req.params.audioId, extractAdminEmail(req), publishImmediately);
+    const out = await quranService.restoreArchivedAudio(
+      req.params.audioId,
+      extractAdminEmail(req),
+      publishImmediately,
+      extractFirebaseIdToken(req)
+    );
     if (!out.ok) return res.status(400).json({ success: false, error: out.error });
     return res.json({ success: true, record: out.record, restoredFromBackup: out.restoredFromBackup });
+  });
+
+  // Restore a specific previous immutable version (verifies SHA-256 in Firebase Storage before updating pointer)
+  router.post('/api/admin/quran-ecosystem/audio/:audioId/restore-version', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
+    try {
+      const targetVersion = Number(req.body?.version ?? req.body?.targetVersion);
+      if (!Number.isInteger(targetVersion) || targetVersion < 1) {
+        return res.status(400).json({ success: false, error: 'Tiklash uchun yaroqli version raqami majburiy.' });
+      }
+      const out = await quranService.restoreAudioVersion(
+        req.params.audioId,
+        targetVersion,
+        extractAdminEmail(req),
+        extractFirebaseIdToken(req)
+      );
+      if (!out.ok) return res.status(400).json({ success: false, error: out.error });
+      return res.json({ success: true, record: out.record, restoredFromVersion: out.restoredFromVersion });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Versiyani tiklashda xatolik' });
+    }
+  });
+
+  // Live Storage & Firestore Sync Diagnostics (bucket health, reconciliation queue, error logs)
+  router.get('/api/admin/quran-ecosystem/diagnostics', requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const diagnostics = await quranService.getStorageAndSyncDiagnostics(extractFirebaseIdToken(req));
+      return res.json({ success: true, ...diagnostics });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Diagnostikani olishda xatolik' });
+    }
+  });
+
+  // Retry pending Firestore metadata writes in the reconciliation queue
+  router.post('/api/admin/quran-ecosystem/reconcile', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
+    try {
+      const report = await quranService.reconcilePendingFirestoreWrites(extractAdminEmail(req));
+      return res.json({ success: true, report });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Firestore qayta sinxronlashda xatolik' });
+    }
+  });
+
+  // Non-destructive Legacy Audio Inventory & Safe Migration to Firebase Storage
+  router.get('/api/admin/quran-ecosystem/migration/inventory', requireAdminAuth, (_req: Request, res: Response) => {
+    try {
+      const inventory = quranService.inventoryLegacyAudio();
+      return res.json({ success: true, ...inventory });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Eski audio inventarizatsiyada xatolik' });
+    }
+  });
+
+  router.post('/api/admin/quran-ecosystem/migration/run', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
+    try {
+      const report = await quranService.migrateLegacyAudioToStorage(
+        extractAdminEmail(req),
+        extractFirebaseIdToken(req)
+      );
+      return res.json({ success: true, report });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Migratsiya jarayonida xatolik' });
+    }
   });
 
   router.delete('/api/admin/quran-ecosystem/audio/:audioId', requireAdminAuth, sensitiveActionLimiter, async (req: Request, res: Response) => {
